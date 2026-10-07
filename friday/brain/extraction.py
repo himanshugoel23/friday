@@ -48,9 +48,10 @@ def to_document(out: ExtractOut) -> ExtractedDocument:
 
 
 class LLMDocumentExtractor:
-    def __init__(self, llm: LLMClient, model: str | None = None) -> None:
+    def __init__(self, llm: LLMClient, model: str | None = "claude-haiku-5-5") -> None:
         self.llm = llm
-        self.model = model
+        self.model = model  # Haiku by default (cost rule 1)
+        self._pending: dict[str, dict] = {}
 
     async def extract(self, media_blob: MediaBlob, *, kind: ExtractionKind =
                       ExtractionKind.GENERIC, hint: str = "") -> ExtractedDocument:
@@ -70,5 +71,42 @@ class LLMDocumentExtractor:
         return to_document(out)
 
 
+    # ------------------------------------------------------------------ batch (cost rule 6)
+    async def submit_batch(self, items: dict[str, tuple[MediaBlob, ExtractionKind, str]]) -> str:
+        """Queue non-real-time extractions (e.g. quote PDFs that arrived overnight) on the
+        Message Batches API at ~50% cost. ``items``: custom_id -> (media, kind, hint)."""
+        submit = getattr(self.llm, "submit_batch", None)
+        if submit is None:
+            raise ProviderError("brain", "LLM client has no batch support")
+        requests = []
+        for cid, (blob, kind, hint) in items.items():
+            payload = _payload(blob, kind, hint)
+            requests.append({
+                "custom_id": cid, "purpose": "extract", "model": self.model,
+                "system": system_prompt("extract"),
+                "messages": [LLMMessage(role="user", content=render_input(
+                    payload, "Extract the attached document."))],
+                "json_schema": strict_schema(ExtractOut), "max_tokens": 2500,
+                "attachments": [blob] if payload["mime"] in _VISION else [],
+            })
+        self._pending.update({cid: _payload(b, k, h) for cid, (b, k, h) in items.items()})
+        return await submit(requests)
+
+    async def collect_batch(self, batch_id: str) -> dict[str, ExtractedDocument] | None:
+        """None while the batch is processing; else custom_id -> document (failed items
+        fall back to the deterministic metadata extraction)."""
+        results = await self.llm.batch_results(batch_id)  # type: ignore[attr-defined]
+        if results is None:
+            return None
+        out: dict[str, ExtractedDocument] = {}
+        for cid, text in results.items():
+            try:
+                parsed = ExtractOut.model_validate_json(text)
+            except (ValidationError, ValueError):
+                parsed = media.extract(self._pending.get(cid, {"filename": cid}))
+            out[cid] = to_document(parsed)
+        return out
+
+
 def build_document_extractor(c: Container) -> LLMDocumentExtractor:
-    return LLMDocumentExtractor(c.llm)
+    return LLMDocumentExtractor(c.llm, model=c.settings.llm_fast_model)

@@ -542,6 +542,7 @@ class StubRunner:
         self.default: Script = outcome(CallOutcome.SUCCESS)
         self.briefs: list[CallBrief] = []
         self.inbound: list[tuple[Any, CallBrief]] = []
+        self.from_numbers: list[str | None] = []
         self.gate: asyncio.Event | None = None  # block calls until set
         self.active = 0
         self.max_active = 0
@@ -562,7 +563,8 @@ class StubRunner:
         finally:
             self.active -= 1
 
-    async def run(self, brief, ask_user, notify_user=None):
+    async def run(self, brief, ask_user, notify_user=None, *, from_number=None):
+        self.from_numbers.append(from_number)
         return await self._do(brief, ask_user, notify_user)
 
     async def run_inbound(self, brief, leg, ask_user, notify_user=None, *, context=None):

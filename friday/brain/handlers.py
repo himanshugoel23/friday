@@ -50,11 +50,13 @@ def h_resolve(p: dict[str, Any]) -> BaseModel:
 
 def h_call_turn(p: dict[str, Any]) -> BaseModel:
     speak = p.get("speakable")
+    if p.get("transcript_full"):
+        transcript = Transcript.model_validate(p["transcript_full"])
+    else:  # compact form: list of the last N turns
+        transcript = Transcript.model_validate({"turns": p.get("transcript") or []})
     return policy.next_action(
         load_brief(p["brief"]),
-        Transcript.model_validate(p.get("transcript_full") or {"turns": p.get("transcript", [])}
-                                  if not isinstance(p.get("transcript"), dict)
-                                  else p["transcript"]),
+        transcript,
         [UserAnswer.model_validate(a) for a in p.get("answers", [])],
         frozenset(Language(x) for x in speak) if speak else None,
     )

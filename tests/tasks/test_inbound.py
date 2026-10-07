@@ -246,3 +246,57 @@ async def test_business_messages(env):
     plan = await env.engine.handle_business_message(msg, await env.repos.calls.match(LOOKS))
     assert plan.action == "logged" and not plan.verified
     _ = t2
+
+
+async def test_sticky_caller_id_passed_to_runner(env):
+    env.runner.default = outcome(CallOutcome.BUSY)
+    await env.task(booking())
+    await env.advance_and_tick(minutes=5)
+    first, second = env.runner.from_numbers[:2]
+    assert first in env.engine.caller_ids and second == first  # passed and sticky
+
+
+async def test_sticky_caller_id_without_pool_reuses_memory(env):
+    env.engine.caller_ids = []
+    await env.repos.calls.record_outbound(
+        task_id="old", user_id=env.user.id, business_phone=LOOKS, friday_number="+918069110003"
+    )
+    await env.task(booking())
+    assert env.runner.from_numbers[-1] == "+918069110003"
+
+
+async def test_runner_without_from_number_kwarg_still_works(env):
+    class OldRunner:
+        def __init__(self):
+            self.briefs = []
+
+        async def run(self, brief, ask_user, notify_user=None):
+            self.briefs.append(brief)
+            return result(brief, CallOutcome.SUCCESS)
+
+    old = OldRunner()
+    env.container.override("call_runner", old)
+    t = await env.task(booking())
+    assert t.status == S.COMPLETED and len(old.briefs) == 1
+
+
+async def test_inbound_leg_taken_from_telephony_by_provider_call_id(env):
+    await offered(env)
+
+    class Tel:
+        def __init__(self):
+            self.asked = []
+
+        def take_inbound(self, ref):
+            self.asked.append(ref)
+            return LEG if ref == "CA123" else None
+
+    tel = Tel()
+    env.container.override("telephony", tel)
+
+    class Contact:
+        call_id = None
+        provider_ref = "CA123"
+
+    plan = await env.engine.handle_business_callback(await env.repos.calls.match(LOOKS), Contact())
+    assert tel.asked == ["CA123"] and env.runner.inbound[0][0] is LEG and plan.result is not None

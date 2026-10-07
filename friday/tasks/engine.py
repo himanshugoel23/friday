@@ -1039,6 +1039,8 @@ class TaskEngine:
             caller_id = await call_opt(
                 self.calls, "choose_number", task.target.phone, self.caller_ids
             )
+            if caller_id is None:  # no pool configured: reuse whatever number we used last
+                caller_id = await call_opt(self.calls, "sticky_number", task.target.phone)
         result = await self._run_call(task, brief, inbound_leg=inbound_leg, from_number=caller_id)
         await self._process_result(task, result, is_confirm=is_confirm, caller_id=caller_id)
 

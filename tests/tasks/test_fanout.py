@@ -245,3 +245,36 @@ async def test_hotel_hybrid_with_api_offer_and_reconfirm(env):
     assert reconfirm.status == S.SCHEDULED and reconfirm.type == TaskType.RECONFIRM
     local = to_ist(reconfirm.next_attempt_at)
     assert local.date() == date(2026, 1, 19) and local.hour == 11
+
+
+async def test_first_match_resolves_live_sibling_via_runner_cancel(env):
+    stopped = []
+    release = asyncio.Event()
+
+    def polite(task_id):
+        stopped.append(task_id)
+        release.set()
+
+    env.runner.cancel = polite
+
+    async def live(brief, ask, notify):
+        await release.wait()
+        return result(brief, CallOutcome.CANCELLED)
+
+    async def has_it(brief, ask, notify):
+        await asyncio.sleep(0.01)
+        return result(brief, CallOutcome.SUCCESS, quotes=[quote("City Chemist", 30)])
+
+    env.runner.script("+912040000006", live)
+    env.runner.script("+912040000007", has_it)
+    spec = TaskSpec(
+        type=TaskType.STOCK_HUNT,
+        goal="Dolo",
+        item="Dolo 650",
+        discovery_query="chemist",
+        location_text="Kothrud Pune",
+    )
+    t = await env.task(spec)
+    wellness = next(k for k in children(env, t.id) if k.target.phone == "+912040000006")
+    assert stopped == [wellness.id] and wellness.status == S.CANCELLED
+    assert (await env.get(t.id)).status == S.COMPLETED
