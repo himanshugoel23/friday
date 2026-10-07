@@ -61,68 +61,79 @@ Protocols in `friday/core/interfaces.py`.
 
 ## 3. Key flows
 
-### 3.1 WhatsApp message → task → outbound call → mid-call question → result
+### 3.1 WhatsApp message → task → call → user approval → confirmation call-back → result
 
 ```
-User (WhatsApp)                Backend                         Brain (AI)              Voice                 Business
-     │ "book haircut at Looks       │                              │                     │                       │
-     │  tmrw 6pm for papa"          │                              │                     │                       │
-     ├──────────────────────────────► POST /webhooks/whatsapp      │                     │                       │
-     │                              │ verify sig → InboundMessage  │                     │                       │
-     │                              │ (voice note? fetch_media →   │                     │                       │
-     │                              │  STT.transcribe → .text)     │                     │                       │
-     │                              │ user lookup, last_inbound_at │                     │                       │
-     │                              │ onboarding? → onboarding_turn│                     │                       │
-     │                              │ build ConversationContext ───► interpret()         │                       │
-     │                              │                              │ (resolve_references:│                       │
-     │                              │◄───── Interpretation ────────┤  papa → Person)     │                       │
-     │                              │ NEW_TASK: Task(requester,    │                     │                       │
-     │                              │  beneficiary=papa, spec)     │                     │                       │
-     │◄── "On it — calling Looks" ──┤ engine: PLANNING → checks:   │                     │                       │
-     │                              │  call cap, autonomy/approval,│                     │                       │
-     │                              │  NumberVerifier, biz hours   │                     │                       │
-     │                              │  (queue → SCHEDULED if shut) │                     │                       │
-     │                              │ build_call_brief(ctx, task) ─►                     │                       │
-     │                              │◄──────────── CallBrief ──────┤                     │                       │
-     │                              │ CALLING: runner.run(brief, ask_user, notify_user) ─►                       │
-     │                              │                              │   place_call ──────────────── ring ──────────►│
-     │                              │                              │   speak(disclosure) ─────────────────────────►│
-     │                              │                              │◄─ next_call_action ─┤◄─ listen(): "haan,    │
-     │                              │                              │ SAY "6pm free hai?" ├──── speak ───────────►│ 4 ya 6?"
-     │                              │                              │ ASK_USER(q: 4pm/6pm)│                       │
-     │                              │◄──────────── ask_user(q) ────────────────────────────┤ speak("ek minute,   │
-     │◄── "They have 4pm or 6pm"  ──┤ AWAITING_USER, buttons       │                     │  hold please") ──────►│ (holds)
-     │    [4pm] [6pm]               │ q:<id>:0 / q:<id>:1          │                     │  hold lines every 20s │
-     ├── taps [6pm] ────────────────► button_id → resolve Future   │                     │                       │
-     │                              ├─────── UserAnswer(approves) ─────────────────────────►                       │
-     │                              │                              │◄ next_call_action ──┤                       │
-     │                              │                              │ SAY "6pm confirm    │                       │
-     │                              │                              │  kar dijiye"        │ can_commit? ✓ safety ✓│
-     │                              │                              │ (commits_booking)   ├──── speak ───────────►│
-     │                              │                              │ HANGUP(SUCCESS,     │                       │
-     │                              │◄──────────── CallResult ───────────── quote,...) ──┤ hangup, recording     │
-     │                              │ save call, transcript, quote │                     │                       │
-     │                              │ summarize_call(ctx,task,res) ►                     │                       │
-     │                              │◄──────── TaskResult ─────────┤                     │                       │
-     │◄── summary + details +   ────┤ COMPLETED; vendor memory;    │                     │                       │
-     │    recording + next steps    │ reminder/follow-up nudges;   │                     │                       │
-     │                              │ business-touch SMS (DLT) ──────────────────────────────────────────────────►│
+User (WhatsApp)               Backend (api/channels/tasks)     Brain (AI)             Voice (runner)          Business
+ │ "book haircut at Looks      │                               │                      │                        │
+ │  tmrw evening for papa"     │                               │                      │                        │
+ ├─────────────────────────────► POST /webhooks/whatsapp       │                      │                        │
+ │                             │ verify sig → InboundMessage   │                      │                        │
+ │                             │ (voice note: fetch_media →    │                      │                        │
+ │                             │  stt.transcribe → .text)      │                      │                        │
+ │                             │ user lookup, last_inbound_at, │                      │                        │
+ │                             │ onboarding? → onboarding_turn │                      │                        │
+ │                             │ ConversationContext ──────────► interpret()          │                        │
+ │                             │◄──────── Interpretation ──────┤ (resolve_references: │                        │
+ │                             │ NEW_TASK → Task(requester,    │  papa → Person)      │                        │
+ │                             │  beneficiary=papa, spec,      │                      │                        │
+ │                             │  delegation=none)             │                      │                        │
+ │◄─ "On it, calling Looks" ───┤ PLANNING: autonomy, abuse     │                      │                        │
+ │                             │ limit (ops, off), NumberVerif.│                      │                        │
+ │                             │ business hours → SCHEDULED?   │                      │                        │
+ │                             │ build_call_brief ─────────────►                      │                        │
+ │                             │◄────────── CallBrief ─────────┤                      │                        │
+ │                             │ CALLING: runner.run(brief, ask_user, notify_user) ───►                        │
+ │                             │                               │  place_call ───────────────── ring ──────────►│
+ │                             │                               │  speak(disclosure) ──────────────────────────►│
+ │                             │                               │◄ next_call_action ───┤◄ "4 ya 6 baje?"        │
+ │                             │                               │ SAY "Main Rahul se   │                        │
+ │                             │                               │  confirm karke call  ├──── speak ────────────►│
+ │                             │                               │  back karti hoon"    │                        │
+ │                             │                               │ HANGUP(PENDING_      │                        │
+ │                             │◄──────────── CallResult (offer: 4pm/6pm, ₹400) ──────┤ hangup, recording      │
+ │◄─ "Looks has 4pm or 6pm,  ──┤ AWAITING_APPROVAL             │                      │                        │
+ │    ₹400. Book which?"       │ buttons a:<task>:… / q:<id>:i │                      │                        │
+ │    [4pm] [6pm] [Neither]    │                               │                      │                        │
+ ├── taps [6pm] ───────────────► CONFIRMATION_CALLBACK         │                      │                        │
+ │                             │ brief.approved_terms="6pm ₹400"                      │                        │
+ │                             │ runner.run(brief…) ──────────────────────────────────► call back ────────────►│
+ │                             │                               │ SAY "6pm confirm     │ can_commit ✓ safety ✓  │
+ │                             │                               │  kar dijiye" (commits)├──── speak ───────────►│
+ │                             │◄──────────── CallResult(SUCCESS, quote) ─────────────┤                        │
+ │                             │ save call/transcript/quote;   │                      │                        │
+ │                             │ summarize_call ───────────────► TaskResult           │                        │
+ │◄─ summary, details,     ────┤ COMPLETED; vendor memory;     │                      │                        │
+ │    recording, next steps    │ reminder + follow-up nudges;  │                      │                        │
+ │                             │ business-touch SMS (DLT) ────────────────────────────────────────────────────►│
 ```
 
 Notes
-* **Approval before booking (founder #3).** `ApprovalPolicy.mode` decides: hold the
-  business up to `hold_timeout_s` while asking the user; or end the call with outcome
-  `PENDING_APPROVAL` (task → `AWAITING_APPROVAL`), and after the user approves, the
-  engine places a **confirm call** with `CallBrief.approved_terms` set.
-* **Language mirroring (founder #1).** Calls open in Hinglish. Every CALLEE utterance
-  carries the STT-detected `language`; the policy returns `CallAction.language`; the
-  runner speaks in it with `tts.voice_for(language)`.
-* **Disclosure (founder #5)** is spoken by the runner (`brief.disclosure()`), not the
-  LLM. On IVR calls it is spoken when a human agent joins.
-* **Persistence of mid-call questions:** `call_questions` table. The in-flight wait is
-  an `asyncio.Future` keyed by question id held by the task engine; replies arrive
-  as button payload `q:<question_id>:<option_index>` or as free text that
-  `interpret()` classifies as `ANSWER_QUESTION` (with `ctx.pending_question` set).
+* **Approval rule (founder decision, final).** Default `ApprovalMode.CALLBACK`: Friday
+  never confirms on the first call. She says she will call back after checking with
+  the user, ends with outcome `PENDING_APPROVAL` → task `AWAITING_APPROVAL` → user
+  approves (or picks another option) → `CONFIRMATION_CALLBACK` call with
+  `CallBrief.approved_terms` → confirm. **Exception:** an explicit `Delegation`
+  given with the task ("any slot 5–7pm under ₹800, you decide") lets her confirm on
+  the call strictly within its limits; anything outside → call-back flow. Recurring
+  rules carry their own `Delegation` used for every instance.
+* **Mid-call questions** (`ASK_USER`, reply buttons, call continues on answer) are for
+  clarifications/choices that don't commit (e.g. "do you also want a beard trim?"),
+  and for the opt-in `HOLD_THEN_CALLBACK` mode. Runner holds with polished hold lines.
+* **Language mirroring.** Calls open in Hinglish. Every CALLEE utterance carries the
+  STT-detected `language`; the policy returns `CallAction.language`; the runner speaks
+  in it with `tts.voice_for(language)`.
+* **Friday is female.** Feminine Hindi forms ("karti hoon", "kar rahi hoon") in all
+  prompts and the fixed disclosure line; female TTS voices (`VoiceProfile.gender`).
+* **Disclosure** is spoken by the runner (`brief.disclosure()`), never by the LLM.
+  On IVR calls it is spoken when a human agent joins.
+* **Mid-call question plumbing:** `call_questions` table; the in-flight wait is an
+  `asyncio.Future` keyed by question id held by the task engine; replies arrive as
+  button payload `q:<question_id>:<option_index>` or as free text that `interpret()`
+  classifies as `ANSWER_QUESTION` (with `ctx.pending_question` set).
+* **No user-facing usage cap in beta.** Per-call/task cost estimates (`cost_inr_est`)
+  are tracked internally with ops alerts; an abuse rate-limit exists but is off by
+  default (`FRIDAY_ABUSE_RATE_LIMIT_ENABLED`). Users never see cap messaging.
 
 ### 3.2 Call session loop (voice runner)
 
@@ -167,7 +178,7 @@ run(brief, ask_user, notify_user):
      FIRST_MATCH – cancel remaining children when one succeeds (stock hunt)
   aggregate: brain.compare_quotes(ctx, parent, quotes) → QuoteComparison + buttons
   AWAITING_CHOICE → user taps → child BOOKING task (target = chosen business,
-     approved_terms = chosen offer) → confirm call → COMPLETED
+     approved_terms = chosen offer) → CONFIRMATION_CALLBACK → COMPLETED
 ```
 
 ### 3.4 Customer-care / IVR call (C21–C26)
@@ -193,7 +204,7 @@ interpret → TaskSpec(type=HOTEL_BOOKING, stay=StayRequest)
 engine: hotels.search(stay) + directory reviews → brain.shortlist
         child calls to properties (brief.stay, brief.api_offer = online rate to beat):
         availability, room, inclusions, negotiate direct rate, ask to HOLD the room
-        → comparison → user approves → confirmation:
+        → comparison → user approves → confirmation call-back (or on-call if delegated):
             DIRECT_HOLD (property holds against user's own payment; confirmation by
             WA/SMS to user) | PAY_AT_HOTEL via hotels.book() | BOOKING_LINK sent to user
         → HotelBooking persisted → child RECONFIRM task scheduled day before check-in
@@ -239,7 +250,7 @@ IDs are 32-char uuid4 hex. Enums stored as strings. Nested value objects as JSON
 
 | Table | Purpose / key columns |
 |---|---|
-| `users` | phone (E.164, unique), status, onboarding_step, pin_hash, invites_remaining, monthly_call_cap, last_inbound_at (24h window) |
+| `users` | phone (E.164, unique), status, onboarding_step, pin_hash, invites_remaining, rate_limited (ops-only), last_inbound_at (24h window) |
 | `profiles` | name, city, language, tone, morning_briefing, briefing_hour_ist |
 | `consents` | DPDP & per-feature consents; `person_id` for circle-member opt-ins; evidence text |
 | `invites` | code, created_by, redeemed_by |
@@ -251,7 +262,7 @@ IDs are 32-char uuid4 hex. Enums stored as strings. Nested value objects as JSON
 | `account_identifiers` | care-call identifiers, **encrypted**; never OTP/PIN/CVV/password |
 | `facts` | memory: kind, key, value, due_on, recurrence, person_id |
 | `messages` | every inbound/outbound message (any channel, users/people/businesses) |
-| `tasks` | requester_user_id, beneficiary_person_id, place_id, parent_task_id, type, status, spec/target/result/recurrence (JSON), attempts, next_attempt_at, next_run_at, approved_terms |
+| `tasks` | requester_user_id, beneficiary_person_id, place_id, parent_task_id, type, status, spec/target/result/recurrence/delegation (JSON), attempts, next_attempt_at, next_run_at, approved_terms, cost_inr_est |
 | `calls` | one row per attempt: provider ids, dial_status, outcome, mode, care (JSON), hold_seconds, languages_heard, recording_url |
 | `call_turns` | transcript (seq, speaker, text, language, confidence) |
 | `call_questions` | mid-call questions + answers (purpose, approves) |
@@ -269,7 +280,9 @@ CREATED → PLANNING ─┬─→ NEEDS_INFO ──(user replies)──→ PLANN
                     └─→ SCHEDULED (business closed / retry / recurring) ──(due)──→ CALLING
 CALLING ⇄ AWAITING_USER (mid-call question)
 CALLING → COMPLETED | FAILED | SCHEDULED (retryable outcome & attempts < max)
-        → AWAITING_APPROVAL (PENDING_APPROVAL outcome) → confirm call → COMPLETED
+        → AWAITING_APPROVAL (PENDING_APPROVAL outcome; the default for bookings/orders)
+             ──(user approves / picks)──→ CONFIRMATION_CALLBACK ─(call)─→ COMPLETED
+             ──(user declines)──→ CANCELLED (Friday may notify the business politely)
 any non-terminal → CANCELLED (user "cancel")
 ```
 
@@ -317,7 +330,10 @@ All settings: `friday/core/config.py`; documented in `.env.example`. Friday knob
 * Calls: ring/duration/attempt/backoff, hold timeout & hold-line cadence, global
   concurrency, fan-out concurrency, business-call window, IVR max hold.
 * Proactive: daily cap 3, quiet hours 22–08 IST, tick, briefing hour, ignore threshold.
-* Access: invite-only, 5 invites, 10 calls/month, PIN attempts, admin phones.
+* Access: invite-only, 5 invites, PIN attempts, admin phones. No user-facing cap;
+  `FRIDAY_ABUSE_RATE_LIMIT_ENABLED` (off) / `FRIDAY_ABUSE_MAX_CALLS_PER_DAY`,
+  `FRIDAY_COST_ALERT_INR_PER_USER_MONTH` for ops.
+* Voice: `FRIDAY_TTS_VOICES` per language (female voices), `FRIDAY_TTS_VOICE_GENDER=female`.
 * Secrets are `SecretStr`; never log them. `FRIDAY_SECRET_KEY` mandatory in live.
 
 ## 7. Cross-cutting rules

@@ -55,7 +55,7 @@ class UserRow(IdMixin, TimestampMixin, Base):
     pin_failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     invited_by_user_id: Mapped[str | None] = mapped_column(String(32))
     invites_remaining: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
-    monthly_call_cap: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    rate_limited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_inbound_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
@@ -317,6 +317,8 @@ class TaskRow(IdMixin, TimestampMixin, Base):
     candidate: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # BusinessCandidate
     shortlist: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list, nullable=False)
     approved_terms: Mapped[str | None] = mapped_column(Text)
+    delegation: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # Delegation
+    cost_inr_est: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     source_message_id: Mapped[str | None] = mapped_column(String(32))
 
 
@@ -341,6 +343,7 @@ class CallRow(IdMixin, Base):
     languages_heard: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     care: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # CareOutcome
     hold_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cost_inr_est: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     mode: Mapped[str] = mapped_column(String(16), default="agent", nullable=False)
     recording_url: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

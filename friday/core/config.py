@@ -158,6 +158,7 @@ class Settings(BaseSettings):
     tts_voices: dict[str, str] = Field(default_factory=dict)
     tts_speaking_rate: float = 1.0
     tts_style: str = "calm"
+    tts_voice_gender: Literal["female"] = "female"  # Friday is female (founder decision)
 
     # ------------------------------------------------------------------ WhatsApp (channels)
     whatsapp_provider: WhatsAppProviderName = "auto"
@@ -250,7 +251,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ access / limits
     invite_only: bool = True
     invites_per_user: int = 5
-    monthly_call_cap: int = 10
+    # No user-facing usage cap in beta. Internal cost tracking + ops-only abuse limit.
+    abuse_rate_limit_enabled: bool = False
+    abuse_max_calls_per_day: int = 30
+    cost_alert_inr_per_user_month: float = 1500.0  # ops alert threshold (logs/event)
     pin_max_attempts: int = 5
     admin_phones: list[str] = Field(default_factory=list)  # bootstrap users, skip invite
 

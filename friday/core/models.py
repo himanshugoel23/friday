@@ -319,9 +319,11 @@ class TaskStatus(StrEnum):
     WAITING_CHILDREN = "waiting_children"  # parent: child calls in progress
     AWAITING_CHOICE = "awaiting_choice"  # parent: comparison sent, user must pick
     NEEDS_INFO = "needs_info"  # waiting for the user to fill a missing spec field
-    # user must OK something: the call itself (autonomy < 4), or - after a
-    # "call back later" approval call - the slot/price; then a follow-up call confirms.
+    # user must OK something: the call itself (autonomy < 4), or - after an offer
+    # call ended with PENDING_APPROVAL - the slot/price ("awaiting_user_approval").
     AWAITING_APPROVAL = "awaiting_approval"
+    # approved; the confirmation call-back to the business is queued / in progress
+    CONFIRMATION_CALLBACK = "confirmation_callback"
     SCHEDULED = "scheduled"  # will dial at next_attempt_at (retry / call-back-later)
     CALLING = "calling"
     AWAITING_USER = "awaiting_user"  # mid-call question outstanding, business on hold
@@ -356,8 +358,8 @@ class CallOutcome(StrEnum):
     VOICEMAIL = "voicemail"
     HUNG_UP = "hung_up"  # business hung up mid-call (metric: <20%)
     USER_TIMEOUT = "user_timeout"  # mid-call question unanswered; call wrapped up
-    # Offer/slot obtained, business agreed to wait; call ended to get user approval.
-    # Task -> AWAITING_APPROVAL; on approval the engine places a confirm call.
+    # Offer/slot obtained; Friday told the business she'll call back after checking
+    # with the user. Task -> AWAITING_APPROVAL -> (approved) CONFIRMATION_CALLBACK.
     PENDING_APPROVAL = "pending_approval"
     TRANSFERRED = "transferred"  # warm transfer done; user talking to the business
     HOLD_TIMEOUT = "hold_timeout"  # C23: gave up after max hold; retry at a better time
@@ -429,11 +431,16 @@ class QuestionPurpose(StrEnum):
 
 
 class ApprovalMode(StrEnum):
-    """How the call agent gets the owner's OK before committing to a booking."""
+    """How the call agent gets the owner's OK before committing (founder rule).
 
-    HOLD_THEN_CALLBACK = "hold_then_callback"  # hold up to N s; if no answer, call back later
-    HOLD_ONLY = "hold_only"  # hold up to N s; if no answer, wrap up politely, no callback
-    CALLBACK_ONLY = "callback_only"  # never hold; collect offer, end, call back after approval
+    DEFAULT is CALLBACK: Friday does NOT confirm on the call - she tells the business
+    she'll call back after confirming with the user, ends the call (outcome
+    PENDING_APPROVAL), asks the user, and on approval places a CONFIRMATION_CALLBACK.
+    Only an explicit ``Delegation`` lets her confirm on the call, within its limits.
+    """
+
+    CALLBACK = "callback"  # default
+    HOLD_THEN_CALLBACK = "hold_then_callback"  # opt-in: brief hold + mid-call ASK_USER first
 
 
 class Intent(StrEnum):
@@ -542,7 +549,8 @@ class User(_Model):
     pin_failed_attempts: int = 0
     invited_by_user_id: str | None = None
     invites_remaining: int = 5
-    monthly_call_cap: int = 10
+    # No user-facing usage cap in beta. Ops-only abuse throttle (Settings.abuse_*).
+    rate_limited: bool = False
     last_inbound_at: datetime | None = None  # drives WhatsApp 24h window
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -1184,6 +1192,36 @@ class FanOutPolicy(_Model):
     max_targets: int = 5
 
 
+class Delegation(_Model):
+    """Authority the user EXPLICITLY gave when creating the task ("any slot 5-7pm
+    under ₹800, you decide"). Without it (default) Friday never confirms on the call.
+    Anything outside the limits -> call-back flow."""
+
+    granted: bool = False
+    scope: list[str] = Field(default_factory=list)  # what she may decide: "slot", "price", "venue"
+    window_start: datetime | None = None  # acceptable appointment window (UTC)
+    window_end: datetime | None = None
+    time_window_text: str | None = None  # "weekday evenings 5-7pm" (recurring rules)
+    max_price_inr: int | None = None
+    conditions: list[str] = Field(default_factory=list)  # "female doctor only"
+    user_words: str | None = None  # the user's literal instruction (audit)
+
+    def allows_price(self, amount_inr: int | None) -> bool:
+        return self.granted and (
+            self.max_price_inr is None
+            or (amount_inr is not None and amount_inr <= self.max_price_inr)
+        )
+
+    def allows_time(self, when: datetime | None) -> bool:
+        if not self.granted:
+            return False
+        if when is None or (self.window_start is None and self.window_end is None):
+            return self.window_start is None and self.window_end is None
+        start_ok = self.window_start is None or when >= self.window_start
+        end_ok = self.window_end is None or when <= self.window_end
+        return start_ok and end_ok
+
+
 class RecurrenceRule(_Model):
     """A12 recurring bookings / A13 daily check-ins. Times are IST wall-clock."""
 
@@ -1194,6 +1232,7 @@ class RecurrenceRule(_Model):
     day_of_month: int | None = None  # MONTHLY
     time_ist: str = "10:00"  # "HH:MM" when to run / place the call
     lead_days: int = 0  # book this many days before the occurrence
+    delegation: Delegation = Field(default_factory=Delegation)  # authority for each instance
     until: date | None = None
     next_run_at: datetime | None = None  # UTC, maintained by the task engine
 
@@ -1235,6 +1274,7 @@ class TaskSpec(_Model):
     fan_out: FanOutPolicy | None = None  # None -> template default
     call_mode: CallMode = CallMode.AGENT
     recurrence: RecurrenceRule | None = None  # A12 / A13
+    delegation: Delegation = Field(default_factory=Delegation)  # explicit "you decide" limits
     stay: StayRequest | None = None  # HOTEL_BOOKING
     # discovery (TaskType.DISCOVERY or no business named)
     discovery_query: str | None = None  # "AC repair"
@@ -1286,7 +1326,9 @@ class Task(_Model):
     recurrence: RecurrenceRule | None = None  # parent of recurring children
     candidate: BusinessCandidate | None = None  # child: which shortlisted business
     shortlist: list[ShortlistItem] = Field(default_factory=list)  # parent
-    approved_terms: str | None = None  # user-approved slot/price for a confirm call
+    approved_terms: str | None = None  # user-approved slot/price for the confirmation call-back
+    delegation: Delegation = Field(default_factory=Delegation)  # copied from spec / recurrence
+    cost_inr_est: float = 0.0  # internal per-task cost tracking (never shown to the user)
     source_message_id: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -1392,8 +1434,8 @@ class CallAction(_Model):
 class ApprovalPolicy(_Model):
     """Book only after asking the owner (founder rule #3). Not optional."""
 
-    mode: ApprovalMode = ApprovalMode.HOLD_THEN_CALLBACK
-    hold_timeout_s: int = 90  # how long the business may be kept on hold
+    mode: ApprovalMode = ApprovalMode.CALLBACK
+    hold_timeout_s: int = 90  # HOLD_THEN_CALLBACK only
     # Free-form rules the brain must follow, e.g. "price above ₹2000 needs approval".
     rules: list[str] = Field(default_factory=list)
 
@@ -1438,8 +1480,9 @@ class CallBrief(_Model):
         default_factory=lambda: ["user's phone number", "home address", "payment details"]
     )
     approval: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
-    # Set on a follow-up confirm call: the slot/price the user already approved.
+    # Set on a CONFIRMATION_CALLBACK: the slot/price the user already approved.
     approved_terms: str | None = None
+    delegation: Delegation = Field(default_factory=Delegation)
     user_phone: str | None = None  # BRIDGE_USER / TRANSLATOR: who to bridge in (never spoken)
     # Customer care (C21-26)
     company: str | None = None
@@ -1459,8 +1502,12 @@ class CallBrief(_Model):
         return disclosure_line(self.on_behalf_of, language or self.opening_language)
 
     def can_commit(self, answers: list[UserAnswer]) -> bool:
-        """Booking may be confirmed only with prior user approval."""
-        return bool(self.approved_terms) or any(a.approves for a in answers)
+        """May Friday confirm a booking/order ON THIS CALL? Only on a confirmation
+        call-back (approved_terms), after a mid-call approval, or under an explicit
+        delegation (the policy must still respect its limits: price/time/scope)."""
+        return (
+            bool(self.approved_terms) or self.delegation.granted or any(a.approves for a in answers)
+        )
 
 
 class CallResult(_Model):
@@ -1482,6 +1529,7 @@ class CallResult(_Model):
     languages_heard: list[Language] = Field(default_factory=list)  # callee, in order of switch
     care: CareOutcome | None = None
     hold_seconds: int = 0  # time spent in hold-listening mode (no LLM cost)
+    cost_inr_est: float = 0.0  # telephony + STT/TTS + LLM estimate (internal only)
     recording_url: str | None = None
     started_at: datetime = Field(default_factory=utcnow)
     answered_at: datetime | None = None
@@ -1537,6 +1585,7 @@ class VoiceProfile(_Model):
     language: Language
     speaking_rate: float = 1.0
     style: str = "calm"
+    gender: str = "female"  # Friday is female (feminine Hindi forms: "karti hoon")
 
 
 # =============================================================================== brain I/O

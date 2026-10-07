@@ -1,6 +1,6 @@
 # Friday: Phase 1 PRD ("Friday makes calls")
 
-Status: Draft v3 (includes all founder addenda: voice agent, people & places, real-world footwork A1–A13 / B14–B20, customer-care/IVR C21–C26, hotel & stay bookings D27–D29) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
+Status: Draft v3 (includes all founder addenda: voice agent, people & places, real-world footwork A1–A13 / B14–B20, customer-care/IVR C21–C26, hotel & stay bookings D27–D29; founder decisions on §10 applied: approval/call-back rule, B16/B17 → Priority 1, no user-facing cap, female voice) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
 
 Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal, for example "book a haircut". A task may involve several **call attempts**. **MUST**, **SHOULD** and **MAY** are used in the RFC sense. Requirement IDs (`US-x.y`) are referenced in tests and tickets.
 
@@ -76,21 +76,18 @@ Beta launch population: invite-only, about 500–2,000 users seeded from the fou
 
 **US-1.4** The user can skip tone (default Playful), city, and circle/places. They cannot skip consent or PIN. If a step's answer is unclear, Friday asks for it again, at most twice.
 
-**US-1.5** On completion Friday sends a short capability card: what it can do, the monthly call allowance, and the `help` command. Event `onboarding_completed` is logged with the duration.
+**US-1.5** On completion Friday sends a short capability card: what it can do, examples of how to delegate ("any slot 5–7 pm under ₹800, you decide"), and the `help` command. Event `onboarding_completed` is logged with the duration.
 
 **US-1.6** Target: median onboarding completion of 3 minutes or less. Completion rate ≥70% of users who send a valid invite code.
 
-### US-2 Invites and the monthly call cap
+### US-2 Invites, cost tracking and abuse limits
 
 - **US-2.1** Each activated user gets **5 invite codes** (`FRI-XXXXXX`, single-use, no expiry in beta). The `invite` command lists the codes and whether each has been used. Founders/admins can mint unlimited codes.
 - **US-2.2** Redeeming a code links the invitee to the inviter (`invited_by`). A used, revoked or unknown code is rejected with: "That code doesn't work. Check with whoever gave it to you?"
-- **US-2.3** **Cap: 10 call tasks per user per calendar month (IST)**. This is configurable per user and globally.
-  - A task counts against the cap when its first attempt **connects** (a human or the business answered).
-  - Retries for the same task do not count again.
-  - A task where no attempt ever connects does not count.
-- **US-2.4** At 8/10 Friday appends one line to a report: "FYI: 2 calls left this month."
-- **US-2.5** At 10/10 Friday declines new call tasks politely and states the reset date ("Your calls reset on 1 Nov"). Reminders, memory and nudges keep working. Nudges that would trigger a call are converted to level-1 inform messages.
-- **US-2.6** A task already in progress (including scheduled retries) MUST complete even if the cap is reached meanwhile.
+- **US-2.3 No user-facing usage cap in the beta (founder decision).** Friday never mentions calls left, limits or resets to users, and there are no cap templates.
+- **US-2.4 Internal cost tracking.** Every task records its cost per leg (telephony, STT, TTS, LLM, WA/SMS, places/hotel API) in paise. Per-user daily and monthly totals feed an ops dashboard. Ops is alerted when a user exceeds configurable thresholds (default ₹500/day or ₹3,000/month) or when cost per successful task drifts above target.
+- **US-2.5 Abuse rate-limit (ops-configurable, off by default for invited users).** When ops enables it for a user or globally, it limits tasks per hour/day and call legs per day. A limited user gets a neutral message ("I'm handling a lot right now. I'll pick this up at 2:30 PM.") with the task queued, never a "cap reached" message. The anti-abuse rules per target number (US-6.4) always apply.
+- **US-2.6** In-flight tasks (including scheduled retries and call-backs) always complete, even if a rate-limit is switched on mid-task.
 
 ### US-3 Booking call
 
@@ -128,16 +125,30 @@ Number rules:
 - If the business-call window is closed (outside **09:00–20:30 IST**, or outside known or learned hours for that business, US-28), Friday queues the call for the next good window and says so.
 
 **US-3.5 The call** is goal-driven, using the call brief in §5. The booking is **successful** only when all of these hold:
-- the user has approved the slot and price (US-3.11);
+- the user approved the slot and price, either on the call-back route or within an explicit delegation (US-3.11);
 - the business has explicitly confirmed date, time and service;
 - Friday has read them back and received a "yes".
 
-**US-3.6** If no slot fits the constraints, Friday collects the nearest alternatives and asks the user mid-call (US-5). If the user is unavailable, Friday ends the call with "I'll check with Ankit and call you back" and reports the alternatives.
+**US-3.6** If no slot fits the constraints, Friday collects the nearest alternatives and uses the call-back route (US-3.11).
 
-**US-3.11 Ask before booking (founder requirement; it overrides autonomy settings).** Friday MUST NOT confirm any booking until the user has approved the specific slot and price.
-- **Pre-approval counts** only if the user approved an *exact* slot (date + time) before the call, and the business's price is at or below the user's budget (or the known usual price if no budget was given). Examples: tapping `Book it` on "Looks, Sat 11 AM like usual?", or "book exactly 6 PM Friday, under ₹1,000". Anything else needs a mid-call question (US-5): a time range, a different slot, a higher price, a changed inclusion, or a different staff member when the user asked for a specific one.
-- When the user can't be reached in time, Friday asks the business to hold the slot and calls back after approval (US-5.5). It never confirms "provisionally".
-- The approval message (WA reply/button ID, timestamp) is stored on the task and in the action log.
+**US-3.11 Approval rule: call back by default, confirm on the call only with explicit delegation (founder decision; overrides autonomy settings).**
+- **Default: call-back route.**
+  1. When the business offers slot(s) and a price, Friday does **not** confirm on the call. She collects the options, price, inclusions and how long they can keep the slot. She asks the business to keep it if possible, and says: "Main Ankit ji se confirm karke aapko 10–15 minute mein call back karti hoon." ("I'll confirm with Ankit and call you back in 10–15 minutes.") She then ends the call politely.
+  2. Within 60 s Friday sends the user the options as buttons (US-5.3 format), e.g. `[10:00 AM] [12:30 PM] [None]`.
+  3. On approval she places a **confirmation call-back**, part of the same task. She re-checks the slot and price, confirms, reads back the details and gets a "yes". If the user picked something different ("ask for Sunday"), she relays that instead, and any new offer goes back through this route.
+  4. If the slot was lost in the meantime, she offers the business's next options to the user, again via call-back.
+  5. Options expire after 2 h, or at the business's stated keep-time if shorter. Friday then says: "The offer may have lapsed. Call again for fresh slots?"
+- **Exception: delegated decision.** Friday may confirm on the call itself only if the user **explicitly** gave authority when giving the task, as a window and/or ceiling or a "you decide". Examples:
+  - "book any slot between 5–7 pm under ₹800, you decide";
+  - "Saturday morning, whatever's free, up to ₹600, just book it";
+  - tapping `Book it` on a nudge or option that names an exact slot and price ("Looks, Sat 11 AM, ₹600, like usual?").
+  Within those limits Friday chooses the best option (earliest by default) and confirms on the call. **Anything outside the limits** (time, price, inclusions, staff, an advance) falls back to the call-back route.
+  - Delegation is captured at intake as `delegation: {windows, max_price_inr, other_limits, source_message_id}` and echoed back before dialling: "I'll book any slot 5–7 pm under ₹800 without checking back."
+  - A budget alone ("under ₹600") is a negotiation limit, **not** delegation.
+- **Recurring bookings** (A12): explicit delegation for the rule (time window + price ceiling) is authority for each instance. Deviations take the call-back route.
+- The autonomy level never substitutes for delegation: level 4 means Friday places the call unprompted, not that she confirms on it.
+- Friday never confirms "provisionally". The approval or delegation source (WA message or button ID, timestamp) is stored on the task and in the action log.
+
 
 **US-3.7 Info sharing.**
 - Friday may share the user's booking name and, for bookings, their registered mobile number. The user can turn the number off.
@@ -162,9 +173,9 @@ Number rules:
 
 ### US-5 Mid-call question to the user
 
-*As a user, if the business offers options, I want to choose them in real time without being on the call.*
+*As a user, I want to answer quick clarifying questions without being on the call. Under the approval rule, booking choices are normally made on the call-back route (US-3.11), not mid-call.*
 
-- **US-5.1** Friday always asks before confirming a booking, unless it was pre-approved (US-3.11). For non-booking details that the spec already covers ("any time after 4" when choosing which slots to ask about, "either branch is fine"), Friday decides without asking.
+- **US-5.1** Mid-call questions are used only for **clarifications the business needs to continue** that are not a commitment: "male or female stylist?", "which branch?", "does Dad need a wheelchair?", "do you want gas top-up quoted too?". Slot, price and order approvals use the call-back route by default (US-3.11). Details the brief already covers are decided without asking.
 - **US-5.2** On the call, Friday says plainly: "One moment please, I'm checking with Ankit." ("Ek minute ji, main Ankit se confirm kar rahi hoon.") If the wait exceeds 20 s, it gives one factual status line ("Still waiting for Ankit's reply. Thank you for holding."). There are no filler sounds or fake hesitations (US-19).
 - **US-5.3** On WA (inside the 24h window), Friday sends an interactive message headed with the business name:
   - ≤3 options use reply buttons. 4–10 options use a list message.
@@ -172,12 +183,9 @@ Number rules:
   - Free-text and voice-note replies are also parsed ("6 wala", "later one", "neither, ask for Sunday").
 - **US-5.4** If the 24h window has closed (rare, e.g. a retry the next day), Friday sends the `friday_call_question` template (fixed button `Answer now`). Tapping it opens the window, and the interactive options follow immediately.
 - **US-5.5 Timeout.** Friday waits up to **45 s** for an answer.
-  - If no answer arrives, Friday tells the business: "Sorry for the wait. Could you hold <best option> for 15 minutes? I'll call back to confirm." It then ends the call politely.
-  - Friday sends the user: "They offered 4 PM or 6 PM. I've asked them to hold 4 PM. Tap to confirm and I'll call back."
-  - If the user replies within 30 minutes, Friday places a **confirmation call** (part of the same task; it does not count against the cap again).
-  - After 30 minutes the options expire, and Friday tells the user it can call again for fresh slots.
+  - If no answer arrives, Friday tells the business she'll call back, ends the call politely and continues on the call-back route (US-3.11).
 - **US-5.6** A maximum of **2 mid-call questions per call**. After that, Friday wraps up with the best info it has and asks the user afterwards.
-- **US-5.7** A reply to an expired question gets: "That call has ended. Want me to call them back with '6 PM'?" with buttons `Yes, call` / `No`.
+- **US-5.7** A reply to an expired option gets: "That offer may have lapsed. Want me to call them back and ask for '6 PM'?" with buttons `Yes, call` / `No`.
 - **US-5.8** If the user has concurrent calls (US-23), each question clearly names its business, and replies are matched by the WA `context.message_id`. Free text that can't be matched triggers a clarifying question.
 
 ### US-6 Call outcomes and retry policy
@@ -284,7 +292,7 @@ Definitions:
 | 1 | Inform | Friday tells the user; no action offered beyond acknowledging |
 | 2 | Suggest | Friday tells the user and offers a one-tap action (**default for all categories**) |
 | 3 | Act with approval | Friday prepares everything, e.g. "I'll call Looks for Sat 11 AM. Go?"; one tap executes |
-| 4 | Act automatically | Friday starts the action without asking, then reports. Requires **explicit opt-in and the PIN** for that category. **Booking confirmation still requires the user's approval of the slot and price (US-3.11)**, so in practice level 4 means "place the call and come back with options". Fully automatic results apply only to enquiries, reminders and follow-up calls |
+| 4 | Act automatically | Friday starts the action without asking, then reports. Requires **explicit opt-in and the PIN** for that category. Level 4 starts calls unprompted. It does **not** grant authority to confirm: bookings follow US-3.11 (call-back unless explicitly delegated; recurring-rule delegation counts). Fully automatic results apply only to enquiries, reminders and follow-up calls |
 
 **Categories (P1):** `health` (doctor, dentist, lab), `personal_care` (salon, spa), `dining`, `home_services`, `enquiries`, `follow_ups` (no-show calls, confirmation calls), `reminders`.
 
@@ -398,8 +406,8 @@ Commands are recognised in any supported language and phrasing (LLM intent class
   - a **recommendation with a one-line reason**;
   - buttons `Book <A>` / `Book <B>` / `Book <C>` (or a list for more options), plus `None, search more`.
   - Businesses that refused or couldn't be reached are listed with their outcome.
-- **US-17.7 Book the pick.** On the user's tap, Friday calls the chosen business back to confirm the held slot and price. This counts as approval under US-3.11, and Friday re-checks for any change in price or slot. It then follows US-3.5/US-3.10.
-- **US-17.8 Cap accounting.** One discovery task counts as **1** against the monthly cap, covering up to 3 compare calls plus the booking call. Every additional business called beyond 3 counts as 1 more. (See Q16.)
+- **US-17.7 Book the pick.** The user's tap is the approval. Friday places the confirmation call-back (US-3.11) and re-checks for any change in price or slot. It then follows US-3.5/US-3.10.
+- **US-17.8 Cost.** Discovery costs (places API plus all legs) are tracked per task (US-2.4). There is no user-facing cap.
 - **US-17.9 Memory.** All shortlisted and called businesses are saved, with quotes and dates. Friday remembers the user's pick and any rejection reason for future ranking.
 - **US-17.10 Attribution.** Rating and review data are shown per the provider's attribution requirements ("Ratings from Google"). Raw review text is not stored beyond the provider's caching terms.
 
@@ -415,7 +423,7 @@ Commands are recognised in any supported language and phrasing (LLM intent class
   - asking for package or bundle deals (two ACs, service plus gas top-up);
   - asking for waivers (visit charge waived if the work is done) and off-peak or weekday pricing.
 - **US-18.4 Never lie.** Friday never invents competing quotes, budgets, urgency or loyalty. "Regular customer" style lines are used only if true (from memory) or phrased as a possibility.
-- **US-18.5 Never commit.** Friday never says "done, we'll pay X" or agrees to a price on the user's behalf. Its closing line on a quote is always of the form "Thank you, I'll share this with Ankit and confirm." Agreement happens only through the user's approval (US-3.11), followed by Friday's confirmation, which states the price as the *booking price quoted*, not as a payment commitment.
+- **US-18.5 Never commit.** Friday never says "done, we'll pay X". Without delegation, her closing line on a quote is always of the form "Thank you, I'll confirm with Ankit and call you back." Agreement happens only through the approval rule (US-3.11): a call-back after the user approves, or on the call within an explicit delegation ceiling. The price is always stated as the *booking price quoted*, not as a payment commitment.
 - **US-18.6 Over budget.** If the best price after negotiation is above `budget.max`, Friday doesn't escalate mid-call by default. It thanks the business, asks them to hold the slot if one is offered, and reports: "Best I got: ₹750 (your limit ₹600). Book anyway / Try others / Leave it."
 - **US-18.7 Report.** The result report shows the original quote → the final quote and what changed ("₹700 → ₹600, gas top-up included"). The event `negotiation_outcome` logs both amounts.
 - **US-18.8 Respect a firm no.** If the business says the price is fixed, Friday accepts it on the first refusal and moves on.
@@ -514,7 +522,7 @@ call_brief:
   success_criteria:            # what must be true to report success
     - business confirms a date and time slot
     - price and inclusions are clearly stated
-    - user has approved slot + price (ask_before_booking: true, always true for bookings)
+    - user approved slot + price via call-back, or offer is within delegation (US-3.11)
   business: {name: "CoolCare Services", phone: "+9198xxxxxxx", known_language: "kn", notes: "rated 4.5, used before in Mar"}
   requester: {name: "Ankit Sharma"}
   beneficiary: {name: "Ankit Sharma", relation: self}
@@ -531,13 +539,15 @@ call_brief:
     address: "12, 4th Cross, Indiranagar"   # home visits only
     other: []                     # e.g. "senior citizen, needs ground-floor access"
   never_disclose: [pin, otp, payment_details, aadhaar, pan, notes_other_than_listed]
-  ask_user_when:                  # triggers a mid-call question (US-5)
-    - "before confirming any booking (unless pre_approved slot + price below)"
+  approval_mode: call_back       # call_back (default) | delegated
+  delegation: null                # or {windows: ["...T17:00/19:00"], max_price_inr: 800, other_limits: [], source_message_id: "wamid..."}
+  call_back_when:                 # end politely, ask the user, call back (US-3.11)
+    - "any slot/price/order to confirm and approval_mode = call_back"
+    - "offer outside delegation limits"
     - "price after negotiation > budget.max"
-    - "no slot in time_windows"
     - "advance/deposit requested"
-    - "business asks something not in this brief"
-  pre_approved: null              # or {slot: "...", max_price_inr: 600}
+  ask_user_midcall_when:          # non-committing clarifications only (US-5)
+    - "business needs a detail not in this brief to continue"
   questions: []                   # enquiries: what to find out
   language: {open: hinglish, mirror: true, user_report_lang: hinglish}
   limits: {max_duration_s: 360, max_user_questions: 2, max_negotiation_asks: 2}
@@ -568,7 +578,7 @@ call_brief:
 1. The disclosure line is the first utterance. Friday never claims or implies being human, and answers truthfully when asked.
 2. Never say or ask for a PIN, OTP, password, card, UPI or bank details, Aadhaar or PAN.
 3. Never agree to pay, prepay, put down a deposit, accept cancellation charges or make any money commitment. Quotes are brought back, not accepted.
-4. Never confirm a booking without the user's approval of the slot and price (US-3.11).
+4. Never confirm a booking or order on the call unless it is within an explicit delegation. Otherwise use the call-back route (US-3.11).
 5. Never share information beyond `allowed_disclosures` (US-3.7, US-22.4).
 6. Never lie: no invented quotes, urgency, identity or relationships.
 7. **Escalate to the user when uncertain.** Ask, don't guess.
@@ -582,7 +592,7 @@ call_brief:
 
 Goal: Phase 1 covers every offline task that today needs a human to phone or coordinate with a business or person. Each task type below is a **CallBrief template** (§5.2) on the same engine. It adds a `task_type`, default goal and constraints, success criteria, a report format and type-specific rules. Rules that apply to every type:
 - the hard rules (§5.4);
-- ask-before-booking/ordering (US-3.11; for orders it covers the items and total price);
+- the approval rule (US-3.11: call back by default, confirm on the call only within explicit delegation; for orders it covers the items and total price);
 - the outcome taxonomy (US-6);
 - caps and guardrails (US-2, US-10).
 
@@ -608,7 +618,7 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 - **C.1** Each task type ships with: a brief template, a JSON schema for its structured result, a report formatter, ≥5 simulator personas in the eval set, and an entry in the intent classifier with Hindi, English and Hinglish examples.
 - **C.2** The intent classifier maps a request to a type with ≥90% accuracy on the labelled set. If unsure, Friday asks one question ("Want me to order it, or just check who has it?").
 - **C.3** A13 calls are to private individuals. They are allowed *only* for opted-in circle members (this updates the non-goal in §2). Check-in calls respect the member's quiet hours (default 09:00–20:00 local IST). The member can say "don't call tomorrow" or "stop calling", and Friday tells the user.
-- **C.4** Phone orders (A3) and anything with a price are confirmed only after the user's explicit approval of the total. Friday states the payment mode (COD or the user pays the shop directly) and never pays itself.
+- **C.4** Phone orders (A3) and anything with a price follow US-3.11. The call-back route applies unless the user delegated, e.g. "order it if under ₹300". Friday states the payment mode (COD or the user pays the shop directly) and never pays itself.
 
 ### US-23 Parallel calling (B14 · Phase 1 · Priority 1)
 
@@ -621,7 +631,7 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 - **US-23.3** On `first_match`, Friday stops dialling new legs within 2 s of a confirmed match. Live legs end politely within one turn ("Thank you, I've found it elsewhere. Have a good day.").
 - **US-23.4** Mid-call questions from parallel legs are **batched** where possible ("2 shops offer delivery: A ₹40 in 30 min, B free in 90 min. Which?"). Each question names its business (US-5.8). Legs waiting on the user hold or call back per US-5.5.
 - **US-23.5** The aggregated report comes within 60 s of the last leg. It lists every leg's outcome. Unreached businesses get `Retry these`.
-- **US-23.6** Cap: a fan-out task counts as **1 task for up to 5 connected legs**, then +1 per 5 more (Q22). Cost is tracked per leg and per task.
+- **US-23.6** Cost is tracked per leg and per task (US-2.4). There is no user-facing cap.
 
 ### US-24 WhatsApp-to-business channel with document extraction (B15 · Phase 1 · Priority 1)
 
@@ -637,7 +647,7 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 - **US-24.5** Users may also send images and PDFs (prescriptions, quotes, listing screenshots, bills). These are extracted the same way and confirmed before use. This updates E22.
 - **US-24.6** Business WA threads are logged in the action log. A business can reply STOP, which applies DNC to the WA channel (US-12.3).
 
-### US-25 Scam / fake-number check (B16 · Phase 1 · Priority 2)
+### US-25 Scam / fake-number check (B16 · Phase 1 · Priority 1, founder decision)
 
 - **US-25.1** Before calling a number, or sharing any detail with it, that was not supplied directly by the user or already verified, Friday computes a **trust score**. Signals:
   - the number matches the places-provider listing for that business;
@@ -650,7 +660,7 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 - **US-25.2** For scores below the threshold, Friday warns the user before calling ("This number isn't on Blue Dart's official site, and 3 people reported it. Still call?"). Friday never calls "customer care" numbers found only in search snippets.
 - **US-25.3** On calls, scam patterns trigger an immediate polite exit and a warning to the user: requests for OTPs, a "refund processing fee", an app install or screen sharing, or KYC updates. The number is added to the internal scam list after review.
 
-### US-26 Warm transfer / three-way call (B17 · Phase 1 · Priority 2)
+### US-26 Warm transfer / three-way call (B17 · Phase 1 · Priority 1, founder decision)
 
 - **US-26.1** When the business insists on speaking to the user, the right person is finally on the line (e.g. the doctor's assistant), or the user taps `Connect me`, Friday asks the business "May I connect Ankit on this call?" Friday then dials the user's registered number (or the beneficiary's, with consent) and bridges the legs.
 - **US-26.2** Before bridging, Friday gives the user a **≤15 s whisper brief** on their leg only: "Connecting you to Dr. Meena's receptionist. They need Dad's previous report dates. The slot is Tue 11 AM, ₹1,300."
@@ -694,7 +704,7 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 
 ### Customer-care / IVR calls (C21–C26, founder decision: **in Phase 1**)
 
-These calls run on the same engine, with an IVR navigator, a hold-listening mode and stricter verification rules. They add catalogue entry **A14** below. Dependencies: the official-number directory (US-35) and the scam check (US-25) are **mandatory** for this flow. Warm transfer (US-26) is needed for account-holder verification, so PM recommends promoting B16 and B17 to Priority 1 (Q23).
+These calls run on the same engine, with an IVR navigator, a hold-listening mode and stricter verification rules. They add catalogue entry **A14** below. Dependencies: the official-number directory (US-35) and the scam check (US-25) are **mandatory** for this flow. Warm transfer (US-26) is needed for account-holder verification. B16 and B17 are Priority 1 (founder decision).
 
 | # | Task type | Example request | CallBrief goal / key constraints | Success criteria | Report to user |
 |---|---|---|---|---|---|
@@ -748,7 +758,7 @@ These calls run on the same engine, with an IVR navigator, a hold-listening mode
 
 - **US-36.1** On every customer-care call Friday MUST capture: the ticket, complaint or reference number (read back digit by digit to confirm), the agent's name/ID, the promised action and the **promised resolution date**. If no ticket is offered, Friday asks for one explicitly.
 - **US-36.2** If the first agent can't resolve the issue, or offers less than the user's minimum, Friday politely requests escalation to a supervisor ("Kya aap ise supervisor ko escalate kar sakti hain?" — "Could you escalate this to a supervisor?"), at most twice per call. The outcome is recorded either way.
-- **US-36.3** Friday auto-schedules a **follow-up call** for the promised date + 1 working day (it doesn't count against the cap; see Q22). If the issue is unresolved at follow-up, Friday re-escalates on the same ticket.
+- **US-36.3** Friday auto-schedules a **follow-up call** for the promised date + 1 working day (cost tracked per task). If the issue is unresolved at follow-up, Friday re-escalates on the same ticket.
 - **US-36.4** After 2 failed follow-ups, or when a promised date is missed by more than 7 days, Friday suggests **formal escalation routes as text guidance**: the company's grievance officer or nodal officer (from the directory), the sector ombudsman or regulator route (e.g. RBI Integrated Ombudsman for banks, TRAI/telecom appellate route for telecom, IRDAI Bima Bharosa for insurers, the National Consumer Helpline), and a draft complaint text with the ticket history. Friday does not file these itself in P1 (portals are P4).
 - **US-36.5** All tickets are listed under "my complaints", with status, dates and next follow-up.
 
@@ -774,7 +784,7 @@ Catalogue entry **A15**, on the same engine, plus a `HotelProvider` interface (E
   - the cancellation policy;
   - the payment terms (pay at hotel? advance required?).
   Friday then **negotiates the direct rate** within the budget (US-18), e.g. "The online rate is ₹4,200. Can you do better if booked directly?" Calls open in Hinglish and mirror the property's language (e.g. Kannada or English in Coorg, per US-13.2). Properties may send room photos or tariff cards on WA (US-24).
-- **US-37.5 Comparison report**: API rates side by side with direct quotes, the recommendation and its reason, and buttons per option. **No booking or hold happens without the user's tap** (US-3.11).
+- **US-37.5 Comparison report**: API rates side by side with direct quotes, the recommendation and its reason, and buttons per option. **No booking happens without the user's tap** (call-back route) or an explicit delegation ("any homestay under ₹4k with a ground-floor room, you decide"), per US-3.11.
 
 ### US-38 Booking, hold and payment handling (D27b, D28)
 
@@ -1278,7 +1288,7 @@ Friday: Extended ✅ 14–17 Nov (3 nights), same rate ₹3,600. New WA confirma
 | E12 | STT/LLM latency spike mid-call (>3 s silence) | No filler sounds (US-19). If the gap exceeds 3 s, one plain line ("Sorry, one moment."). After more than 2 consecutive spikes, apologise and end → `failed_system` with an auto-retry |
 | E13 | WhatsApp delivery fails, or the account is restricted or banned (policy risk) | Fall back to DLT SMS templates for results and reminders (§8.3). Core state is channel-agnostic (see ARCHITECTURE). An ops alert is raised |
 | E14 | User blocks Friday on WA | Delivery failures are detected → pause all proactive messages. Nothing is sent by SMS except results of in-flight tasks |
-| E15 | Cap reached while retries are pending | Retries continue (US-2.6) |
+| E15 | User approves after the offer lapsed, or the business doesn't pick up the call-back | Retry the call-back per US-6. If the slot is gone, offer the next options via call-back (US-3.11) |
 | E16 | User account deleted with tasks in flight | Live calls end politely and scheduled retries are cancelled. No business touch is sent |
 | E17 | Business gives contradictory info within the call | Friday clarifies once during CONFIRM. If still unclear, the outcome is `partial` with both values reported |
 | E18 | User replies "1234" unprompted (looks like a PIN) | Not treated as a PIN outside a PIN flow. If it matches the PIN hash, Friday warns: "Looks like your PIN. Please delete that message. I only ask for it when you start a sensitive action." |
@@ -1319,12 +1329,12 @@ Category is `UTILITY` unless noted. Every template's footer: "Reply STOP to stop
 | `friday_appointment_reminder` | UTILITY | "Reminder: {{1}} at {{2}}, {{3}}. Address: {{4}}." (1=service/business, 2=time, 3=day/date, 4=address) | `Got it` · `Running late` · `Reschedule` |
 | `friday_task_update` | UTILITY | "Update on your request to {{1}}: {{2}}. Tap to see details." (1=task summary, 2=one-line outcome) | `See details` |
 | `friday_call_question` | UTILITY | "{{1}} is asking a quick question about your {{2}}. Tap to answer." (1=business, 2=task) | `Answer now` |
+| `friday_approval_needed` | UTILITY | "{{1}} offered {{2}} for your {{3}}. Tap to choose and I'll call them back to confirm." | `Choose now` · `Don't book` |
 | `friday_followup_check` | UTILITY | "Did {{1}} come for {{2}} on {{3}}?" | `Yes, all done` · `No-show, call them` · `Still waiting` |
 | `friday_date_nudge` | UTILITY | "Heads up: {{1}} is on {{2}}. Want me to {{3}}?" (3=offered action) | `Yes, do it` · `Remind me later` · `Not needed` |
 | `friday_pattern_nudge` | MARKETING (likely; see Q10) | "It's been {{1}} since your last {{2}} at {{3}}. Book your usual {{4}}?" | `Book it` · `Not now` · `Stop these` |
 | `friday_morning_briefing` | UTILITY | "Good morning {{1}}! Today: {{2}}. Coming up: {{3}}." | `See more` · `Briefing off` |
 | `friday_business_change` | UTILITY | "{{1}} has changed your booking for {{2}}: {{3}}. What should I do?" | `Accept` · `Call them` · `Cancel it` |
-| `friday_cap_reset` | UTILITY | "Your Friday calls have reset. You have {{1}} calls for {{2}}." | `Make a call` |
 | `friday_beneficiary_optin` (to non-users) | UTILITY | "Namaste {{1}}, I'm Friday, an AI assistant. {{2}} ({{3}}) has booked {{4}} for you. May I send you confirmations and reminders for it?" (1=beneficiary, 2=requester, 3=relation, 4=what) | `Yes` · `No` |
 | `friday_beneficiary_reminder` | UTILITY | "{{1}}, reminder: {{2}} on {{3}} at {{4}}, {{5}}. {{6}}" (6=prep note) | `OK` · `I'll be late` · `Stop` |
 | `friday_comparison_ready` | UTILITY | "Your quotes for {{1}} are ready: best is {{2}} at {{3}}. Slots are held for a short time." | `See all` · `Book best` |
@@ -1343,7 +1353,7 @@ Beneficiary templates are submitted in `hi`, `en`, `mr`, `ta`, `te`, `kn` and `b
 Rule: every template send stores `template_name`, `language`, `variables` and `wa_message_id` in the action log.
 
 ### 8.2 Chat-only messages (sent inside the window; listed for copy review)
-`consent_summary`, `capability_card`, `cap_warning`, `cap_reached`, `waitlist_ack`, `delete_confirmation`, `pause_confirmation`.
+`consent_summary`, `capability_card`, `rate_limited_notice` (neutral, ops-enabled only), `waitlist_ack`, `delete_confirmation`, `pause_confirmation`.
 
 ### 8.3 SMS (DLT-registered; sender ID e.g. `FRIDAI`, principal entity Friday; `{#var#}` = DLT variable)
 
@@ -1377,7 +1387,8 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 - Report latency p50/p95. Call turn latency p50/p95 (target p50 < 1.2 s).
 - Proactive: nudge acceptance / dismiss / ignore rate by type; unprompted msgs per user-day (must be ≤3); "stop these" rate; pause rate.
 - Memory: facts captured per user, fact-confirmation rejection rate (a proxy for precision).
-- Retention D7/D30; invites sent and redeemed per user; cap-hit rate.
+- Retention D7/D30; invites sent and redeemed per user; internal cost per user (p50/p95) and users above the cost thresholds.
+- Approval: % of bookings via call-back vs delegation; median approval latency; call-back success rate (the slot is still available); lapsed offers.
 - Trust: deletion requests and completion time (SLA 24 h); hard-rule violations found in post-call audits (target 0).
 - Business: touches sent; business STOP rate; DNC additions.
 - Discovery: discovery→booking conversion; shortlist acceptance (`Call all` rate); % of discovery tasks where the user booked Friday's recommendation.
@@ -1408,7 +1419,7 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `midcall_question_answered` / `midcall_question_timeout` | task_id, latency_s, answer_type (button/text/voice) |
 | `call_attempt_ended` | task_id, attempt_no, outcome, duration_s, lang_used, hangup_by |
 | `call_cost_recorded` | task_id, telephony_paise, stt_paise, tts_paise, llm_paise, msg_paise |
-| `task_completed` | task_id, final_outcome, attempts, total_duration_s, counted_against_cap |
+| `task_completed` | task_id, final_outcome, attempts, total_duration_s, cost_paise |
 | `report_sent` | task_id, latency_s, has_recording |
 | `recording_requested` / `transcript_requested` | task_id |
 | `memory_fact_extracted` | fact_id, kind, confidence, confirmed (auto/asked) |
@@ -1422,7 +1433,7 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `command_executed` | command, success |
 | `pin_attempt` | context, success, lockout |
 | `data_deletion_requested` / `data_deletion_completed` | duration_s |
-| `cap_warning_sent` / `cap_reached` | month, used |
+| `cost_threshold_alert` / `rate_limit_applied` | period, cost_paise, limit (ops only) |
 | `business_touch_sent` | business_id, channel, template |
 | `business_opt_out` | business_id, source |
 | `inbound_call_received` | matched_task (bool) |
@@ -1452,7 +1463,8 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `quote_recorded` | task_id, business_id, amount_paise, includes_count |
 | `negotiation_outcome` | task_id, business_id, initial_paise, final_paise, asks, accepted_by_business |
 | `comparison_report_sent` | task_id, n_businesses, recommended_business_id |
-| `booking_approval` | task_id, via (pre_approved/midcall/post_call), latency_s |
+| `booking_approval` | task_id, mode (call_back/delegated/recurring_rule), latency_s, offer_still_available |
+| `callback_confirm_call` | task_id, result (confirmed/slot_lost/changed_price/no_answer) |
 | `call_language_switched` | task_id, from, to, turn_no |
 | `person_added` / `person_removed` | relation, source (chat/onboarding/task) |
 | `place_saved` | source (text/voice/maps_link/pin), geocode_confidence |
@@ -1468,9 +1480,9 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 
 | # | Question | PM recommendation |
 |---|---|---|
-| Q1 | Friday's voice and grammatical gender in Hindi (affects TTS voice and every Hindi string) | Female voice and feminine verb forms ("karti hoon"). The copy above assumes this |
+| Q1 | Friday's voice and grammatical gender in Hindi | **Resolved (founder): female** (F.R.I.D.A.Y.-style), feminine verb forms ("karti hoon") and female TTS voices |
 | Q2 | ~~Business discovery in P1?~~ **Resolved by founder: yes** (US-17). Remaining question: which provider(s)? Google Places has ratings/reviews but has caching/attribution limits; Justdial has better SMB coverage but no official API | Google Places for P1 behind the interface; evaluate a second source for SMB coverage |
-| Q3 | Cap accounting: per connected task (proposed) or per attempt? Is 10/month right? | Per connected task, 10/month. Revisit using cost data |
+| Q3 | Cap accounting | **Resolved (founder): no user-facing cap in beta.** Internal cost tracking, alerts and an ops abuse rate-limit (US-2) |
 | Q4 | Announce call recording in the opening line? It adds ~2 s and may raise the hang-up rate. Indian law is generally one-party consent, but disclosure is the safer trust posture | Yes, announce it; A/B the phrasing |
 | Q5 | Retention for recordings and transcripts | 30 days, then auto-delete. Summaries are kept until the user deletes them |
 | Q6 | Quiet hours for NRIs: IST (per BRIEF) or user-local? | Keep IST for P1 per BRIEF. Add user-local time zone in P1.1 |
@@ -1483,14 +1495,14 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | Q13 | Should level 4 (auto-act) be available at all in the beta? | Yes for `personal_care`, `dining`, `enquiries`, `follow_ups` and `reminders`; not for `health` or `home_services` |
 | Q14 | Global DNC: one business's "don't call" blocks all Friday users from calling that number. Is that acceptable for users? | Yes. Respecting businesses matters for P5 Friday for Business |
 | Q15 | Caller ID: use one shared number pool or a dedicated number per city? Businesses that save "Friday" may block it | City-level pools with a consistent display name. Monitor block and answer rates |
-| Q16 | Cap accounting for discovery (one task = up to 3 compare calls + booking call). Cost per *successful task* may exceed ₹15 | Count as 1 task. Track cost per discovery task separately and revisit the ₹15 target for compare tasks |
-| Q17 | Is "pre-approval" (exact slot + price within budget given before the call) enough to satisfy "ask before booking", or must Friday always ask mid-call? | Pre-approval counts (US-3.11). Founder to confirm |
+| Q16 | Cap accounting for discovery | **Resolved (founder): no cap.** Discovery cost is tracked per task. The ₹15 target is reviewed separately for compare tasks |
+| Q17 | Pre-approval vs always asking | **Resolved (founder): approval rule.** Call back by default; confirm on the call only within explicit delegation (US-3.11) |
 | Q18 | DPDP: Friday stores third-party data (parents' names, phones, health notes) provided by the user, before the beneficiary consents. Lawful basis? Can a beneficiary demand deletion of the profile the user created? | Store minimal data under the user's consent. Health notes are user-entered, encrypted at rest and never shared beyond US-22.4. Honour the beneficiary's deletion requests. Needs legal sign-off |
 | Q19 | Negotiation default: `polite` for everyone, or ask the user at the first quote task? | `polite` default; the user can say "bargain hard" (→ `firm`) or "don't bargain" (→ `none`) per task or globally |
 | Q20 | Should Friday name competitors when citing quotes? | No, by default ("another service quoted…") |
-| Q21 | Recurring bookings (A12): does a one-time approval of the rule plus price ceiling count as "asking the user first" for every instance? | Yes. Each instance is still reported with `Skip this one`, and any deviation asks |
-| Q22 | Cap accounting is getting complicated (fan-out legs, discovery, care follow-ups, check-ins). Should the beta cap be on **tasks** with a **per-task call budget** instead of on calls? | Count user-initiated tasks (10/month). Check-ins and care follow-ups don't count. Fan-outs count 1 per 5 connected legs. Hard per-user monthly ₹ cost ceiling as a backstop |
-| Q23 | Customer care needs the scam check (B16) and warm transfer (B17), which the brief marks Priority 2 | Promote B16 and B17 to Priority 1, since care tasks are unsafe or incomplete without them |
+| Q21 | Recurring bookings approval | **Resolved (founder):** explicit delegation for the rule (window + ceiling) covers each instance; deviations take the call-back route |
+| Q22 | Cap accounting for fan-outs, care follow-ups and check-ins | **Resolved (founder): no user-facing cap.** Per-user cost tracking, alerts and an ops rate-limit (off by default for invited users) |
+| Q23 | Priority of scam check (B16) and warm transfer (B17) | **Resolved (founder): both Priority 1** |
 | Q24 | WA-to-business from Friday's number: Meta policy and template category risk, and whether businesses will reply to an AI | Pilot with utility-category `friday_biz_request`; fall back to SMS link-less requests if rejected |
 | Q25 | Check-in alerts (A13): liability if Friday misses a real emergency, and which signals count as an alert. Should a medical professional review the triggers? | Conservative trigger list (A13), clear "not an emergency service" wording in the member opt-in, and medical review of the trigger list before launch |
 | Q26 | Customer-care calls can run 30–60 min. Do toll-free and hold minutes break the < ₹15 cost target? | Track care separately with a target of < ₹40 per resolved care task. Listening mode is required |

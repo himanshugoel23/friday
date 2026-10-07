@@ -196,9 +196,14 @@ class CallPolicy(Protocol):
         "HUMAN AGENT JOINED AFTER 7m HOLD", "BLOCKED: unapproved long number".
       * Mirror the callee: ``CallAction.language`` = language of the last CALLEE turn
         (if TTS supports it), else ``brief.opening_language``.
-      * Never commit money. Before confirming a booking/order emit ASK_USER with
-        ``question.purpose=APPROVE_BOOKING`` unless ``brief.can_commit(answers)``;
-        mark the confirming action ``commits_booking=True``.
+      * Never commit money. Approval rule (founder, final): unless
+        ``brief.can_commit(answers)`` (confirmation call-back with ``approved_terms``,
+        or an explicit ``brief.delegation`` - and then only within its price/time/scope
+        limits), do NOT confirm: tell the business she'll call back after checking
+        with the user and HANGUP with outcome PENDING_APPROVAL + the offer.
+        (ApprovalMode.HOLD_THEN_CALLBACK, opt-in, may ASK_USER(APPROVE_BOOKING) first.)
+        Mark the confirming action ``commits_booking=True``.
+      * Friday is female: feminine Hindi/Hinglish verb forms ("karti hoon").
       * IVR: understand spoken menus -> PRESS_KEYS (or SAY the option); prefer the
         human-agent path; WAIT_ON_HOLD on hold music/queue messages.
       * Never speak/key OTP/PIN/CVV/password; share only ``brief.approved_identifiers``.

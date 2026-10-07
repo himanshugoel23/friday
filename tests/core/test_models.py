@@ -134,3 +134,20 @@ def test_transcript_helpers():
     assert t.last(Speaker.CALLEE).language == Language.HI
     assert t.render() == "FRIDAY: Hi\nCALLEE: Haan boliye"
     assert Beneficiary(person_id="p1").is_self is False
+
+
+def test_delegation_rules():
+    from friday.core.models import ApprovalMode, Delegation
+
+    assert _brief().approval.mode == ApprovalMode.CALLBACK  # founder default
+    d = Delegation(
+        granted=True,
+        max_price_inr=800,
+        window_start=datetime(2026, 1, 6, 17, 0, tzinfo=IST),
+        window_end=datetime(2026, 1, 6, 19, 0, tzinfo=IST),
+    )
+    assert _brief(delegation=d).can_commit([])
+    assert d.allows_price(700) and not d.allows_price(900) and not d.allows_price(None)
+    assert d.allows_time(datetime(2026, 1, 6, 18, 0, tzinfo=IST))
+    assert not d.allows_time(datetime(2026, 1, 6, 20, 0, tzinfo=IST))
+    assert not Delegation().allows_price(100)
