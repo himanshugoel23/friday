@@ -144,6 +144,15 @@ class CallState:
     def friday_count(self, *words: str) -> int:
         return sum(1 for t in self.friday if has_any(norm(t.text), words))
 
+    def friday_has(self, *fragments: str) -> bool:
+        """Plain substring check (for question fragments that may end mid-word)."""
+        frs = [norm(f) for f in fragments if f]
+        return any(any(f in norm(t.text) for f in frs) for t in self.friday)
+
+    def after_friday_has(self, *fragments: str) -> str:
+        frs = [norm(f) for f in fragments if f]
+        return self._after(lambda txt: any(f in txt for f in frs))
+
     def callee_text(self) -> str:
         return " ".join(t.text for t in self.callee)
 
@@ -165,9 +174,12 @@ class CallState:
 
     def after_friday_said(self, *words: str) -> str:
         """Callee text right after the LAST Friday turn containing any of ``words``."""
+        return self._after(lambda txt: has_any(txt, words))
+
+    def _after(self, match) -> str:
         idx = None
         for i, t in enumerate(self.transcript.turns):
-            if t.speaker == Speaker.FRIDAY and has_any(norm(t.text), words):
+            if t.speaker == Speaker.FRIDAY and match(norm(t.text)):
                 idx = i
         if idx is None:
             return ""
@@ -261,6 +273,13 @@ def audio_tag(text: str) -> str | None:
 
 def strip_tag(text: str) -> str:
     return _TAG.sub("", text or "")
+
+
+def affirmative(text: str) -> bool:
+    t = norm(text)
+    if not t or has_any(t, ("nahi", "no", "not", "can't", "cannot", "sorry", "nahin")):
+        return False
+    return has_any(t, POSITIVE_WORDS)
 
 
 def is_ivr(text: str) -> bool:

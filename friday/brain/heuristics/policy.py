@@ -50,6 +50,7 @@ from .callstate import (
     POSITIVE_WORDS,
     VERIFY_WORDS,
     WAIT_WORDS,
+    affirmative,
     WRONG_NUMBER,
     CallState,
     find_agent,
@@ -129,7 +130,7 @@ class Turn:
             collected.append(KV(key="price", value=format_inr(st.price)))
         held = st.after_friday_said("hold", "rakh sakte", "rakh dijiye")
         if held:
-            collected.append(KV(key="held", value="yes" if is_yes(held) else "no"))
+            collected.append(KV(key="held", value="yes" if affirmative(held) else "no"))
         for k, v in (extra or {}).items():
             collected.append(KV(key=k, value=v))
         text = pre + self.t(
@@ -723,7 +724,7 @@ def _quote(tn: Turn) -> CallActionOut:
     return tn.hangup(tn.t(en="Thank you, I'll get back to you soon.",
                           hinglish="Theek hai ji, shukriya. Jaldi batati hoon."),
                      CallOutcome.SUCCESS,
-                     collected=[KV(key="held", value="yes" if is_yes(held) else "no")])
+                     collected=[KV(key="held", value="yes" if affirmative(held) else "no")])
 
 
 # =============================================================================== info flows
@@ -737,15 +738,15 @@ def _questions(tn: Turn) -> list[str]:
 def _enquiry(tn: Turn) -> CallActionOut:
     st, b = tn.st, tn.b
     qs = _questions(tn) or [b.goal]
-    asked = [q for q in qs if st.friday_said(q[:24])]
+    asked = [q for q in qs if st.friday_has(q[:24])]
     collected = []
     for q in asked:
-        ans = st.after_friday_said(q[:24])
+        ans = st.after_friday_has(q[:24])
         if ans:
             collected.append(KV(key=q, value=ans[:160]))
     reply = st.reply_text()
     if b.task_type == TaskType.STOCK_HUNT and asked and reply:
-        first = st.after_friday_said(qs[0][:24])
+        first = st.after_friday_has(qs[0][:24])
         if first and (has_any(first, ("out of stock", "nahi hai", "not available", "khatam",
                                       "nahi", "no", "illa", "don't have", "dont have"))
                       and not has_any(first, ("hai ji", "yes", "available hai", "haan"))):
@@ -961,7 +962,7 @@ def _wellbeing(tn: Turn) -> CallActionOut:
     all_said = norm(st.callee_text())
     collected: list[KV] = []
     for key, en, hing, hi in _CHECKIN_QS:
-        ans = st.after_friday_said(en[:18], hing[:14], hi[:10])
+        ans = st.after_friday_has(en[:18], hing[:14], hi[:10])
         if ans:
             collected.append(KV(key=key, value=ans[:160]))
     if has_any(all_said, MED_SKIPPED):
@@ -989,7 +990,7 @@ def _wellbeing(tn: Turn) -> CallActionOut:
         return tn.say(tn.t(en=f"I'm not a doctor, so I'll pass this to {name} right away.",
                            hinglish=f"Main doctor nahi hoon, yeh main {name} ko turant bata dungi."),
                       collected=collected)
-    asked = [k for k, en, hing, hi in _CHECKIN_QS if st.friday_said(en[:18], hing[:14], hi[:10])]
+    asked = [k for k, en, hing, hi in _CHECKIN_QS if st.friday_has(en[:18], hing[:14], hi[:10])]
     if asked and not reply:
         return tn.act(CallActionType.WAIT, collected=collected)
     for key, en, hing, hi in _CHECKIN_QS:
