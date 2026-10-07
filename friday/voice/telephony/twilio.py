@@ -622,6 +622,10 @@ class TwilioTelephony:
         )
         return leg
 
+    def capabilities(self) -> frozenset[str]:
+        return frozenset({"outbound", "inbound", "missed_call", "media_stream", "dtmf",
+                          "recording", "amd", "bridge_transfer", "bridge_conference"})  # fmt: skip
+
     def take_inbound(self, provider_call_id: str) -> TwilioCallLeg | None:
         leg = self.inbound_legs.pop(provider_call_id, None)
         if leg is not None:
@@ -736,7 +740,16 @@ class TwilioTelephony:
         await self._http.aclose()
 
 
-def build_twilio(c: Container) -> TwilioTelephony:
+def build_twilio(c: Container) -> Any:
+    """Factory for FACTORIES["telephony"]["twilio"]; honours FRIDAY_TELEPHONY_ROUTE."""
+    from friday.voice.telephony.routing import build_routed_telephony, route_from_env
+
+    if route_from_env():
+        return build_routed_telephony(c)
+    return build_twilio_direct(c)
+
+
+def build_twilio_direct(c: Container) -> TwilioTelephony:
     s = c.settings
     if not (s.twilio_account_sid and s.twilio_auth_token):
         raise ProviderError("twilio", "TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN not set")

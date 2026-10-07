@@ -381,6 +381,10 @@ class ExotelTelephony:
         )
         return leg
 
+    def capabilities(self) -> frozenset[str]:
+        return frozenset({"outbound", "inbound", "missed_call", "media_stream", "dtmf",
+                          "recording", "bridge_transfer"})  # fmt: skip
+
     def take_inbound(self, provider_call_id: str) -> ExotelCallLeg | None:
         leg = self.inbound_legs.pop(provider_call_id, None)
         if leg is not None:
@@ -522,7 +526,17 @@ class ExotelTelephony:
         await self._http.aclose()
 
 
-def build_exotel(c: Container) -> ExotelTelephony:
+def build_exotel(c: Container) -> Any:
+    """Factory for FACTORIES["telephony"]["exotel"]. With FRIDAY_TELEPHONY_ROUTE set it
+    returns a RoutedTelephony (e.g. sarvam -> exotel -> twilio)."""
+    from friday.voice.telephony.routing import build_routed_telephony, route_from_env
+
+    if route_from_env():
+        return build_routed_telephony(c)
+    return build_exotel_direct(c)
+
+
+def build_exotel_direct(c: Container) -> ExotelTelephony:
     s = c.settings
     if not (s.exotel_sid and s.exotel_api_key and s.exotel_api_token):
         raise ProviderError("exotel", "EXOTEL_SID / EXOTEL_API_KEY / EXOTEL_API_TOKEN not set")

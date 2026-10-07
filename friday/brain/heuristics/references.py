@@ -138,7 +138,8 @@ def location_text_of(text: str) -> str | None:
     for m in _NEAR.finditer(t):
         loc = (m.group(1) or m.group(2) or "").strip(" ,.")
         words = loc.split()
-        if not loc or loc in _STOP_LOCATIONS or (words and words[0] in _STOP_LOCATIONS):
+        if not loc or loc in _STOP_LOCATIONS or (words and words[0] in _STOP_LOCATIONS) or (
+                words and words[0] in {"kis", "kaun", "kaunse", "which", "any", "koi"}):
             continue
         if re.search(r"\d+\s*(am|pm)|\bbaje\b|₹|rs\b", loc):
             continue

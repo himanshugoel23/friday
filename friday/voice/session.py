@@ -442,6 +442,9 @@ class _Session:
             return await self._run_inbound()
         b = self.brief
         meta = {"call_id": self.result.call_id}
+        needs = self._needs()
+        if needs:
+            meta["needs"] = ",".join(sorted(needs))
         extra: dict[str, Any] = {}
         if self.from_number:
             meta["from_number"] = self.from_number
@@ -465,6 +468,7 @@ class _Session:
             self.result.error = truncate(str(e), 300)
             self.result.dial_status = DialStatus.FAILED
             return CallOutcome.FAILED
+        self.result.provider = getattr(self.leg, "provider", None) or self.result.provider
         self.result.provider_call_id = self.leg.provider_call_id
         self.result.from_number = getattr(self.leg, "from_number", None) or self.from_number
         await self.r.bus.publish(
@@ -488,6 +492,18 @@ class _Session:
             return await self._loop()
         except CallEnded:
             return await self._callee_hung_up()
+
+    def _needs(self) -> set[str]:
+        """Capabilities this call needs (RoutedTelephony falls back per call)."""
+        b = self.brief
+        needs: set[str] = set()
+        if self.care is not None or b.ivr_notes:
+            needs.add("dtmf")
+        if b.mode == CallMode.WARM_TRANSFER or (self.care is not None and b.user_phone):
+            needs.add("bridge")
+        if b.mode == CallMode.TRANSLATOR:
+            needs.add("media_stream")
+        return needs
 
     async def _run_inbound(self) -> CallOutcome:
         b = self.brief

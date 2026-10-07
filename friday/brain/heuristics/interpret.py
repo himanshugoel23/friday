@@ -260,8 +260,8 @@ def detect_care_kind(t: str) -> CareRequestKind:
 
 
 _CAP_NAME = re.compile(
-    r"\b((?:Dr\.?\s+)?[A-Z][\w'&.-]*(?:\s+(?:[A-Z][\w'&.-]*|&|and|of))*"
-    r"(?:\s+(?:salon|clinic|pharmacy|chemist|restaurant|hospital|services?|plumbing|"
+    r"\b((?:Dr\.?\s+)?[A-Z][\w'&-]*(?:[ \t]+(?:[A-Z][\w'&-]*|&|and|of))*"
+    r"(?:[ \t]+(?:salon|clinic|pharmacy|chemist|restaurant|hospital|services?|plumbing|"
     r"homestay|hotel|cafe|medicos|stores?|works|repair|lab|labs|dental|parlour)\b)?)"
 )
 _NAME_STOP = {
@@ -1301,6 +1301,17 @@ def _task_reply(c: _Ctx, d: TaskDraft) -> str:
                      hinglish=f"{target} ke official number pe call karti hoon, IVR se agent tak "
                               f"pahunch ke batati hoon. Sirf aapke approve kiye details share "
                               f"karungi.")
+    if d.type == TaskType.HOTEL_BOOKING:
+        dest = d.stay.destination if d.stay else "your destination"
+        return c.say(en=f"Looking for stays in {dest}{when}. I'll compare online rates with "
+                        f"direct rates and check with you before booking anything.",
+                     hinglish=f"{dest} mein stays dhundh rahi hoon{when}. Online aur direct rates "
+                              f"compare karke, book karne se pehle aapse poochungi.")
+    if d.type == TaskType.STOCK_HUNT:
+        return c.say(en=f"Calling nearby chemists/shops for {d.item or 'it'}, a few at a time. "
+                        f"I'll stop at the first one that has it.",
+                     hinglish=f"{d.item or 'Yeh'} ke liye paas ki dukaanon ko 3-3 karke call kar "
+                              f"rahi hoon. Mil gaya toh wahin ruk jaungi.")
     if d.discovery_query and not d.business_phone and not d.business_name:
         near = f" near {d.location_text or d.place_ref}" if (d.location_text or d.place_ref) \
             else ""

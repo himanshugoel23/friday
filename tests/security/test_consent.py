@@ -122,7 +122,7 @@ async def test_sms_to_circle_member_requires_consent(wired, repos, clock) -> Non
     user = await make_active_user(repos, clock, ALICE_PHONE)
     dad = await _dad(repos, user.id, PersonConsent.NOT_ASKED)
     receipt = await wired.notifier.send_sms(
-        DAD_PHONE, TemplateRef(key="user_update", params=["hi"]), user_id=user.id,
+        DAD_PHONE, TemplateRef(key="user_reminder", params=["hi"]), user_id=user.id,
         person_id=dad.id,
     )
     assert not receipt.ok
