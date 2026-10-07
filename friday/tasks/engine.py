@@ -1256,6 +1256,8 @@ class TaskEngine:
         first_retry = task.attempts == 1
         await self._transition(task, S.SCHEDULED, next_attempt_at=when)
         role = role_of(task)
+        if role == ROLE_FANOUT:  # E.36: don't wait - let the parent move on
+            await self._on_child_settled(await self.tasks.get(task.id) or task)
         if role in _SILENT_ROLES:
             return
         who = task.target.name if task.target else "They"
