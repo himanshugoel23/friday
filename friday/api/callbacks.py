@@ -3,8 +3,8 @@
 Inputs (no imports from friday.voice / friday.tasks):
 
 * the voice side publishes bus events named ``InboundCallReceived`` /
-  ``MissedCallReceived`` (fields ``from_phone``, ``to_number`` or
-  ``friday_number``, optional ``provider_call_id``); we subscribe to the base
+  ``MissedCallReceived`` (fields ``from_phone``, ``to_number`` / ``to_phone`` /
+  ``friday_number``, optional ``provider_call_id`` / ``call_id``); we subscribe to the base
   ``Event`` and filter by class name until the core events land (CORE_CHANGES);
 * the inbound message pipeline calls ``on_business_message`` for messages from
   business numbers.
@@ -67,10 +67,20 @@ class CallbackService:
         from_phone = getattr(event, "from_phone", None)
         if not from_phone:
             return
-        friday_number = getattr(event, "to_number", None) or getattr(event, "friday_number", None)
-        ref = getattr(event, "provider_call_id", None)
+        # Field names differ between producers: accept both spellings defensively.
+        friday_number = (
+            getattr(event, "to_number", None)
+            or getattr(event, "to_phone", None)
+            or getattr(event, "friday_number", None)
+        )
+        provider_ref = getattr(event, "provider_call_id", None)
+        call_id = getattr(event, "call_id", None) or provider_ref
         await self.on_inbound_call(
-            from_phone, friday_number, answered=name in INBOUND_CALL_EVENTS, provider_ref=ref
+            from_phone,
+            friday_number,
+            answered=name in INBOUND_CALL_EVENTS,
+            provider_ref=provider_ref or call_id,
+            call_id=call_id,
         )
 
     def _engine(self) -> Any:
@@ -115,11 +125,12 @@ class CallbackService:
         *,
         answered: bool,
         provider_ref: str | None = None,
+        call_id: str | None = None,
     ) -> tuple[CallbackMatch, InboundContact]:
         match = await self.match(from_phone, friday_number)
         kind = InboundKind.CALL if answered else InboundKind.MISSED_CALL
         contact = await self.repos.calls.record_inbound(
-            kind, match, channel="voice", provider_ref=provider_ref
+            kind, match, channel="voice", provider_ref=provider_ref, call_id=call_id
         )
         await self.repos.audit.log(
             f"inbound.{kind.value}",
@@ -129,16 +140,19 @@ class CallbackService:
             status=match.status.value,
         )
         handled = False
-        if match.status != MatchStatus.UNMATCHED:
-            names = (
-                ("handle_business_callback", "resume_from_callback")
-                if answered
-                else ("handle_missed_call", "on_missed_call")
-            )
-            handled = await self._engine_call(names, match, contact)
-        else:
-            log.info("unmatched inbound %s from %s (ops)", kind.value, mask_phone(match.from_phone))
+        if answered and match.status == MatchStatus.UNMATCHED:
+            # E33: greet, take a message, reveal nothing about any user.
+            log.info("unmatched inbound call from %s (ops)", mask_phone(match.from_phone))
             handled = await self._engine_call(("handle_unknown_caller",), match, contact)
+        elif answered:
+            handled = await self._engine_call(
+                ("handle_business_callback", "resume_from_callback"), match, contact
+            )
+        else:
+            # The engine logs unmatched missed calls itself (no call-back, no details).
+            handled = await self._engine_call(
+                ("handle_missed_call", "on_missed_call"), match, contact
+            )
         if handled:
             await self.repos.calls.mark_handled(contact.id)
         return match, contact

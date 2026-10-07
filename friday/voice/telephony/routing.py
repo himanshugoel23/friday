@@ -60,8 +60,13 @@ def satisfies(caps: frozenset[str], needs: set[str]) -> bool:
 class RoutedTelephony:
     name = "routed"
 
-    def __init__(self, providers: list[Any], *, international: Any | None = None,
-                 domestic_prefix: str = "+91") -> None:
+    def __init__(
+        self,
+        providers: list[Any],
+        *,
+        international: Any | None = None,
+        domestic_prefix: str = "+91",
+    ) -> None:
         if not providers:
             raise ProviderError("routing", "no telephony provider available")
         self.providers = providers
@@ -100,8 +105,12 @@ class RoutedTelephony:
             try:
                 leg = await p.place_call(request)
             except ProviderError as e:
-                log.warning("%s could not place call to %s (%s); trying next provider",
-                            p.name, mask_phone(request.to_phone), e)
+                log.warning(
+                    "%s could not place call to %s (%s); trying next provider",
+                    p.name,
+                    mask_phone(request.to_phone),
+                    e,
+                )
                 last = e
                 continue
             return leg
@@ -135,8 +144,11 @@ def build_routed_telephony(c: Container, order: list[str] | None = None) -> Rout
     from friday.voice.telephony.sarvam import build_sarvam_telephony
     from friday.voice.telephony.twilio import build_twilio_direct
 
-    builders = {"sarvam": build_sarvam_telephony, "exotel": build_exotel_direct,
-                "twilio": build_twilio_direct}
+    builders = {
+        "sarvam": build_sarvam_telephony,
+        "exotel": build_exotel_direct,
+        "twilio": build_twilio_direct,
+    }
     built: dict[str, Any] = {}
     for name in order or route_from_env() or ["sarvam", "exotel", "twilio"]:
         if name not in builders:

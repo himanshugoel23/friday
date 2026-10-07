@@ -1,6 +1,10 @@
 """Voice HTTP/WS endpoints (mounted by friday/api at ``/voice``).
 
-Exotel (live, primary for India) - URLs carry ``token=`` (see telephony/exotel.py):
+Sarvam / Vobiz (live, primary for India) - URLs carry ``token=``:
+  GET|POST /voice/sarvam/answer|inbound|hangup|machine|transfer   (XML / callbacks)
+  WS   /voice/sarvam/media       bidirectional mu-law stream
+
+Exotel (live, India fallback) - URLs carry ``token=`` (see telephony/exotel.py):
   POST /voice/exotel/status      StatusCallback (JSON or form), ?key=&token=
   GET|POST /voice/exotel/passthru inbound ExoPhone flow Passthru applet, ?token=
   WS   /voice/exotel/media       Voicebot applet stream, ?token=
@@ -21,6 +25,7 @@ Simulator (QA / local):
 
 from __future__ import annotations
 
+import hmac
 import json
 from pathlib import Path
 from typing import Any
@@ -32,6 +37,7 @@ from pydantic import BaseModel
 from friday.core.container import Container
 from friday.core.logging import get_logger
 from friday.voice.telephony.exotel import ExotelTelephony, validate_exotel_token
+from friday.voice.telephony.sarvam import SarvamTelephony, sarvam_token
 from friday.voice.telephony.twilio import TwilioTelephony, validate_twilio_signature
 
 log = get_logger(__name__)
@@ -53,10 +59,18 @@ def build_router(c: Container) -> APIRouter:
         except Exception as e:  # noqa: BLE001
             raise HTTPException(503, "telephony not configured") from e
 
-    def twilio() -> TwilioTelephony:
+    def find(cls: type) -> Any:
+        """The active provider of ``cls`` - directly or inside a RoutedTelephony."""
         tel = telephony()
-        if not isinstance(tel, TwilioTelephony):
-            raise HTTPException(404, "twilio is not the active telephony provider")
+        if isinstance(tel, cls):
+            return tel
+        finder = getattr(tel, "find", None)
+        return finder(cls) if callable(finder) else None
+
+    def twilio() -> TwilioTelephony:
+        tel = find(TwilioTelephony)
+        if tel is None:
+            raise HTTPException(404, "twilio is not an active telephony provider")
         return tel
 
     async def verified_form(request: Request, tel: TwilioTelephony) -> dict[str, str]:
@@ -114,9 +128,9 @@ def build_router(c: Container) -> APIRouter:
 
     # ---------------------------------------------------------------- exotel
     def exotel() -> ExotelTelephony:
-        tel = telephony()
-        if not isinstance(tel, ExotelTelephony):
-            raise HTTPException(404, "exotel is not the active telephony provider")
+        tel = find(ExotelTelephony)
+        if tel is None:
+            raise HTTPException(404, "exotel is not an active telephony provider")
         return tel
 
     def check_token(tel: ExotelTelephony, scope: str, token: str | None) -> None:
@@ -163,6 +177,88 @@ def build_router(c: Container) -> APIRouter:
                 except ValueError:
                     continue
                 await tel.handle_stream_message(msg, ws.send_text, state, close=ws.close)
+                if msg.get("event") == "stop":
+                    break
+        except (WebSocketDisconnect, RuntimeError):
+            leg = state.get("leg")
+            if leg is not None:
+                leg.on_stream_stop()
+
+    # ---------------------------------------------------------------- sarvam / vobiz
+    def sarvam() -> SarvamTelephony:
+        tel = find(SarvamTelephony)
+        if tel is None:
+            raise HTTPException(404, "sarvam is not an active telephony provider")
+        return tel
+
+    def sarvam_auth(tel: SarvamTelephony, request: Request) -> str | None:
+        key = request.query_params.get("key") or None
+        scope = key or "inbound"
+        token = request.query_params.get("token") or ""
+
+        if not hmac.compare_digest(sarvam_token(tel.secret, scope), token):
+            raise HTTPException(403, "invalid token")
+        return key
+
+    async def params_of(request: Request) -> dict[str, str]:
+        params = {k: v for k, v in request.query_params.items() if k not in ("token",)}
+        if request.method == "POST":
+            if "json" in request.headers.get("content-type", ""):
+                params.update({k: str(v) for k, v in (await request.json()).items()})
+            else:
+                params.update({k: str(v) for k, v in (await request.form()).items()})
+        return params
+
+    @router.api_route("/sarvam/answer", methods=["GET", "POST"])
+    @router.api_route("/sarvam/inbound", methods=["GET", "POST"])
+    async def sarvam_answer(request: Request) -> Response:
+        tel = sarvam()
+        key = sarvam_auth(tel, request)
+        xml = await tel.answer_xml(await params_of(request), key)
+        return Response(content=xml, media_type="application/xml")
+
+    @router.api_route("/sarvam/hangup", methods=["GET", "POST"])
+    async def sarvam_hangup(request: Request) -> Response:
+        tel = sarvam()
+        key = sarvam_auth(tel, request)
+        await tel.handle_hangup(await params_of(request), key)
+        return Response(status_code=204)
+
+    @router.api_route("/sarvam/machine", methods=["GET", "POST"])
+    async def sarvam_machine(request: Request) -> Response:
+        tel = sarvam()
+        key = sarvam_auth(tel, request)
+        await tel.handle_machine(await params_of(request), key)
+        return Response(status_code=204)
+
+    @router.api_route("/sarvam/transfer", methods=["GET", "POST"])
+    async def sarvam_transfer(request: Request) -> Response:
+        tel = sarvam()
+        key = sarvam_auth(tel, request)
+        params = await params_of(request)
+        await tel.handle_transfer_status(params, key)
+        return Response(content=tel.transfer_xml(params), media_type="application/xml")
+
+    @router.websocket("/sarvam/media")
+    async def sarvam_media(ws: WebSocket) -> None:
+        tel = sarvam()
+
+        if not hmac.compare_digest(
+            sarvam_token(tel.secret, "media"), ws.query_params.get("token", "")
+        ):
+            await ws.close(code=1008)
+            return
+        await ws.accept()
+        state: dict[str, Any] = {}
+        key = ws.query_params.get("key")
+        try:
+            while True:
+                raw = await ws.receive_text()
+                try:
+                    msg = json.loads(raw)
+                except ValueError:
+                    continue
+                await tel.handle_stream_message(msg, ws.send_text, state, key=key, close=ws.close)
                 if msg.get("event") == "stop":
                     break
         except (WebSocketDisconnect, RuntimeError):

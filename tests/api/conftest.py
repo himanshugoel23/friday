@@ -129,6 +129,9 @@ class FakeEngine:
     async def handle_missed_call(self, match, contact):  # noqa: ANN001
         self._rec("handle_missed_call", match, contact)
 
+    async def handle_unknown_caller(self, match, contact):  # noqa: ANN001
+        self._rec("handle_unknown_caller", match, contact)
+
     async def handle_business_message(self, msg, match):  # noqa: ANN001
         self._rec("handle_business_message", msg, match)
 

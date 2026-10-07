@@ -461,3 +461,60 @@ async def test_cost_alert_once_per_month_and_never_user_facing(pipeline, channel
     assert len(channel.outbox) == sent_before
     pipeline.clock.advance(timedelta(days=40).total_seconds())
     assert await pipeline.costs.month_total(user.id) == 0
+
+
+async def test_nudge_button_delegates_to_proactive(pipeline, channel, wired):
+    from friday.core.models import AutonomyCategory, Nudge, NudgeKind, ReplyButton, nudge_button_id
+
+    user = await onboard(pipeline, channel)
+    nudge = await pipeline.repos.nudges.add(
+        Nudge(
+            user_id=user.id,
+            kind=NudgeKind.PATTERN,
+            category=AutonomyCategory.ROUTINES,
+            dedupe_key="p:1",
+        )
+    )
+    seen = []
+
+    class Proactive:
+        async def handle_nudge_action(self, n, action):  # noqa: ANN001
+            seen.append((n.id, action))
+
+    wired.override("proactive", Proactive())
+    await wired.notifier.notify_user(
+        user.id,
+        "Book usual haircut?",
+        buttons=[ReplyButton(id=nudge_button_id(nudge.id, "yes"), title="Book")],
+    )
+    await say(pipeline, channel, ADMIN, "1")
+    assert seen == [(nudge.id, "yes")]
+
+
+async def test_nudge_button_fallback_without_proactive(pipeline, channel, wired, engine):
+    from friday.core.models import (
+        AutonomyCategory,
+        Nudge,
+        NudgeKind,
+        NudgeStatus,
+        ReplyButton,
+        nudge_button_id,
+    )
+
+    user = await onboard(pipeline, channel)
+    nudge = await pipeline.repos.nudges.add(
+        Nudge(
+            user_id=user.id,
+            kind=NudgeKind.PATTERN,
+            category=AutonomyCategory.ROUTINES,
+            dedupe_key="p:2",
+            proposed_task=TaskSpec(type=TaskType.BOOKING, goal="usual haircut"),
+        )
+    )
+    wired.override("proactive", None)
+    await wired.notifier.notify_user(
+        user.id, "Book?", buttons=[ReplyButton(id=nudge_button_id(nudge.id, "yes"), title="Book")]
+    )
+    await say(pipeline, channel, ADMIN, "1")
+    assert (await pipeline.repos.nudges.get(nudge.id)).status == NudgeStatus.ACTED
+    assert engine.calls[-1][0] == "submit"

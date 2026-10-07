@@ -569,6 +569,7 @@ class InboundContactRow(IdMixin, Base):
     from_phone: Mapped[str] = mapped_column(String(20), nullable=False)
     friday_number: Mapped[str | None] = mapped_column(String(20))
     provider_ref: Mapped[str | None] = mapped_column(String(128))
+    call_id: Mapped[str | None] = mapped_column(String(128))  # voice call id (take_inbound key)
     status: Mapped[str] = mapped_column(String(12), nullable=False)
     business_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("businesses.id", ondelete="SET NULL")

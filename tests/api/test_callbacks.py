@@ -137,17 +137,21 @@ async def test_inbound_call_and_missed_call_go_to_engine(wired, pipeline, engine
 async def test_unmatched_caller_gets_no_details(wired, pipeline, engine):
     repos = wired.repos
     await _setup(repos)
-    n = len(engine.calls)
     match, contact = await pipeline.callbacks.on_inbound_call(
-        "+919811000000", FRIDAY_A, answered=True
+        "+919811000000", FRIDAY_A, answered=True, call_id="sim-call-7"
     )
     assert match.status == MatchStatus.UNMATCHED and match.user_id is None and not match.candidates
-    assert len(engine.calls) == n  # FakeEngine has no handle_unknown_caller
+    name, (m, c) = engine.calls[-1]
+    assert name == "handle_unknown_caller" and c.call_id == "sim-call-7"
     stored = await repos.calls.get_inbound(contact.id)
-    assert stored.user_id is None and stored.task_id is None and not stored.handled
+    assert stored.user_id is None and stored.task_id is None and stored.handled
     ctx = await pipeline.callbacks.safe_context(match)
     assert ctx == {}
     assert "Rahul" not in pipeline.callbacks.greeting(ctx)
+    # an unmatched MISSED call goes to handle_missed_call (engine just logs it)
+    await pipeline.callbacks.on_inbound_call("+919811000000", None, answered=False)
+    assert engine.calls[-1][0] == "handle_missed_call"
+    assert engine.calls[-1][1][0].status == MatchStatus.UNMATCHED
 
 
 async def test_ambiguous_caller_gets_no_details(wired, pipeline):
@@ -215,3 +219,42 @@ async def test_purge_removes_call_memory(wired):
     )
     await repos.purger.purge_user(user.id)
     assert (await repos.calls.match(BIZ)).status == MatchStatus.UNMATCHED
+
+
+async def test_voice_event_field_names_and_call_id(wired, pipeline, engine, bus):
+    """Voice's events: ``to_number`` (or ``to_phone``) + ``provider_call_id``/``call_id``."""
+    repos = wired.repos
+    user, t1 = await _setup(repos)
+    _, t2 = await _setup(repos, goal="Facial")
+    await repos.calls.record_outbound(
+        task_id=t1.id, user_id=user.id, business_phone=BIZ, friday_number=FRIDAY_A, call_id="c1"
+    )
+    await repos.calls.record_outbound(
+        task_id=t2.id, user_id=user.id, business_phone=BIZ, friday_number=FRIDAY_B, call_id="c2"
+    )
+    pipeline.callbacks.subscribe()
+
+    class InboundCallReceived(Event):  # alternative producer spelling: to_phone + call_id
+        from_phone: str
+        to_phone: str | None = None
+        call_id: str | None = None
+
+    await bus.publish(InboundCallReceived(from_phone=BIZ, to_phone=FRIDAY_B, call_id="CALL-1"))
+    name, (match, contact) = engine.calls[-1]
+    assert name == "handle_business_callback"
+    assert match.friday_number == FRIDAY_B and match.task_id == t2.id  # disambiguated
+    assert contact.call_id == "CALL-1" and contact.provider_ref == "CALL-1"
+
+    class VoiceInbound(Event):  # mirrors friday/voice/events.py (no cross-package import)
+        from_phone: str
+        to_number: str | None = None
+        provider_call_id: str | None = None
+
+    VoiceInbound.__name__ = "InboundCallReceived"
+
+    await bus.publish(VoiceInbound(from_phone=BIZ, to_number=FRIDAY_A, provider_call_id="PC-9"))
+    name, (match, contact) = engine.calls[-1]
+    assert match.task_id == t1.id and contact.call_id == "PC-9"
+    stored = await repos.calls.get_inbound(contact.id)
+    assert stored.call_id == "PC-9" and stored.friday_number == FRIDAY_A
+    pipeline.callbacks.unsubscribe()

@@ -81,6 +81,7 @@ class InboundContact(BaseModel):
     from_phone: str
     friday_number: str | None = None
     provider_ref: str | None = None
+    call_id: str | None = None  # voice call id; engine passes it to telephony.take_inbound
     status: MatchStatus
     business_id: str | None = None
     task_id: str | None = None
@@ -242,6 +243,7 @@ class CallMemoryRepo(Repo):
         *,
         channel: str = "voice",
         provider_ref: str | None = None,
+        call_id: str | None = None,
         note: str | None = None,
         at: datetime | None = None,
     ) -> InboundContact:
@@ -251,6 +253,7 @@ class CallMemoryRepo(Repo):
             from_phone=match.from_phone,
             friday_number=match.friday_number,
             provider_ref=provider_ref,
+            call_id=call_id,
             status=match.status,
             business_id=match.business_id,
             task_id=match.task_id,

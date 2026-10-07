@@ -139,7 +139,9 @@ def pipeline(wired):
     return InboundPipeline(wired, fast_pin_hash=True)
 
 
-async def make_active_user(repos, clock, phone: str, *, pin: str | None = PIN) -> User:
+async def make_active_user(
+    repos, clock, phone: str, *, pin: str | None = PIN, name: str = "Rahul Verma"
+) -> User:
     """An ACTIVE, onboarded user (optionally with a PIN) without running onboarding."""
     from friday.api.security import PinHasher
     from friday.core.models import Consent, ConsentKind, Profile
@@ -154,7 +156,7 @@ async def make_active_user(repos, clock, phone: str, *, pin: str | None = PIN) -
         updated_at=now,
     )
     await repos.users.add(user)
-    await repos.profiles.save(Profile(user_id=user.id, name="Rahul Verma", city="Pune"))
+    await repos.profiles.save(Profile(user_id=user.id, name=name, city="Pune"))
     await repos.consents.add(
         Consent(user_id=user.id, kind=ConsentKind.TERMS_PRIVACY, granted=True, recorded_at=now)
     )

@@ -95,7 +95,7 @@ DELEGATION_PHRASES = (
 SMALL_TALK = ("hi", "hello", "hey", "hii", "namaste", "namaskar", "good morning",
               "good evening", "good night", "thanks", "thank you", "thx", "shukriya",
               "dhanyavaad", "how are you", "kaise ho", "kya haal", "ok thanks", "cool", "nice",
-              "great", "👍", "🙏")
+              "great", "👍", "🙏", "नमस्ते", "धन्यवाद", "शुक्रिया", "हेलो")
 
 SECRET_WORDS = ("otp", "one time password", "pin", "mpin", "upi pin", "cvv", "cvc", "password",
                 "passcode", "card number", "card no", "atm pin", "aadhaar", "aadhar", "pan card")

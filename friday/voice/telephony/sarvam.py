@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import json
 import os
 from collections.abc import Awaitable, Callable, Mapping
@@ -115,15 +116,24 @@ class SarvamCallLeg(TwilioCallLeg):
     async def _play(self, ulaw: bytes) -> None:
         assert self._send is not None
         for i in range(0, len(ulaw), FRAME_BYTES * 10):
-            await self._send(json.dumps({
-                "event": "playAudio",
-                "media": {"contentType": "audio/x-mulaw", "sampleRate": 8000,
-                          "payload": base64.b64encode(ulaw[i : i + FRAME_BYTES * 10]).decode()},
-            }))
+            await self._send(
+                json.dumps(
+                    {
+                        "event": "playAudio",
+                        "media": {
+                            "contentType": "audio/x-mulaw",
+                            "sampleRate": 8000,
+                            "payload": base64.b64encode(ulaw[i : i + FRAME_BYTES * 10]).decode(),
+                        },
+                    }
+                )
+            )
         name = f"cp{new_id()[:10]}"
         ev = asyncio.Event()
         self._marks[name] = ev
-        await self._send(json.dumps({"event": "checkpoint", "streamId": self.stream_sid, "name": name}))
+        await self._send(
+            json.dumps({"event": "checkpoint", "streamId": self.stream_sid, "name": name})
+        )
         try:
             await asyncio.wait_for(ev.wait(), timeout=len(ulaw) / 8000 + 5)
         except TimeoutError:
@@ -141,14 +151,19 @@ class SarvamCallLeg(TwilioCallLeg):
         the user from the same number. Friday cannot monitor afterwards."""
         self._check_live()
         key = new_id()
-        user = SarvamCallLeg(self.tel_s, key=key, to_phone=phone, from_number=self.from_number,
-                             listen_only=True)
+        user = SarvamCallLeg(
+            self.tel_s, key=key, to_phone=phone, from_number=self.from_number, listen_only=True
+        )
         self.tel_s.legs[key] = user
         self.children.append(user)
-        url = self.tel_s.url("transfer", key, to=phone, caller=self.from_number or "",
-                             say=(announce or "")[:200])
-        await self.tel_s.rest("POST", f"/Call/{self.provider_call_id}/",
-                              {"legs": "aleg", "aleg_url": url, "aleg_method": "POST"})
+        url = self.tel_s.url(
+            "transfer", key, to=phone, caller=self.from_number or "", say=(announce or "")[:200]
+        )
+        await self.tel_s.rest(
+            "POST",
+            f"/Call/{self.provider_call_id}/",
+            {"legs": "aleg", "aleg_url": url, "aleg_method": "POST"},
+        )
         self.bridged = True
         self._send = None
         return user
@@ -178,10 +193,8 @@ class SarvamCallLeg(TwilioCallLeg):
                 log.debug("sarvam hangup failed: %s", e)
 
     async def play_fixed_message_and_hangup(self, text: str = INBOUND_MESSAGE) -> None:
-        try:
+        with contextlib.suppress(Exception):
             await self.speak(text, self.language)
-        except Exception:  # noqa: BLE001
-            pass
         await self.hangup()
 
 
@@ -223,8 +236,12 @@ class SarvamTelephony:
         self.inbound_legs: dict[str, SarvamCallLeg] = {}
         # TODO(.../telephony/vobiz): auth header names (Plivo uses HTTP Basic).
         auth = base64.b64encode(f"{auth_id}:{auth_token}".encode()).decode()
-        self._http = VendorHTTP("sarvam", base_url=base_url.rstrip("/"),
-                                headers={"Authorization": f"Basic {auth}"}, transport=transport)
+        self._http = VendorHTTP(
+            "sarvam",
+            base_url=base_url.rstrip("/"),
+            headers={"Authorization": f"Basic {auth}"},
+            transport=transport,
+        )
 
     def capabilities(self) -> frozenset[str]:
         return CAPABILITIES
@@ -245,8 +262,9 @@ class SarvamTelephony:
         return f"{base}/voice/sarvam/media?token={self.token('media')}"
 
     async def rest(self, method: str, path: str, data: dict | None) -> dict:
-        resp = await self._http.request(method, f"/Account/{self.auth_id}{path}",
-                                        json=data if data is not None else None)
+        resp = await self._http.request(
+            method, f"/Account/{self.auth_id}{path}", json=data if data is not None else None
+        )
         try:
             return resp.json() if resp.content else {}
         except ValueError:
@@ -258,25 +276,42 @@ class SarvamTelephony:
         if not from_number:
             raise ProviderError("sarvam", "no Sarvam/Vobiz caller ID configured")
         key = new_id()
-        leg = SarvamCallLeg(self, key=key, to_phone=request.to_phone, from_number=from_number,
-                            language=request.language)
+        leg = SarvamCallLeg(
+            self,
+            key=key,
+            to_phone=request.to_phone,
+            from_number=from_number,
+            language=request.language,
+        )
         self.legs[key] = leg
         # TODO(.../telephony/vobiz): Instant Outbound / Call API field names.
-        body = await self.rest("POST", "/Call/", {
-            "from": from_number.lstrip("+"), "to": request.to_phone.lstrip("+"),
-            "answer_url": self.url("answer", key), "answer_method": "POST",
-            "hangup_url": self.url("hangup", key), "hangup_method": "POST",
-            "ring_timeout": request.ring_timeout_s,
-            "time_limit": request.max_duration_s + 1800,
-            "machine_detection": "true" if request.metadata.get("role") != "user" else "false",
-            "machine_detection_url": self.url("machine", key),
-        })
+        body = await self.rest(
+            "POST",
+            "/Call/",
+            {
+                "from": from_number.lstrip("+"),
+                "to": request.to_phone.lstrip("+"),
+                "answer_url": self.url("answer", key),
+                "answer_method": "POST",
+                "hangup_url": self.url("hangup", key),
+                "hangup_method": "POST",
+                "ring_timeout": request.ring_timeout_s,
+                "time_limit": request.max_duration_s + 1800,
+                "machine_detection": "true" if request.metadata.get("role") != "user" else "false",
+                "machine_detection_url": self.url("machine", key),
+            },
+        )
         sid = body.get("request_uuid") or body.get("call_uuid") or body.get("CallUUID")
         if not sid:
             raise ProviderError("sarvam", "no call uuid in response")
         leg.provider_call_id = str(sid)
         self.by_sid[leg.provider_call_id] = leg
-        log.info("sarvam call %s -> %s from %s", sid, mask_phone(request.to_phone), mask_phone(from_number))
+        log.info(
+            "sarvam call %s -> %s from %s",
+            sid,
+            mask_phone(request.to_phone),
+            mask_phone(from_number),
+        )
         return leg
 
     def take_inbound(self, provider_call_id: str) -> SarvamCallLeg | None:
@@ -300,8 +335,13 @@ class SarvamTelephony:
         if leg is None:  # inbound
             sid = params.get("CallUUID") or new_id()
             key = new_id()
-            leg = SarvamCallLeg(self, key=key, to_phone=params.get("From", "anonymous"),
-                                from_number=params.get("To"), inbound=True)
+            leg = SarvamCallLeg(
+                self,
+                key=key,
+                to_phone=params.get("From", "anonymous"),
+                from_number=params.get("To"),
+                inbound=True,
+            )
             leg.provider_call_id = sid
             self.legs[key] = leg
             self.by_sid[sid] = leg
@@ -323,7 +363,11 @@ class SarvamTelephony:
 
     async def handle_machine(self, params: Mapping[str, str], key: str | None) -> None:
         leg = self._leg(params, key)
-        if leg is not None and str(params.get("Machine", "")).lower() == "true" and leg.status is None:
+        if (
+            leg is not None
+            and str(params.get("Machine", "")).lower() == "true"
+            and leg.status is None
+        ):
             leg.status = DialStatus.VOICEMAIL
             leg._status_event.set()
 
@@ -337,23 +381,32 @@ class SarvamTelephony:
             if leg.listen_only and cause == "NORMAL_CLEARING":
                 leg.status = DialStatus.ANSWERED
             else:
-                leg.status = _HANGUP.get(cause, DialStatus.NO_ANSWER if not streamed else DialStatus.ANSWERED)
+                leg.status = _HANGUP.get(
+                    cause, DialStatus.NO_ANSWER if not streamed else DialStatus.ANSWERED
+                )
             leg._status_event.set()
         if params.get("RecordUrl"):
             leg.recording = params["RecordUrl"]
         leg._end()
         if leg.inbound and not streamed:
-            await self._publish(MissedCallReceived(
-                provider=self.name, provider_call_id=leg.provider_call_id, from_phone=leg.to_phone,
-                to_number=leg.from_number, ring_seconds=float(params.get("Duration") or 0),
-                reason="short_ring",
-            ))
+            await self._publish(
+                MissedCallReceived(
+                    provider=self.name,
+                    provider_call_id=leg.provider_call_id,
+                    from_phone=leg.to_phone,
+                    to_number=leg.from_number,
+                    ring_seconds=float(params.get("Duration") or 0),
+                    reason="short_ring",
+                )
+            )
 
     def transfer_xml(self, params: Mapping[str, str]) -> str:
         to, caller, say = params.get("to", ""), params.get("caller", ""), params.get("say", "")
         speak = f'<Speak voice="WOMAN" language="en-IN">{escape(say)}</Speak>' if say else ""
-        return (f"<Response>{speak}<Dial callerId={quoteattr(caller)}>"
-                f"<Number>{escape(to.lstrip('+'))}</Number></Dial></Response>")
+        return (
+            f"<Response>{speak}<Dial callerId={quoteattr(caller)}>"
+            f"<Number>{escape(to.lstrip('+'))}</Number></Dial></Response>"
+        )
 
     async def handle_transfer_status(self, params: Mapping[str, str], key: str | None) -> None:
         leg = self.legs.get(key or "")
@@ -361,9 +414,14 @@ class SarvamTelephony:
             leg.status = DialStatus.ANSWERED
             leg._status_event.set()
 
-    async def handle_stream_message(self, msg: dict, send: SendText, state: dict,
-                                    key: str | None = None,
-                                    close: Callable[[], Awaitable[None]] | None = None) -> None:
+    async def handle_stream_message(
+        self,
+        msg: dict,
+        send: SendText,
+        state: dict,
+        key: str | None = None,
+        close: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
         # TODO(.../telephony/vobiz): event names start/media/dtmf/playedStream/stop.
         event = msg.get("event")
         if event == "start":
@@ -377,10 +435,14 @@ class SarvamTelephony:
             if leg.inbound and not leg.claimed and leg.provider_call_id:
                 self.inbound_legs[leg.provider_call_id] = leg
                 asyncio.ensure_future(self._claim_guard(leg))
-                await self._publish(InboundCallReceived(
-                    provider=self.name, provider_call_id=leg.provider_call_id,
-                    from_phone=leg.to_phone, to_number=leg.from_number,
-                ))
+                await self._publish(
+                    InboundCallReceived(
+                        provider=self.name,
+                        provider_call_id=leg.provider_call_id,
+                        from_phone=leg.to_phone,
+                        to_number=leg.from_number,
+                    )
+                )
             return
         leg = state.get("leg")
         if leg is None:
@@ -412,7 +474,9 @@ def _env(*names: str) -> str | None:
 
 def build_sarvam_telephony(c: Container) -> SarvamTelephony:
     s = c.settings
-    auth_id = getattr(s, "sarvam_telephony_auth_id", None) or _env("SARVAM_TELEPHONY_AUTH_ID", "VOBIZ_AUTH_ID")
+    auth_id = getattr(s, "sarvam_telephony_auth_id", None) or _env(
+        "SARVAM_TELEPHONY_AUTH_ID", "VOBIZ_AUTH_ID"
+    )
     token = getattr(s, "sarvam_telephony_auth_token", None) or _env(
         "SARVAM_TELEPHONY_AUTH_TOKEN", "VOBIZ_AUTH_TOKEN"
     )
@@ -425,8 +489,16 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
     except Exception:  # noqa: BLE001
         classifier = HeuristicAudioClassifier()
     return SarvamTelephony(
-        auth_id=auth_id, auth_token=token, caller_ids=pool, public_base_url=s.public_base_url,
-        secret=s.secret_key.get_secret_value(), stt=c.stt, tts=c.tts, classifier=classifier,
-        bus=c.bus, clock=c.clock, base_url=_env("SARVAM_TELEPHONY_BASE_URL") or DEFAULT_BASE_URL,
+        auth_id=auth_id,
+        auth_token=token,
+        caller_ids=pool,
+        public_base_url=s.public_base_url,
+        secret=s.secret_key.get_secret_value(),
+        stt=c.stt,
+        tts=c.tts,
+        classifier=classifier,
+        bus=c.bus,
+        clock=c.clock,
+        base_url=_env("SARVAM_TELEPHONY_BASE_URL") or DEFAULT_BASE_URL,
         record=s.call_record,
     )

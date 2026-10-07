@@ -446,6 +446,8 @@ def detect_item(text: str, task_type: TaskType) -> str | None:
         return f"{m.group(1)} {m.group(2)}"
     for match in _ITEM.finditer(t):
         item = match.group(1).strip()
+        if item and item.split()[0] in {"from", "to", "near", "ke", "se", "at", "for", "with"}:
+            continue
         if item and item not in {"me", "my", "papa", "mom", "dad", "it", "a", "the", "him", "her"}:
             if not re.fullmatch(r"\d+", item):
                 return item
@@ -1072,11 +1074,11 @@ def _rate(c: _Ctx, text: str) -> InterpretOut | None:
                            "late aaya", "came late", "cheated"))
     if rating is None and not positive and not negative:
         return None
-    if not (has_any(t, ("plumber", "electrician", "salon", "clinic", "doctor", "guy", "he ",
-                        "she ", "they", "service", "technician", "was", "tha", "thi"))
-            or rating is not None):
+    biz_ref, biz_id = detect_business_name(text, c.ctx)
+    if not (has_any(t, ("plumber", "electrician", "salon", "clinic", "doctor", "guy", "he",
+                        "she", "they", "service", "technician", "was", "tha", "thi"))
+            or rating is not None or biz_id):
         return None
-    biz_ref, _bid = detect_business_name(text, c.ctx)
     if rating is None:
         rating = 5 if positive and not negative else 2
     outcome = None
