@@ -35,7 +35,7 @@ Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal
 | Persona | Who | Typical jobs | Notes |
 |---|---|---|---|
 | **Busy urban professional** | 25–40, Bengaluru, Delhi NCR or Mumbai. On WA all day, hates phone calls, switches between English and Hinglish | Doctor/dentist appointments, salon, restaurant table, AC service, plumber, "is the pharmacy open / do they have X in stock / what's the price", "find me a good AC repair guy near Indiranagar and get the best price" | Core P1 user. Values speed and not having to talk. |
-| **NRI managing parents' errands** | 28–50, in the US, UK, Gulf or Singapore. Parents live in an Indian city | Book a doctor for Papa, get the geyser fixed at Mum's flat, confirm a lab test home-collection slot | Number is foreign (+1/+44/+971). Time zone differs. Calls are made "on behalf of" the user *for* a beneficiary (US-3.9). Very high willingness to pay later. |
+| **NRI managing parents' errands** | 28–50, in the US, UK, Gulf or Singapore. Parents live in an Indian city | Book a doctor for Papa, get the geyser fixed at Mum's flat, confirm a lab test home-collection slot | Number is foreign (+1/+44/+971). Time zone differs. Calls are made "on behalf of" the user *for* a beneficiary (US-20). Parents may get their own reminders in Hindi or their language (US-22). Very high willingness to pay later. |
 
 Beta launch population: invite-only, about 500–2,000 users seeded from the founders' networks in the three metros.
 
@@ -64,11 +64,15 @@ Beta launch population: invite-only, about 500–2,000 users seeded from the fou
    - Friday rejects `0000`–`9999` repdigits, `1234`, `4321`, `1212`, `2580` and `0852`, and asks again.
    - The user confirms by re-entering the PIN.
    - The PIN is stored only as a salted hash (argon2id). It is never echoed back or logged in plaintext. Friday advises the user to delete the PIN message from their chat.
-7. **First task**: "Last thing. What's one call you've been avoiding? I'll make it now." An example list (rotated) is included.
+7. **Circle and places (optional, skippable with one tap)**:
+   - "Do you look after anyone else, like parents, spouse or kids? I can book for them too." `Add someone` / `Skip`. Adding someone collects name, relation, phone and language (US-20).
+   - "Save your home and office? Share a location pin or type the area." `Share` / `Skip` (US-21).
+   - Each prompt is one message. For non-Indian numbers (likely NRIs), Friday asks about family first.
+8. **First task**: "Last thing. What's one call you've been avoiding? I'll make it now." An example list (rotated) is included.
 
 **US-1.3** Onboarding is resumable. If the user drops off, the next message resumes at the pending step. After 24h of inactivity mid-onboarding, Friday sends nothing (it is outside the WA window, and P1 sends no re-engagement template).
 
-**US-1.4** The user can skip tone (default Playful) and city. They cannot skip consent or PIN. If a step's answer is unclear, Friday asks for it again, at most twice.
+**US-1.4** The user can skip tone (default Playful), city, and circle/places. They cannot skip consent or PIN. If a step's answer is unclear, Friday asks for it again, at most twice.
 
 **US-1.5** On completion Friday sends a short capability card: what it can do, the monthly call allowance, and the `help` command. Event `onboarding_completed` is logged with the duration.
 
@@ -138,9 +142,9 @@ Number rules:
 
 **US-3.8** Friday never agrees to pay, prepay, put down a deposit or give card/UPI details. If the business requires an advance, Friday says "I'll confirm with <name> and get back to you", ends the call and escalates.
 
-**US-3.9 On behalf of (NRI).** If `beneficiary` ≠ user, the opening says: "…calling on behalf of Ankit Verma, to book an appointment for his father, Mr. Suresh Verma." The beneficiary's name, age, number and address are stored as a **linked person** in the user's memory and can be reused.
+**US-3.9 On behalf of someone else.** If `beneficiary` ≠ user, the disclosure names both: "…calling on behalf of Ankit Verma, for his father Mr. Suresh Verma." The beneficiary is resolved from, or saved into, the user's circle (US-20). Their linked place gives the default search area and home-visit address (US-21). What Friday shares follows US-22.4.
 
-**US-3.10** On success, Friday creates an **appointment** in memory (business, datetime, service, address if known, beneficiary). It then schedules the reminder (US-8.1) and, where applicable, the follow-up (US-8.2).
+**US-3.10** On success, Friday creates an **appointment** in memory (business, datetime, service, address if known, beneficiary). It then schedules the reminder (US-9.1) and, where applicable, the follow-up (US-9.2). If the beneficiary has opted in, the beneficiary's confirmation and reminders follow US-22.3.
 
 ### US-4 Enquiry call
 
@@ -213,7 +217,7 @@ Rules:
 
 ### US-8 Memory
 
-- **US-8.1 Profile**: name, booking name, city, language, tone, quiet-hours override (none in P1), briefing opt-in and time, autonomy settings, linked persons, saved addresses.
+- **US-8.1 Profile**: name, booking name, city, language, tone, quiet-hours override (none in P1), briefing opt-in and time, autonomy settings. People (US-20) and places (US-21) are memory too, and are covered by "what do you know about me" and "forget".
 - **US-8.2 Businesses**: for each business Friday has called it stores name, number(s), city/area, category, hours learned, staff names, prices quoted (with dates), last visit, and call outcomes. On a later request, "Looks" resolves to the known business. If more than one candidate matches, Friday asks.
 - **US-8.3 Facts and dates.** Friday extracts facts from any user message, including messages not about tasks: "rent due on 5th", "insurance expires in March", "Maa's birthday is 12 Dec", "I'm vegetarian".
   - Each fact stores `subject`, `predicate`, `value`, `recurrence` (none/monthly/yearly), the `source_message_id`, a `confidence` score and `created_at`.
@@ -221,7 +225,8 @@ Rules:
   - Facts below 0.8 are confirmed with a question first.
   - Facts are never extracted from call audio of the business side beyond the task's own results.
 - **US-8.4 "What do you know about me?"** returns a grouped list (profile, people, places, dates, preferences). Each item can be removed via "forget …" (US-11).
-- **US-8.5** Memory is per user. A beneficiary's data belongs to the user who added it.
+- **US-8.5** Memory is per user. A beneficiary's data belongs to the user who added it. Two users who both add the same parent get two separate profiles; there is no sharing in P1.
+- **US-8.7** Facts can be about people in the circle ("Dad's BP check every 3 months", "Mom's birthday 12 Dec"). They are stored with `subject=person_id` and drive nudges to the user (US-22.6).
 - **US-8.6** Memory is used in calls only to the extent of US-3.7. It is never volunteered to businesses.
 
 ### US-9 Proactive v1
@@ -246,6 +251,7 @@ Definitions:
   - bills/rent: 1 day before
   - renewals/expiries: 30 days and 7 days before
   - birthdays/anniversaries: 3 days before
+- Nudges may be about people in the circle, e.g. "Dad's BP check is due next week. Book the usual clinic near their home?" (US-22.6).
 - Every nudge MUST offer an action, e.g. "Maa's birthday is Friday. Want me to call Theobroma and order her usual cake?" with `Yes, call` / `Remind me Thursday` / `Not needed`.
 
 **US-9.4 Pattern nudges.**
@@ -361,46 +367,203 @@ Commands are recognised in any supported language and phrasing (LLM intent class
 
 ---
 
-## 5. Outbound call script structure
+### US-17 Discovery → shortlist → call → compare → book (founder requirement)
 
-The call agent runs as a state machine with an LLM inside each state. The task spec, the allowed-to-share info and the constraints are injected. Speech is Hinglish by default (US-13.2).
+*As a user I want to say "find me a good AC repair guy near Indiranagar, budget ₹600" and have Friday find, vet, call and compare options, then book the one I pick.*
 
-**States:** `OPENING → PURPOSE → GOAL_PURSUIT ⇄ (OBJECTION | USER_QUESTION | HOLD) → CONFIRM → CLOSING`
+- **US-17.1 Trigger.** Discovery runs when a request has a category or service but no business identified ("a good dentist", "koi achha plumber"). It also runs when the user taps `Find another place` after a failure. The location comes from the request ("near Indiranagar"), a saved place ("near my office", "papa ke ghar ke paas"; see US-21) or a WA location pin. If none of these is available, Friday asks once.
+- **US-17.2 Search.** Friday queries the places provider (behind an interface, with a fake for local/tests) for up to 20 candidates within a radius. The default radius is 3 km, widening to 6 km if fewer than 5 results are found. Friday then filters out:
+  - candidates that are permanently closed;
+  - candidates with no phone number;
+  - toll-free/IVR-only numbers;
+  - numbers on the global DNC list;
+  - businesses the user marked "never again".
+- **US-17.3 Vet and shortlist.** Friday reads ratings, review counts and recent reviews (up to 10 most recent and most relevant per candidate). It then shortlists the **top 3** (configurable 2–5).
+  - Ranking: rating (Bayesian-adjusted by review count), recency of reviews, review mentions relevant to the task ("on time", "fair price", "overcharged", "rude"), distance, open hours for the requested slot, and the user's history (previously used = boost; bad experience = exclude).
+  - Every shortlisted business gets a **≤12-word reason** grounded in the review text ("4.6★ (310), reviews praise on-time visits and fair pricing"). Friday never fabricates a review claim. Each reason must be traceable to stored review snippets.
+  - Red flags found in reviews ("asked for advance and never came") are shown to the user as a warning, or exclude the candidate.
+- **US-17.4 Shortlist message and approval.** Friday sends the shortlist as a WA list message (name, ★, distance, reason) with `Call all 3` / `Pick which to call` / `Search again`.
+  - If the user's autonomy level for the category is ≥3 *and* the request said "just handle it", Friday may skip this step and go straight to calling. It states which businesses it will call.
+- **US-17.5 Call and compare.** Friday calls the shortlisted businesses **sequentially** (default; it uses quotes from earlier calls as negotiation leverage, US-18) or in parallel (at most 2 concurrent) when the user is in a hurry. Each call is an enquiry/quote call with a common question set taken from the call brief (price, inclusions, earliest slot, visit charge).
+  - **No booking is confirmed during compare calls.** Friday asks each business to hold its offered slot where possible ("Can you hold Saturday 11 AM for an hour while I confirm?").
+- **US-17.6 Comparison report** within 60 s of the last call:
+  - a table-like message with business, price (incl./excl.), earliest slot, rating and notes;
+  - a **recommendation with a one-line reason**;
+  - buttons `Book <A>` / `Book <B>` / `Book <C>` (or a list for more options), plus `None, search more`.
+  - Businesses that refused or couldn't be reached are listed with their outcome.
+- **US-17.7 Book the pick.** On the user's tap, Friday calls the chosen business back to confirm the held slot and price. This counts as approval under US-3.11, and Friday re-checks for any change in price or slot. It then follows US-3.5/US-3.10.
+- **US-17.8 Cap accounting.** One discovery task counts as **1** against the monthly cap, covering up to 3 compare calls plus the booking call. Every additional business called beyond 3 counts as 1 more. (See Q16.)
+- **US-17.9 Memory.** All shortlisted and called businesses are saved, with quotes and dates. Friday remembers the user's pick and any rejection reason for future ranking.
+- **US-17.10 Attribution.** Rating and review data are shown per the provider's attribution requirements ("Ratings from Google"). Raw review text is not stored beyond the provider's caching terms.
 
-1. **OPENING (AI disclosure, mandatory, always the first sentence)**
-   - EN: "Hi, I'm Friday, an AI assistant calling on behalf of Ankit Sharma."
-   - Hinglish: "Namaste ji, main Friday bol rahi hoon, ek AI assistant, Ankit Sharma ki taraf se call kar rahi hoon."
-   - Then a business check: "Kya yeh Looks Salon hai?" ("Is this Looks Salon?") If the answer is no, the outcome is `wrong_number`.
-   - Recording notice (pending Q4): "Yeh call record ho rahi hai." ("This call is being recorded.")
-2. **PURPOSE (one sentence, the ask first)**: "Mujhe Saturday subah ke liye ek haircut appointment book karna tha." ("I wanted to book a haircut appointment for Saturday morning.")
-3. **GOAL_PURSUIT**
-   - Ask for options, match them against the constraints and choose within the stated flexibility.
-   - For enquiries, ask the questions in order, one at a time.
-   - Use short turns of ≤2 sentences, "ji" for politeness, and numbers spoken clearly ("saade gyaarah baje", i.e. "half past eleven").
-   - If Friday doesn't catch something, it asks once for a repeat ("Sorry ji, ek baar phir bolenge?", i.e. "Sorry, could you say that once more?"). After a second miss it rephrases as a yes/no question.
-   - Friday never invents a fact it wasn't given. If it is asked something it doesn't know: "Main confirm karke batati hoon." ("I'll check and let you know.") It then logs this as a follow-up for the user.
-4. **OBJECTION handling.** Friday gets one polite, short attempt per objection, then accepts the answer:
-   - *"Hum robot se baat nahi karte" / "We don't talk to robots"*: "Bilkul samajh sakti hoon ji. Bas 30 second ka kaam hai, Ankit ji ke liye ek appointment chahiye tha." ("Completely understand. It's a 30-second job, I just need an appointment for Ankit.") If they refuse again: "Koi baat nahi, thank you ji." ("No problem, thank you.") Then end the call → `business_refused`.
-   - *"Are you a real person?"*: Always answer truthfully: "Nahi ji, main AI assistant hoon, Ankit ji ki taraf se." ("No, I'm an AI assistant calling for Ankit.")
-   - *"Tell him to call himself" / "Give me his number"*: Offer the booking name and, if allowed (US-3.7), the number. Otherwise: "Main unhe aapka message de dungi." ("I'll pass your message on to him.") Then → `escalated`.
-   - *"Who gave you this number?"*: "Ankit ji ne diya, woh aapke customer hain / aana chahte hain." ("Ankit gave it to me. He's your customer / wants to visit.")
-   - *"Call later" / "Busy hoon"*: Ask "Kab call karun?" ("When should I call?") → `call_back_later`.
-   - *"Don't call this number again"*: Apologise → `do_not_call`.
-   - *Rude or abusive*: Stay polite, make one attempt, then end → `business_refused`.
-5. **USER_QUESTION / HOLD**: see US-5 and US-6.5.
-6. **CONFIRM (mandatory before success)**: read back every key detail and get an explicit yes.
-   - "Toh confirm kar leti hoon: Ankit Sharma, haircut, is Saturday 11 October, subah 11 baje, Priya ke saath. Sahi hai?" ("Let me confirm: Ankit Sharma, haircut, this Saturday 11 October, 11 in the morning, with Priya. Is that right?")
-   - For enquiries: "Toh Dolo 650 available hai, aur dukaan raat 10 baje tak khuli hai. Theek?" ("So Dolo 650 is in stock and the shop is open until 10 at night. Right?")
-7. **CLOSING**: "Bahut shukriya ji! Aapko confirmation ka SMS aa jayega. Have a nice day." ("Thank you so much! You'll get a confirmation SMS.") The SMS line is said only if US-12 will send one.
+### US-18 Price quotes and negotiation (founder requirement)
 
-**Hard rules** (enforced in the system prompt **and** by output filters plus post-call audit):
-- Never say or ask for a PIN, OTP, password, card, UPI or bank details, Aadhaar or PAN.
-- Never agree to pay, prepay, put down a deposit, accept cancellation charges or give any money commitment. Never accept "pay on arrival" terms on the user's behalf beyond noting them.
-- Never claim to be human. Never deny being an AI. Never impersonate the user.
-- Never share info beyond US-3.7.
-- **Escalate to the user** (mid-call if possible, otherwise after) when any of these happen: a deposit or advance is asked for; a price exceeds the user's stated limit; no option fits the constraints; the business asks something Friday doesn't know; there is a medical or legal question; or Friday is unsure what the user would want. *When uncertain, ask; don't guess.*
-- Stay on task. Decline unrelated conversation politely.
-- Max 6 min per call.
+*As a user I want Friday to get me the best price within my budget without committing me to anything.*
+
+- **US-18.1 Inputs** (from the call brief): `budget.max` (hard ceiling), `budget.target` (optional), `must_include` (e.g. "gas top-up included"), `negotiation_room` (`none` / `polite` (default) / `firm`), and competing quotes already collected in this task (US-17).
+- **US-18.2 Quote capture.** For every price, Friday clarifies what is included and excluded, the visit or inspection charge, taxes, parts, and the validity of the quote. It records the quote in a structured form: amount, unit, inclusions, exclusions, conditions and verbatim text.
+- **US-18.3 Negotiation tactics.** These are allowed when `negotiation_room` ≠ `none`, at most **2 asks per call** for `polite` and 3 for `firm`, always courteous:
+  - asking for a discount ("Kuch kam ho sakta hai? Regular customer ban sakte hain." — "Could you do it for a bit less? They could become a regular customer.");
+  - citing competing quotes truthfully, without naming the competitor unless the user allowed it ("Another service quoted ₹450 including gas");
+  - asking for package or bundle deals (two ACs, service plus gas top-up);
+  - asking for waivers (visit charge waived if the work is done) and off-peak or weekday pricing.
+- **US-18.4 Never lie.** Friday never invents competing quotes, budgets, urgency or loyalty. "Regular customer" style lines are used only if true (from memory) or phrased as a possibility.
+- **US-18.5 Never commit.** Friday never says "done, we'll pay X" or agrees to a price on the user's behalf. Its closing line on a quote is always of the form "Thank you, I'll share this with Ankit and confirm." Agreement happens only through the user's approval (US-3.11), followed by Friday's confirmation, which states the price as the *booking price quoted*, not as a payment commitment.
+- **US-18.6 Over budget.** If the best price after negotiation is above `budget.max`, Friday doesn't escalate mid-call by default. It thanks the business, asks them to hold the slot if one is offered, and reports: "Best I got: ₹750 (your limit ₹600). Book anyway / Try others / Leave it."
+- **US-18.7 Report.** The result report shows the original quote → the final quote and what changed ("₹700 → ₹600, gas top-up included"). The event `negotiation_outcome` logs both amounts.
+- **US-18.8 Respect a firm no.** If the business says the price is fixed, Friday accepts it on the first refusal and moves on.
+
+### US-19 Voice and AI identity (founder requirement)
+
+- **US-19.1** Every call's first utterance is the fixed disclosure line (§5.1). It cannot be modified by the LLM and is inserted by the call engine as pre-rendered TTS.
+- **US-19.2** If asked in any form ("aap insaan ho?" — "are you a human?", "is this a recording?", "are you a bot?"), Friday answers truthfully in the rep's language within one turn: it is an AI assistant calling for <name>. A post-call audit flags any transcript where Friday claims or implies being human (`hard_rule_violation_detected`).
+- **US-19.3 Voice spec:** a clean, calm, polished, confident voice (JARVIS / F.R.I.D.A.Y.). One consistent voice per language across all calls, with a moderate pace (~150 wpm in English, slightly slower when reading numbers back).
+- **US-19.4** No synthetic fillers ("umm", "uh", "hmm"), fake breaths, fake typing or keyboard sounds, or artificial hesitation pauses. The TTS configuration MUST disable any "humanising" disfluency features. LLM output is filtered to strip filler tokens before TTS.
+- **US-19.5** Latency is handled by engineering (streaming STT → LLM → TTS; target p50 turn latency < 1.2 s), not by filler words. When a real wait is needed (checking with the user, a slow lookup), Friday says one plain sentence about what it is doing and then stays quiet.
+- **US-19.6** Short acknowledgements that carry meaning ("Ji", "Theek hai" — "Okay", "Understood") are allowed, because they are real responses, not fillers.
+
+### US-20 People: the user's circle (founder requirement)
+
+*As a user, especially an NRI, I want Friday to know the people I look after, so I can say "book a doctor for papa" and it just works.*
+
+- **US-20.1 Person profile:** `name`, `relation` (mom, dad, spouse, child, friend, grandparent, other: free text), `aliases` ("papa", "Dad", "pitaji"), `phone`, `preferred_language` (any language Friday can *call or SMS* in, e.g. Marathi), `age` (optional), `linked places` (US-21), `notes` (free text, e.g. "diabetic, prefers morning appointments", "only speaks Marathi"), `beneficiary_consent` status (US-22) and `share_with_business` overrides.
+- **US-20.2 Adding people.**
+  - **In chat:** "add my dad, +91 98xxxx, lives in Jaipur". Friday extracts the fields, confirms them in one message and asks for at most one missing important field (language, if the phone is given).
+  - **Implicitly:** during a task ("book for my mom Sunita"), Friday offers `Save Sunita as Mom?`.
+  - **During onboarding** (US-1.2 step 7).
+- **US-20.3 Requester vs beneficiary.** Every task has a `requester_id` (always the user) and a `beneficiary_id` (the user, or a person in their circle).
+  - On calls, Friday discloses both: "calling on behalf of Ankit Verma, for his father Mr. Suresh Verma".
+  - The beneficiary's `preferred_language` sets the language of beneficiary-facing messages. Call language mirroring is unchanged (US-13.2).
+  - Beneficiary notes shape the call brief ("prefers morning", "needs wheelchair access", "speaks Marathi; the doctor should be told"), but are shared with the business only as needed (US-22.4).
+- **US-20.4 Recognition.** Friday resolves references in English, Hindi and Hinglish: "papa", "mummy", "my wife", "Nani", "his place", "uske liye" ("for him/her") (from conversation context).
+  - If 2+ people match, Friday asks once with buttons ("Your dad Suresh or Priya's dad Ramesh?").
+  - Friday learns new aliases from corrections and confirmations ("Nani's" = grandma) and stores them on the person.
+- **US-20.5 Managing.** Commands: "who's in my circle", "update dad's number", "remove Priya", "forget dad's notes". Removing a person deletes their profile, places that only they use, consent records (except the legally required receipt) and their scheduled nudges. Past action-log entries remain, with the name redacted.
+- **US-20.6 Limits:** up to 15 people per user in beta.
+
+### US-21 Places (founder requirement)
+
+- **US-21.1 Place:** `label` ("Home", "Office", "Mom & Dad's home", "PG", "Priya's place"), `aliases`, `address` (text), `lat/lng`, `geocode_confidence`, `linked people`, `notes` ("gate 2, 3rd floor, no lift") and `source`.
+- **US-21.2 Creation sources:**
+  - a typed or spoken address (geocoded via the places provider; Friday confirms with the formatted address and locality);
+  - a pasted Google Maps link (resolved to lat/lng and an address);
+  - a **WhatsApp location pin** (lat/lng, reverse-geocoded).
+  Friday then asks for the label if it isn't obvious ("Save this as Home, Office, or something else?").
+- **US-21.3 No background location.** Friday never assumes the user's current location. "Near me" means the most recently shared live or current pin if it is <2 h old. Otherwise Friday asks: "Share your location or tell me the area?"
+- **US-21.4 Recognition.** "near my office", "papa ke ghar ke paas" ("near papa's house"), "their place" and "PG" resolve to a saved place, via people links where needed ("papa's home" = the place linked to Dad with label home). Ambiguity gets one question with buttons ("Mom & Dad's Pune home or the Delhi flat?"). New aliases are learned on confirmation.
+- **US-21.5 Use.**
+  - Places are used as the discovery search centre (US-17).
+  - They are the source of the home-visit address (shared only per US-22.4).
+  - They give the city or STD-code context for number resolution.
+  - Their address goes in appointment reminders.
+- **US-21.6 Commands:** "my places", "update office address", "remove PG".
+- Location data is stored in India and deleted with the user's data or the place.
+
+### US-22 Beneficiary communication and consent (founder requirement)
+
+- **US-22.1** Friday sends **nothing** to a beneficiary until that person has **opted in once**. The opt-in request is sent only when the user asks for it ("Want me to send dad the confirmation and reminders too?" → `Yes, ask him`).
+- **US-22.2 Opt-in message** to the beneficiary, in their preferred language. Friday uses WA (template `friday_beneficiary_optin`) if the number is on WA, otherwise DLT SMS (`ben_optin`).
+  - The message names the requester, explains what Friday will send, and asks the person to reply `HAAN`/`YES` (or `1`). A reply of `NO`/`STOP` declines.
+  - For feature-phone parents, the user may choose a **voice opt-in call**. Friday discloses that it is an AI, explains in the parent's language and records a spoken "haan" or a DTMF `1`.
+  - Friday stores the consent text version, channel, timestamp and the reply or recording as the consent receipt.
+  - With no reply in 72 h, Friday tells the user. It does not resend automatically; one resend is allowed on the user's request.
+- **US-22.3 What a consenting beneficiary gets** (each counts toward the *beneficiary's own* 3/day cap and quiet hours):
+  - a booking confirmation;
+  - reminders (evening before, and 2 h before);
+  - changes or cancellations.
+  All of these go in the beneficiary's language, through their best channel: WA template, then SMS DLT, then a voice reminder call (≤45 s, with the AI disclosure first and the option to press 1 to repeat).
+  - The beneficiary can reply `STOP` anytime. Replies other than STOP/HAAN/repeat are relayed to the requester ("Dad replied: 'thoda late ho jaunga'" — "I'll be a little late") and are **not** treated as commands. Beneficiaries cannot instruct Friday in P1.
+- **US-22.4 Minimum sharing with businesses.**
+  - Friday shares the beneficiary's name and phone (if the user allowed it).
+  - It shares the address only for home visits.
+  - It shares age, gender or a medical context only if the business asks *and* it is needed for the booking (e.g. "a senior citizen, needs ground-floor access"), and only from the notes the user wrote.
+  - Notes are never read out wholesale.
+- **US-22.5 No cross-sharing.** Information about one person is never sent to another person in the circle. For example, mom's notes or appointments are not included in dad's reminders. The only exception is when the user explicitly sets up a shared reminder ("remind both mom and dad").
+- **US-22.6 Proactive nudges about people** (US-9.3/9.4) go to the **user** (the requester), not the beneficiary, e.g. "Dad's BP check is due next week. Book the usual clinic near their home?" They obey the user's caps and autonomy. Booking still needs approval (US-3.11).
+- **US-22.7 Data rights.** A beneficiary who replies `STOP` or asks "delete my data" has their contact consent revoked. Friday tells the requester. Removal of the profile is the requester's action, unless the beneficiary requests deletion, in which case it is executed and the user is told (see Q18).
+
+---
+
+## 5. The outbound call: call brief, not script
+
+Founder requirement: **goal-driven, not scripted.** There are no hand-written Q&A trees per business type. The call agent is an LLM conversing freely, given a structured **call brief**. Only two things are fixed: the **disclosure line** (§5.1) and the **hard rules** (§5.4). Everything else (phrasing, ordering, objection handling, negotiation) is the model's judgement within the brief. The examples below are illustrative behaviour for prompt design and evals, not scripts.
+
+### 5.1 Fixed disclosure line (pre-rendered TTS, always the first utterance)
+
+- Default (Hinglish): "Namaste, main Friday hoon, ek AI assistant, **<requester name>** ki taraf se call kar rahi hoon." ("Hello, I'm Friday, an AI assistant calling on behalf of <requester name>.")
+- If the beneficiary is not the user, Friday appends: "**<beneficiary>** ke liye." ("…for <beneficiary>.")
+- Recording notice (pending Q4): "Yeh call record ho rahi hai." ("This call is being recorded.")
+
+After this line, the LLM takes over, and Friday mirrors the rep's language from the next turn onwards (US-13.2).
+
+### 5.2 Call brief (generated per call by the task engine; the input contract for the call agent)
+
+```yaml
+call_brief:
+  task_id: T-1234
+  goal: "Book an AC service visit (split AC, 1.5 ton) at the beneficiary's home"
+  success_criteria:            # what must be true to report success
+    - business confirms a date and time slot
+    - price and inclusions are clearly stated
+    - user has approved slot + price (ask_before_booking: true, always true for bookings)
+  business: {name: "CoolCare Services", phone: "+9198xxxxxxx", known_language: "kn", notes: "rated 4.5, used before in Mar"}
+  requester: {name: "Ankit Sharma"}
+  beneficiary: {name: "Ankit Sharma", relation: self}
+  constraints:
+    time_windows: ["2026-10-11T09:00/12:00+05:30", "2026-10-12T09:00/12:00+05:30"]
+    must_have: ["gas top-up included or quoted separately"]
+    avoid: ["advance payment"]
+  budget: {max_inr: 600, target_inr: 500, currency: INR}
+  negotiation_room: polite        # none | polite | firm
+  competing_quotes: [{label: "another service", amount_inr: 450, includes: ["gas check"]}]
+  allowed_disclosures:            # the only facts Friday may share
+    name: "Ankit Sharma"
+    phone: "+91 98xxxxxx"         # only if user allows (Q11)
+    address: "12, 4th Cross, Indiranagar"   # home visits only
+    other: []                     # e.g. "senior citizen, needs ground-floor access"
+  never_disclose: [pin, otp, payment_details, aadhaar, pan, notes_other_than_listed]
+  ask_user_when:                  # triggers a mid-call question (US-5)
+    - "before confirming any booking (unless pre_approved slot + price below)"
+    - "price after negotiation > budget.max"
+    - "no slot in time_windows"
+    - "advance/deposit requested"
+    - "business asks something not in this brief"
+  pre_approved: null              # or {slot: "...", max_price_inr: 600}
+  questions: []                   # enquiries: what to find out
+  language: {open: hinglish, mirror: true, user_report_lang: hinglish}
+  limits: {max_duration_s: 360, max_user_questions: 2, max_negotiation_asks: 2}
+```
+
+**Acceptance criteria for the brief:**
+- The task engine MUST produce a brief that validates against the schema before dialling. If required fields are missing, Friday clarifies with the user first (US-3.3).
+- The call agent MUST NOT state any fact not in `allowed_disclosures` or in the business's own statements.
+- The agent's structured output at call end is: an `outcome` (US-6), `quotes[]` (US-18.2), `offered_slots[]`, `confirmed_booking` (or null), `answers[]` (enquiries), `languages_used[]`, `user_questions[]` and `notes_for_user`.
+
+### 5.3 Behaviour expectations (eval rubric, not script)
+
+- **Lead with the ask** right after the disclosure, in one sentence.
+- **Short turns** of ≤2 sentences, with numbers spoken clearly. Friday reads back every key detail before success (date, time, service, price, inclusions, name, address).
+- **Objections** get one courteous attempt, then Friday accepts the answer:
+  - "we don't talk to robots" → one brief reassurance about the value and time, then a polite exit → `business_refused`;
+  - "call later" → get a time → `call_back_later`;
+  - "don't call again" → apologise → `do_not_call`;
+  - "give me his number" → only if allowed, else take a message → `escalated`.
+- **Honesty:** Friday never claims to be human, never invents competing quotes or facts, and says "I'll check with <requester>" when it doesn't know.
+- **Negotiation** per US-18, and **language mirroring** per US-13.2.
+- **Voice** per US-19: no fillers or fake hesitations.
+
+**Eval set:** at least 40 simulated business personas (cooperative, rushed, hostile to AI, switches to Kannada, quotes above budget, asks for advance, wrong number, puts on hold) run against the call simulator in CI. The pass criteria are: zero hard-rule violations, correct outcome classification ≥95%, and a language switch within 1 turn.
+
+### 5.4 Hard rules (fixed; enforced in the system prompt, by an output filter before TTS, and by post-call audit)
+
+1. The disclosure line is the first utterance. Friday never claims or implies being human, and answers truthfully when asked.
+2. Never say or ask for a PIN, OTP, password, card, UPI or bank details, Aadhaar or PAN.
+3. Never agree to pay, prepay, put down a deposit, accept cancellation charges or make any money commitment. Quotes are brought back, not accepted.
+4. Never confirm a booking without the user's approval of the slot and price (US-3.11).
+5. Never share information beyond `allowed_disclosures` (US-3.7, US-22.4).
+6. Never lie: no invented quotes, urgency, identity or relationships.
+7. **Escalate to the user when uncertain.** Ask, don't guess.
+8. Stay on task. The call lasts at most 6 minutes. Emergency services are never called.
 
 ---
 
@@ -531,20 +694,62 @@ Friday: Heads up: car insurance expires on 12 Mar. Want me to call your insurer 
         [Yes, call] [Remind me later] [Not needed]
 ```
 
-### 6.9 NRI: on behalf of a parent
+### 6.9 NRI in Dubai: doctor for Dad in Jaipur, Dad gets a Hindi reminder
 
 ```
-User (+1 415…): Need a cardiologist appointment for my dad Suresh Verma (68) at Fortis
-        Vasant Kunj, any weekday morning next week. 011 4277 6222
-Friday: Calling Fortis Vasant Kunj for your father Suresh Verma (68), cardiology,
-        a weekday morning between 13 and 17 Oct. Which number should the hospital have for him?
-User:   +91 98110 12345
-Friday: Saved Suresh Verma as your dad. Calling now. (It's 9:40 AM in Delhi.)
-Friday: Booked. Fortis Vasant Kunj, Dr. Kapoor (Cardiology)
-        Tue 14 Oct, 10:15 AM · Reg. fee ₹1,200, payable at reception
-        Bring: previous ECG reports
-        Want me to remind your dad too? (P1: I can only message you)
+User (+971 50…): Papa ke liye Jaipur mein ek achha cardiologist dhundo, ghar ke paas.
+        Next week koi bhi morning. Budget consultation ₹1500 tak.
+Friday: Papa = Suresh Verma (68), Jaipur home in Malviya Nagar, right?
+        [Haan] [Different person]
+User:   [Haan]
+Friday: Malviya Nagar ke 3 km mein ye mile:
+        1. Dr. R. Gupta Heart Clinic: 4.7★ (520), "explains patiently, on time"
+        2. Shalby Hospital Cardiology: 4.4★ (2.1k), big hospital, ECG on-site
+        3. Dr. Meena's Clinic: 4.6★ (180), "senior-friendly, ground floor"
+        Notes mein likha hai papa morning prefer karte hain aur stairs avoid karte hain. 3 aur 1 best fit lag rahe hain.
+        [Call all 3] [Pick which to call] [Search again]
+User:   [Call all 3]
+Friday: Calling now (Jaipur mein 10:05 AM hai). Slot milte hi poochungi.
+  …
+Friday: Comparison:
+        • Dr. Gupta: ₹1,200 · Tue 14 Oct 10:30 AM · stairs (1st floor, no lift)
+        • Shalby: ₹1,000 · Wed 15 Oct 9:00 AM · ECG ₹300 extra
+        • Dr. Meena: ₹1,500 → ₹1,300 (senior discount maanga) · Tue 14 Oct 11:00 AM · ground floor
+        Recommend: Dr. Meena. Ground floor, papa ke ghar se 1.2 km, budget mein.
+        Sab ne slot 1 ghante ke liye hold kiya hai.
+        [Book Dr. Meena] [Book Shalby] [Book Dr. Gupta] [None]
+User:   [Book Dr. Meena]
+Friday: Confirming with Dr. Meena's clinic…
+Friday: Booked ✅ Dr. Meena's Clinic, Malviya Nagar, Jaipur
+        Tue 14 Oct, 11:00 AM · for Suresh Verma · ₹1,300 at the clinic
+        Bring: purani reports aur current medicines ki list
+        Papa ko bhi Hindi mein confirmation aur reminder bhejun? Pehle unse ek baar permission leni hogi.
+        [Yes, ask him] [No, just me]
+User:   [Yes, ask him]
+Friday: Sent. Jaise hi papa haan bolenge, bata dungi.
 ```
+
+Message to Dad (+91 98290…), template `friday_beneficiary_optin`, language `hi`:
+```
+Friday: नमस्ते सुरेश जी, मैं Friday हूँ, एक AI सहायक। आपके बेटे अंकित ने आपके लिए
+        डॉक्टर का अपॉइंटमेंट बुक किया है। क्या मैं आपको इसकी जानकारी और रिमाइंडर भेज सकती हूँ?
+        [हाँ] [नहीं]
+Dad:    [हाँ]
+Friday: धन्यवाद! आपका अपॉइंटमेंट: डॉ. मीना क्लिनिक, मालवीय नगर, मंगलवार 14 अक्टूबर, सुबह 11 बजे।
+        पुरानी रिपोर्ट्स साथ लाइएगा।
+```
+To Ankit: "Papa ne haan bol diya. Unhe Hindi mein reminders milenge."
+
+Mon 13 Oct, 20:00 IST to Dad (template `friday_beneficiary_reminder`, `hi`):
+```
+Friday: सुरेश जी, याद दिला दूँ: कल मंगलवार सुबह 11 बजे डॉ. मीना क्लिनिक, मालवीय नगर।
+        पुरानी रिपोर्ट्स और दवाइयों की लिस्ट साथ रखें।
+        [ठीक है] [देर हो जाएगी]
+Dad:    [देर हो जाएगी]
+```
+To Ankit (Dubai, 18:30 GST): "Papa ne bataya kal thoda late ho sakte hain. Clinic ko call karke 11:30 kar dun? [Haan, call karo] [Rehne do]"
+
+(Dad's taps are relayed to Ankit, who decides. Dad cannot instruct Friday in P1, per US-22.3.)
 
 ### 6.10 Commands
 
@@ -585,6 +790,89 @@ Friday:   Perfect, shukriya ji! Aapko confirmation SMS aa jayega.
 
 ---
 
+### 6.12 Hinglish negotiation call (Friday ↔ AC service, budget max ₹600, target ₹500)
+
+```
+Friday:   Namaste, main Friday hoon, ek AI assistant, Ankit Sharma ki taraf se call kar rahi hoon.
+          Saturday subah AC service ke liye slot chahiye tha, Indiranagar mein, ek split AC.
+Rep:      Haan madam, service ka 699 lagega. Gas alag se.
+Friday:   Ji. 699 mein kya kya include hai, aur gas top-up ka kitna hoga agar zaroorat padi?
+Rep:      Jet wash, filter cleaning. Gas top-up 1500 se start.
+Friday:   Samajh gayi. Ek aur service ne 450 quote kiya hai jet wash ke saath gas check included.
+          Aap 500 mein kar sakte hain?
+Rep:      500 nahi hoga. 600 final, aur visit charge nahi lagega.
+Friday:   Theek hai. Toh 600, visit charge waived, gas top-up chahiye toh alag. Saturday kaunsa time free hai?
+Rep:      10 baje ya 12 baje.
+Friday:   Ek minute ji, main Ankit se confirm kar rahi hoon.
+          → WA to Ankit: "CoolCare: ₹699 → ₹600 (visit charge waived). Gas top-up extra from ₹1,500.
+            Sat slots: [10:00 AM] [12:00 PM] [Don't book]"
+          ← Ankit taps [10:00 AM]
+Friday:   Ankit ne 10 baje confirm kiya hai. Toh confirm kar leti hoon: Ankit Sharma, split AC service,
+          Saturday 11 October subah 10 baje, 12, 4th Cross Indiranagar, ₹600 quoted, visit charge nahi.
+          Sahi hai?
+Rep:      Haan, technician Ravi aayega.
+Friday:   Shukriya ji. Aapko confirmation SMS bhi aa jayega.
+```
+Report to Ankit: "Booked. CoolCare, Sat 11 Oct, 10 AM, technician Ravi. ₹699 → **₹600**, visit charge waived (pay after service). Gas top-up only if needed, from ₹1,500; they'll ask you first."
+
+(Friday did *not* say "₹600 done, we'll pay". The price was approved by Ankit's tap and stated as the quoted booking price.)
+
+### 6.13 Discovery → shortlist → compare → book (English)
+
+```
+User:   Find me a good AC repair guy near my office. AC isn't cooling. Ideally tomorrow, under ₹800.
+Friday: Office = Embassy Tech Village, Bellandur? [Yes] [Somewhere else]
+User:   [Yes]
+Friday: Top 3 within 3 km:
+        1. FrostFix: 4.6★ (410), reviews: "diagnosed fast, no upselling"
+        2. CoolCare Services: 4.5★ (260), you used them in March
+        3. Arctic Home Services: 4.3★ (890), "same-day visits"; ⚠ 2 reviews mention overcharging for gas
+        [Call all 3] [Pick which to call] [Search again]
+User:   [Call all 3]
+Friday: On it. I'll call one by one and use the quotes to bargain.
+  …
+Friday: Here's what I got for tomorrow (Thu 9 Oct):
+        • FrostFix: ₹399 inspection (waived if repaired) · 11 AM–1 PM · gas from ₹1,800
+        • CoolCare: ₹600 → ₹500 inspection + basic repair · 4–6 PM
+        • Arctic: ₹350 inspection · 10 AM · wouldn't quote for gas over phone
+        My pick: FrostFix. Best-reviewed, earliest slot that fits, inspection free if they fix it.
+        All three are holding their slots for 1 hour.
+        [Book FrostFix] [Book CoolCare] [Book Arctic] [None, search more]
+User:   [Book FrostFix]
+Friday: Calling FrostFix to confirm…
+Friday: Booked ✅ FrostFix · Thu 9 Oct, 11 AM–1 PM at your office (Embassy Tech Village, Block C)
+        ₹399 inspection, waived if they repair it. I'll check in at 2 PM to see if they came.
+        Counted as 1 of your 10 monthly calls.
+```
+
+### 6.14 Language mirroring mid-call (Friday ↔ salon in Bengaluru)
+
+```
+Friday:   Namaste, main Friday hoon, ek AI assistant, Ankit Sharma ki taraf se call kar rahi hoon.
+          Saturday ke liye haircut appointment chahiye tha.
+Rep:      Sorry, Hindi gottilla. Kannada or English?
+Friday:   Of course. I'd like to book a haircut for Ankit Sharma this Saturday morning.
+Rep:      Saturday 11 ge slot ide, aadre Priya illa.   (Kannada: "There's a slot at 11 on Saturday, but Priya isn't in.")
+Friday:   [switches to Kannada] Sari, 11 gantege yaaru irtaare?   ("Okay, who is available at 11?")
+          …
+```
+(The call log shows `languages_used: [hinglish, en, kn]`. The report reaches Ankit in Hinglish. The business's preferred language `kn` is saved for next time.)
+
+### 6.15 Adding people and places
+
+```
+User:   add my mom Sunita, +91 98xxxx, she only speaks Marathi, lives in Pune
+Friday: Added Mom: Sunita · +91 98xxxx · Marathi · Pune.
+        What's her address? Type it, paste a Maps link or share a location pin.
+User:   📍 (location pin: Kothrud, Pune)
+Friday: Saved as "Mom's home": Kothrud, Pune 411038. Is this Mom & Dad's home or just Mom's?
+        [Mom & Dad's home] [Just Mom's]
+User:   [Mom & Dad's home]
+Friday: Done, linked to Mom and Dad.
+User:   mummy ke ghar ke paas koi achha physiotherapist dekho
+Friday: Kothrud ke paas dhoondh rahi hoon…
+```
+
 ## 7. Edge cases and error states
 
 | # | Situation | Expected behaviour |
@@ -600,7 +888,7 @@ Friday:   Perfect, shukriya ji! Aapko confirmation SMS aa jayega.
 | E9 | User cancels mid-call ("cancel", "stop the call") | Friday politely wraps up with the business ("Sorry ji, plan change ho gaya", i.e. "Sorry, the plans have changed") and ends the call. Outcome `cancelled_by_user`. Counts as a connected call |
 | E10 | Business confirms, then later calls back to change it (inbound, US-16) | Notify the user (urgent). Offer to call back and re-confirm |
 | E11 | Recording failed | The report is sent without the recording, with the note "Recording unavailable for this call" |
-| E12 | STT/LLM latency spike mid-call (>3 s silence) | Filler line ("Ek second ji…", i.e. "One second…"). After more than 2 consecutive spikes, apologise and end → `failed_system` with an auto-retry |
+| E12 | STT/LLM latency spike mid-call (>3 s silence) | No filler sounds (US-19). If the gap exceeds 3 s, one plain line ("Sorry, one moment."). After more than 2 consecutive spikes, apologise and end → `failed_system` with an auto-retry |
 | E13 | WhatsApp delivery fails, or the account is restricted or banned (policy risk) | Fall back to DLT SMS templates for results and reminders (§8.3). Core state is channel-agnostic (see ARCHITECTURE). An ops alert is raised |
 | E14 | User blocks Friday on WA | Delivery failures are detected → pause all proactive messages. Nothing is sent by SMS except results of in-flight tasks |
 | E15 | Cap reached while retries are pending | Retries continue (US-2.6) |
@@ -608,7 +896,15 @@ Friday:   Perfect, shukriya ji! Aapko confirmation SMS aa jayega.
 | E17 | Business gives contradictory info within the call | Friday clarifies once during CONFIRM. If still unclear, the outcome is `partial` with both values reported |
 | E18 | User replies "1234" unprompted (looks like a PIN) | Not treated as a PIN outside a PIN flow. If it matches the PIN hash, Friday warns: "Looks like your PIN. Please delete that message. I only ask for it when you start a sensitive action." |
 | E19 | Business asks to speak to the customer | Friday offers to pass a message and a callback (if the number is shareable) → `escalated` with the business's request quoted |
-| E20 | Unsupported language spoken by the business (e.g. Kannada, Marathi) | Friday tries Hindi, then English. If neither works: "Sorry, I'll have Ankit call you", ends the call → `partial`/`failed` with reason `language`. Logged to size P2+ language demand |
+| E20 | Business speaks a language the configured STT/TTS doesn't support | Friday continues in Hinglish and offers English or Hindi. If neither works: "Sorry, I'll have Ankit call you", ends the call → `partial`/`failed` with reason `language`. Logged to size language demand. Supported regional languages are mirrored per US-13.2 |
+| E25 | Discovery finds <2 viable businesses | Friday widens the radius once (6 km). If still <2, it reports what it found and offers `Call anyway` / `Search different area` / `I'll share a number` |
+| E26 | Places data is stale (number disconnected, business closed) | The outcome is `wrong_number`/`unreachable`. The business is flagged in Friday's business table, and the next shortlist candidate is offered automatically within the same task |
+| E27 | Held slot is lost before the user picks (compare flow) | On the booking callback, Friday offers the business's next slot to the user mid-call (US-5) |
+| E28 | Ambiguous person/place ("papa" when the user has a father and a father-in-law; "home" with two homes) | One question with buttons, then the alias is learned (US-20.4, US-21.4) |
+| E29 | Beneficiary hasn't opted in, but the user says "remind dad" | Friday explains the one-time opt-in and offers `Ask him now`. Until then, reminders go only to the user |
+| E30 | Beneficiary replies with free text or a voice note | Relayed to the requester verbatim (transcribed); never acted on (US-22.3) |
+| E31 | Beneficiary number is the same as another Friday user's number | The opt-in still applies. That person's own Friday account and data stay completely separate |
+| E32 | "Near me" without a recent pin | Friday asks for a pin or area. It never guesses from the city alone for discovery |
 | E21 | User in another time zone (NRI) | Quiet hours and the briefing use IST in P1 (Q6). Friday shows "(9:40 AM in Delhi)" when it helps |
 | E22 | User sends a voice note longer than 3 min, an image or a document | Voice: ask the user to split it. Image/doc: "I can't read images yet. Could you type it?" (Exception: a contact card vCard is parsed) |
 | E23 | Concurrent calls >2 | The 3rd task is queued: "I'll call them right after the current two." |
@@ -631,7 +927,12 @@ Category is `UTILITY` unless noted. Every template's footer: "Reply STOP to stop
 | `friday_morning_briefing` | UTILITY | "Good morning {{1}}! Today: {{2}}. Coming up: {{3}}." | `See more` · `Briefing off` |
 | `friday_business_change` | UTILITY | "{{1}} has changed your booking for {{2}}: {{3}}. What should I do?" | `Accept` · `Call them` · `Cancel it` |
 | `friday_cap_reset` | UTILITY | "Your Friday calls have reset. You have {{1}} calls for {{2}}." | `Make a call` |
+| `friday_beneficiary_optin` (to non-users) | UTILITY | "Namaste {{1}}, I'm Friday, an AI assistant. {{2}} ({{3}}) has booked {{4}} for you. May I send you confirmations and reminders for it?" (1=beneficiary, 2=requester, 3=relation, 4=what) | `Yes` · `No` |
+| `friday_beneficiary_reminder` | UTILITY | "{{1}}, reminder: {{2}} on {{3}} at {{4}}, {{5}}. {{6}}" (6=prep note) | `OK` · `I'll be late` · `Stop` |
+| `friday_comparison_ready` | UTILITY | "Your quotes for {{1}} are ready: best is {{2}} at {{3}}. Slots are held for a short time." | `See all` · `Book best` |
 | `friday_business_touch` (to businesses) | UTILITY | "Booking confirmed via Friday for {{1}}: {{2}} on {{3}} at {{4}}. Friday is an AI assistant that books on behalf of customers." | `OK` · `Stop messages` |
+
+Beneficiary templates are submitted in `hi`, `en`, `mr`, `ta`, `te`, `kn` and `bn`. If a beneficiary's language has no approved template, Friday uses DLT SMS in that language (Unicode) or a voice reminder.
 
 Rule: every template send stores `template_name`, `language`, `variables` and `wa_message_id` in the action log.
 
@@ -646,6 +947,8 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `biz_enquiry_thanks` | Service-implicit | "Thank you for taking a call from Friday (AI assistant) for a customer today. To stop msgs reply STOP {#var#}" |
 | `user_task_result` (WA fallback) | Service-implicit | "Friday: {#var#}. {#var#}. Details on WhatsApp." |
 | `user_appointment_reminder` (WA fallback) | Service-implicit | "Friday reminder: {#var#} at {#var#} on {#var#}." |
+| `ben_optin` | Service-explicit (consent) | "{#var#} ne Friday (AI sahayak) se aapke liye {#var#} book kiya hai. Jaankari aur reminder ke liye HAAN reply karein, rokne ke liye STOP. {#var#}" ("{#var#} has booked {#var#} for you through Friday (AI assistant). Reply HAAN for updates and reminders, STOP to stop.") |
+| `ben_reminder` | Service-implicit | "Friday reminder for {#var#}: {#var#} on {#var#} at {#var#}, {#var#}. STOP to stop." (registered in Hindi/Marathi/etc. variants) |
 | `user_pin_reset_otp` | Service-explicit / OTP | "{#var#} is your Friday PIN reset code. Valid 10 min. Never share it with anyone, including Friday's calls." |
 
 ---
@@ -671,6 +974,11 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 - Retention D7/D30; invites sent and redeemed per user; cap-hit rate.
 - Trust: deletion requests and completion time (SLA 24 h); hard-rule violations found in post-call audits (target 0).
 - Business: touches sent; business STOP rate; DNC additions.
+- Discovery: discovery→booking conversion; shortlist acceptance (`Call all` rate); % of discovery tasks where the user booked Friday's recommendation.
+- Negotiation: % of quotes improved; median saving (₹ and %); negotiation-linked hang-ups (should be ≈0).
+- Language: % of calls with a switch; % of switches within 1 turn; call success by language.
+- People and places: % of users with ≥1 person or place; % of tasks for a beneficiary; beneficiary opt-in rate; reference-resolution accuracy (user corrections ÷ resolutions).
+- Voice quality: filler-token violations (target 0); human-claim violations (target 0).
 
 ### 9.3 Events (all events carry `user_id`, `ts`, `channel`, `env`; PII is excluded from properties, with IDs referencing entities)
 | Event | Key properties |
@@ -709,6 +1017,19 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `business_touch_sent` | business_id, channel, template |
 | `business_opt_out` | business_id, source |
 | `inbound_call_received` | matched_task (bool) |
+| `discovery_search_run` | task_id, category, radius_km, n_results, n_filtered |
+| `shortlist_presented` | task_id, n, ranks_with_reason_ids |
+| `shortlist_action` | task_id, action (call_all/pick/search_again) |
+| `quote_recorded` | task_id, business_id, amount_paise, includes_count |
+| `negotiation_outcome` | task_id, business_id, initial_paise, final_paise, asks, accepted_by_business |
+| `comparison_report_sent` | task_id, n_businesses, recommended_business_id |
+| `booking_approval` | task_id, via (pre_approved/midcall/post_call), latency_s |
+| `call_language_switched` | task_id, from, to, turn_no |
+| `person_added` / `person_removed` | relation, source (chat/onboarding/task) |
+| `place_saved` | source (text/voice/maps_link/pin), geocode_confidence |
+| `reference_resolved` | kind (person/place), ambiguous (bool), asked_user (bool) |
+| `beneficiary_optin_sent` / `beneficiary_optin_result` | channel, result (yes/no/timeout) |
+| `beneficiary_message_sent` | type, channel, language |
 | `safety_signal_detected` | severity |
 | `hard_rule_violation_detected` | rule, task_id (from the post-call audit) |
 
@@ -719,7 +1040,7 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | # | Question | PM recommendation |
 |---|---|---|
 | Q1 | Friday's voice and grammatical gender in Hindi (affects TTS voice and every Hindi string) | Female voice and feminine verb forms ("karti hoon"). The copy above assumes this |
-| Q2 | Business number discovery: should P1 look up numbers (Google Places / Justdial) for "book a table at Toit"? | Not in the P1 MVP, which requires the user to give the number. Add Places lookup in P1.1, since it hugely reduces friction |
+| Q2 | ~~Business discovery in P1?~~ **Resolved by founder: yes** (US-17). Remaining question: which provider(s)? Google Places has ratings/reviews but has caching/attribution limits; Justdial has better SMB coverage but no official API | Google Places for P1 behind the interface; evaluate a second source for SMB coverage |
 | Q3 | Cap accounting: per connected task (proposed) or per attempt? Is 10/month right? | Per connected task, 10/month. Revisit using cost data |
 | Q4 | Announce call recording in the opening line? It adds ~2 s and may raise the hang-up rate. Indian law is generally one-party consent, but disclosure is the safer trust posture | Yes, announce it; A/B the phrasing |
 | Q5 | Retention for recordings and transcripts | 30 days, then auto-delete. Summaries are kept until the user deletes them |
@@ -729,7 +1050,12 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | Q9 | Hinglish templates: Meta has no Hinglish locale. Register Romanised Hindi under `en`? | Yes, with separate template names (`*_hinglish`) |
 | Q10 | Will Meta classify pattern nudges as MARKETING (higher cost, opt-in rules, possible policy exposure)? | Phrase them as reminders tied to the user's own past bookings to qualify as UTILITY. Accept MARKETING if rejected |
 | Q11 | Share the user's mobile number with businesses by default for bookings? | Yes by default, with one-line disclosure at the first booking and an easy off switch |
-| Q12 | Default call-opening language: Hinglish everywhere, or Hindi in NCR and English in Bengaluru? | Hinglish default, plus learned per-business preference |
+| Q12 | ~~Default call-opening language~~ **Resolved by founder: always Hinglish, then mirror** (US-13.2). Remaining question: which regional languages to enable at launch, given provider quality? | Launch with Hindi/English/Hinglish + Kannada, Tamil and Marathi (the three metros' needs); enable others behind a flag after evals |
 | Q13 | Should level 4 (auto-act) be available at all in the beta? | Yes for `personal_care`, `dining`, `enquiries`, `follow_ups` and `reminders`; not for `health` or `home_services` |
 | Q14 | Global DNC: one business's "don't call" blocks all Friday users from calling that number. Is that acceptable for users? | Yes. Respecting businesses matters for P5 Friday for Business |
+| Q16 | Cap accounting for discovery (one task = up to 3 compare calls + booking call). Cost per *successful task* may exceed ₹15 | Count as 1 task. Track cost per discovery task separately and revisit the ₹15 target for compare tasks |
+| Q17 | Is "pre-approval" (exact slot + price within budget given before the call) enough to satisfy "ask before booking", or must Friday always ask mid-call? | Pre-approval counts (US-3.11). Founder to confirm |
+| Q18 | DPDP: Friday stores third-party data (parents' names, phones, health notes) provided by the user, before the beneficiary consents. Lawful basis? Can a beneficiary demand deletion of the profile the user created? | Store minimal data under the user's consent. Health notes are user-entered, encrypted at rest and never shared beyond US-22.4. Honour the beneficiary's deletion requests. Needs legal sign-off |
+| Q19 | Negotiation default: `polite` for everyone, or ask the user at the first quote task? | `polite` default; the user can say "bargain hard" (→ `firm`) or "don't bargain" (→ `none`) per task or globally |
+| Q20 | Should Friday name competitors when citing quotes? | No, by default ("another service quoted…") |
 | Q15 | Caller ID: use one shared number pool or a dedicated number per city? Businesses that save "Friday" may block it | City-level pools with a consistent display name. Monitor block and answer rates |

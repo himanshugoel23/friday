@@ -122,11 +122,31 @@ Because calls are goal-driven (CallBrief), most of these are **new task types / 
 20. **Vendor memory** — every business used: prices quoted/paid, reliability, user rating, notes
     ("your usual electrician Ramesh charged ₹400 last time"); used for recommendations and negotiation leverage.
 
-**Out of Phase 1:** IVR customer-care calls (P2), payments/advances (P4), physical errands via human runners (P3),
+**C. Customer-care / IVR calls (Phase 1 — founder decision)**
+21. Customer-care calls to large companies (telecom e.g. Airtel/Jio/Vi, broadband, banks/cards, insurers,
+    e-commerce/food delivery, airlines, utilities): complaints, refunds, disputes, cancellations, escalations,
+    service requests, status of existing tickets.
+22. **IVR navigation**: understand spoken IVR menus (Hindi/English) and press keys (DTMF) or speak options;
+    handle "enter your registered mobile number / account number" prompts using details the user saved and
+    approved for this task; recover from wrong branches; prefer the "talk to an agent" path.
+23. **Hold handling**: detect hold music / queue announcements and switch to a low-cost listening mode
+    (no LLM turns) until a human agent answers; tell the user the expected wait; give up after a configurable
+    max hold and retry at a better time.
+24. **Verification**: never read out OTPs, PINs, CVV or passwords. When the company insists on account-holder
+    verification, Friday **patches the user in** (three-way) or asks the user to call back with the ticket
+    context it gathered. Only share account identifiers the user approved for this specific call.
+25. **Escalation & outcomes**: capture ticket/complaint numbers, promised resolution dates, agent names;
+    request escalation to supervisor / grievance officer when the first agent can't resolve; schedule
+    automatic follow-up calls when promised dates pass; suggest formal escalation routes when appropriate
+    (e.g. grievance officer, ombudsman) as text guidance.
+26. **Official numbers only**: customer-care numbers come from a curated/verified directory + the scam check
+    (fake customer-care numbers are a major fraud vector in India).
+
+**Out of Phase 1:** payments/advances (P4), physical errands via human runners (P3),
 government portals/paperwork (P4).
 
 ## NOT in Phase 1
-Customer-care/IVR calls, payments/UPI, Gmail/Calendar, Lifeline/emergency, users calling Friday's number
+Payments/UPI, Gmail/Calendar, Lifeline/emergency, users calling Friday's number
 (inbound voice — Phase 2, but voice pipeline must be reusable for it), business accounts, regional languages
 beyond Hindi/English/Hinglish, agent-to-agent.
 
