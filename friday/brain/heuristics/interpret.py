@@ -418,6 +418,7 @@ def detect_stay(text: str, now: datetime, budget_max: int | None) -> StayOut | N
                    max_rate_per_night_inr=budget_max, property_types=types, preferences=prefs)
 
 
+_NOT_ITEMS = {"me", "my", "papa", "mom", "dad", "it", "a", "the", "him", "her"}
 _ITEM = re.compile(
     r"(?:order|mangwa\w*|has|have|stock of|available|need|chahiye|for|of)\s+"
     r"((?:[a-z0-9]+[\s-]?){1,5}?)"
@@ -441,6 +442,10 @@ def detect_item(text: str, task_type: TaskType) -> str | None:
             item = re.sub(r"^(a|an|the)\s+", "", m.group(1)).strip(" ?.")
             item = re.sub(r"\s*(hai|urgent).*$", "", item)
             return item.title() if item else None
+    m = re.search(r"(?:poocho|pucho|ask|check|pata karo)\s+(?:if\s+|ki\s+)?(?:they have\s+)?"
+                  r"(.+?)\s+(?:hai kya|hai ki nahi|available|milega|in stock)", t)
+    if m and task_type in (TaskType.ENQUIRY, TaskType.STOCK_HUNT):
+        return m.group(1).strip().title()
     m = re.search(r"(\d+)\s+(water cans?|cans?|strips?|packets?|tiffins?|bottles?|kg [a-z]+)", t)
     if m:
         return f"{m.group(1)} {m.group(2)}"
@@ -448,16 +453,16 @@ def detect_item(text: str, task_type: TaskType) -> str | None:
         item = match.group(1).strip()
         if item and item.split()[0] in {"from", "to", "near", "ke", "se", "at", "for", "with"}:
             continue
-        if item and item not in {"me", "my", "papa", "mom", "dad", "it", "a", "the", "him", "her"}:
-            if not re.fullmatch(r"\d+", item):
-                return item
+        if item and item not in _NOT_ITEMS and not re.fullmatch(r"\d+", item):
+            return item
     return None
 
 
 def detect_questions(text: str, task_type: TaskType, item: str | None) -> list[str]:
     t = norm(text)
     qs: list[str] = []
-    if item and has_any(t, ("has", "have", "stock", "available", "milega", "hai kya")):
+    if item and has_any(t, ("has", "have", "stock", "available", "milega", "hai kya",
+                            "hai ki nahi")):
         qs.append(f"Do you have {item} in stock?")
     if has_any(t, ("open", "timing", "timings", "until when", "till when", "kab tak khula",
                    "band", "closing time")):
@@ -490,7 +495,8 @@ def detect_service(t: str, category: str | None, item: str | None, party: int | 
                         ("teeth cleaning", "a teeth cleaning"), ("cleaning", "a cleaning"),
                         ("consultation", "a consultation"), ("checkup", "a check-up"),
                         ("check-up", "a check-up"), ("thyroid", "a thyroid test home collection"),
-                        ("blood test", "a blood test"), ("home collection", "a lab home collection"),
+                        ("blood test", "a blood test"),
+                        ("home collection", "a lab home collection"),
                         ("gas refill", "an AC gas refill"), ("ac service", "an AC service"),
                         ("ac not cooling", "an AC repair visit"),
                         ("isn't cooling", "an AC repair visit"), ("physio", "a physio session"),
@@ -578,14 +584,13 @@ def draft_task(c: _Ctx, text: str, msg: InboundMessage | None = None) -> TaskDra
 
     # discovery when no business named / no number
     discovery_query = None
-    if ttype in (TaskType.DISCOVERY, TaskType.STOCK_HUNT, TaskType.RENTAL_HUNT,
-                 TaskType.QUOTE) or (not phones and not biz_name and ttype in (
-            TaskType.BOOKING, TaskType.HEALTHCARE, TaskType.ORDER, TaskType.ENQUIRY,
-            TaskType.SERVICE_COORDINATION)):
-        if not biz_name and not phones:
-            discovery_query = category or (item if ttype == TaskType.STOCK_HUNT else None)
-            if ttype == TaskType.STOCK_HUNT:
-                discovery_query = "pharmacy" if category in (None, "pharmacy") else category
+    fan_types = (TaskType.DISCOVERY, TaskType.STOCK_HUNT, TaskType.RENTAL_HUNT, TaskType.QUOTE,
+                 TaskType.BOOKING, TaskType.HEALTHCARE, TaskType.ORDER, TaskType.ENQUIRY,
+                 TaskType.SERVICE_COORDINATION)
+    if ttype in fan_types and not biz_name and not phones:
+        discovery_query = category or (item if ttype == TaskType.STOCK_HUNT else None)
+        if ttype == TaskType.STOCK_HUNT:
+            discovery_query = "pharmacy" if category in (None, "pharmacy") else category
     if ttype == TaskType.DISCOVERY and not discovery_query:
         discovery_query = category or item
 
@@ -677,7 +682,8 @@ def _goal(ttype: TaskType, *, service: str, who: str, when: str, target: str,
     if ttype == TaskType.ENQUIRY:
         return f"Ask {target} about {item or service}"
     if ttype == TaskType.RESCHEDULE:
-        return f"Reschedule{who_part.replace(' for', '')}'s booking at {target} to {when or 'a new time'}"
+        new_time = when or "a new time"
+        return f"Reschedule{who_part.replace(' for', '')}'s booking at {target} to {new_time}"
     if ttype == TaskType.CANCEL_BOOKING:
         return f"Cancel the booking at {target}{when_part}"
     if ttype == TaskType.RECONFIRM:
@@ -765,7 +771,7 @@ def extract_facts(text: str, now: datetime, ctx: ConversationContext) -> list[Fa
         rec = Recurrence.YEARLY if "insurance" in thing or "puc" in thing else Recurrence.NONE
         facts.append(FactOut(
             kind=FactKind.DATE, key=f"{_slug(thing)}_expiry",
-            value=f"{thing} expires {due.strftime('%d %b %Y') if exact and due else (due.strftime('%B %Y') if due else '')}".strip(),
+            value=f"{thing} expires {_fmt_due(due, exact)}".strip(),
             due_on=due.isoformat() if due else None, recurrence=rec,
             confidence=0.95 if exact else 0.7))
     m = _FACT_BDAY.search(t)
@@ -801,6 +807,12 @@ def extract_facts(text: str, now: datetime, ctx: ConversationContext) -> list[Fa
             if rel and f.kind == FactKind.DATE and "my" not in t.split()[:1]:
                 f.about_person_ref = rel[1]
     return facts
+
+
+def _fmt_due(due, exact: bool) -> str:
+    if not due:
+        return ""
+    return due.strftime("%d %b %Y") if exact else due.strftime("%B %Y")
 
 
 def _ord(n: int | None) -> str:
@@ -855,7 +867,8 @@ def _button(c: _Ctx, msg: InboundMessage) -> InterpretOut | None:
                                             hinglish="Theek hai, inme se koi nahi."))
         return InterpretOut(intent=Intent.CHOOSE, task_id=ref, choice_index=idx,
                             reply=c.say(en="On it, calling them to confirm.",
-                                        hinglish="Theek hai, confirm karne ke liye call karti hoon."))
+                                        hinglish="Theek hai, confirm karne ke liye call "
+                                                 "karti hoon."))
     if kind == "n":
         positive = val.lower() in ("yes", "book", "call", "order", "ok", "done", "acted", "go")
         return InterpretOut(intent=Intent.APPROVE if positive else Intent.REJECT,
@@ -1188,7 +1201,8 @@ def _add_place(c: _Ctx, text: str) -> InterpretOut | None:
     return InterpretOut(intent=Intent.ADD_PLACE, place=place,
                         reply=c.say(en=f"Saved \"{place.label}\". I'll use it for nearby searches "
                                        f"and home visits.",
-                                    hinglish=f"\"{place.label}\" save kar liya. Paas ki searches aur "
+                                    hinglish=f"\"{place.label}\" save kar liya. Paas ki "
+                                             f"searches aur "
                                              f"home visits ke liye use karungi."))
 
 
@@ -1374,7 +1388,8 @@ def interpret(ctx: ConversationContext, msg: InboundMessage) -> InterpretOut:
                                 reply=c.say(en="Got it, reading it now.",
                                             hinglish="Mil gaya, padh rahi hoon."))
         return InterpretOut(intent=Intent.UNKNOWN, reply=c.say(
-            en="Got the file. What should I do with it?", hinglish="File mil gayi. Iska kya karun?"))
+            en="Got the file. What should I do with it?",
+            hinglish="File mil gayi. Iska kya karun?"))
     if not t:
         return InterpretOut(intent=Intent.UNKNOWN, reply=c.say(
             en="Sorry, I didn't catch that. Could you say it again?",

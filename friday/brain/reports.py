@@ -120,7 +120,8 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
         who = _who(ctx, task)
         if out in (CallOutcome.NO_ANSWER, CallOutcome.BUSY, CallOutcome.VOICEMAIL):
             return SummaryOut(summary=s(f"{who} didn't pick up the check-in call. I'll try again "
-                                        f"shortly.", f"{who} ne check-in call nahi uthayi. Thodi der "
+                                        f"shortly.",
+                                        f"{who} ne check-in call nahi uthayi. Thodi der "
                                                      f"mein phir try karungi."),
                               next_steps=["Retry", "Call them yourself"])
         bits = []
@@ -158,11 +159,24 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
                                         f"resolve nahi hua toh follow-up karungi."),
                               details=details, next_steps=["Transcript", "Done"])
         if task.type == TaskType.STOCK_HUNT:
+            amt = format_inr(q.amount_inr) if q and q.amount_inr else ""
+            price_at = f" at {amt}" if amt else ""
+            price_comma = f", {amt}" if amt else ""
             return SummaryOut(summary=s(f"Found it ✅ {biz} has {task.spec.item or 'it'} in stock"
-                                        f"{' at ' + format_inr(q.amount_inr) if q and q.amount_inr else ''}.",
+                                        f"{price_at}.",
                                         f"Mil gaya ✅ {biz} ke paas {task.spec.item or 'yeh'} hai"
-                                        f"{', ' + format_inr(q.amount_inr) if q and q.amount_inr else ''}."),
+                                        f"{price_comma}."),
                               details=details, next_steps=["Order for delivery", "Done"])
+        if task.type in (TaskType.QUOTE, TaskType.DISCOVERY, TaskType.RENTAL_HUNT) and q:
+            price = (f"{format_inr(q.original_amount_inr)} → {format_inr(q.amount_inr)}"
+                     if q.negotiated else (format_inr(q.amount_inr) if q.amount_inr
+                                           else q.price_text))
+            slots = f" · {', '.join(q.available_slots[:2])}" if q.available_slots else ""
+            held = s(" Slot held for now.", " Slot abhi hold pe hai.") \
+                if col.get("held") == "yes" else ""
+            return SummaryOut(summary=s(f"{biz}: {price}{slots}.{held} Want me to book it?",
+                                        f"{biz}: {price}{slots}.{held} Book karun?"),
+                              details=details, next_steps=["Book it", "Push for lower", "Done"])
         answers = [f"• {k}: {v}" for k, v in col.items()
                    if k not in ("held", "in_stock", "matched_task_id") and len(v) < 200]
         head = s(f"{biz}:", f"{biz}:")
@@ -192,10 +206,12 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
                           details=details)
     if out == CallOutcome.DECLINED:
         if col.get("refused_ai"):
-            return SummaryOut(summary=s(f"{biz} didn't want to talk to an AI assistant, sorry about "
-                                        f"that. Their number is {task.target.phone if task.target else ''}"
+            phone = task.target.phone if task.target else ""
+            return SummaryOut(summary=s(f"{biz} didn't want to talk to an AI assistant, sorry "
+                                        f"about that. Their number is {phone}"
                                         f" if you'd like to call, or I can try somewhere else.",
-                                        f"{biz} AI assistant se baat nahi karna chahte the. Aap khud "
+                                        f"{biz} AI assistant se baat nahi karna chahte the. "
+                                        f"Aap khud "
                                         f"call kar sakte ho, ya main kahin aur try karun?"),
                               details=details, next_steps=["Find another place", "OK"])
         if col.get("wrong_number"):
@@ -236,7 +252,8 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
                                     f"{biz} se baat hui - {got} mila, par sab kuch nahi."),
                           details=details, next_steps=["Call again", "Done"])
     if out == CallOutcome.CANCELLED:
-        return SummaryOut(summary=s(f"Call to {biz} cancelled.", f"{biz} wali call cancel ho gayi."))
+        return SummaryOut(summary=s(f"Call to {biz} cancelled.",
+                                    f"{biz} wali call cancel ho gayi."))
     return SummaryOut(summary=s(f"Something went wrong calling {biz}. I'll retry in a few "
                                 f"minutes.", f"{biz} ko call karte waqt dikkat aayi. Kuch minute "
                                              f"mein phir try karungi."),
@@ -295,12 +312,13 @@ def _inbound_summary(ctx: ConversationContext, task: Task, result: CallResult, s
                                     f"{biz} ne \"{label}\" ke liye call back kiya - kaam ho chuka "
                                     f"tha, toh shukriya bolke baat khatam kar di."))
     if col.get("better_offer"):
+        offer = q.price_text if q else col["better_offer"]
         return SummaryOut(summary=s(f"{biz} called with a better offer after your booking: "
-                                    f"{q.price_text if q else col['better_offer']}. Your booking is "
+                                    f"{offer}. Your booking is "
                                     f"unchanged. Switch only if it can be changed without a "
                                     f"penalty - want me to ask?",
                                     f"{biz} ne booking ke baad behtar offer diya: "
-                                    f"{q.price_text if q else col['better_offer']}. Booking waisi "
+                                    f"{offer}. Booking waisi "
                                     f"hi hai. Bina penalty change ho sake toh poochun?"),
                           next_steps=["Ask to switch", "Keep as is"])
     if col.get("change_request"):
@@ -312,8 +330,9 @@ def _inbound_summary(ctx: ConversationContext, task: Task, result: CallResult, s
                                     f"Approve karun?"),
                           next_steps=["Approve change", "Keep original", "Cancel booking"])
     if col.get("business_cancelled"):
-        return SummaryOut(summary=s(f"Heads up: {biz} called to cancel - \"{col['business_cancelled']}"
-                                    f"\". Want me to find another option?",
+        why = col["business_cancelled"]
+        return SummaryOut(summary=s(f"Heads up: {biz} called to cancel - \"{why}\". Want me "
+                                    f"to find another option?",
                                     f"Dhyan dein: {biz} ne cancel karne ke liye call kiya - "
                                     f"\"{col['business_cancelled']}\". Doosra option dhundun?"),
                           next_steps=["Find another", "OK"])
@@ -587,6 +606,4 @@ def needs_llm_summary(task: Task, result: CallResult) -> bool:
     if result.outcome in _DETERMINISTIC_ONLY:
         return False
     col = result.collected
-    if col.get("message_taken") or col.get("closed_loop"):
-        return False
-    return True
+    return not (col.get("message_taken") or col.get("closed_loop"))

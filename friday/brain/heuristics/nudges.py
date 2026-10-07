@@ -83,7 +83,8 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
                                  _b("stop", "Stop these")])
     if k == NudgeKind.RECURRING_DUE:
         return NudgeOut(send=True, reason="recurring instance due", text=s(
-            f"Next {what}{' for ' + who if who else ''} is coming up ({format_ist(due, '%a %d %b')})."
+            f"Next {what}{' for ' + who if who else ''} is coming up "
+            f"({format_ist(due, '%a %d %b')})."
             f" Book the usual slot?",
             f"Agla {what}{' ' + who + ' ke liye' if who else ''} aa raha hai "
             f"({format_ist(due, '%a %d %b')}). Usual slot book karun?"),

@@ -71,7 +71,8 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
                      hinglish=f"Milke achha laga{', ' + name if name else ''}! Kaunse city mein "
                               f"ho?"), [_b("ob:skip", "Skip")]
     if step == S.LANGUAGE:
-        return c.say(en="Which language do you prefer?", hinglish="Kaunsi language prefer karoge?"), [
+        return c.say(en="Which language do you prefer?",
+                     hinglish="Kaunsi language prefer karoge?"), [
             _b("ob:lang:en", "English"), _b("ob:lang:hi", "हिंदी"), _b("ob:lang:hinglish",
                                                                      "Hinglish")]
     if step == S.TONE:
@@ -110,7 +111,8 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
         return c.say(en="Save your home and office? Share a location pin or type the area "
                         "(\"home: Indiranagar, office: Bellandur\").",
                      hinglish="Ghar aur office save karun? Location pin bhejo ya area type karo "
-                              "(\"home: Indiranagar, office: Bellandur\")."), [_b("ob:skip", "Skip")]
+                              "(\"home: Indiranagar, office: Bellandur\")."), [
+            _b("ob:skip", "Skip")]
     if step == S.FIRST_TASK:
         return c.say(en="Last thing: what's one call you've been avoiding? I'll make it now. "
                         "e.g. \"Dentist appointment Saturday\", \"ask the AC guy for a price\"",

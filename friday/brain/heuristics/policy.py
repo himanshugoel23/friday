@@ -28,6 +28,7 @@ from ..inbound import CLOSED_ELSEWHERE, InboundContext, RelatedTask, inbound_of
 from ..lang import mirror, text_language
 from ..schemas import KV, CallActionOut, CareOut, QuestionOut, QuoteOut
 from ..textutil import (
+    fmt_minutes,
     format_inr,
     has_any,
     is_no,
@@ -264,14 +265,20 @@ def _universal(tn: Turn, lt: str) -> CallActionOut | None:
     if has_any(lt, CALL_LATER) and not has_any(lt, WAIT_WORDS) and b.task_type != \
             TaskType.WELLBEING_CHECKIN:
         start, _e, _x = parse_time_of_day(lt)
-        when = re.search(r"(after|baad|in|tomorrow|kal)[^.?!]{0,20}", lt)
-        collected = [KV(key="callback_at", value=(when.group(0).strip() if when else "later"))]
+        if start is not None:
+            when_txt = f"after {fmt_minutes(start)}"
+        elif has_any(lt, ("tomorrow", "kal")):
+            when_txt = "tomorrow"
+        else:
+            m = re.search(r"in (\d+|an?|one|two) (hour|hours|minutes|mins)", lt)
+            when_txt = m.group(0) if m else "later"
+        collected = [KV(key="callback_at", value=when_txt)]
         if start is not None:
             collected.append(KV(key="callback_time_min_ist", value=str(start)))
         return tn.hangup(tn.t(en="Sure, I'll call back then. Thank you.",
                               hinglish="Ji zaroor, tab call karti hoon. Shukriya."),
                          CallOutcome.CALLBACK_LATER, collected=collected)
-    if has_any(lt, WAIT_WORDS) and len(lt.split()) <= 8 and not st.slots[-1:] == [lt]:
+    if has_any(lt, WAIT_WORDS) and len(lt.split()) <= 8 and st.slots[-1:] != [lt]:
         return tn.act(CallActionType.WAIT)
     if has_any(lt, PAYMENT_WORDS) and b.task_type not in (TaskType.CUSTOMER_CARE,):
         return tn.callback({"advance_requested": st.last_callee.text[:120]},
@@ -336,7 +343,9 @@ def _ask_line(tn: Turn) -> str:
         q = (b.questions or (b.template.default_questions if b.template else []) or [goal])[0]
         return q
     need = _need_phrase(goal, b.target.name)
-    when_part = f", {when}" if when and when not in need else ""
+    service, who, when_in_goal = _split_need(need)
+    when_txt = when_in_goal or when
+    when_part = f", {when_txt}" if when_txt else ""
     if tt == TaskType.ORDER:
         return tn.t(en=f"I'd like to place an order: {need}{when_part}. Is it available, and "
                        f"what would the total be with delivery?",
@@ -345,10 +354,28 @@ def _ask_line(tn: Turn) -> str:
     if tt == TaskType.RESCHEDULE:
         return tn.t(en=f"I'm calling to move a booking: {need}{when_part}. Is that possible?",
                     hinglish=f"Ek booking shift karni thi: {need}{when_part}. Ho payega?")
-    return tn.t(en=f"I'd like to book {need}{when_part}. What slots do you have?",
-                hinglish=f"{need}{when_part} ke liye slot chahiye tha. Kaunse slots available "
-                         f"hain?",
-                hi=f"{need}{when_part} के लिए स्लॉट चाहिए था। कौनसे स्लॉट available हैं?")
+    for_who = f" for {who}" if who else ""
+    return tn.t(en=f"I'd like to book {_article(service)}{for_who}{when_part}. What slots do "
+                   f"you have?",
+                hinglish=f"{who + ' ke liye ' if who else ''}{service} ka slot chahiye "
+                         f"tha{when_part}. Kaunse slots available hain?",
+                hi=f"{who + ' के लिए ' if who else ''}{service} का स्लॉट चाहिए था{when_part}। "
+                   f"कौनसे स्लॉट available हैं?")
+
+
+def _split_need(need: str) -> tuple[str, str | None, str | None]:
+    """'a haircut for Ankit Sharma, Thu 8 Oct, 5 PM' -> ('haircut', 'Ankit Sharma', 'Thu ...')."""
+    m = re.match(r"^(?:an?\s+)?(.+?)(?:\s+for\s+([^,]+?))?(?:,\s*(.+))?$", need.strip())
+    if not m:
+        return need, None, None
+    service = m.group(1).strip()
+    if service.lower() in ("plumber", "electrician", "carpenter", "ac repair"):
+        service = f"{service} visit"
+    return service, (m.group(2) or "").strip() or None, (m.group(3) or "").strip() or None
+
+
+def _article(service: str) -> str:
+    return f"an {service}" if service[:1].lower() in "aeiou" else f"a {service}"
 
 
 def _need_phrase(goal: str, target: str) -> str:
@@ -472,9 +499,9 @@ def _identifier_for(b: CallBrief, prompt: str):
         lbl = norm(ident.label)
         if wants_mobile and has_any(lbl, ("mobile", "phone", "registered")):
             return ident
-        if not wants_mobile and not has_any(lbl, ("mobile", "phone")):
-            if any(w in lbl for w in re.findall(r"[a-z]{4,}", prompt)):
-                return ident
+        if not wants_mobile and not has_any(lbl, ("mobile", "phone")) and any(
+                w in lbl for w in re.findall(r"[a-z]{4,}", prompt)):
+            return ident
     if not wants_mobile:
         return next((i for i in b.approved_identifiers
                      if not has_any(norm(i.label), ("mobile", "phone"))), None)
@@ -556,7 +583,7 @@ def _booking(tn: Turn) -> CallActionOut:
         if not asked_confirm:
             return tn.say(_confirm_text(tn, terms), commits_booking=True)
         if reply and is_yes(reply) and not has_any(reply, ("full", "not available", "nahi")):
-            return tn.hangup(tn.t(en="Thank you! You'll get a confirmation message. Have a good day.",
+            return tn.hangup(tn.t(en="Thank you! You'll get a confirmation message.",
                                   hinglish="Bahut shukriya ji! Confirmation message aa jayega."),
                              CallOutcome.SUCCESS,
                              collected=[KV(key="confirmed_terms", value=terms)])
@@ -698,9 +725,9 @@ def _quote(tn: Turn) -> CallActionOut:
     st = tn.st
     if not st.friday:
         return tn.say(tn.t(en=f"I'm calling for {tn.name}: {tn.b.goal}. What would it cost, and "
-                              f"when can you do it?",
+                              f"what's the earliest slot?",
                            hinglish=f"{tn.name} ji ke liye call kar rahi hoon: {tn.b.goal}. Kitna "
-                                    f"lagega aur kab kar sakte hain?"))
+                                    f"lagega, aur sabse pehla slot kab hai?"))
     if st.price is None:
         if st.friday_count("cost", "lagega", "price") >= 2:
             return _wrap_up(tn)
@@ -712,7 +739,8 @@ def _quote(tn: Turn) -> CallActionOut:
     if neg is not None:
         return neg
     if not st.slots and not st.friday_said("when", "kab", "slot"):
-        return tn.say(tn.t(en="And when could you do it?", hinglish="Aur kab kar sakte hain?"))
+        return tn.say(tn.t(en="And what's the earliest slot?",
+                           hinglish="Aur sabse pehla slot kab hai?"))
     if not st.friday_said("hold", "rakh sakte"):
         return tn.say(tn.t(en=f"Thank you. I'll share this with {tn.name} and get back to you. "
                               f"Could you hold the slot for an hour?",
@@ -738,15 +766,15 @@ def _questions(tn: Turn) -> list[str]:
 def _enquiry(tn: Turn) -> CallActionOut:
     st, b = tn.st, tn.b
     qs = _questions(tn) or [b.goal]
-    asked = [q for q in qs if st.friday_has(q[:24])]
+    asked = [q for q in qs if st.friday_has(*_q_forms(q))]
     collected = []
     for q in asked:
-        ans = st.after_friday_has(q[:24])
+        ans = st.after_friday_has(*_q_forms(q))
         if ans:
             collected.append(KV(key=q, value=ans[:160]))
     reply = st.reply_text()
     if b.task_type == TaskType.STOCK_HUNT and asked and reply:
-        first = st.after_friday_has(qs[0][:24])
+        first = st.after_friday_has(*_q_forms(qs[0]))
         if first and (has_any(first, ("out of stock", "nahi hai", "not available", "khatam",
                                       "nahi", "no", "illa", "don't have", "dont have"))
                       and not has_any(first, ("hai ji", "yes", "available hai", "haan"))):
@@ -758,19 +786,66 @@ def _enquiry(tn: Turn) -> CallActionOut:
     if not st.friday:
         lead = tn.t(en=f"I'm calling for {tn.name}. ", hinglish=f"{tn.name} ji ke liye ek "
                                                                f"jaankari chahiye thi. ")
-        return tn.say(lead + remaining[0])
+        return tn.say(lead + _local_q(tn, remaining[0]))
     if asked and not reply:
         return tn.act(CallActionType.WAIT)
+    if asked and has_any(reply, _REPEAT) and st.friday_count("phir se", "once more",
+                                                             "again") < 1:
+        return tn.say(tn.t(en="Sorry, once more: ", hinglish="Ji, phir se poochti hoon: ")
+                      + _local_q(tn, asked[-1]), collected=collected)
     if remaining:
-        return tn.say(remaining[0], collected=collected)
+        return tn.say(_local_q(tn, remaining[0]), collected=collected)
     if b.task_type == TaskType.STOCK_HUNT:
         collected.append(KV(key="in_stock", value="yes"))
     answered = sum(1 for kv in collected if kv.value and not has_any(
-        kv.value, ("pata nahi", "don't know", "dont know", "no idea")))
+        kv.value, ("pata nahi", "don't know", "dont know", "no idea", *_REPEAT)))
     return tn.hangup(tn.t(en="Thank you so much, that's all I needed.",
                           hinglish="Bahut shukriya ji, bas itna hi jaanna tha."),
                      CallOutcome.SUCCESS if answered else CallOutcome.PARTIAL,
                      collected=collected)
+
+
+_REPEAT = ("phir se", "फिर से", "say that again", "come again", "pardon", "dobara boliye",
+           "repeat", "sorry?")
+_LOCAL_Q = {
+    "are you open today, and until what time?": "Aaj khule hain, aur kitne baje tak?",
+    "what are your timings today - until when are you open?": "Aaj kitne baje tak khule hain?",
+    "what is the price?": "Iska price kitna hai?",
+    "which slots are available?": "Kaunse slots available hain?",
+    "what is the price and what does it include?": "Price kitna hai aur usme kya include hai?",
+    "do you have it in stock, and how many?": "Yeh stock mein hai? Kitne hain?",
+    "until when are you open?": "Kitne baje tak khule hain?",
+    "what are the fees?": "Fees kitni hai?",
+    "is it in stock?": "Stock mein hai?",
+    "what is the current status?": "Abhi status kya hai?",
+    "when will it be ready?": "Kab tak ready hoga?",
+    "is any amount due?": "Kuch payment baaki hai?",
+    "do you do home delivery, and what is the charge?": "Home delivery karte hain? Charge "
+                                                         "kitna hai?",
+}
+
+
+def _q_forms(q: str) -> tuple[str, str]:
+    """Fragments identifying a question in either spoken form (English / Hinglish)."""
+    return q[:24], _hinglish_q(q)[:24]
+
+
+def _local_q(tn: Turn, q: str) -> str:
+    """Template questions are English; say them in Hinglish when mirroring Hindi/Hinglish."""
+    return q if tn.lang == Language.EN else _hinglish_q(q)
+
+
+def _hinglish_q(q: str) -> str:
+    low = q.lower().strip()
+    if low in _LOCAL_Q:
+        return _LOCAL_Q[low]
+    m = re.match(r"do you have (.+?) in stock\?$", low)
+    if m:
+        return f"Kya aapke paas {m.group(1)} hai?"
+    m = re.match(r"what is the price of (.+?)\?$", low)
+    if m:
+        return f"{m.group(1)} ka price kitna hai?"
+    return q
 
 
 def _notify(tn: Turn) -> CallActionOut:
@@ -797,8 +872,9 @@ def _notify(tn: Turn) -> CallActionOut:
                                         "theek hai", "no problem")):
         key = "reconfirmed" if b.task_type == TaskType.RECONFIRM else "slot_held"
         return tn.hangup(tn.t(en="Thank you, noted.", hinglish="Shukriya ji, note kar liya."),
-                         CallOutcome.SUCCESS, collected=[KV(key=key, value="yes"),
-                                                         KV(key="business_said", value=reply[:160])])
+                         CallOutcome.SUCCESS,
+                         collected=[KV(key=key, value="yes"),
+                                    KV(key="business_said", value=reply[:160])])
     return tn.hangup(tn.t(en=f"Thank you, I'll let {tn.name} know.",
                           hinglish=f"Shukriya ji, main {tn.name} ji ko bata deti hoon."),
                      CallOutcome.PARTIAL, collected=[KV(key="business_said", value=reply[:160])])
@@ -909,7 +985,8 @@ def _care(tn: Turn) -> CallActionOut:
                               f"raise the request and share a ticket number? {tn.name} can "
                               f"share it later.",
                            hinglish=f"Yeh detail abhi share karne ki permission nahi hai. Aap "
-                                    f"request raise karke ticket number de sakti hain? {tn.name} ji "
+                                    f"request raise karke ticket number de sakti hain? "
+                                    f"{tn.name} ji "
                                     f"baad mein de denge."), care=care)
     if ticket:
         if not st.friday_said("note kar liya", "noted the ticket", "ticket number note"):
@@ -972,7 +1049,8 @@ def _wellbeing(tn: Turn) -> CallActionOut:
     if has_any(reply, ("stop calling", "mat karna call", "don't call tomorrow",
                        "kal call mat", "call mat karo")):
         return tn.hangup(tn.t(en=f"Of course. I'll let {name} know. Take care!",
-                              hinglish=f"Ji zaroor, main {name} ko bata dungi. Apna khayal rakhiye!"),
+                              hinglish=f"Ji zaroor, main {name} ko bata dungi. Apna khayal "
+                                       f"rakhiye!"),
                          CallOutcome.SUCCESS, collected=collected +
                          [KV(key="stop_request", value=reply[:120])])
     if distress and not st.friday_said("112", "108"):
@@ -988,7 +1066,8 @@ def _wellbeing(tn: Turn) -> CallActionOut:
     if has_any(reply, ("kaunsi dawai", "which medicine", "should i take", "kitni dawai",
                        "doctor ko", "kya karun")):
         return tn.say(tn.t(en=f"I'm not a doctor, so I'll pass this to {name} right away.",
-                           hinglish=f"Main doctor nahi hoon, yeh main {name} ko turant bata dungi."),
+                           hinglish=f"Main doctor nahi hoon, yeh main {name} ko turant "
+                                    f"bata dungi."),
                       collected=collected)
     asked = [k for k, en, hing, hi in _CHECKIN_QS if st.friday_has(en[:18], hing[:14], hi[:10])]
     if asked and not reply:

@@ -7,6 +7,7 @@ to interpret the user's wall-clock words ("kal shaam 6 baje").
 
 from __future__ import annotations
 
+import contextlib
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -146,8 +147,8 @@ def extract_amounts(text: str, *, require_marker: bool = False) -> list[int]:
     """Rupee amounts in order of appearance. Without a currency marker, bare numbers
     count only if they look like prices (>= 50, not a time / phone / quantity)."""
     out: list[int] = []
-    t = _PHONE_CANDIDATE.sub(lambda m: m.group(0) if _looks_money(text, m) else " " * len(m.group(0)),
-                             text or "")
+    t = _PHONE_CANDIDATE.sub(
+        lambda m: m.group(0) if _looks_money(text, m) else " " * len(m.group(0)), text or "")
     for m in _MONEY.finditer(t):
         if m.group("a"):
             v = _to_int(m.group("a"), bool(m.group("ka")))
@@ -431,10 +432,8 @@ def parse_dates(text: str, now: datetime) -> list[date]:
         if d:
             add(d)
     for m in re.finditer(r"\b(20\d\d)-(\d\d)-(\d\d)\b", t):
-        try:
+        with contextlib.suppress(ValueError):
             add(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
-        except ValueError:
-            pass
     if has_any(t, ("day after tomorrow", "parso", "parson", "परसों")):
         add(today + timedelta(days=2))
     elif has_any(t, ("tomorrow", "tmrw", "tmr", "tomorow", "kal", "कल")):

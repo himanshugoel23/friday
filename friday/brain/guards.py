@@ -53,7 +53,8 @@ _COMMIT_PHRASES = (
 )
 _MONEY_PROMISE = (
     "i will pay", "i'll pay", "we will pay", "we'll pay", "payment kar dungi",
-    "pay kar dungi", "advance de", "advance bhej", "deposit de", "deposit kar", "transfer kar dungi",
+    "pay kar dungi", "advance de", "advance bhej", "deposit de", "deposit kar",
+    "transfer kar dungi",
     "upi kar", "paise bhej", "send the money", "make the payment",
 )
 _COMMIT_TYPES_NEED_APPROVAL = {

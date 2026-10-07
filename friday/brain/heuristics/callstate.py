@@ -109,9 +109,11 @@ def _slot_strings(sentence: str) -> list[str]:
             continue
         hh, mi = divmod(start, 60)
         label = f"{hh % 12 or 12}{':' + f'{mi:02d}' if mi else ''} {'AM' if hh < 12 else 'PM'}"
-        day = m.group("day")
+        day = (m.group("day") or "").lower()
         if day:
-            label = f"{day[:3].title() if len(day) > 4 else day.title()} {label}"
+            named = {"today": "Today", "aaj": "Today", "tomorrow": "Tomorrow",
+                     "kal": "Tomorrow", "parso": "Day after"}.get(day, day[:3].title())
+            label = f"{named} {label}"
         if label not in out:
             out.append(label)
     return out
@@ -201,7 +203,8 @@ def _is_disclosure(text: str, brief: CallBrief) -> bool:
                                                           Language.HINGLISH)):
         return True
     return ("ai assistant" in t or "एआई" in t or "ai असिस्टेंट" in t) and (
-        "on behalf of" in t or "ki taraf se" in t or "की ओर से" in t) and len(t) < 160 and "?" not in t
+        "on behalf of" in t or "ki taraf se" in t or "की ओर से" in t
+    ) and len(t) < 160 and "?" not in t
 
 
 def read_state(brief: CallBrief, transcript: Transcript, answers: list[UserAnswer]) -> CallState:
@@ -334,7 +337,7 @@ TICKET = re.compile(
     re.I,
 )
 AGENT = re.compile(r"(?:my name is|this is|main|mera naam|se)\s+([A-Z][a-z]+)\s*"
-                   r"(?:bol rahi|bol raha|speaking|here|hai|hoon|,)", re.I)
+                   r"(?:bol rahi|bol raha|speaking|here|hai|hoon|from|,)", re.I)
 
 
 def find_ticket(text: str) -> str | None:
