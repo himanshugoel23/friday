@@ -39,6 +39,7 @@ TTSProviderName = Literal["auto", "fake", "sarvam", "elevenlabs"]
 WhatsAppProviderName = Literal["auto", "simulator", "cloud"]
 SMSProviderName = Literal["auto", "fake", "msg91"]
 DirectoryProviderName = Literal["auto", "simulator", "google_places"]
+GeocoderProviderName = Literal["auto", "simulator", "google"]
 
 
 def _alias(*names: str) -> AliasChoices:
@@ -190,10 +191,14 @@ class Settings(BaseSettings):
 
     # ------------------------------------------------------------------ discovery
     directory_provider: DirectoryProviderName = "auto"
+    # One Google Maps Platform key (Places API (New) + Geocoding API enabled).
     google_places_api_key: SecretStr | None = Field(
         default=None,
-        validation_alias=_alias("GOOGLE_PLACES_API_KEY", "FRIDAY_GOOGLE_PLACES_API_KEY"),
+        validation_alias=_alias(
+            "GOOGLE_PLACES_API_KEY", "GOOGLE_MAPS_API_KEY", "FRIDAY_GOOGLE_PLACES_API_KEY"
+        ),
     )
+    geocoder_provider: GeocoderProviderName = "auto"
     discovery_max_candidates: int = 10  # fetched from the directory
     discovery_shortlist_size: int = 3  # called after the brain shortlists
     discovery_min_rating: float = 3.8
@@ -255,6 +260,11 @@ class Settings(BaseSettings):
             return self.directory_provider
         return "google_places" if (self.is_live or self.google_places_api_key) else "simulator"
 
+    def resolve_geocoder(self) -> Literal["simulator", "google"]:
+        if self.geocoder_provider != "auto":
+            return self.geocoder_provider
+        return "google" if (self.is_live or self.google_places_api_key) else "simulator"
+
     def resolve_telephony(self) -> Literal["simulator", "twilio", "exotel", "plivo"]:
         if not self.is_live:
             return "simulator"
@@ -303,7 +313,7 @@ class Settings(BaseSettings):
                 "WHATSAPP_PHONE_NUMBER_ID": self.whatsapp_phone_number_id,
                 "WHATSAPP_APP_SECRET": self.whatsapp_app_secret,
             }
-        if self.resolve_directory() == "google_places":
+        if self.resolve_directory() == "google_places" or self.resolve_geocoder() == "google":
             need["GOOGLE_PLACES_API_KEY"] = self.google_places_api_key
         if self.resolve_sms() == "msg91":
             need |= {"MSG91_AUTH_KEY": self.msg91_auth_key, "DLT_ENTITY_ID": self.dlt_entity_id}

@@ -1,6 +1,6 @@
 # Friday: Phase 1 PRD ("Friday makes calls")
 
-Status: Draft v1 · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` · North star: `docs/VISION.md`
+Status: Draft v2 (includes the founder voice-agent requirements: language mirroring, negotiation, ask-before-booking, discovery, AI voice, goal-driven calls) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
 
 Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal, for example "book a haircut". A task may involve several **call attempts**. **MUST**, **SHOULD** and **MAY** are used in the RFC sense. Requirement IDs (`US-x.y`) are referenced in tests and tickets.
 
@@ -14,6 +14,7 @@ Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal
 | G2 | Friday becomes a habit, not a novelty | ≥2 requests/user/week by week 3 |
 | G3 | Unit economics work | cost per successful call < ₹15 |
 | G4 | Businesses tolerate (and later welcome) an AI caller | business hang-up rate < 20% |
+| G6 | Friday finds and gets good deals, not just slots | discovery→booking conversion; % of quotes improved by negotiation (§9.2) |
 | G5 | Users trust Friday | zero unapproved commitments; every action logged; deletion completed within SLA |
 
 ## 2. Non-goals (Phase 1)
@@ -23,7 +24,8 @@ Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal
 - Gmail, Calendar, documents, OAuth integrations.
 - Lifeline or emergency features. Friday still always points distressed users to 112/108 (see §7).
 - Inbound voice (users calling Friday). The voice pipeline MUST be reusable for P2. P1 only plays a fixed message on inbound calls (US-16).
-- Business accounts and dashboards. Languages other than Hindi, English and Hinglish.
+- Business accounts and dashboards.
+- Chat in languages other than Hindi, English and Hinglish. *On calls*, Friday mirrors the business's language, including other Indian languages where STT/TTS supports them (US-13). This follows the founder requirement, which overrides the BRIEF's earlier language exclusion.
 - Calls to private individuals (friends, family), with one exception: a phone number the user supplies for a service provider (plumber, maid, tutor) is allowed.
 - Agent-to-agent negotiation.
 - Any app or website, beyond a one-time T&C link.
@@ -32,7 +34,7 @@ Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal
 
 | Persona | Who | Typical jobs | Notes |
 |---|---|---|---|
-| **Busy urban professional** | 25–40, Bengaluru, Delhi NCR or Mumbai. On WA all day, hates phone calls, switches between English and Hinglish | Doctor/dentist appointments, salon, restaurant table, AC service, plumber, "is the pharmacy open / do they have X in stock / what's the price" | Core P1 user. Values speed and not having to talk. |
+| **Busy urban professional** | 25–40, Bengaluru, Delhi NCR or Mumbai. On WA all day, hates phone calls, switches between English and Hinglish | Doctor/dentist appointments, salon, restaurant table, AC service, plumber, "is the pharmacy open / do they have X in stock / what's the price", "find me a good AC repair guy near Indiranagar and get the best price" | Core P1 user. Values speed and not having to talk. |
 | **NRI managing parents' errands** | 28–50, in the US, UK, Gulf or Singapore. Parents live in an Indian city | Book a doctor for Papa, get the geyser fixed at Mum's flat, confirm a lab test home-collection slot | Number is foreign (+1/+44/+971). Time zone differs. Calls are made "on behalf of" the user *for* a beneficiary (US-3.9). Very high willingness to pay later. |
 
 Beta launch population: invite-only, about 500–2,000 users seeded from the founders' networks in the three metros.
@@ -94,7 +96,8 @@ Beta launch population: invite-only, about 500–2,000 users seeded from the fou
 - `service`
 - `date/time window` (normalised to absolute IST datetimes)
 - `party_size` (restaurants)
-- `constraints` (e.g. "female stylist", "under ₹800")
+- `constraints` (e.g. "female stylist")
+- `budget` (max acceptable price, a target price if given, and what must be included). See US-18
 - `flexibility` (e.g. "any time after 4")
 - `beneficiary` (default: the user)
 - `shareable_info` (see US-3.7)
@@ -102,21 +105,31 @@ Beta launch population: invite-only, about 500–2,000 users seeded from the fou
 **US-3.2 Phone number resolution**, in priority order:
 1. A number in the message or a shared contact card (vCard).
 2. A business previously called, from memory (fuzzy name match).
-3. Ask the user: "What's their number? You can share the contact too."
+3. If the user named a business but no number: a places-provider lookup by name and city. Friday confirms the match ("Looks Salon, 100 Ft Rd Indiranagar, 4.4★?") before dialling.
+4. If the user named no business ("find me a good salon nearby"): the discovery flow (US-17).
+5. Otherwise, ask the user: "What's their number? You can share the contact too."
 
-P1 does **not** search for business numbers (open question Q2). Number rules:
+Number rules:
 - Indian landlines need an STD code, and Friday asks for it if missing (it may be inferred from the user's city).
 - Indian mobiles are accepted.
 - Toll-free (1800/1860), premium, short codes, emergency numbers and international numbers are declined, with a reason.
 
-**US-3.3 Missing info.** Before calling, Friday asks for at most **2** clarifying questions, combined into one message where possible. Required fields are: business phone, service, and a date or date window. Anything else is optional. Friday negotiates the rest within the stated flexibility.
+**US-3.3 Missing info.** Before calling, Friday asks for at most **2** clarifying questions, combined into one message where possible. Required fields are: a business (or a discovery request), service, and a date or date window. Anything else is optional. Friday works out the rest on the call, within the stated flexibility.
 
 **US-3.4 Confirm before dialling.** The user's request is their approval, so Friday does not ask "shall I call?". It sends: "Calling Looks Salon now for a haircut, Sat 11 Oct, 9 AM–12 PM. I'll ping you if they ask anything."
 - If the business-call window is closed (outside **09:00–20:30 IST**, or outside known hours for that business), Friday schedules the call for the next window and says so.
 
-**US-3.5 The call** follows the script in §5. The booking is **successful** only when the business has explicitly confirmed date, time and service, and Friday has read them back and received a "yes".
+**US-3.5 The call** is goal-driven, using the call brief in §5. The booking is **successful** only when all of these hold:
+- the user has approved the slot and price (US-3.11);
+- the business has explicitly confirmed date, time and service;
+- Friday has read them back and received a "yes".
 
-**US-3.6** If no slot fits the constraints, Friday asks the user mid-call (US-5) about the nearest alternatives. If the user is unavailable, Friday ends the call with "I'll check and call back" and reports the alternatives.
+**US-3.6** If no slot fits the constraints, Friday collects the nearest alternatives and asks the user mid-call (US-5). If the user is unavailable, Friday ends the call with "I'll check with Ankit and call you back" and reports the alternatives.
+
+**US-3.11 Ask before booking (founder requirement; it overrides autonomy settings).** Friday MUST NOT confirm any booking until the user has approved the specific slot and price.
+- **Pre-approval counts** only if the user approved an *exact* slot (date + time) before the call, and the business's price is at or below the user's budget (or the known usual price if no budget was given). Examples: tapping `Book it` on "Looks, Sat 11 AM like usual?", or "book exactly 6 PM Friday, under ₹1,000". Anything else needs a mid-call question (US-5): a time range, a different slot, a higher price, a changed inclusion, or a different staff member when the user asked for a specific one.
+- When the user can't be reached in time, Friday asks the business to hold the slot and calls back after approval (US-5.5). It never confirms "provisionally".
+- The approval message (WA reply/button ID, timestamp) is stored on the task and in the action log.
 
 **US-3.7 Info sharing.**
 - Friday may share the user's booking name and, for bookings, their registered mobile number. The user can turn the number off.
@@ -137,14 +150,14 @@ P1 does **not** search for business numbers (open question Q2). Number rules:
 - **US-4.2** Friday asks every question and records an answer for each one: `answered` with the value, `unknown` ("they didn't know"), or `refused`. The call is successful when ≥1 question is answered and none was skipped by Friday.
 - **US-4.3** Prices are recorded verbatim with units ("₹450 per visit, ₹150 extra if parts"). Friday never treats a quote as a commitment.
 - **US-4.4** If the answer makes a natural next action obvious ("they have stock and close at 10"), the report offers one-tap actions: `Book it` / `Remind me at 7` / `Done`.
-- **US-4.5** Enquiries about multiple businesses ("call these 3 plumbers, who's cheapest for a tap fix tomorrow?") are allowed. Each business is a separate call task, run sequentially or in parallel (at most 2 concurrent calls per user). The results are combined into one comparison report. Each connected call counts towards the cap.
+- **US-4.5** Enquiries about multiple businesses ("call these 3 plumbers, who's cheapest for a tap fix tomorrow?") follow the compare flow in US-17.4–17.6, whether the user supplied the numbers or Friday discovered them.
 
 ### US-5 Mid-call question to the user
 
 *As a user, if the business offers options, I want to choose them in real time without being on the call.*
 
-- **US-5.1** Friday asks the user only when the answer falls outside the task spec's constraints or flexibility. If the spec already covers it ("any time after 4"), Friday decides without asking.
-- **US-5.2** On the call, Friday says: "One moment please, let me quickly check with Ankit." ("Ek minute ji, main Ankit se confirm kar leti hoon.") Friday then keeps the line alive with polite filler every ~15 s ("Bas ek second, ji.").
+- **US-5.1** Friday always asks before confirming a booking, unless it was pre-approved (US-3.11). For non-booking details that the spec already covers ("any time after 4" when choosing which slots to ask about, "either branch is fine"), Friday decides without asking.
+- **US-5.2** On the call, Friday says plainly: "One moment please, I'm checking with Ankit." ("Ek minute ji, main Ankit se confirm kar rahi hoon.") If the wait exceeds 20 s, it gives one factual status line ("Still waiting for Ankit's reply. Thank you for holding."). There are no filler sounds or fake hesitations (US-19).
 - **US-5.3** On WA (inside the 24h window), Friday sends an interactive message headed with the business name:
   - ≤3 options use reply buttons. 4–10 options use a list message.
   - "None of these" is always available as the last button or row.
@@ -258,7 +271,7 @@ Definitions:
 | 1 | Inform | Friday tells the user; no action offered beyond acknowledging |
 | 2 | Suggest | Friday tells the user and offers a one-tap action (**default for all categories**) |
 | 3 | Act with approval | Friday prepares everything, e.g. "I'll call Looks for Sat 11 AM. Go?"; one tap executes |
-| 4 | Act automatically | Friday does it, then reports. Requires **explicit opt-in and the PIN** for that category |
+| 4 | Act automatically | Friday starts the action without asking, then reports. Requires **explicit opt-in and the PIN** for that category. **Booking confirmation still requires the user's approval of the slot and price (US-3.11)**, so in practice level 4 means "place the call and come back with options". Fully automatic results apply only to enquiries, reminders and follow-up calls |
 
 **Categories (P1):** `health` (doctor, dentist, lab), `personal_care` (salon, spa), `dining`, `home_services`, `enquiries`, `follow_ups` (no-show calls, confirmation calls), `reminders`.
 
@@ -320,7 +333,13 @@ Commands are recognised in any supported language and phrasing (LLM intent class
 ### US-13 Language handling
 
 - **US-13.1** Chat language follows the user's setting. Mid-conversation, Friday mirrors the user's language in each reply. If the user switches 3 times in a row, Friday asks whether to update the default.
-- **US-13.2** On calls, Friday opens in **Hinglish** by default (it is the most widely understood by urban businesses) and switches within one turn to Hindi or English based on the business's replies. The user can set a per-business override.
+- **US-13.2 Call language mirroring (founder requirement).**
+  - Friday always opens in **Hinglish**. The disclosure line is fixed in Hinglish (§5.1).
+  - Friday detects the language of **each** business turn (STT language ID plus an LLM check for code-mixing). If the dominant language differs from the one Friday is speaking for **1 full turn** (≥4 words, confidence ≥0.7), Friday switches on its very next utterance. Supported: Hindi, English, Hinglish, and Tamil, Telugu, Kannada, Marathi and Bengali where the configured STT *and* TTS providers support them (a capability flag per provider).
+  - If the rep switches again mid-call, Friday switches again. There is no limit on switches.
+  - If the rep's language is unsupported, Friday continues in Hinglish, offers English ("Can we continue in English or Hindi?") and, failing that, ends politely (E20).
+  - Every switch is logged (`call_language_switched`). Friday stores the business's preferred language in memory and uses it to open the next call, **after** the fixed Hinglish disclosure line.
+  - Reports to the user are always in the user's chat language. Quotes are translated, and the original-language wording is kept in the transcript.
 - **US-13.3** Hindi chat is in Devanagari or Roman script, matching the user.
 
 ### US-14 Voice notes from the user

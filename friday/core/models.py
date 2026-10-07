@@ -134,6 +134,8 @@ class OnboardingStep(StrEnum):
     TONE = "tone"
     CONSENT = "consent"
     PIN = "pin"
+    CIRCLE = "circle"  # optional: "Who else do you look after?"
+    PLACES = "places"  # optional: "Save your home and office?"
     FIRST_TASK = "first_task"
     DONE = "done"
 
@@ -151,6 +153,24 @@ class ConsentKind(StrEnum):
     CALL_RECORDING = "call_recording"
     PROACTIVE = "proactive"
     MORNING_BRIEFING = "morning_briefing"
+    BENEFICIARY_CONTACT = "beneficiary_contact"  # a circle member agreed to hear from Friday
+
+
+class PersonConsent(StrEnum):
+    """Whether Friday may message/call a circle member directly (rule P5)."""
+
+    NOT_ASKED = "not_asked"
+    PENDING = "pending"  # one-time opt-in message sent, no reply yet
+    OPTED_IN = "opted_in"
+    OPTED_OUT = "opted_out"
+
+
+class PlaceSource(StrEnum):
+    TYPED = "typed"
+    VOICE = "voice"
+    MAPS_LINK = "maps_link"  # pasted Google Maps URL
+    WA_LOCATION = "wa_location"  # WhatsApp location pin
+    DIRECTORY = "directory"  # came from a BusinessDirectory result
 
 
 class TaskType(StrEnum):
@@ -282,6 +302,8 @@ class Intent(StrEnum):
     REJECT = "reject"
     CANCEL_TASK = "cancel_task"
     REMEMBER = "remember"  # "my rent is due on 5th"
+    ADD_PERSON = "add_person"  # "add my dad, +91 98..., lives in Jaipur"
+    ADD_PLACE = "add_place"  # "save this as Mom & Dad's home" / location pin / maps link
     QUERY_MEMORY = "query_memory"  # "what's my dentist's number?"
     SETTINGS = "settings"  # tone, language, autonomy, quiet hours, briefing opt-in
     STATUS = "status"  # "what happened with the salon?"
@@ -395,6 +417,7 @@ class Consent(_Model):
     user_id: str
     kind: ConsentKind
     granted: bool
+    person_id: str | None = None  # BENEFICIARY_CONTACT: which circle member consented
     policy_version: str = "2026-01"
     evidence_text: str | None = None  # the user's literal "I agree"
     message_id: str | None = None
@@ -416,6 +439,105 @@ class AutonomySetting(_Model):
     level: AutonomyLevel = AutonomyLevel.SUGGEST
     enabled: bool = True  # False == user said "stop" for this category
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+# =============================================================================== people & places
+
+
+class GeoPoint(_Model):
+    lat: float
+    lng: float
+
+
+class Person(_Model):
+    """Someone in the user's circle (mom, dad, spouse, friend...). Owned by ONE user.
+
+    ``notes`` are private to the owner: never shown to another person, never sent
+    to a business, never used in messages to a different circle member.
+    """
+
+    id: str = Field(default_factory=new_id)
+    owner_user_id: str
+    name: str  # "Ramesh Sharma"
+    relation: str | None = None  # free text, normalised lower-case: "father", "mother", "friend"
+    aliases: list[str] = Field(default_factory=list)  # "papa", "dad", "pitaji" - learned over time
+    phone: str | None = None  # E.164
+    language: Language | None = None  # for reminders to them and calls about them
+    notes: str | None = None  # PRIVATE: "diabetic, prefers morning appointments"
+    contact_consent: PersonConsent = PersonConsent.NOT_ASKED
+    consent_at: datetime | None = None
+    linked_user_id: str | None = None  # if they later join Friday themselves
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+    @property
+    def can_be_contacted(self) -> bool:
+        return bool(self.phone) and self.contact_consent == PersonConsent.OPTED_IN
+
+
+class Place(_Model):
+    """A saved, labelled location ("Home", "Office", "Mom & Dad's home")."""
+
+    id: str = Field(default_factory=new_id)
+    owner_user_id: str
+    label: str
+    aliases: list[str] = Field(default_factory=list)  # "PG", "Nani's", "ghar"
+    address_text: str | None = None  # as given by the user
+    formatted_address: str | None = None  # normalised by the Geocoder
+    city: str | None = None
+    location: GeoPoint | None = None
+    source: PlaceSource = PlaceSource.TYPED
+    person_id: str | None = None  # whose place it is (None = the owner's own)
+    ephemeral: bool = False  # a one-off "current location" pin, not a saved place
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class LocationPin(_Model):
+    """WhatsApp location message payload."""
+
+    lat: float
+    lng: float
+    name: str | None = None
+    address: str | None = None
+
+
+class GeocodeResult(_Model):
+    location: GeoPoint
+    formatted_address: str
+    city: str | None = None
+    provider_place_id: str | None = None
+    confidence: float = 1.0
+
+
+class Beneficiary(_Model):
+    """Who a task is for. ``person_id`` None == the requester themself."""
+
+    person_id: str | None = None
+
+    @property
+    def is_self(self) -> bool:
+        return self.person_id is None
+
+
+class AliasLearning(_Model):
+    """'PG' means place X / 'nani' means person Y - learned from conversation."""
+
+    target: Literal["person", "place"]
+    target_id: str
+    alias: str
+
+
+class ReferenceResolution(_Model):
+    """brain.resolve_references() output for one user utterance."""
+
+    person_id: str | None = None  # resolved beneficiary (None = self / not mentioned)
+    place_id: str | None = None  # resolved saved place
+    location_text: str | None = None  # unresolved free-text location ("near MG Road")
+    ambiguous: bool = False
+    clarification: str | None = None  # ask ONCE: "Mom & Dad's Pune home or the Delhi flat?"
+    clarification_buttons: list[ReplyButton] = Field(default_factory=list, max_length=3)
+    new_aliases: list[AliasLearning] = Field(default_factory=list)
 
 
 # =============================================================================== memory
@@ -446,6 +568,7 @@ class Fact(_Model):
     due_on: date | None = None  # next occurrence for DATE facts (IST calendar date)
     recurrence: Recurrence = Recurrence.NONE
     business_id: str | None = None
+    person_id: str | None = None  # fact about a circle member ("Dad's BP check due")
     confidence: float = 1.0
     source_message_id: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
@@ -512,6 +635,7 @@ class InboundMessage(_Model):
     media_mime: str | None = None
     button_id: str | None = None  # for BUTTON_REPLY: ReplyButton.id
     contact_phone: str | None = None  # for CONTACT: shared number
+    location: LocationPin | None = None  # for LOCATION: WhatsApp pin
     provider_message_id: str | None = None
     reply_to_provider_id: str | None = None
     received_at: datetime = Field(default_factory=utcnow)
@@ -537,6 +661,10 @@ class OutboundMessage(_Model):
     task_id: str | None = None
     nudge_id: str | None = None
     question_id: str | None = None
+    # Set when the recipient is a circle member (not the user). The backend
+    # notifier MUST refuse unless Person.contact_consent == OPTED_IN (except the
+    # one-time opt-in request itself, which is a template).
+    person_id: str | None = None
 
 
 class SendReceipt(_Model):
@@ -595,11 +723,6 @@ class Quote(_Model):
 
 
 # =============================================================================== discovery
-
-
-class GeoPoint(_Model):
-    lat: float
-    lng: float
 
 
 class BusinessCandidate(_Model):
@@ -681,7 +804,9 @@ class TaskSpec(_Model):
 
 class Task(_Model):
     id: str = Field(default_factory=new_id)
-    user_id: str
+    requester_user_id: str  # the Friday user who asked (and approves)
+    beneficiary: Beneficiary = Field(default_factory=Beneficiary)  # who it's for
+    place_id: str | None = None  # where (home visit address / "near" anchor)
     type: TaskType
     status: TaskStatus = TaskStatus.CREATED
     spec: TaskSpec
@@ -802,13 +927,21 @@ class CallBrief(_Model):
     """
 
     task_id: str
-    user_id: str
+    requester_user_id: str
     task_type: TaskType
     goal: str  # "Get a quote for AC servicing (2 split ACs) and a Sat slot"
     business_name: str | None = None
     business_phone: str  # E.164 - who we dial
     business: Business | None = None
-    on_behalf_of: str  # user's name for the disclosure
+    on_behalf_of: str  # requester's name for the disclosure
+    # Who the booking is for, if not the requester ("Ramesh Sharma", "father").
+    beneficiary_name: str | None = None
+    beneficiary_relation: str | None = None
+    # The ONLY personal details the agent may share with the business (minimum
+    # needed): e.g. {"patient name": "Ramesh Sharma", "visit address": "..."}.
+    # Never includes private Person.notes unless the user explicitly allowed it.
+    shareable_details: dict[str, str] = Field(default_factory=dict)
+    location_context: str | None = None  # "near Mom & Dad's home, Kothrud, Pune"
     opening_language: Language = DEFAULT_CALL_LANGUAGE
     user_language: Language = Language.HINGLISH  # for mid-call questions to the user
     constraints: list[str] = Field(default_factory=list)
@@ -925,6 +1058,8 @@ class ConversationContext(_Model):
     open_tasks: list[Task] = Field(default_factory=list)
     pending_question: MidCallQuestion | None = None  # outstanding mid-call question
     known_businesses: list[Business] = Field(default_factory=list)
+    people: list[Person] = Field(default_factory=list)  # owner's circle
+    places: list[Place] = Field(default_factory=list)  # owner's saved places
     autonomy: list[AutonomySetting] = Field(default_factory=list)
 
 
@@ -936,6 +1071,9 @@ class Interpretation(_Model):
     buttons: list[ReplyButton] = Field(default_factory=list, max_length=3)
     task_spec: TaskSpec | None = None  # NEW_TASK / TASK_UPDATE
     task_id: str | None = None  # which open task this refers to
+    resolution: ReferenceResolution | None = None  # who/where (from resolve_references)
+    person_upsert: Person | None = None  # ADD_PERSON (or edits)
+    place_upsert: Place | None = None  # ADD_PLACE (address still to geocode)
     answer: UserAnswer | None = None  # ANSWER_QUESTION
     facts: list[Fact] = Field(default_factory=list)  # REMEMBER or incidental extraction
     choice_index: int | None = None  # CHOOSE: index into the comparison/shortlist
@@ -954,6 +1092,8 @@ class OnboardingTurn(_Model):
     invite_code: str | None = None  # extracted at INVITE_CODE
     consent_given: bool | None = None  # at CONSENT: True only on explicit agreement
     pin: str | None = None  # at PIN: 4 digits as typed; backend hashes, never stores raw
+    people: list[Person] = Field(default_factory=list)  # at CIRCLE
+    places: list[Place] = Field(default_factory=list)  # at PLACES (backend geocodes)
     first_task: TaskSpec | None = None  # at FIRST_TASK
     next_step: OnboardingStep  # brain proposes; backend validates & persists
 
@@ -969,6 +1109,7 @@ class NudgeCandidate(_Model):
     due_at: datetime  # when it's relevant (UTC)
     task_id: str | None = None
     fact_id: str | None = None
+    person_id: str | None = None  # nudge ABOUT a circle member ("Dad's BP check")
     dedupe_key: str  # one nudge per key, e.g. "reminder:<task_id>"
     data: dict[str, Any] = Field(default_factory=dict)
 
@@ -995,6 +1136,8 @@ class Nudge(_Model):
     proposed_task: TaskSpec | None = None
     task_id: str | None = None
     fact_id: str | None = None
+    person_id: str | None = None  # about whom
+    recipient_person_id: str | None = None  # sent TO a circle member (needs opt-in)
     scheduled_for: datetime | None = None
     sent_at: datetime | None = None
     responded_at: datetime | None = None

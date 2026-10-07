@@ -88,6 +88,43 @@ errands in India are a core segment, so this must work from day one.
 6. **Proactive** nudges can be about the people the user cares for ("Dad's BP check is due next week, book
    the usual clinic?").
 
+## Founder requirements: full "real-world footwork" coverage (added — Phase 1 scope)
+Goal: Phase 1 covers every offline task that today needs a human to phone/coordinate with a business or person.
+Because calls are goal-driven (CallBrief), most of these are **new task types / brief templates**, not new engines.
+
+**A. New task types on the existing call engine (Phase 1, priority 1)**
+1. Reschedule / cancel an existing booking.
+2. Reconfirm day-before ("is my 7pm table still on?"); running-late notice to a business.
+3. Phone orders: pharmacy (availability + home delivery), kirana, water cans, tiffin.
+4. Availability/stock hunt across many businesses ("which chemist near Dad's home has X?") — stop at first match.
+5. Service-provider coordination: plumber/electrician/carpenter/AC — get ETA, chase no-shows, confirm arrival,
+   confirm with user that work was done.
+6. Status chasing: repair shop, tailor, dry cleaner, local shop refund/delivery.
+7. Complaints to local businesses (non-IVR).
+8. Rental hunting: call brokers/landlords — rent, deposit, bachelors/pets allowed, visit slots.
+9. Big-ticket quote collection + negotiation: packers & movers, wedding/event vendors, venues, car service, interiors.
+10. Healthcare for family: doctor slots, lab home collection, physio/nurse/attendant home visits.
+11. Enquiries: tutors, coaching, school admissions, gyms.
+12. Recurring bookings (weekly physio, monthly haircut, quarterly AC service) — auto-scheduled.
+13. **Daily/regular wellbeing check-in calls to a circle member** (e.g. NRI's parents), only with that person's
+    opt-in: friendly call in their language (medicine taken? feeling okay? anything needed?), short summary to
+    the user, and alert the user if something sounds wrong. Never gives medical advice.
+
+**B. Engine additions (Phase 1, priority 1: 14, 15, 20, 19; priority 2: 16, 17, 18)**
+14. **Parallel calling** — call N businesses concurrently (configurable concurrency), aggregate results.
+15. **WhatsApp-to-business channel** — message a business on WhatsApp when it doesn't answer or to receive menus /
+    price lists / quote photos; extract structured info from images/PDFs.
+16. **Scam / fake-number check** — verify a business number (multiple listings, official site, past call history,
+    known-scam list) before calling or sharing any details; warn the user.
+17. **Warm transfer / three-way call** — Friday reaches the right person, then patches the user in.
+18. **Live translator mode** — user + business on one call, Friday translates both ways.
+19. **Call timing intelligence** — business hours, lunch/Sunday closures, best time to call, call queue.
+20. **Vendor memory** — every business used: prices quoted/paid, reliability, user rating, notes
+    ("your usual electrician Ramesh charged ₹400 last time"); used for recommendations and negotiation leverage.
+
+**Out of Phase 1:** IVR customer-care calls (P2), payments/advances (P4), physical errands via human runners (P3),
+government portals/paperwork (P4).
+
 ## NOT in Phase 1
 Customer-care/IVR calls, payments/UPI, Gmail/Calendar, Lifeline/emergency, users calling Friday's number
 (inbound voice — Phase 2, but voice pipeline must be reusable for it), business accounts, regional languages
