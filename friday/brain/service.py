@@ -28,6 +28,7 @@ from friday.core.models import (
     Budget,
     BusinessCandidate,
     CallAction,
+    CallActionType,
     CallBrief,
     CallResult,
     ConversationContext,
@@ -56,6 +57,7 @@ from friday.core.models import (
     ReferenceResolution,
     ReplyButton,
     ShortlistItem,
+    Speaker,
     StayRequest,
     Task,
     TaskResult,
@@ -71,18 +73,22 @@ from friday.core.models import (
 )
 
 from . import briefs, guards, handlers, reports
+from .heuristics.callstate import is_hold
+from .ivr import learn_ivr_map, replay_step
+from .routing import ModelRouter
 from .copy import first_name
 from .heuristics.interpret import draft_missing
 from .heuristics.lexicon import DELEGATION_PHRASES, SECRET_WORDS
 from .heuristics.onboarding import onboarding_turn as _onboarding
 from .heuristics.references import canonical_relation, resolve
 from .inbound import InboundCallBrief, InboundContext, RelatedTask
-from .prompts import render_input, system_prompt
+from .prompts import CACHE_BREAK, render_input, system_prompt
 from .schemas import (
     CallActionOut,
     CompareOut,
     InterpretOut,
     NudgeOut,
+    ReasonsOut,
     ResolutionOut,
     SummaryOut,
     TaskDraft,
@@ -121,6 +127,70 @@ def _slim_result(result: TaskResult | None) -> TaskResult | None:
         return None
     return result.model_copy(update={"interactions": [], "facts": [], "extracted": [],
                                      "hotel_offers": result.hotel_offers[:5]})
+
+
+_STABLE_CTX = ("user", "profile", "people", "places", "facts", "known_businesses",
+               "vendor_history", "autonomy")
+
+
+def ctx_split(ctx: ConversationContext) -> tuple[dict[str, Any], dict[str, Any]]:
+    """(stable part for the cached ``<data>`` block, volatile part for the message)."""
+    full = ctx_payload(ctx)
+    stable = {"ctx": {k: v for k, v in full.items() if k in _STABLE_CTX}}
+    volatile = {k: v for k, v in full.items() if k not in _STABLE_CTX}
+    return stable, volatile
+
+
+_FAST_INTENTS = {Intent.HELP, Intent.STATUS, Intent.DELETE_DATA, Intent.INVITE,
+                 Intent.SMALL_TALK, Intent.SETTINGS, Intent.APPROVE, Intent.REJECT,
+                 Intent.CHOOSE, Intent.ANSWER_QUESTION, Intent.CANCEL_TASK}
+
+
+def is_deterministic(ctx: ConversationContext, msg: InboundMessage, det: InterpretOut) -> bool:
+    """Inputs the rules handle exactly: buttons, pins, contacts, bare media, short
+    commands, yes/no and option picks, refusals to store secrets."""
+    if msg.button_id or msg.kind in (MessageKind.LOCATION, MessageKind.CONTACT):
+        return True
+    if msg.kind in (MessageKind.IMAGE, MessageKind.DOCUMENT) and not (msg.text or "").strip():
+        return True
+    if det.intent == Intent.SAVE_IDENTIFIER and det.identifier is None:
+        return True
+    words = len((msg.text or "").split())
+    if det.intent == Intent.ANSWER_QUESTION and det.answer and det.answer.option_index is not None:
+        return True
+    return det.intent in _FAST_INTENTS and words <= 8
+
+
+COMPACT_TAIL = 10
+
+
+def compact_transcript(brief: CallBrief, transcript: Transcript) -> dict[str, Any]:
+    """Rolling summary of older turns + the last N turns (cost rule 3)."""
+    turns = transcript.turns
+    tail = turns[-COMPACT_TAIL:]
+    out: dict[str, Any] = {"transcript": [
+        {"speaker": t.speaker.value, "text": t.text,
+         **({"language": t.language.value} if t.language else {})} for t in tail]}
+    if len(turns) > COMPACT_TAIL:
+        from .heuristics.callstate import read_state
+
+        st = read_state(brief, transcript, [])
+        bits = [f"{len(turns) - COMPACT_TAIL} earlier turns"]
+        if st.slots:
+            bits.append("slots offered: " + ", ".join(st.slots[:4]))
+        if st.price is not None:
+            bits.append(f"price: {st.price}" + (f" (first quoted {st.original_price})"
+                                               if st.original_price != st.price else ""))
+        if st.inclusions:
+            bits.append("inclusions: " + "; ".join(st.inclusions[:2]))
+        keys = [t.text for t in turns[:-COMPACT_TAIL] if t.text.lower().startswith("dtmf")]
+        if keys:
+            bits.append("IVR keys: " + ", ".join(k.split(":", 1)[-1].strip() for k in keys))
+        asked = [t.text for t in turns[:-COMPACT_TAIL] if t.speaker == Speaker.FRIDAY][-3:]
+        if asked:
+            bits.append("Friday said earlier: " + " / ".join(a[:80] for a in asked))
+        out["earlier"] = "; ".join(bits)
+    return out
 
 
 def brief_payload(brief: CallBrief) -> dict[str, Any]:
@@ -292,6 +362,7 @@ class FridayBrain:
         self.llm = llm
         self.settings = settings or Settings(_env_file=None)
         self._speakable = speakable
+        self.router = ModelRouter(self.settings)
 
     # ------------------------------------------------------------------ plumbing
     @property
@@ -306,24 +377,43 @@ class FridayBrain:
         return self._speakable  # type: ignore[return-value]
 
     async def _ask(self, purpose: str, payload: dict[str, Any], out_model: type[BaseModel], *,
-                   system: str, fallback: Callable[[], BaseModel], fast: bool = False,
-                   max_tokens: int = 2000, effort: str | None = None,
+                   system: str, fallback: Callable[[], BaseModel],
+                   stable: dict[str, Any] | None = None, task_id: str | None = None,
+                   escalate_if: Callable[[Any], bool] | None = None,
                    instruction: str = "") -> Any:
+        """Static rules + cached stable data (system) -> volatile payload (message) ->
+        structured output. Routed model, tight max_tokens, budget-aware; deterministic
+        fallback on any failure; optional one-shot escalation for hard cases."""
+        if stable:
+            system = f"{system}{CACHE_BREAK}{render_input(stable, tag='data')}"
+        content = render_input(payload, instruction)
+        out = await self._call(purpose, system, content, out_model, task_id=task_id)
+        if out is not None and escalate_if is not None and escalate_if(out):
+            better = await self._call(purpose, system, content, out_model, task_id=task_id,
+                                      escalate=True)
+            out = better or out
+        if out is None:
+            return fallback()
+        return out
+
+    async def _call(self, purpose: str, system: str, content: str, out_model: type[BaseModel],
+                    *, task_id: str | None, escalate: bool = False) -> Any:
+        model = self.router.model_for(purpose, task_id=task_id, escalate=escalate)
         try:
             resp = await self.llm.complete(
                 system=system,
-                messages=[LLMMessage(role="user", content=render_input(payload, instruction))],
+                messages=[LLMMessage(role="user", content=content)],
                 purpose=purpose,
-                model=self.settings.llm_fast_model if fast else None,
-                max_tokens=max_tokens,
-                effort=effort,  # type: ignore[arg-type]
+                model=model,
+                max_tokens=self.router.max_tokens(purpose) * (2 if escalate else 1),
+                effort=self.router.effort(purpose),  # type: ignore[arg-type]
                 json_schema=strict_schema(out_model),
             )
+            self.router.record(task_id, resp.input_tokens + resp.output_tokens)
             return out_model.model_validate_json(resp.text)
         except (ProviderError, ValidationError, ValueError) as e:
-            log.warning("brain %s: LLM unusable (%s); deterministic fallback", purpose,
-                        type(e).__name__)
-            return fallback()
+            log.warning("brain %s: LLM unusable (%s, model=%s)", purpose, type(e).__name__, model)
+            return None
 
     # ------------------------------------------------------------------ templates
     def template_for(self, task_type: TaskType):
@@ -331,13 +421,19 @@ class FridayBrain:
 
     # ------------------------------------------------------------------ interpret
     async def interpret(self, ctx: ConversationContext, message: InboundMessage) -> Interpretation:
-        payload = {"ctx": ctx_payload(ctx), "message": message.model_dump(mode="json",
-                                                                          exclude_none=True)}
+        stable, volatile = ctx_split(ctx)
+        payload = {"ctx": volatile, "message": message.model_dump(mode="json", exclude_none=True)}
+        full = {"ctx": {**stable["ctx"], **volatile}, "message": payload["message"]}
+        det: InterpretOut = handlers.h_interpret(full)  # type: ignore[assignment]
+        if is_deterministic(ctx, message, det):
+            return self._interpretation(ctx, message, det)  # no LLM: buttons, yes/no, commands
         out: InterpretOut = await self._ask(
-            "interpret", payload, InterpretOut,
+            "interpret", payload, InterpretOut, stable=stable,
             system=system_prompt("interpret", tone=ctx.profile.tone,
                                  language=ctx.profile.language),
-            fallback=lambda: handlers.h_interpret(payload), fast=True, effort="low")
+            fallback=lambda: det,
+            escalate_if=lambda o: o.intent == Intent.UNKNOWN and len((message.text or "")
+                                                                     .split()) >= 6)
         return self._interpretation(ctx, message, out)
 
     def _interpretation(self, ctx: ConversationContext, msg: InboundMessage,
@@ -495,11 +591,12 @@ class FridayBrain:
     async def resolve_references(self, ctx: ConversationContext, text: str
                                  ) -> ReferenceResolution:
         payload = {"ctx": ctx_payload(ctx), "text": text}
+        det: ResolutionOut = handlers.h_resolve(payload)  # type: ignore[assignment]
+        if det.person_id or det.place_id or not det.location_text and not det.ambiguous:
+            return resolution_from(det, ctx)  # resolved (or nothing to resolve): no LLM
         out: ResolutionOut = await self._ask(
             "resolve_references", payload, ResolutionOut,
-            system=system_prompt("resolve_references"),
-            fallback=lambda: handlers.h_resolve(payload), fast=True, effort="low",
-            max_tokens=600)
+            system=system_prompt("resolve_references"), fallback=lambda: det)
         return resolution_from(out, ctx)
 
     # ------------------------------------------------------------------ onboarding
@@ -533,25 +630,61 @@ class FridayBrain:
     # ------------------------------------------------------------------ discovery
     async def shortlist(self, ctx: ConversationContext, spec: TaskSpec,
                         candidates: Sequence[BusinessCandidate], n: int) -> list[ShortlistItem]:
-        return reports.shortlist(ctx, spec, list(candidates), n,
-                                 min_rating=self.settings.discovery_min_rating)
+        ranked = reports.shortlist(ctx, spec, list(candidates), n,
+                                   min_rating=self.settings.discovery_min_rating)
+        if not ranked:
+            return ranked
+        payload = {"items": [reports.reason_input(item) for item in ranked]}
+        out: ReasonsOut = await self._ask(
+            "shortlist_reasons", payload, ReasonsOut, system=system_prompt("shortlist_reasons"),
+            fallback=lambda: ReasonsOut(reasons=[]))  # one batched call for all reasons
+        for r in out.reasons:
+            if 0 <= r.index < len(ranked):
+                clean = reports.clean_reason(r.reason)
+                if clean:
+                    ranked[r.index].reason = clean
+        return ranked
 
     # ------------------------------------------------------------------ live calls
     async def next_call_action(self, brief: CallBrief, transcript: Transcript,
                                answers: Sequence[UserAnswer]) -> CallAction:
         speak = self.speakable
-        payload = {"brief": brief_payload(brief),
-                   "transcript": transcript.model_dump(mode="json", exclude_none=True),
-                   "answers": [a.model_dump(mode="json") for a in answers],
-                   "speakable": sorted(lang.value for lang in speak) if speak else None}
 
         def fallback() -> CallActionOut:
             return policy_next(brief, transcript, answers, speak)
 
-        out: CallActionOut = await self._ask(
-            "call_turn", payload, CallActionOut, system=system_prompt("call_turn"),
-            fallback=fallback, fast=True, effort="low", max_tokens=700)
-        return guards.to_call_action(out, brief, list(answers))
+        out = self._call_shortcut(brief, transcript)  # zero-LLM paths (hold, learned IVR)
+        if out is None:
+            payload: dict[str, Any] = {
+                **compact_transcript(brief, transcript),
+                "answers": [a.model_dump(mode="json") for a in answers],
+                "speakable": sorted(lang.value for lang in speak) if speak else None,
+            }
+            if getattr(self.llm, "provider", None) == "fake":
+                # the deterministic fake needs the whole call; real models get the compact one
+                payload["transcript_full"] = transcript.model_dump(mode="json",
+                                                                   exclude_none=True)
+            out = await self._ask(
+                "call_turn", payload, CallActionOut, system=system_prompt("call_turn"),
+                stable={"brief": brief_payload(brief)}, task_id=brief.task_id,
+                fallback=fallback)
+        action = guards.to_call_action(out, brief, list(answers))
+        learned = learn_ivr_map(transcript, brief)
+        if learned is not None and "ivr_map" not in action.collected:
+            action.collected["ivr_map"] = learned.to_note()
+        return action
+
+    def _call_shortcut(self, brief: CallBrief, transcript: Transcript) -> CallActionOut | None:
+        last = transcript.turns[-1] if transcript.turns else None
+        if last is None or last.speaker != Speaker.CALLEE:
+            return None
+        if is_hold(last.text):
+            return policy_next(brief, transcript, [], self.speakable)
+        keys = replay_step(brief, transcript)
+        if keys is not None:
+            return CallActionOut(type=CallActionType.PRESS_KEYS, digits=keys,
+                                 language=brief.opening_language)
+        return None
 
     async def translate(self, text: str, *, target: Language, source: Language | None = None,
                         context: str = "") -> str:
@@ -559,8 +692,7 @@ class FridayBrain:
                    "source": source.value if source else None, "context": context}
         out: TranslateOut = await self._ask(
             "translate", payload, TranslateOut, system=system_prompt("translate"),
-            fallback=lambda: handlers.h_translate(payload), fast=True, effort="low",
-            max_tokens=500)
+            fallback=lambda: handlers.h_translate(payload))
         # numbers / amounts must survive translation unchanged
         nums_in = re.findall(r"\d+", text)
         if any(n not in out.text for n in nums_in):
@@ -574,11 +706,13 @@ class FridayBrain:
                    "task": task.model_dump(mode="json", exclude_none=True),
                    "result": result.model_dump(mode="json", exclude_none=True)}
         det = reports.summary_text(ctx, task, result)
+        if not reports.needs_llm_summary(task, result):
+            return reports.build_task_result(ctx, task, result, det, self.settings)
         out: SummaryOut = await self._ask(
-            "summarize", payload, SummaryOut,
+            "summarize", payload, SummaryOut, task_id=task.id,
             system=system_prompt("summarize", tone=ctx.profile.tone,
                                  language=ctx.profile.language),
-            fallback=lambda: det, effort="low", max_tokens=1200)
+            fallback=lambda: det)
         if not out.summary.strip():
             out = det
         # structured parts are always the deterministic ones
@@ -597,10 +731,9 @@ class FridayBrain:
                    "parent": parent.model_dump(mode="json", exclude_none=True),
                    "ranked": [q.model_dump(mode="json", exclude_none=True) for q in ranked]}
         out: CompareOut = await self._ask(
-            "compare", payload, CompareOut,
+            "compare", payload, CompareOut, task_id=parent.id,
             system=system_prompt("compare", tone=ctx.profile.tone, language=ctx.profile.language),
-            fallback=lambda: reports.compare_text(ctx, parent, ranked), effort="low",
-            max_tokens=1000)
+            fallback=lambda: reports.compare_text(ctx, parent, ranked))
         return reports.build_comparison(parent, ranked, out)
 
     # ------------------------------------------------------------------ proactive
@@ -616,19 +749,22 @@ class FridayBrain:
                           ) -> NudgeDecision:
         payload = {"ctx": ctx_payload(ctx, recent=4),
                    "candidate": candidate.model_dump(mode="json", exclude_none=True)}
-        out: NudgeOut = await self._ask(
-            "judge_nudge", payload, NudgeOut,
-            system=system_prompt("judge_nudge", tone=ctx.profile.tone,
-                                 language=ctx.profile.language),
-            fallback=lambda: handlers.h_nudge(payload), effort="low", max_tokens=600)
+        det: NudgeOut = handlers.h_nudge(payload)  # type: ignore[assignment]
+        out = det
+        if candidate.data.get("personalize") and det.send:
+            # rule/template first; the LLM only polishes copy when explicitly useful
+            out = await self._ask(
+                "judge_nudge", payload, NudgeOut,
+                system=system_prompt("judge_nudge", tone=ctx.profile.tone,
+                                     language=ctx.profile.language),
+                fallback=lambda: det)
         if candidate.kind == NudgeKind.WELLBEING_ALERT:
             out.send = True
         if not out.send:
             return NudgeDecision(send=False, reason=out.reason or "not useful now")
-        det = handlers.h_nudge(payload)
-        text = (out.text or det.text or candidate.reason).strip()  # type: ignore[attr-defined]
+        text = (out.text or det.text or candidate.reason).strip()
         nid = self.nudge_id_for(candidate)
-        src = out.buttons or det.buttons  # type: ignore[attr-defined]
+        src = out.buttons or det.buttons
         buttons = [ReplyButton(id=nudge_button_id(nid, re.sub(r"[^a-z0-9_]", "_",
                                                               b.action.lower())[:30]),
                                title=truncate_title(b.title)) for b in src[:3]]

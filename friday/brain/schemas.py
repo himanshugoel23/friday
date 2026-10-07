@@ -302,6 +302,15 @@ class OnboardingOut(Wire):
     skip: bool = False
 
 
+class ReasonOut(Wire):
+    index: int
+    reason: str
+
+
+class ReasonsOut(Wire):
+    reasons: list[ReasonOut] = []
+
+
 class PriceItemOut(Wire):
     name: str
     amount_inr: int | None = None

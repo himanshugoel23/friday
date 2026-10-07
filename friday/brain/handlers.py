@@ -52,7 +52,9 @@ def h_call_turn(p: dict[str, Any]) -> BaseModel:
     speak = p.get("speakable")
     return policy.next_action(
         load_brief(p["brief"]),
-        Transcript.model_validate(p["transcript"]),
+        Transcript.model_validate(p.get("transcript_full") or {"turns": p.get("transcript", [])}
+                                  if not isinstance(p.get("transcript"), dict)
+                                  else p["transcript"]),
         [UserAnswer.model_validate(a) for a in p.get("answers", [])],
         frozenset(Language(x) for x in speak) if speak else None,
     )
@@ -88,6 +90,13 @@ def h_sim_business(p: dict[str, Any]) -> BaseModel:
     return business.reply(p.get("business") or {}, p.get("transcript") or [])
 
 
+def h_shortlist_reasons(p: dict[str, Any]) -> BaseModel:
+    from .schemas import ReasonOut, ReasonsOut
+
+    return ReasonsOut(reasons=[ReasonOut(index=i, reason=item.get("default_reason", ""))
+                               for i, item in enumerate(p.get("items", []))])
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], BaseModel]] = {
     "interpret": h_interpret,
     "resolve_references": h_resolve,
@@ -98,4 +107,5 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], BaseModel]] = {
     "extract": h_extract,
     "translate": h_translate,
     "sim_business": h_sim_business,
+    "shortlist_reasons": h_shortlist_reasons,
 }

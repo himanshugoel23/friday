@@ -552,4 +552,41 @@ def shortlist(ctx: ConversationContext, spec: TaskSpec, candidates: list[Busines
             for i, (_s, _n, c, r) in enumerate(scored[: max(0, n)])]
 
 
-_NUM = re.compile(r"\d")
+_LONG_DIGITS = re.compile(r"\d[\d\s-]{5,}\d")
+
+
+def reason_input(item: ShortlistItem) -> dict:
+    """Non-personal facts about one ranked candidate for the batched reasons call."""
+    c = item.candidate
+    return {"name": c.name, "rating": c.rating, "reviews": c.review_count,
+            "snippets": [s[:140] for s in c.review_snippets[:3]],
+            "distance_km": c.distance_km, "default_reason": item.reason}
+
+
+def clean_reason(text: str | None) -> str | None:
+    """LLM-written reasons are shown to the user: short, no numbers that look like
+    phones/accounts, no links. Anything odd -> keep the deterministic reason."""
+    if not text:
+        return None
+    t = " ".join(text.split())[:110]
+    if _LONG_DIGITS.search(t) or "http" in t.lower() or "@" in t:
+        return None
+    return t
+
+
+_DETERMINISTIC_ONLY = {CallOutcome.BUSY, CallOutcome.NO_ANSWER, CallOutcome.VOICEMAIL,
+                       CallOutcome.CALLBACK_LATER, CallOutcome.HOLD_TIMEOUT,
+                       CallOutcome.NEEDS_USER_VERIFICATION, CallOutcome.TRANSFERRED,
+                       CallOutcome.HUNG_UP, CallOutcome.FAILED, CallOutcome.CANCELLED,
+                       CallOutcome.DECLINED}
+
+
+def needs_llm_summary(task: Task, result: CallResult) -> bool:
+    """Templates cover the routine outcomes; the LLM only writes the prose for calls
+    with real content (success / partial / offers, check-ins)."""
+    if result.outcome in _DETERMINISTIC_ONLY:
+        return False
+    col = result.collected
+    if col.get("message_taken") or col.get("closed_loop"):
+        return False
+    return True
