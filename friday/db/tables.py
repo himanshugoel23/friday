@@ -528,7 +528,7 @@ class CostEntryRow(IdMixin, Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
-# ------------------------------------------------------------------------------ call memory (E30-35)
+# -------------------------------------------------------------------------- call memory (E30-35)
 
 
 class CallMemoryRow(IdMixin, Base):

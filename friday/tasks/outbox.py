@@ -77,7 +77,8 @@ class Outbox:
             user_id=user_id,
             text=text,
             buttons=list(buttons)[:3],
-            template=template or TemplateRef(key=template_key, params=[truncate(text, TEMPLATE_PARAM_MAX)]),
+            template=template
+            or TemplateRef(key=template_key, params=[truncate(text, TEMPLATE_PARAM_MAX)]),
             media_url=media_url,
             task_id=task_id,
             question_id=question_id,
@@ -115,18 +116,20 @@ class Outbox:
         *,
         business_id: str | None = None,
         task_id: str | None = None,
+        channel: Channel = Channel.SMS,
     ) -> SendReceipt | None:
-        """Templated business touch (BRIEF #8, DLT SMS)."""
+        """Templated business message: end-of-call touch (BRIEF #8, DLT SMS) or a
+        WhatsApp request (B15 / E.36, ``channel=WHATSAPP``)."""
         if self.notifier is not None:
             msg = OutboundMessage(
-                channel=Channel.SMS,
+                channel=channel,
                 to_phone=phone,
                 template=template,
                 business_id=business_id,
                 task_id=task_id,
             )
             return await self._send(msg, Urgency.NORMAL)
-        if self.sms is not None:
+        if self.sms is not None and channel == Channel.SMS:
             try:
                 return await self.sms.send_template(phone, template)
             except Exception as e:  # noqa: BLE001

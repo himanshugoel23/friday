@@ -32,7 +32,9 @@ class FakeTTS:
 
 def build_fake_tts(c: Container) -> FakeTTS:
     catalog = VoiceCatalog(
-        "fake", c.settings, {lang: f"fake-{lang.value}-female-calm" for lang in Language},
+        "fake",
+        c.settings,
+        {lang: f"fake-{lang.value}-female-calm" for lang in Language},
         "fake-female-calm",
     )
     return FakeTTS(catalog)

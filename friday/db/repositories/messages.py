@@ -114,10 +114,16 @@ class MessageRepo(Repo):
         """Provider delivery callback (e.g. WhatsApp 'failed')."""
         async with self.db.session() as s:
             row = (
-                await s.execute(
-                    select(MessageRow).where(MessageRow.provider_message_id == provider_message_id)
+                (
+                    await s.execute(
+                        select(MessageRow).where(
+                            MessageRow.provider_message_id == provider_message_id
+                        )
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
             if row is None:
                 return False
             row.ok = ok
@@ -146,14 +152,18 @@ class MessageRepo(Repo):
         """Newest last."""
         async with self.db.session() as s:
             rows = (
-                await s.execute(
-                    select(MessageRow)
-                    .where(MessageRow.user_id == user_id, MessageRow.person_id.is_(None))
-                    .where(MessageRow.business_id.is_(None))
-                    .order_by(MessageRow.at.desc())
-                    .limit(limit)
+                (
+                    await s.execute(
+                        select(MessageRow)
+                        .where(MessageRow.user_id == user_id, MessageRow.person_id.is_(None))
+                        .where(MessageRow.business_id.is_(None))
+                        .order_by(MessageRow.at.desc())
+                        .limit(limit)
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             return [_stored(r) for r in reversed(rows)]
 
     async def recent_turns(self, user_id: str, *, limit: int = 20) -> list[ConversationTurn]:

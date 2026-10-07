@@ -43,6 +43,7 @@ from friday.core.models import (
     ReplyButton,
     SendReceipt,
     TemplateRef,
+    Urgency,
     new_id,
     question_button_id,
 )
@@ -126,8 +127,11 @@ class Notifier:
         *,
         opt_in_request: bool = False,
         sms_fallback: bool = True,
+        urgency: Urgency | None = None,
     ) -> SendReceipt:
-        """Send ``msg`` applying consent, 24h window/template fallback and logging."""
+        """Send ``msg`` applying consent, 24h window/template fallback and logging.
+        ``urgency`` is accepted for the proactive engine's call shape; quiet hours and
+        daily caps are the proactive guardrails' job, not the notifier's."""
         if self.messaging is None:
             return await self._refuse(msg, NO_CHANNEL)
         msg.channel = self.messaging.channel

@@ -66,6 +66,7 @@ PHRASES: dict[Language, dict[str, str]] = {
         "user_join": "Hi, I'm here.",
         "user_otp": "My OTP is 4 8 2 9 1 3.",
         "user_bye": "Thanks, bye.",
+        "callback_greeting": "Hello, I got a call from this number. This is {name}.",
     },
     L.HINGLISH: {
         "ok": "Haan ji, boliye.",
@@ -110,6 +111,7 @@ PHRASES: dict[Language, dict[str, str]] = {
         "user_join": "Haan, main hoon. Boliye.",
         "user_otp": "Mera OTP 4 8 2 9 1 3 hai.",
         "user_bye": "Theek hai, thank you. Bye.",
+        "callback_greeting": "Hello, is number se call aaya tha. {name} se bol raha hoon.",
     },
     L.HI: {
         "ok": "हाँ जी, बोलिए।",
@@ -147,6 +149,7 @@ PHRASES: dict[Language, dict[str, str]] = {
         "sleep": "नींद अच्छी आई।",
         "food": "हाँ, नाश्ता कर लिया।",
         "needs": "नहीं बेटा, कुछ नहीं चाहिए।",
+        "callback_greeting": "हैलो, इस नंबर से कॉल आया था। {name} से बोल रहा हूँ।",
     },
     L.MR: {
         "ok": "हो, बोला.",

@@ -85,7 +85,9 @@ class MSG91SMS:
         tpl_id = self.templates.get(template.key)
         msg_id = new_id()
         if tpl_id is None:
-            return SendReceipt(message_id=msg_id, ok=False, error=f"no DLT template for {template.key!r}")
+            return SendReceipt(
+                message_id=msg_id, ok=False, error=f"no DLT template for {template.key!r}"
+            )
         recipient: dict[str, str] = {"mobiles": to_phone.lstrip("+")}
         for i, p in enumerate(template.params, start=1):
             recipient[f"var{i}"] = p[:30]  # DLT {#var#} max 30 chars

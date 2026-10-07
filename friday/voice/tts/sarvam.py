@@ -66,15 +66,20 @@ class SarvamTTS:
         self.model = model
         self.sample_rate = sample_rate
         self._http = VendorHTTP(
-            "sarvam", base_url=base_url, headers={"api-subscription-key": api_key},
+            "sarvam",
+            base_url=base_url,
+            headers={"api-subscription-key": api_key},
             transport=transport,
         )
 
     def voice_for(self, language: Language) -> VoiceProfile:
         profile = self.catalog.profile(language)
         if profile.voice_id.lower() not in SARVAM_FEMALE_SPEAKERS:
-            log.warning("sarvam speaker %r is not a known female voice; using %s",
-                        profile.voice_id, DEFAULT_FEMALE_SPEAKER)
+            log.warning(
+                "sarvam speaker %r is not a known female voice; using %s",
+                profile.voice_id,
+                DEFAULT_FEMALE_SPEAKER,
+            )
             profile = profile.model_copy(update={"voice_id": DEFAULT_FEMALE_SPEAKER})
         return profile
 
@@ -111,7 +116,8 @@ class SarvamTTS:
             part, rate = wav_to_pcm16(wav)
             pcm += resample_pcm16(part, rate, self.sample_rate)
         return AudioClip(
-            data=pcm16_to_wav(bytes(pcm), self.sample_rate), mime="audio/wav",
+            data=pcm16_to_wav(bytes(pcm), self.sample_rate),
+            mime="audio/wav",
             sample_rate=self.sample_rate,
         )
 

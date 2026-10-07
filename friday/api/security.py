@@ -13,7 +13,7 @@ import hashlib
 import hmac
 import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from argon2 import PasswordHasher
@@ -21,7 +21,7 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 
 from friday.core.clock import Clock
 from friday.core.models import User
-from friday.db.repositories import UserRepo
+from friday.db.repositories import AuditRepo, UserRepo
 
 WEAK_PINS = frozenset({"1234", "4321", "1212", "2580", "0852"} | {str(d) * 4 for d in range(10)})
 PIN_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
@@ -63,9 +63,7 @@ class PinHasher:
         self._pepper = pepper.encode()
         # ``fast`` lowers argon2 cost for tests only.
         self._ph = (
-            PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
-            if fast
-            else PasswordHasher()
+            PasswordHasher(time_cost=1, memory_cost=8, parallelism=1) if fast else PasswordHasher()
         )
 
     def _peppered(self, pin: str) -> str:
@@ -86,17 +84,36 @@ class PinHasher:
 class PinService:
     """Set/verify a user's PIN with attempt counting and a 30 min lockout."""
 
-    def __init__(self, hasher: PinHasher, users: UserRepo, clock: Clock, max_attempts: int) -> None:
+    def __init__(
+        self,
+        hasher: PinHasher,
+        users: UserRepo,
+        clock: Clock,
+        max_attempts: int,
+        audit: AuditRepo | None = None,
+    ) -> None:
         self.hasher = hasher
         self.users = users
         self.clock = clock
         self.max_attempts = max_attempts
+        self.audit = audit
+        self._locked_at: dict[str, datetime] = {}
 
-    def is_locked(self, user: User) -> bool:
-        return (
-            user.pin_failed_attempts >= self.max_attempts
-            and self.clock.now() - user.updated_at < LOCKOUT
-        )
+    async def _lock_time(self, user: User) -> datetime | None:
+        """When the lockout began: in-memory, else the latest ``pin.locked`` audit."""
+        if user.id in self._locked_at:
+            return self._locked_at[user.id]
+        if self.audit is not None:
+            for entry in await self.audit.list_for_user(user.id, limit=200):
+                if entry.action == "pin.locked":
+                    return entry.at
+        return None
+
+    async def is_locked(self, user: User) -> bool:
+        if user.pin_failed_attempts < self.max_attempts:
+            return False
+        started = await self._lock_time(user)
+        return started is None or self.clock.now() - started < LOCKOUT
 
     async def set_pin(self, user: User, pin: str) -> User:
         if pin_problem(pin):
@@ -108,10 +125,11 @@ class PinService:
     async def verify(self, user: User, pin: str) -> PinResult:
         if not user.pin_hash:
             return PinResult(PinCheck.NOT_SET)
-        if self.is_locked(user):
+        if await self.is_locked(user):
             return PinResult(PinCheck.LOCKED)
         if user.pin_failed_attempts >= self.max_attempts:  # lock expired
             user.pin_failed_attempts = 0
+            self._locked_at.pop(user.id, None)
         if self.hasher.verify(user.pin_hash, pin):
             if user.pin_failed_attempts:
                 user.pin_failed_attempts = 0
@@ -120,6 +138,11 @@ class PinService:
         user.pin_failed_attempts += 1
         await self.users.save(user)
         left = max(0, self.max_attempts - user.pin_failed_attempts)
+        if left == 0:
+            now = self.clock.now()
+            self._locked_at[user.id] = now
+            if self.audit is not None:
+                await self.audit.log("pin.locked", user_id=user.id, actor="system")
         return PinResult(PinCheck.LOCKED if left == 0 else PinCheck.WRONG, left)
 
     def matches(self, user: User, pin: str) -> bool:

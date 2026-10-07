@@ -79,7 +79,9 @@ class SimulatorChannel:
                 log.exception("simulator listener failed")
         async with self._cond:
             self._cond.notify_all()
-        return SendReceipt(message_id=msg.id, provider_message_id=provider_id, sent_at=self.clock.now())
+        return SendReceipt(
+            message_id=msg.id, provider_message_id=provider_id, sent_at=self.clock.now()
+        )
 
     async def fetch_media(self, media_url: str) -> MediaBlob:
         try:
@@ -113,7 +115,9 @@ class SimulatorChannel:
         self.outbox.clear()
         self._by_phone.clear()
 
-    async def wait_for(self, phone: str, count: int, timeout_s: float = 5.0) -> list[OutboundMessage]:
+    async def wait_for(
+        self, phone: str, count: int, timeout_s: float = 5.0
+    ) -> list[OutboundMessage]:
         """Wait until at least ``count`` messages were sent to ``phone``."""
 
         async def _wait() -> None:
@@ -148,7 +152,9 @@ class SimulatorChannel:
         last = self.last_to(phone)
         if last and last.buttons and text.isdigit() and 1 <= int(text) <= len(last.buttons):
             b = last.buttons[int(text) - 1]
-            return InboundMessage(kind=MessageKind.BUTTON_REPLY, text=b.title, button_id=b.id, **base)
+            return InboundMessage(
+                kind=MessageKind.BUTTON_REPLY, text=b.title, button_id=b.id, **base
+            )
         if text.startswith("/pin"):
             arg = text[4:].strip()
             lat_s, _, lng_s = arg.partition(",")
@@ -177,7 +183,9 @@ class SimulatorChannel:
             if text.startswith(cmd):
                 name = text[len(cmd) :].strip() or "file"
                 media = self.put_media(name.encode(), mime, name)
-                return InboundMessage(kind=kind, media_url=media, media_mime=mime, text=None, **base)
+                return InboundMessage(
+                    kind=kind, media_url=media, media_mime=mime, text=None, **base
+                )
         return InboundMessage(kind=MessageKind.TEXT, text=text, **base)
 
 

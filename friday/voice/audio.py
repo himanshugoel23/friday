@@ -201,9 +201,7 @@ DTMF_FREQS: dict[str, tuple[int, int]] = {
 }  # fmt: skip
 
 
-def dtmf_pcm16(
-    digits: str, sample_rate: int = 8000, tone_ms: int = 120, gap_ms: int = 80
-) -> bytes:
+def dtmf_pcm16(digits: str, sample_rate: int = 8000, tone_ms: int = 120, gap_ms: int = 80) -> bytes:
     """In-band DTMF tones. 'w' = 0.5 s pause (Twilio convention)."""
     out = bytearray()
     for ch in digits:
@@ -264,7 +262,9 @@ def iter_ogg_pages(data: bytes):
         segs = list(data[pos + 27 : pos + 27 + nseg])
         body_start = pos + 27 + nseg
         body_len = sum(segs)
-        yield OggPage(header_type, granule, serial, seq, segs, data[body_start : body_start + body_len])
+        yield OggPage(
+            header_type, granule, serial, seq, segs, data[body_start : body_start + body_len]
+        )
         pos = body_start + body_len
 
 
@@ -288,7 +288,9 @@ def ogg_packets(data: bytes) -> tuple[list[bytes], int]:
     return packets, last_granule
 
 
-def build_ogg(packets: list[bytes], *, serial: int = 0x46524459, granules: list[int] | None = None) -> bytes:
+def build_ogg(
+    packets: list[bytes], *, serial: int = 0x46524459, granules: list[int] | None = None
+) -> bytes:
     """One packet per page. Used for fixtures and the simulator's voice notes."""
     out = bytearray()
     for i, pkt in enumerate(packets):

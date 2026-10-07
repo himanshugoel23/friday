@@ -70,7 +70,9 @@ class PlaceRepo(Repo):
             row = await s.get(PlaceRow, place_id)
             return _place(row) if row else None
 
-    async def list_for_owner(self, owner_user_id: str, *, include_ephemeral: bool = False) -> list[Place]:
+    async def list_for_owner(
+        self, owner_user_id: str, *, include_ephemeral: bool = False
+    ) -> list[Place]:
         async with self.db.session() as s:
             q = select(PlaceRow).where(PlaceRow.owner_user_id == owner_user_id)
             if not include_ephemeral:

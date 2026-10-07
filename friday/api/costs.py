@@ -38,7 +38,9 @@ def ist_month_bounds(dt: datetime) -> tuple[datetime, datetime]:
 
 
 class CostTracker:
-    def __init__(self, settings: Settings, clock: Clock, bus: EventBus, repos: Repositories) -> None:
+    def __init__(
+        self, settings: Settings, clock: Clock, bus: EventBus, repos: Repositories
+    ) -> None:
         self.settings = settings
         self.clock = clock
         self.bus = bus

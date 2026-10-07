@@ -39,13 +39,17 @@ class VendorHTTP:
             try:
                 resp = await self._client.request(method, url, **kw)
             except httpx.HTTPError as e:
-                last = ProviderError(self.provider, f"network error: {type(e).__name__}", retryable=True)
+                last = ProviderError(
+                    self.provider, f"network error: {type(e).__name__}", retryable=True
+                )
             else:
                 if resp.status_code < 400:
                     return resp
                 retryable = resp.status_code in _RETRYABLE
                 last = ProviderError(
-                    self.provider, f"HTTP {resp.status_code}: {resp.text[:200]}", retryable=retryable
+                    self.provider,
+                    f"HTTP {resp.status_code}: {resp.text[:200]}",
+                    retryable=retryable,
                 )
                 if not retryable:
                     raise last

@@ -43,7 +43,9 @@ class Notifier(Protocol):
     (falls back to ``msg.template``), enforces circle-member consent, logs the message.
     ``urgency`` lets it bypass quiet hours for SAFETY messages."""
 
-    async def send(self, msg: OutboundMessage, *, urgency: Urgency = Urgency.NORMAL) -> SendReceipt: ...
+    async def send(
+        self, msg: OutboundMessage, *, urgency: Urgency = Urgency.NORMAL
+    ) -> SendReceipt: ...
 
 
 class ProfileStore(Protocol):

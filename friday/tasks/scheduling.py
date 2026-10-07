@@ -10,10 +10,10 @@ from datetime import datetime, timedelta
 from friday.core.clock import at_ist, ensure_utc, to_ist
 from friday.core.config import Settings
 from friday.core.models import BusinessHours, CallOutcome
+from friday.tasks.policy import TaskPolicy
 
 OPENING_GRACE = timedelta(minutes=5)  # "Clinic opens at 5 PM. I'll call at 5:05."
 PERSON_WINDOW = ("09:00", "20:00")  # A13 / US-28.2: private individuals
-_BASE_BACKOFF_S = 900
 
 
 def hhmm(s: str) -> tuple[int, int]:
@@ -75,35 +75,31 @@ def next_call_time(
     return when
 
 
-# US-6 retry table, expressed as multiples of Settings.call_retry_backoff_s (900s):
-# busy +10m/+30m, no answer & voicemail +20m/+90m, technical failure +5m.
-_RETRY_FACTORS: dict[CallOutcome, tuple[float, ...]] = {
-    CallOutcome.BUSY: (10 / 15, 2.0),
-    CallOutcome.NO_ANSWER: (20 / 15, 6.0),
-    CallOutcome.VOICEMAIL: (20 / 15, 6.0),
-    CallOutcome.FAILED: (5 / 15,),
-}
-VAGUE_CALLBACK = timedelta(hours=2)
-CALLBACK_GRACE = timedelta(minutes=5)
 HOLD_TIMEOUT_RETRY_HOUR_IST = 10  # best-known time for care lines (weekday 10-11 AM)
 
 
 def retry_at(
     outcome: CallOutcome,
-    attempt: int,
+    attempts_done: int,
     now: datetime,
-    settings: Settings,
+    policy: TaskPolicy,
     *,
     callback_at: datetime | None = None,
 ) -> datetime:
-    """When to try again after a retryable outcome (before window alignment)."""
+    """When to dial again after a retryable outcome (BRIEF E.36), BEFORE call-window /
+    business-hours alignment (``next_call_time``)."""
     if outcome == CallOutcome.CALLBACK_LATER:
         if callback_at and callback_at > now:
-            return callback_at + CALLBACK_GRACE
-        return now + VAGUE_CALLBACK
+            return callback_at + timedelta(minutes=5)
+        return now + timedelta(minutes=policy.vague_callback_min)
     if outcome == CallOutcome.HOLD_TIMEOUT:
         return at_ist(to_ist(now).date() + timedelta(days=1), HOLD_TIMEOUT_RETRY_HOUR_IST)
-    factors = _RETRY_FACTORS.get(outcome, (1.0,))
-    factor = factors[min(max(attempt, 1), len(factors)) - 1]
-    base = settings.call_retry_backoff_s or _BASE_BACKOFF_S
-    return now + timedelta(seconds=base * factor)
+    if outcome == CallOutcome.BUSY:
+        return now + timedelta(minutes=policy.busy_delay_min)
+    if outcome == CallOutcome.FAILED:
+        return now + timedelta(minutes=policy.failed_delay_min)
+    delays = policy.no_answer_delays_min  # NO_ANSWER / VOICEMAIL
+    idx = max(attempts_done, 1) - 1
+    if idx < len(delays):
+        return now + timedelta(minutes=delays[idx])
+    return now + timedelta(minutes=policy.final_window_gap_min)

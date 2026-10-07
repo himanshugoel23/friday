@@ -73,9 +73,13 @@ def verify_subscription(
     mode: str | None, token: str | None, challenge: str | None, expected_token: str
 ) -> str | None:
     """Return the challenge to echo if the GET handshake is valid, else None."""
-    if mode == "subscribe" and token is not None and challenge is not None:
-        if hmac.compare_digest(token, expected_token):
-            return challenge
+    if (
+        mode == "subscribe"
+        and token is not None
+        and challenge is not None
+        and hmac.compare_digest(token, expected_token)
+    ):
+        return challenge
     return None
 
 
@@ -149,7 +153,10 @@ def parse_message(m: dict[str, Any], *, default_cc: str = "+91") -> InboundMessa
         inter = m.get("interactive") or {}
         reply = inter.get("button_reply") or inter.get("list_reply") or {}
         return InboundMessage(
-            kind=MessageKind.BUTTON_REPLY, button_id=reply.get("id"), text=reply.get("title"), **base
+            kind=MessageKind.BUTTON_REPLY,
+            button_id=reply.get("id"),
+            text=reply.get("title"),
+            **base,
         )
     if mtype == "button":  # quick-reply button on a template message
         btn = m.get("button") or {}
@@ -321,7 +328,9 @@ class WhatsAppCloudChannel:
         )
 
     # ------------------------------------------------------------------ webhook helpers
-    def verify_subscription(self, mode: str | None, token: str | None, challenge: str | None) -> str | None:
+    def verify_subscription(
+        self, mode: str | None, token: str | None, challenge: str | None
+    ) -> str | None:
         return verify_subscription(mode, token, challenge, self.verify_token)
 
     def verify_signature(self, body: bytes, header: str | None) -> bool:
@@ -340,12 +349,17 @@ class WhatsAppCloudChannel:
         try:
             resp = await self._client.post(f"/{self.phone_number_id}/messages", json=payload)
         except httpx.HTTPError as e:
-            log.warning("whatsapp send to %s failed: %s", mask_phone(msg.to_phone), type(e).__name__)
+            log.warning(
+                "whatsapp send to %s failed: %s", mask_phone(msg.to_phone), type(e).__name__
+            )
             return SendReceipt(message_id=msg.id, ok=False, error=f"transport: {type(e).__name__}")
         if resp.status_code >= 400:
             err = _error_text(resp)
             log.warning(
-                "whatsapp send to %s rejected (%s): %s", mask_phone(msg.to_phone), resp.status_code, err
+                "whatsapp send to %s rejected (%s): %s",
+                mask_phone(msg.to_phone),
+                resp.status_code,
+                err,
             )
             return SendReceipt(message_id=msg.id, ok=False, error=err)
         data = resp.json()
@@ -364,7 +378,9 @@ class WhatsAppCloudChannel:
                 url, mime = info["url"], info.get("mime_type")
             blob = await self._client.get(url)
         except httpx.HTTPError as e:
-            raise ProviderError("whatsapp", f"media download: {type(e).__name__}", retryable=True) from e
+            raise ProviderError(
+                "whatsapp", f"media download: {type(e).__name__}", retryable=True
+            ) from e
         if blob.status_code >= 400:
             raise ProviderError("whatsapp", f"media download failed ({blob.status_code})")
         return MediaBlob(

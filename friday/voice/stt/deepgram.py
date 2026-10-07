@@ -37,7 +37,9 @@ class DeepgramSTT:
     ) -> None:
         self.model = model
         self._http = VendorHTTP(
-            "deepgram", base_url=base_url, headers={"Authorization": f"Token {api_key}"},
+            "deepgram",
+            base_url=base_url,
+            headers={"Authorization": f"Token {api_key}"},
             transport=transport,
         )
 
@@ -54,8 +56,11 @@ class DeepgramSTT:
     ) -> Transcription:
         mime = (audio.mime or "audio/wav").split(";")[0]
         resp = await self._http.request(
-            "POST", "/v1/listen", params=self.params_for(language_hint),
-            content=audio.data, headers={"Content-Type": mime},
+            "POST",
+            "/v1/listen",
+            params=self.params_for(language_hint),
+            content=audio.data,
+            headers={"Content-Type": mime},
         )
         try:
             body = resp.json()

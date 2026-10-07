@@ -211,7 +211,9 @@ async def test_business_and_vendor_memory(repos, clock):
 
 async def test_identifiers_encrypted_at_rest(repos, db):
     u = await _user(repos)
-    ident = AccountIdentifier(user_id=u.id, company="Airtel", label="account no", value="1234567890")
+    ident = AccountIdentifier(
+        user_id=u.id, company="Airtel", label="account no", value="1234567890"
+    )
     await repos.identifiers.upsert(ident)
     assert await repos.identifiers.list_for_user(u.id) == [ident]
     assert await repos.identifiers.get_many([ident.id]) == [ident]
@@ -236,7 +238,9 @@ async def test_facts_upsert_by_key(repos):
     )
     await repos.facts.upsert(f)
     assert await repos.facts.list_for_user(u.id) == [f]
-    f2 = Fact(user_id=u.id, kind=FactKind.DATE, key="rent_due", value="7th", due_on=date(2026, 2, 7))
+    f2 = Fact(
+        user_id=u.id, kind=FactKind.DATE, key="rent_due", value="7th", due_on=date(2026, 2, 7)
+    )
     await repos.facts.upsert(f2)
     facts = await repos.facts.list_for_user(u.id)
     assert len(facts) == 1 and facts[0].value == "7th" and facts[0].id == f.id
@@ -301,7 +305,9 @@ async def test_task_round_trip_and_queries(repos, clock):
         candidate=cand,
         shortlist=[ShortlistItem(candidate=cand, rank=1, reason="good")],
         delegation=Delegation(granted=True, max_price_inr=800),
-        result=TaskResult(success=True, summary="done", quotes=[Quote(business_name="L", price_text="₹1")]),
+        result=TaskResult(
+            success=True, summary="done", quotes=[Quote(business_name="L", price_text="₹1")]
+        ),
         status=TaskStatus.SCHEDULED,
         next_attempt_at=clock.now(),
     )
@@ -332,8 +338,13 @@ async def test_save_call_round_trip_and_cost(repos, clock):
     u = await _user(repos)
     t = _task(u.id)
     await repos.tasks.add(t)
-    q = MidCallQuestion(task_id=t.id, text="4 or 6?", options=["4pm", "6pm"],
-                        purpose=QuestionPurpose.CHOOSE_OPTION, asked_at=clock.now())
+    q = MidCallQuestion(
+        task_id=t.id,
+        text="4 or 6?",
+        options=["4pm", "6pm"],
+        purpose=QuestionPurpose.CHOOSE_OPTION,
+        asked_at=clock.now(),
+    )
     await repos.tasks.add_question(q)
     assert (await repos.tasks.open_question_for_user(u.id)).id == q.id
     ans = UserAnswer(question_id=q.id, text="6pm", option_index=1, answered_at=clock.now())
@@ -413,9 +424,12 @@ async def test_nudges(repos, clock):
     n.status = NudgeStatus.SENT
     n.sent_at = clock.now()
     await repos.nudges.save(n)
-    assert await repos.nudges.count_sent_between(
-        u.id, clock.now() - timedelta(hours=1), clock.now() + timedelta(hours=1)
-    ) == 1
+    assert (
+        await repos.nudges.count_sent_between(
+            u.id, clock.now() - timedelta(hours=1), clock.now() + timedelta(hours=1)
+        )
+        == 1
+    )
     fb = NudgeFeedback(nudge_id=n.id, user_id=u.id, type=FeedbackType.IGNORED)
     await repos.nudges.add_feedback(fb)
     assert await repos.nudges.feedback_for_user(u.id) == [fb]

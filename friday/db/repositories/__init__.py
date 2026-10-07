@@ -24,6 +24,14 @@ from typing import TYPE_CHECKING
 from friday.core.clock import Clock
 from friday.db.repositories._base import SecretBox
 from friday.db.repositories.businesses import BusinessRepo
+from friday.db.repositories.calls import (
+    CallbackMatch,
+    CallMemory,
+    CallMemoryRepo,
+    InboundContact,
+    InboundKind,
+    MatchStatus,
+)
 from friday.db.repositories.memory import AuditRepo, CostRepo, FactRepo, IdentifierRepo
 from friday.db.repositories.messages import MessageRepo, StoredMessage
 from friday.db.repositories.nudges import NudgeRepo
@@ -46,6 +54,12 @@ __all__ = [
     "AuditRepo",
     "AutonomyRepo",
     "BusinessRepo",
+    "CallMemory",
+    "CallMemoryRepo",
+    "CallbackMatch",
+    "InboundContact",
+    "InboundKind",
+    "MatchStatus",
     "ConsentRepo",
     "CostRepo",
     "DataPurger",
@@ -84,6 +98,7 @@ class Repositories:
     nudges: NudgeRepo
     audit: AuditRepo
     costs: CostRepo
+    calls: CallMemoryRepo  # call memory + inbound calls/missed calls/business messages
     purger: DataPurger
 
 
@@ -106,6 +121,7 @@ def make_repositories(db: Database, clock: Clock | None, secret_key: str) -> Rep
         nudges=NudgeRepo(db, clock),
         audit=AuditRepo(db, clock),
         costs=CostRepo(db, clock),
+        calls=CallMemoryRepo(db, clock),
         purger=DataPurger(db, clock),
     )
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from friday.api.security import extract_pin, pin_problem
 from friday.core.models import (
     Consent,
     ConsentKind,
@@ -29,8 +30,6 @@ from friday.core.models import (
     User,
     UserStatus,
 )
-
-from friday.api.security import extract_pin, pin_problem
 
 if TYPE_CHECKING:
     from friday.api.inbound import InboundPipeline
@@ -170,12 +169,20 @@ class OnboardingFlow:
             )
             await self.p.audit("consent.granted", user, kind=ConsentKind.TERMS_PRIVACY.value)
             consented = True
-        if consented and step in (OnboardingStep.CIRCLE, OnboardingStep.PLACES, OnboardingStep.FIRST_TASK):
+        if consented and step in (
+            OnboardingStep.CIRCLE,
+            OnboardingStep.PLACES,
+            OnboardingStep.FIRST_TASK,
+        ):
             for person in turn.people:
                 await self.p.upsert_person(user, person)
             for place in turn.places:
                 await self.p.save_place(user, place, msg)
-            if step == OnboardingStep.PLACES and not turn.places and msg.kind == MessageKind.LOCATION:
+            if (
+                step == OnboardingStep.PLACES
+                and not turn.places
+                and msg.kind == MessageKind.LOCATION
+            ):
                 from friday.core.models import Place
 
                 await self.p.save_place(user, Place(owner_user_id=user.id, label="Home"), msg)

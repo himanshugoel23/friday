@@ -42,7 +42,9 @@ class ElevenLabsTTS:
         self.model = model
         self.sample_rate = sample_rate
         self._http = VendorHTTP(
-            "elevenlabs", base_url=base_url, headers={"xi-api-key": api_key},
+            "elevenlabs",
+            base_url=base_url,
+            headers={"xi-api-key": api_key},
             transport=transport,
         )
 
@@ -77,7 +79,8 @@ class ElevenLabsTTS:
             json=self.payload(clean, language, profile),
         )
         return AudioClip(
-            data=pcm16_to_wav(resp.content, self.sample_rate), mime="audio/wav",
+            data=pcm16_to_wav(resp.content, self.sample_rate),
+            mime="audio/wav",
             sample_rate=self.sample_rate,
         )
 

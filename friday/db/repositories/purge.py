@@ -1,4 +1,4 @@
-""""Delete everything" (DPDP right to erasure): hard-delete every user-keyed row,
+""" "Delete everything" (DPDP right to erasure): hard-delete every user-keyed row,
 keep a PII-free user tombstone and scrubbed audit entries."""
 
 from __future__ import annotations
@@ -12,9 +12,11 @@ from friday.db.tables import (
     AuditRow,
     AutonomySettingRow,
     BusinessRow,
+    CallMemoryRow,
     ConsentRow,
     FactRow,
     HotelBookingRow,
+    InboundContactRow,
     InviteRow,
     MessageRow,
     NudgeFeedbackRow,
@@ -46,6 +48,8 @@ class DataPurger(Repo):
             await wipe(NudgeFeedbackRow, NudgeFeedbackRow.user_id == user_id)
             await wipe(NudgeRow, NudgeRow.user_id == user_id)
             await wipe(HotelBookingRow, HotelBookingRow.user_id == user_id)
+            await wipe(CallMemoryRow, CallMemoryRow.user_id == user_id)
+            await wipe(InboundContactRow, InboundContactRow.user_id == user_id)
             await wipe(TaskRow, TaskRow.requester_user_id == user_id)  # cascades calls/quotes/...
             await wipe(MessageRow, MessageRow.user_id == user_id)
             await wipe(FactRow, FactRow.user_id == user_id)

@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
+from friday.api.callbacks import CallbackService
 from friday.api.context import build_context
 from friday.api.costs import AbuseLimiter, CostTracker
 from friday.api.onboarding import OnboardingFlow
@@ -65,6 +66,7 @@ from friday.core.models import (
     normalize_phone,
     parse_button_id,
 )
+from friday.db.repositories import MatchStatus
 
 if TYPE_CHECKING:
     from friday.core.container import Container
@@ -130,10 +132,12 @@ class InboundPipeline:
             self.repos.users,
             self.clock,
             self.settings.pin_max_attempts,
+            self.repos.audit,
         )
         self.costs = CostTracker(self.settings, self.clock, self.bus, self.repos)
         self.limiter = AbuseLimiter(self.settings, self.clock, self.repos)
         self.onboarding = OnboardingFlow(self)
+        self.callbacks = CallbackService(c)
         self._pending: dict[str, PendingAction] = {}
 
     # ------------------------------------------------------------------ optional components
@@ -175,7 +179,9 @@ class InboundPipeline:
             return
         await self.notifier.notify_user(user.id, text, buttons=list(buttons), task_id=task_id)
 
-    async def audit(self, action: str, user: User | None, *, actor: str = "friday", **detail: Any) -> None:
+    async def audit(
+        self, action: str, user: User | None, *, actor: str = "friday", **detail: Any
+    ) -> None:
         subject = detail.pop("subject_id", None)
         await self.repos.audit.log(
             action, user_id=user.id if user else None, actor=actor, subject_id=subject, **detail
@@ -203,7 +209,7 @@ class InboundPipeline:
         existing = await self.repos.people.get(person.id)
         if existing is not None and existing.owner_user_id != user.id:
             existing = None
-            person = person.model_copy(update={"id": Person().id if False else _new_id()})
+            person = person.model_copy(update={"id": _new_id()})
         data = person.model_dump()
         data["owner_user_id"] = user.id
         if data.get("phone"):
@@ -228,7 +234,9 @@ class InboundPipeline:
         await self.audit("person.upserted", user, subject_id=saved.id)
         return saved
 
-    async def save_place(self, user: User, place: Place, msg: InboundMessage | None = None) -> Place:
+    async def save_place(
+        self, user: User, place: Place, msg: InboundMessage | None = None
+    ) -> Place:
         existing = await self.repos.places.get(place.id)
         data = place.model_dump()
         data["owner_user_id"] = user.id
@@ -291,11 +299,7 @@ class InboundPipeline:
             if people:
                 await self._from_circle_member(msg, people)
                 return
-            business = await self.repos.businesses.get_by_phone(msg.from_phone)
-            if business is not None:
-                msg.business_id = business.id
-                await self.repos.messages.log_inbound(msg)
-                await self.bus.publish(MessageReceived(message=msg))
+            if await self._from_business(msg):
                 return
             await self._new_user(msg)
             return
@@ -385,7 +389,9 @@ class InboundPipeline:
                 continue
             if person.contact_consent == PersonConsent.PENDING and (is_yes or is_stop):
                 granted = is_yes
-                person.contact_consent = PersonConsent.OPTED_IN if granted else PersonConsent.OPTED_OUT
+                person.contact_consent = (
+                    PersonConsent.OPTED_IN if granted else PersonConsent.OPTED_OUT
+                )
                 person.consent_at = self.clock.now()
                 await self.repos.people.upsert(person)
                 await self.repos.consents.add(
@@ -411,7 +417,11 @@ class InboundPipeline:
                 )
                 await self.reply(owner, note)
                 continue
-            if person.contact_consent == PersonConsent.OPTED_IN and is_stop and text.lower() == "stop":
+            if (
+                person.contact_consent == PersonConsent.OPTED_IN
+                and is_stop
+                and text.lower() == "stop"
+            ):
                 person.contact_consent = PersonConsent.OPTED_OUT
                 person.consent_at = self.clock.now()
                 await self.repos.people.upsert(person)
@@ -431,6 +441,25 @@ class InboundPipeline:
                 continue
             if person.contact_consent in (PersonConsent.OPTED_IN, PersonConsent.PENDING) and text:
                 await self.reply(owner, f'{person.name} replied: "{text[:500]}"')
+
+    async def _from_business(self, msg: InboundMessage) -> bool:
+        """WhatsApp/SMS from a business number (known business or a number Friday
+        called): hand to the engine's business-reply matching, never the user flow.
+        Nothing is ever sent back from here (no user details to unmatched senders)."""
+        business = await self.repos.businesses.get_by_phone(msg.from_phone)
+        match = await self.callbacks.match(msg.from_phone)
+        if business is None and match.status == MatchStatus.UNMATCHED:
+            return False
+        msg.business_id = business.id if business else match.business_id
+        if msg.business_id and await self.repos.businesses.get(msg.business_id) is None:
+            msg.business_id = None
+        msg.user_id = match.user_id  # only for a unique match (purge cascades)
+        if msg.kind in (MessageKind.VOICE_NOTE,) and not msg.text:
+            msg.text = await self._transcribe(msg)
+        await self.repos.messages.log_inbound(msg)
+        await self.bus.publish(MessageReceived(message=msg))
+        await self.callbacks.on_business_message(msg, match)
+        return True
 
     # ------------------------------------------------------------------ active users
     def _get_pending(self, user_id: str) -> PendingAction | None:
@@ -452,9 +481,8 @@ class InboundPipeline:
             await self.reply(user, PIN_LOOKALIKE)
             return
 
-        if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id:
-            if await self._button(user, msg):
-                return
+        if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):
+            return
 
         brain = self.brain()
         if brain is None:
@@ -462,7 +490,11 @@ class InboundPipeline:
             return
         ctx = await self.context(user)
         interp: Interpretation = await brain.interpret(ctx, msg)
-        if interp.answer is None and interp.intent == Intent.ANSWER_QUESTION and ctx.pending_question:
+        if (
+            interp.answer is None
+            and interp.intent == Intent.ANSWER_QUESTION
+            and ctx.pending_question
+        ):
             interp.answer = UserAnswer(
                 question_id=ctx.pending_question.id,
                 text=msg.text or "",
@@ -471,7 +503,9 @@ class InboundPipeline:
             )
         await self.execute(user, msg, interp)
 
-    async def _continue_pending(self, user: User, msg: InboundMessage, pending: PendingAction) -> None:
+    async def _continue_pending(
+        self, user: User, msg: InboundMessage, pending: PendingAction
+    ) -> None:
         text = (msg.text or "").strip()
         if pending.kind == "pin":
             pin = extract_pin(text)
@@ -493,7 +527,6 @@ class InboundPipeline:
                 await self.reply(user, PIN_WRONG.format(left=result.attempts_left))
             elif result.status == PinCheck.LOCKED:
                 self._pending.pop(user.id, None)
-                await self.audit("pin.locked", user)
                 await self.reply(user, PIN_LOCKED)
             else:
                 self._pending.pop(user.id, None)
@@ -547,9 +580,8 @@ class InboundPipeline:
                 return False
             approve = value == "yes"
             await self.audit("task.approval", user, subject_id=task.id, approved=approve)
-            if not await self._engine_call(("approve",), task.id, approve):
-                if not approve:
-                    await self._cancel_task(user, task)
+            if not await self._engine_call(("approve",), task.id, approve) and not approve:
+                await self._cancel_task(user, task)
             return True
         if kind == "n":
             await self._nudge_action(user, ref, value, msg)
@@ -564,7 +596,9 @@ class InboundPipeline:
         await self.bus.publish(UserAnswerReceived(answer=answer))
         await self._engine_call(("handle_answer", "on_user_answer", "answer"), answer)
 
-    async def _nudge_action(self, user: User, nudge_id: str, action: str, msg: InboundMessage) -> None:
+    async def _nudge_action(
+        self, user: User, nudge_id: str, action: str, msg: InboundMessage
+    ) -> None:
         nudge = await self.repos.nudges.get(nudge_id)
         if nudge is None or nudge.user_id != user.id:
             return
@@ -610,7 +644,7 @@ class InboundPipeline:
             if not user.pin_hash:
                 await self.reply(user, PIN_NOT_SET)
                 return
-            if self.pins.is_locked(user):
+            if await self.pins.is_locked(user):
                 await self.reply(user, PIN_LOCKED)
                 return
             self._pending[user.id] = PendingAction(
@@ -763,7 +797,9 @@ class InboundPipeline:
             task.status = TaskStatus.SCHEDULED
             task.next_attempt_at = queued_until
         await self.repos.tasks.add(task)
-        await self.audit("task.created", user, actor="user", subject_id=task.id, type=task.type.value)
+        await self.audit(
+            "task.created", user, actor="user", subject_id=task.id, type=task.type.value
+        )
         await self.bus.publish(
             TaskStatusChanged(task_id=task.id, user_id=user.id, old=None, new=task.status)
         )
@@ -822,7 +858,9 @@ class InboundPipeline:
         for _ in range(to_make):
             await self.repos.invites.add(
                 Invite(
-                    code=await self._fresh_code(), created_by_user_id=user.id, created_at=self.clock.now()
+                    code=await self._fresh_code(),
+                    created_by_user_id=user.id,
+                    created_at=self.clock.now(),
                 )
             )
         if not is_admin and to_make:

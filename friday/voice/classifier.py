@@ -125,7 +125,10 @@ class HeuristicAudioClassifier:
                 confidence=0.5,
             )
         by_audio = await self.classify(audio)
-        if by_audio.audio_class in (AudioClass.SILENCE, AudioClass.UNKNOWN) and (text or "").strip():
+        if (
+            by_audio.audio_class in (AudioClass.SILENCE, AudioClass.UNKNOWN)
+            and (text or "").strip()
+        ):
             return AudioClassification(audio_class=AudioClass.HUMAN, confidence=0.5)
         return by_audio
 

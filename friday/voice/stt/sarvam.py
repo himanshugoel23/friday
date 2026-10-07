@@ -41,7 +41,9 @@ class SarvamSTT:
     ) -> None:
         self.model = model
         self._http = VendorHTTP(
-            "sarvam", base_url=base_url, headers={"api-subscription-key": api_key},
+            "sarvam",
+            base_url=base_url,
+            headers={"api-subscription-key": api_key},
             transport=transport,
         )
 

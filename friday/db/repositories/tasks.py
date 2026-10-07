@@ -27,9 +27,11 @@ from friday.core.models import (
     TaskStatus,
     Transcript,
     UserAnswer,
+    new_id,
 )
 from friday.db.repositories._base import Repo, copy_simple, dump_json, dump_json_list, row_dict
 from friday.db.tables import (
+    CallMemoryRow,
     CallQuestionRow,
     CallRow,
     CallTurnRow,
@@ -218,7 +220,9 @@ class TaskRepo(Repo):
             existing = await s.get(CallRow, result.call_id)
             if existing is not None:  # re-save: replace children
                 for child in (
-                    await s.execute(select(CallTurnRow).where(CallTurnRow.call_id == result.call_id))
+                    await s.execute(
+                        select(CallTurnRow).where(CallTurnRow.call_id == result.call_id)
+                    )
                 ).scalars():
                     await s.delete(child)
                 for child in (
@@ -267,7 +271,11 @@ class TaskRepo(Repo):
                 s.add(self._quote_row(q, result.task_id, result.call_id))
             answers = {a.question_id: a for a in result.answers}
             for question in result.questions:
-                await s.merge(self._question_row(question, answers.get(question.id), result.call_id))
+                await s.merge(
+                    self._question_row(question, answers.get(question.id), result.call_id)
+                )
+            if task_row is not None:
+                await self._remember_call(s, task_row, result, business_id)
             if task_row is not None and existing is None and result.cost_inr_est:
                 s.add(
                     CostEntryRow(
@@ -279,6 +287,28 @@ class TaskRepo(Repo):
                         at=result.ended_at or result.started_at,
                     )
                 )
+
+    async def _remember_call(self, s, task_row: TaskRow, result: CallResult, business_id) -> None:  # noqa: ANN001
+        """Call memory (E30): upsert by call_id; keeps an already-recorded caller ID."""
+        mem = (
+            await s.execute(select(CallMemoryRow).where(CallMemoryRow.call_id == result.call_id))
+        ).scalar_one_or_none()
+        if mem is None:
+            mem = CallMemoryRow(
+                id=new_id(),
+                call_id=result.call_id,
+                task_id=result.task_id,
+                user_id=task_row.requester_user_id,
+                business_phone=result.to_phone,
+                direction=result.direction.value,
+                at=result.started_at,
+            )
+            s.add(mem)
+        from_number = getattr(result, "from_number", None)
+        if from_number:
+            mem.friday_number = from_number
+        mem.business_id = mem.business_id or business_id
+        mem.outcome = result.outcome.value
 
     @staticmethod
     def _quote_row(q: Quote, task_id: str, call_id: str | None) -> QuoteRow:
@@ -314,10 +344,16 @@ class TaskRepo(Repo):
     async def list_calls(self, task_id: str) -> list[CallResult]:
         async with self.db.session() as s:
             rows = (
-                await s.execute(
-                    select(CallRow).where(CallRow.task_id == task_id).order_by(CallRow.started_at)
+                (
+                    await s.execute(
+                        select(CallRow)
+                        .where(CallRow.task_id == task_id)
+                        .order_by(CallRow.started_at)
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             return [await self._call_from_row(s, r) for r in rows]
 
     async def _call_from_row(self, s, row: CallRow) -> CallResult:  # noqa: ANN001
@@ -328,8 +364,10 @@ class TaskRepo(Repo):
         ).scalars()
         quotes = (await s.execute(select(QuoteRow).where(QuoteRow.call_id == row.id))).scalars()
         qrows = (
-            await s.execute(select(CallQuestionRow).where(CallQuestionRow.call_id == row.id))
-        ).scalars().all()
+            (await s.execute(select(CallQuestionRow).where(CallQuestionRow.call_id == row.id)))
+            .scalars()
+            .all()
+        )
         return CallResult(
             call_id=row.id,
             task_id=row.task_id,

@@ -40,7 +40,9 @@ class UserRepo(Repo):
 
     async def get_by_phone(self, phone: str) -> User | None:
         async with self.db.session() as s:
-            row = (await s.execute(select(UserRow).where(UserRow.phone == phone))).scalar_one_or_none()
+            row = (
+                await s.execute(select(UserRow).where(UserRow.phone == phone))
+            ).scalar_one_or_none()
             return _user(row) if row else None
 
     async def add(self, user: User) -> User:
@@ -105,7 +107,9 @@ class ConsentRepo(Repo):
         self, user_id: str, kind: ConsentKind, *, person_id: str | None = None
     ) -> Consent | None:
         async with self.db.session() as s:
-            q = select(ConsentRow).where(ConsentRow.user_id == user_id, ConsentRow.kind == kind.value)
+            q = select(ConsentRow).where(
+                ConsentRow.user_id == user_id, ConsentRow.kind == kind.value
+            )
             q = q.where(
                 ConsentRow.person_id == person_id if person_id else ConsentRow.person_id.is_(None)
             )
@@ -169,13 +173,17 @@ class InviteRepo(Repo):
     async def delete_unused_by_creator(self, user_id: str) -> int:
         async with self.db.session() as s:
             rows = (
-                await s.execute(
-                    select(InviteRow).where(
-                        InviteRow.created_by_user_id == user_id,
-                        InviteRow.redeemed_by_user_id.is_(None),
+                (
+                    await s.execute(
+                        select(InviteRow).where(
+                            InviteRow.created_by_user_id == user_id,
+                            InviteRow.redeemed_by_user_id.is_(None),
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             for r in rows:
                 await s.delete(r)
             return len(rows)
@@ -185,7 +193,9 @@ class AutonomyRepo(Repo):
     async def list_for_user(self, user_id: str) -> list[AutonomySetting]:
         async with self.db.session() as s:
             rows = (
-                await s.execute(select(AutonomySettingRow).where(AutonomySettingRow.user_id == user_id))
+                await s.execute(
+                    select(AutonomySettingRow).where(AutonomySettingRow.user_id == user_id)
+                )
             ).scalars()
             return [AutonomySetting.model_validate(row_dict(r)) for r in rows]
 

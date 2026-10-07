@@ -97,7 +97,9 @@ class IdentifierRepo(Repo):
             return []
         async with self.db.session() as s:
             rows = (
-                await s.execute(select(AccountIdentifierRow).where(AccountIdentifierRow.id.in_(ids)))
+                await s.execute(
+                    select(AccountIdentifierRow).where(AccountIdentifierRow.id.in_(ids))
+                )
             ).scalars()
             return [self._model(r) for r in rows]
 
@@ -233,8 +235,12 @@ class CostRepo(Repo):
         self, user_id: str, start: datetime, end: datetime, *, kind: str | None = None
     ) -> int:
         async with self.db.session() as s:
-            q = select(func.count()).select_from(CostEntryRow).where(
-                CostEntryRow.user_id == user_id, CostEntryRow.at >= start, CostEntryRow.at < end
+            q = (
+                select(func.count())
+                .select_from(CostEntryRow)
+                .where(
+                    CostEntryRow.user_id == user_id, CostEntryRow.at >= start, CostEntryRow.at < end
+                )
             )
             if kind:
                 q = q.where(CostEntryRow.kind == kind)

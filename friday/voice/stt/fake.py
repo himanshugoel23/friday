@@ -50,7 +50,9 @@ class FakeSTT:
         text = (self.text_of(audio) or "").strip()
         if not text:
             return Transcription(
-                text="", language=language_hint or Language.EN, confidence=0.0,
+                text="",
+                language=language_hint or Language.EN,
+                confidence=0.0,
                 audio_class=AudioClass.SILENCE,
             )
         lang = detect_language(text, default=language_hint or Language.EN)
