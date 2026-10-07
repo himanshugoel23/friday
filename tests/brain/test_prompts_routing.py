@@ -33,7 +33,7 @@ def test_prompt_snapshots(purpose):
 
 
 def test_persona_rules():
-    p = PERSONA.lower()
+    p = " ".join(PERSONA.lower().split())
     assert "female" in p and "karti hoon" in p and "never claim or imply being human" in p
     for rule in ("otp", "never pay", "budget alone is not delegation", "private notes",
                  "no fillers", "medical"):

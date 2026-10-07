@@ -271,7 +271,7 @@ _NAME_STOP = {
     "Wednesday", "Thursday", "Friday", "Tomorrow", "Today", "You", "Budget", "Dad", "Mom",
     "Papa", "Mummy", "AC", "OK", "Ok", "Yes", "No", "Kal", "Aaj", "Need", "Want", "Also", "And",
     "Plumber", "Electrician", "Doctor", "Office", "Home", "Lantus", "Dolo", "Ideally",
-    "Urgent", "Please", "Btw", "Hey", "Mera", "Meri", "Mere", "Kal", "Aaj", "Kya", "Main",
+    "Urgent", "Btw", "Hey", "Mera", "Meri", "Mere", "Kya", "Main",
 }
 
 

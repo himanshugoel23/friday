@@ -18,7 +18,7 @@ from friday.core.models import (
     parse_button_id,
 )
 
-from .conftest import NOW, make_ctx, msg
+from .conftest import NOW, msg
 
 S = OnboardingStep
 
