@@ -528,4 +528,61 @@ class CostEntryRow(IdMixin, Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
+# ------------------------------------------------------------------------------ call memory (E30-35)
+
+
+class CallMemoryRow(IdMixin, Base):
+    """Which Friday caller-ID number called which business number, for which
+    task/user, when, and the outcome (E30). One row per outbound call attempt
+    (``call_id`` unique). Drives sticky caller-ID and call-back matching."""
+
+    __tablename__ = "call_memory"
+    __table_args__ = (
+        UniqueConstraint("call_id"),
+        Index("ix_call_memory_phone_at", "business_phone", "at"),
+    )
+
+    call_id: Mapped[str | None] = mapped_column(String(32))
+    task_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = _user_fk()
+    business_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("businesses.id", ondelete="SET NULL")
+    )
+    business_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    friday_number: Mapped[str | None] = mapped_column(String(20), index=True)
+    direction: Mapped[str] = mapped_column(String(10), default="outbound", nullable=False)
+    outcome: Mapped[str | None] = mapped_column(String(24))
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class InboundContactRow(IdMixin, Base):
+    """Inbound call / missed call / message from a non-user number to Friday (E31-35).
+    ``status``: matched | ambiguous | unmatched. Unmatched rows hold no user link."""
+
+    __tablename__ = "inbound_contacts"
+    __table_args__ = (Index("ix_inbound_contacts_phone_at", "from_phone", "at"),)
+
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)  # call | missed_call | message
+    channel: Mapped[str] = mapped_column(String(12), default="voice", nullable=False)
+    from_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    friday_number: Mapped[str | None] = mapped_column(String(20))
+    provider_ref: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(12), nullable=False)
+    business_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("businesses.id", ondelete="SET NULL")
+    )
+    task_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("tasks.id", ondelete="SET NULL"), index=True
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey(_USER_FK, ondelete="CASCADE"), index=True
+    )
+    candidate_task_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)  # caller's message (unmatched: name/purpose)
+    handled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
 ALL_TABLES = sorted(Base.metadata.tables)
