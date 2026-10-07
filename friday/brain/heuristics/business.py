@@ -41,7 +41,9 @@ def reply(business: dict[str, Any], transcript: list[dict[str, Any]]) -> Busines
     prices: dict[str, int] = persona.get("prices") or {}
     slots: list[str] = persona.get("slots") or []
     stock: dict[str, bool] = persona.get("stock") or {}
-    base = next(iter(prices.values()), None)
+    said = " ".join(norm(t["text"]) for t in friday_turns)
+    mentioned = [amount for name, amount in prices.items() if norm(name) in said]
+    base = mentioned[0] if mentioned else (min(prices.values()) if prices else None)
     if has_any(last, ("discount", "kam kar", "best price", "could you do", "kar sakte hain kya")):
         pct = int(persona.get("max_discount_pct") or 0)
         if pct and base:
@@ -62,7 +64,7 @@ def reply(business: dict[str, Any], transcript: list[dict[str, Any]]) -> Busines
             return r("Yes, we have it in stock." if ok else "Sorry, out of stock.",
                      "Haan, hai." if ok else "Nahi, khatam hai.")
     if has_any(last, ("price", "kitna", "cost", "charge", "rate", "fees")) and prices:
-        name, amount = next(iter(prices.items()))
+        name, amount = min(prices.items(), key=lambda kv: (norm(kv[0]) not in said, kv[1]))
         return r(f"{name} is {amount} rupees.", f"{name} ka {amount} lagega.")
     if has_any(last, ("slot", "available", "time", "kab", "when", "room")) and slots:
         price = f" {base} rupees." if base else ""

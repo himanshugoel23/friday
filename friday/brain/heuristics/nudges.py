@@ -30,7 +30,7 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
     def s(en: str, hinglish: str | None = None) -> str:
         return say(lang, tone, en=en, hinglish=hinglish)
 
-    if d.get("already_done") or d.get("resolved"):
+    if (d.get("already_done") or d.get("resolved")) and cand.kind != NudgeKind.WELLBEING_ALERT:
         return NudgeOut(send=False, reason="already resolved")
     task = next((t for t in ctx.open_tasks if t.id == cand.task_id), None) if cand.task_id else None
 
