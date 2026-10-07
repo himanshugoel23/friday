@@ -72,6 +72,7 @@ class MessageRepo(Repo):
             media_url=msg.media_url,
             location=dump_json(msg.location),
             provider_message_id=msg.provider_message_id,
+            ok=True,
             at=msg.received_at,
         )
         async with self.db.session() as s:

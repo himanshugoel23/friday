@@ -1,0 +1,32 @@
+{
+  "task_type": "hotel_booking",
+  "goal_template": "Check availability and the direct rate at {target} for {what}, and ask them to hold the room",
+  "required_fields": [
+    "stay"
+  ],
+  "default_questions": [
+    "Is a room available for these dates?",
+    "What is the direct rate and what's included?",
+    "Can guests pay at check-in, and what is the cancellation policy?",
+    "Can you hold the room while I confirm?"
+  ],
+  "success_criteria": [
+    "availability, room type, rate, inclusions captured",
+    "room held",
+    "user approved before booking"
+  ],
+  "fan_out": {
+    "strategy": "parallel",
+    "concurrency": 3,
+    "max_targets": 3
+  },
+  "may_negotiate": true,
+  "safety_rules": [
+    "never agree to pay, prepay, give a deposit or accept charges; bring offers back",
+    "no prepayment; pay at hotel or the user pays via the official link"
+  ],
+  "target_kind": "business",
+  "call_mode": "agent",
+  "needs_approval_to_commit": true,
+  "follow_up_after_h": null
+}

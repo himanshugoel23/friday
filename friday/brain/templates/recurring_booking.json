@@ -1,0 +1,28 @@
+{
+  "task_type": "recurring_booking",
+  "goal_template": "Book the next {what} for {beneficiary} at {target} ({when})",
+  "required_fields": [
+    "business_phone|business_name",
+    "recurrence"
+  ],
+  "default_questions": [
+    "Is the usual slot available?"
+  ],
+  "success_criteria": [
+    "instance booked within the recurring rule's delegation",
+    "deviations go to the user"
+  ],
+  "safety_rules": [
+    "never agree to pay, prepay, give a deposit or accept charges; bring offers back"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "needs_approval_to_commit": true,
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

@@ -1,0 +1,27 @@
+{
+  "task_type": "cancel_booking",
+  "goal_template": "Cancel {beneficiary}'s booking ({reference}) at {target}",
+  "required_fields": [
+    "business_phone|business_name"
+  ],
+  "default_questions": [
+    "Is there any cancellation charge?"
+  ],
+  "success_criteria": [
+    "business confirms the cancellation",
+    "no fee accepted"
+  ],
+  "needs_approval_to_commit": false,
+  "safety_rules": [
+    "never accept a cancellation fee; ask the user"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

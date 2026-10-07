@@ -1,0 +1,31 @@
+{
+  "task_type": "wellbeing_checkin",
+  "goal_template": "Warm wellbeing check-in call with {beneficiary}",
+  "required_fields": [],
+  "target_kind": "person",
+  "default_questions": [
+    "Have you taken your medicines today?",
+    "How are you feeling?",
+    "Did you sleep and eat well?",
+    "Do you need anything?"
+  ],
+  "success_criteria": [
+    "call answered",
+    "short summary for the user",
+    "alert if anything sounds wrong"
+  ],
+  "needs_approval_to_commit": false,
+  "safety_rules": [
+    "never give medical advice; relay the business's instructions verbatim",
+    "if they mention a fall, chest pain, breathlessness, dizziness or confusion, tell them you'll inform the user right away and that 112/108 is for emergencies",
+    "keep it under 3 minutes, warm and respectful"
+  ],
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

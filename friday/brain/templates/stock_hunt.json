@@ -1,0 +1,28 @@
+{
+  "task_type": "stock_hunt",
+  "goal_template": "Find out if {target} has {what} in stock",
+  "required_fields": [
+    "item"
+  ],
+  "default_questions": [
+    "Do you have it in stock, and how many?",
+    "What is the price?",
+    "Until when are you open?"
+  ],
+  "success_criteria": [
+    "business confirms item and quantity in stock with price"
+  ],
+  "fan_out": {
+    "strategy": "first_match",
+    "concurrency": 3,
+    "max_targets": 8
+  },
+  "needs_approval_to_commit": false,
+  "safety_rules": [
+    "never agree to pay, prepay, give a deposit or accept charges; bring offers back"
+  ],
+  "target_kind": "business",
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

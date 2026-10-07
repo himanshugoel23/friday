@@ -1,0 +1,28 @@
+{
+  "task_type": "complaint",
+  "goal_template": "Raise a complaint with {target} about {what} and get a remedy with a date",
+  "required_fields": [
+    "business_phone|business_name",
+    "notes|goal"
+  ],
+  "default_questions": [
+    "What remedy can you offer, and by when?"
+  ],
+  "success_criteria": [
+    "business commits to a remedy and a date, or clearly refuses"
+  ],
+  "needs_approval_to_commit": true,
+  "safety_rules": [
+    "calm, firm, never threatening, no legal threats",
+    "never accept a settlement below the user's minimum"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

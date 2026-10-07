@@ -1,0 +1,48 @@
+{
+  "_comment": "Curated customer-care numbers (C26 / US-35). SEED LIST: every entry must be re-verified against the company's official website/app by ops before launch and every 90 days (US-35.4); verified_at stays null until then. Short codes (121, 198...) only work from that operator's own SIM. Override the whole file with FRIDAY_OFFICIAL_NUMBERS_PATH.",
+  "companies": [
+    {"company": "Airtel", "aliases": ["bharti airtel", "airtel broadband", "airtel xstream", "airtel dth"],
+     "numbers": [
+       {"phone": "121", "purpose": "mobile", "source": "airtel.in contact-us (seed, re-verify)"},
+       {"phone": "198", "purpose": "complaint", "source": "airtel.in contact-us (seed, re-verify)"}
+     ]},
+    {"company": "Jio", "aliases": ["reliance jio", "jiofiber", "jio fiber"],
+     "numbers": [
+       {"phone": "199", "purpose": "mobile", "source": "jio.com help (seed, re-verify)"},
+       {"phone": "198", "purpose": "complaint", "source": "jio.com help (seed, re-verify)"},
+       {"phone": "18008899999", "purpose": "broadband", "source": "jio.com help (seed, re-verify)"}
+     ]},
+    {"company": "Vi", "aliases": ["vodafone idea", "vodafone", "idea"],
+     "numbers": [
+       {"phone": "199", "purpose": "mobile", "source": "myvi.in contact (seed, re-verify)"},
+       {"phone": "198", "purpose": "complaint", "source": "myvi.in contact (seed, re-verify)"}
+     ]},
+    {"company": "BSNL", "aliases": ["bharat sanchar nigam"],
+     "numbers": [
+       {"phone": "18001801503", "purpose": "general", "source": "bsnl.co.in (seed, re-verify)"}
+     ]},
+    {"company": "SBI", "aliases": ["state bank of india", "sbi bank"],
+     "numbers": [
+       {"phone": "18001234", "purpose": "banking", "source": "sbi.co.in contact-us (seed, re-verify)"},
+       {"phone": "18002100", "purpose": "banking", "source": "sbi.co.in contact-us (seed, re-verify)"}
+     ]},
+    {"company": "HDFC Bank", "aliases": ["hdfc"],
+     "numbers": [
+       {"phone": "18002026161", "purpose": "banking", "source": "hdfcbank.com contact-us (seed, re-verify)"},
+       {"phone": "18602676161", "purpose": "banking", "source": "hdfcbank.com contact-us (seed, re-verify)"}
+     ]},
+    {"company": "ICICI Bank", "aliases": ["icici"],
+     "numbers": [
+       {"phone": "18001080", "purpose": "banking", "source": "icicibank.com contact-us (seed, re-verify)"}
+     ]},
+    {"company": "Amazon India", "aliases": ["amazon", "amazon.in"],
+     "numbers": [
+       {"phone": "18003009009", "purpose": "orders", "source": "amazon.in help (seed, re-verify)"}
+     ]},
+    {"company": "National Consumer Helpline", "aliases": ["nch", "consumer helpline"],
+     "numbers": [
+       {"phone": "1915", "purpose": "grievance", "source": "consumerhelpline.gov.in (seed, re-verify)"},
+       {"phone": "18001144000", "purpose": "grievance", "source": "consumerhelpline.gov.in (seed, re-verify)"}
+     ]}
+  ]
+}

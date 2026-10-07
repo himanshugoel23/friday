@@ -1,0 +1,33 @@
+{
+  "task_type": "customer_care",
+  "goal_template": "{care_request} with {company} customer care: {what}",
+  "required_fields": [
+    "company"
+  ],
+  "default_questions": [
+    "What is the ticket/complaint number?",
+    "By when will it be resolved?",
+    "What is your name?"
+  ],
+  "success_criteria": [
+    "ticket number captured",
+    "promised resolution date captured",
+    "escalate if frontline can't resolve"
+  ],
+  "needs_approval_to_commit": true,
+  "safety_rules": [
+    "never speak or key OTP/PIN/CVV/passwords",
+    "share only approved identifiers",
+    "if verification is demanded, patch the user in or end with needs_user_verification",
+    "never accept charges"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

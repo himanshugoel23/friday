@@ -1,0 +1,33 @@
+{
+  "task_type": "healthcare",
+  "goal_template": "Book {what} for {beneficiary} {when} at {target}",
+  "required_fields": [
+    "business_phone|business_name|discovery_query",
+    "when_text|preferred_times|window_start"
+  ],
+  "default_questions": [
+    "Which slots are available?",
+    "What are the fees?",
+    "Any preparation or documents needed?"
+  ],
+  "success_criteria": [
+    "slot, practitioner and fees stated",
+    "preparation instructions captured",
+    "user approved"
+  ],
+  "may_negotiate": false,
+  "follow_up_after_h": 24,
+  "safety_rules": [
+    "never give medical advice; relay the business's instructions verbatim",
+    "never agree to pay, prepay, give a deposit or accept charges; bring offers back",
+    "share only the minimum medical detail needed"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "needs_approval_to_commit": true
+}

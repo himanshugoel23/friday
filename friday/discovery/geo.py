@@ -33,8 +33,10 @@ def phone_key(phone: str) -> str:
 
 
 def is_indian_mobile(phone: str) -> bool:
+    """Heuristic: 10-digit numbers starting 6-9 are mobiles, except the Bengaluru
+    landline range (080-...), which shares the leading 8."""
     key = phone_key(phone)
-    return len(key) == 10 and key[0] in "6789"
+    return len(key) == 10 and key[0] in "6789" and not key.startswith("80")
 
 
 def is_toll_free(phone: str) -> bool:

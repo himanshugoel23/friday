@@ -1,0 +1,27 @@
+{
+  "task_type": "running_late",
+  "goal_template": "Tell {target} that {beneficiary} is running late ({when}) and ask if the slot holds",
+  "required_fields": [
+    "business_phone|business_name"
+  ],
+  "default_questions": [
+    "Will the slot still be held?"
+  ],
+  "success_criteria": [
+    "business acknowledges the new ETA",
+    "states whether the slot is held"
+  ],
+  "needs_approval_to_commit": false,
+  "safety_rules": [
+    "do not accept a new slot without the user"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

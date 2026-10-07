@@ -1,0 +1,29 @@
+{
+  "task_type": "enquiry",
+  "goal_template": "Find out {what} from {target}",
+  "required_fields": [
+    "business_phone|business_name|discovery_query"
+  ],
+  "default_questions": [
+    "Are you open today, and until what time?",
+    "What is the price?"
+  ],
+  "success_criteria": [
+    "every question asked",
+    "at least one question answered",
+    "prices recorded verbatim with units"
+  ],
+  "needs_approval_to_commit": false,
+  "safety_rules": [
+    "a quote is never a commitment"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false,
+  "follow_up_after_h": null
+}

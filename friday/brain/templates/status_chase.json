@@ -1,0 +1,28 @@
+{
+  "task_type": "status_chase",
+  "goal_template": "Get the status of {what} ({reference}) from {target}",
+  "required_fields": [
+    "business_phone|business_name"
+  ],
+  "default_questions": [
+    "What is the current status?",
+    "When will it be ready?",
+    "Is any amount due?"
+  ],
+  "success_criteria": [
+    "concrete status and date"
+  ],
+  "needs_approval_to_commit": false,
+  "follow_up_after_h": 24,
+  "safety_rules": [
+    "amounts due are noted, never agreed"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "may_negotiate": false
+}

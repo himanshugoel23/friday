@@ -1,0 +1,32 @@
+{
+  "task_type": "order",
+  "goal_template": "Order {what} from {target} for delivery to {beneficiary}",
+  "required_fields": [
+    "business_phone|business_name|discovery_query",
+    "item"
+  ],
+  "default_questions": [
+    "Is it in stock?",
+    "What is the total including delivery?",
+    "When can it be delivered?",
+    "Is cash on delivery okay?"
+  ],
+  "success_criteria": [
+    "items, total, delivery ETA and address read back",
+    "user approved items and total (or within delegated ceiling)"
+  ],
+  "may_negotiate": false,
+  "follow_up_after_h": 2,
+  "safety_rules": [
+    "never agree to pay, prepay, give a deposit or accept charges; bring offers back",
+    "payment is COD or the user pays the shop directly"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "needs_approval_to_commit": true
+}

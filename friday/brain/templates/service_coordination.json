@@ -1,0 +1,28 @@
+{
+  "task_type": "service_coordination",
+  "goal_template": "Coordinate with {target} about {what}: get an ETA and confirm arrival",
+  "required_fields": [
+    "business_phone|business_name"
+  ],
+  "default_questions": [
+    "When will the technician arrive?"
+  ],
+  "success_criteria": [
+    "firm ETA or new time agreed",
+    "user confirms work done"
+  ],
+  "follow_up_after_h": 3,
+  "safety_rules": [
+    "never agree to pay, prepay, give a deposit or accept charges; bring offers back",
+    "escalate to the user if an advance or revised price is asked"
+  ],
+  "target_kind": "business",
+  "fan_out": {
+    "strategy": "single",
+    "concurrency": 3,
+    "max_targets": 1
+  },
+  "call_mode": "agent",
+  "needs_approval_to_commit": true,
+  "may_negotiate": false
+}
