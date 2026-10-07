@@ -1,6 +1,6 @@
 # Friday: Phase 1 PRD ("Friday makes calls")
 
-Status: Draft v2 (includes the founder voice-agent requirements: language mirroring, negotiation, ask-before-booking, discovery, AI voice, goal-driven calls) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
+Status: Draft v3 (includes all founder addenda: voice agent, people & places, real-world footwork A1–A13 / B14–B20, customer-care/IVR C21–C26) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
 
 Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal, for example "book a haircut". A task may involve several **call attempts**. **MUST**, **SHOULD** and **MAY** are used in the RFC sense. Requirement IDs (`US-x.y`) are referenced in tests and tickets.
 
@@ -19,14 +19,15 @@ Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal
 
 ## 2. Non-goals (Phase 1)
 
-- Customer-care and IVR calls (banks, telcos, airlines). Calls to toll-free or IVR numbers are declined.
-- Payments, UPI, deposits, or any money commitment.
+- Payments, UPI, deposits, advances, or any money commitment (→ P4). Phone orders are COD, or the user pays the shop directly (A3).
+- Physical errands via human runners (→ P3). Government portals and paperwork (→ P4).
+- *Customer-care and IVR calls are **in** scope (founder decision; US-30–US-36).*
 - Gmail, Calendar, documents, OAuth integrations.
-- Lifeline or emergency features. Friday still always points distressed users to 112/108 (see §7).
+- Lifeline or emergency features (SOS, emergency dispatch). Friday still always points distressed users to 112/108 (US-15). Opt-in wellbeing check-in calls (A13) are in scope, and they are *not* an emergency service.
 - Inbound voice (users calling Friday). The voice pipeline MUST be reusable for P2. P1 only plays a fixed message on inbound calls (US-16).
 - Business accounts and dashboards.
 - Chat in languages other than Hindi, English and Hinglish. *On calls*, Friday mirrors the business's language, including other Indian languages where STT/TTS supports them (US-13). This follows the founder requirement, which overrides the BRIEF's earlier language exclusion.
-- Calls to private individuals (friends, family), with one exception: a phone number the user supplies for a service provider (plumber, maid, tutor) is allowed.
+- Calls to arbitrary private individuals (friends, exes, family, for messages). The allowed exceptions are: service providers' personal mobiles (plumber, maid, tutor), brokers/landlords (A8), and opted-in circle members for check-ins and reminders (A13, US-22).
 - Agent-to-agent negotiation.
 - Any app or website, beyond a one-time T&C link.
 
@@ -116,12 +117,14 @@ Beta launch population: invite-only, about 500–2,000 users seeded from the fou
 Number rules:
 - Indian landlines need an STD code, and Friday asks for it if missing (it may be inferred from the user's city).
 - Indian mobiles are accepted.
-- Toll-free (1800/1860), premium, short codes, emergency numbers and international numbers are declined, with a reason.
+- Toll-free (1800/1860) and short codes (e.g. 121, 198) are allowed **only** for verified customer-care numbers from the official directory (US-35).
+- Premium-rate numbers, emergency numbers and international numbers are declined, with a reason.
+- Numbers that are not user-supplied pass the scam check (US-25) before Friday calls them or shares details.
 
 **US-3.3 Missing info.** Before calling, Friday asks for at most **2** clarifying questions, combined into one message where possible. Required fields are: a business (or a discovery request), service, and a date or date window. Anything else is optional. Friday works out the rest on the call, within the stated flexibility.
 
 **US-3.4 Confirm before dialling.** The user's request is their approval, so Friday does not ask "shall I call?". It sends: "Calling Looks Salon now for a haircut, Sat 11 Oct, 9 AM–12 PM. I'll ping you if they ask anything."
-- If the business-call window is closed (outside **09:00–20:30 IST**, or outside known hours for that business), Friday schedules the call for the next window and says so.
+- If the business-call window is closed (outside **09:00–20:30 IST**, or outside known or learned hours for that business, US-28), Friday queues the call for the next good window and says so.
 
 **US-3.5 The call** is goal-driven, using the call brief in §5. The booking is **successful** only when all of these hold:
 - the user has approved the slot and price (US-3.11);
@@ -174,7 +177,7 @@ Number rules:
   - After 30 minutes the options expire, and Friday tells the user it can call again for fresh slots.
 - **US-5.6** A maximum of **2 mid-call questions per call**. After that, Friday wraps up with the best info it has and asks the user afterwards.
 - **US-5.7** A reply to an expired question gets: "That call has ended. Want me to call them back with '6 PM'?" with buttons `Yes, call` / `No`.
-- **US-5.8** If the user has 2 concurrent calls, each question clearly names its business, and replies are matched by the WA `context.message_id`. Free text that can't be matched triggers a clarifying question.
+- **US-5.8** If the user has concurrent calls (US-23), each question clearly names its business, and replies are matched by the WA `context.message_id`. Free text that can't be matched triggers a clarifying question.
 
 ### US-6 Call outcomes and retry policy
 
@@ -187,7 +190,10 @@ Every attempt ends with exactly one `outcome`. Retries are automatic. The user i
 | `busy` | Busy signal / SIP 486 | Retry at +10 min and +30 min (3 attempts total) | Only after the final failure, or if the user asks for status |
 | `no_answer` | Ringing ≥30 s with no pickup / SIP 480/408 | Retry at +20 min and +90 min (3 attempts) | As above |
 | `unreachable` | Switched off, out of coverage, or network error | Retry at +30 min and +2 h (3 attempts) | As above |
-| `voicemail_or_ivr` | Answering machine or IVR detected | Treated as `no_answer`. Friday never leaves a voicemail in P1 | As above |
+| `voicemail` | Answering machine detected | Treated as `no_answer`. Friday never leaves a voicemail in P1 | As above |
+| `ivr` | IVR menu detected | The IVR navigator takes over (US-31). If it can't reach a human, the outcome is `no_answer`, rescheduled per US-28 | As above |
+| `hold_timeout` | Max hold exceeded (US-34.4) | Reschedule at the best-known time for that line | Immediate, with the new time |
+| `verification_required` | Agent requires the account holder and the patch-in failed (US-33) | None automatic. Friday sends the callback pack | Immediate |
 | `call_back_later` | Business says "call after 5", "call tomorrow" or "busy right now" | One callback at the stated time (+5 min), within the call window. If vague ("later"), +2 h. Max 2 callbacks per task | Immediate: "Salon asked me to call after 5. I'll call at 5:05." |
 | `business_refused` | "We don't talk to robots" after one polite retry, a hang-up within 15 s of the disclosure, or a refusal of service | **No retry** | Immediate. Friday offers the number so the user can call themselves, plus a `Try another place` option |
 | `wrong_number` | "Wrong number" / not the named business | **No retry** | Immediate: "That number isn't Looks Salon. Got the right one?" The number is marked invalid for that business in memory |
@@ -201,7 +207,7 @@ Rules:
 - **US-6.2** After the final failed attempt Friday sends one consolidated message: what happened, the attempt times, and buttons `Try again tomorrow` / `I'll call myself` (sends the number) / `Cancel`.
 - **US-6.3** The user can ask "status?" at any time and get the live state of every open task.
 - **US-6.4 Anti-abuse.** Max **3 call tasks to the same number per user per day**, and max **10 Friday call attempts to the same number per day across all users**. Numbers on the global DNC list are never called.
-- **US-6.5 Call limits.** Max call duration is **6 min**. If the business puts Friday on hold for more than 2 min, Friday ends the call and treats it as `call_back_later` (+30 min).
+- **US-6.5 Call limits.** Max call duration is **6 min** (customer-care calls: US-34.6). If the business puts Friday on hold for more than 2 min, Friday ends the call and treats it as `call_back_later` (+30 min).
 
 ### US-7 Result report
 
@@ -213,12 +219,12 @@ Rules:
 - **US-7.3** A **transcript** is available on request ("transcript?"). Friday sends it as a text message, split if needed.
 - **US-7.4** Failed or partial reports always say *why*, in one line, and offer the next action.
 - **US-7.5** Every task writes an **action log** entry: who, what, when, numbers dialled, outcome, info shared. "What did you do this week?" returns a summary of the log.
-- **US-7.6** Booking cancellation or reschedule ("cancel my salon booking") is a new task of type `booking` with subtype `cancel`/`reschedule`, and follows the same flow.
+- **US-7.6** Booking cancellation or reschedule ("cancel my salon booking") is task type A1 (§5B).
 
 ### US-8 Memory
 
 - **US-8.1 Profile**: name, booking name, city, language, tone, quiet-hours override (none in P1), briefing opt-in and time, autonomy settings. People (US-20) and places (US-21) are memory too, and are covered by "what do you know about me" and "forget".
-- **US-8.2 Businesses**: for each business Friday has called it stores name, number(s), city/area, category, hours learned, staff names, prices quoted (with dates), last visit, and call outcomes. On a later request, "Looks" resolves to the known business. If more than one candidate matches, Friday asks.
+- **US-8.2 Businesses**: for each business Friday has called it stores name, number(s), city/area, category, hours learned, staff names, prices quoted (with dates), last visit, and call outcomes. On a later request, "Looks" resolves to the known business. If more than one candidate matches, Friday asks. This is extended by vendor memory (US-29).
 - **US-8.3 Facts and dates.** Friday extracts facts from any user message, including messages not about tasks: "rent due on 5th", "insurance expires in March", "Maa's birthday is 12 Dec", "I'm vegetarian".
   - Each fact stores `subject`, `predicate`, `value`, `recurrence` (none/monthly/yearly), the `source_message_id`, a `confidence` score and `created_at`.
   - Facts with confidence ≥0.8 are saved, and Friday acknowledges them inline in ≤1 short line ("Noted: rent due on the 5th, I'll remind you on the 4th.").
@@ -241,7 +247,7 @@ Definitions:
   - `Running late` asks "How late?" and offers to call the business to inform them. This is a new task, which counts as a call and is approved by the tap.
 
 **US-9.2 Follow-ups.**
-- For home-service bookings Friday sends a check at slot end + 1 h: "Did the plumber come?" with `Yes, all done` / `No-show, call them` / `Still waiting`.
+- For home-service bookings (the full workflow is A5), Friday sends a check at slot end + 1 h: "Did the plumber come?" with `Yes, all done` / `No-show, call them` / `Still waiting`.
   - `No-show` triggers a call task that asks for an ETA or reschedules.
 - For enquiries with an obvious next step left untaken, Friday sends at most one follow-up after 24 h, then drops it.
 - After service appointments, Friday may optionally ask once "How was it?" to learn preferences. This counts as unprompted.
@@ -384,7 +390,7 @@ Commands are recognised in any supported language and phrasing (LLM intent class
   - Red flags found in reviews ("asked for advance and never came") are shown to the user as a warning, or exclude the candidate.
 - **US-17.4 Shortlist message and approval.** Friday sends the shortlist as a WA list message (name, ★, distance, reason) with `Call all 3` / `Pick which to call` / `Search again`.
   - If the user's autonomy level for the category is ≥3 *and* the request said "just handle it", Friday may skip this step and go straight to calling. It states which businesses it will call.
-- **US-17.5 Call and compare.** Friday calls the shortlisted businesses **sequentially** (default; it uses quotes from earlier calls as negotiation leverage, US-18) or in parallel (at most 2 concurrent) when the user is in a hurry. Each call is an enquiry/quote call with a common question set taken from the call brief (price, inclusions, earliest slot, visit charge).
+- **US-17.5 Call and compare.** Friday calls the shortlisted businesses **sequentially** (default; it uses quotes from earlier calls as negotiation leverage, US-18) or in parallel (US-23) when the user is in a hurry. Each call is an enquiry/quote call with a common question set taken from the call brief (price, inclusions, earliest slot, visit charge).
   - **No booking is confirmed during compare calls.** Friday asks each business to hold its offered slot where possible ("Can you hold Saturday 11 AM for an hour while I confirm?").
 - **US-17.6 Comparison report** within 60 s of the last call:
   - a table-like message with business, price (incl./excl.), earliest slot, rating and notes;
@@ -494,6 +500,8 @@ Founder requirement: **goal-driven, not scripted.** There are no hand-written Q&
 - If the beneficiary is not the user, Friday appends: "**<beneficiary>** ke liye." ("…for <beneficiary>.")
 - Recording notice (pending Q4): "Yeh call record ho rahi hai." ("This call is being recorded.")
 
+For IVR systems, no disclosure is spoken. The line is said to **every human** who picks up (the first agent and each transferred agent or supervisor, US-34.5). For check-in calls (A13), the line is adapted for the member: "Namaste Mummy ji, main Friday hoon, Ankit ki AI assistant." ("Hello Mummy ji, I'm Friday, Ankit's AI assistant.")
+
 After this line, the LLM takes over, and Friday mirrors the rep's language from the next turn onwards (US-13.2).
 
 ### 5.2 Call brief (generated per call by the task engine; the input contract for the call agent)
@@ -563,7 +571,185 @@ call_brief:
 5. Never share information beyond `allowed_disclosures` (US-3.7, US-22.4).
 6. Never lie: no invented quotes, urgency, identity or relationships.
 7. **Escalate to the user when uncertain.** Ask, don't guess.
-8. Stay on task. The call lasts at most 6 minutes. Emergency services are never called.
+8. Stay on task. The call lasts at most 6 minutes (customer care: 20 min active plus hold). Emergency services are never called.
+9. Never key in or speak an identifier that is not approved for this call (US-32). Any OTP spoken on a bridged call is redacted from recordings and transcripts (US-33).
+10. Never give medical, legal or financial advice of Friday's own. Relay only what the business said.
+
+---
+
+## 5B. Task-type catalogue (A1–A13, founder "real-world footwork" scope, all **Phase 1 · Priority 1**; A14 customer care is defined further below)
+
+Goal: Phase 1 covers every offline task that today needs a human to phone or coordinate with a business or person. Each task type below is a **CallBrief template** (§5.2) on the same engine. It adds a `task_type`, default goal and constraints, success criteria, a report format and type-specific rules. Rules that apply to every type:
+- the hard rules (§5.4);
+- ask-before-booking/ordering (US-3.11; for orders it covers the items and total price);
+- the outcome taxonomy (US-6);
+- caps and guardrails (US-2, US-10).
+
+For each type, *the "Report" column is what the user sees on WA*. All reports end with ≤3 one-tap next actions.
+
+| # | Task type (`task_type`) | Example request | CallBrief goal / key constraints | Success criteria | Report to user |
+|---|---|---|---|---|---|
+| A1 | **Reschedule / cancel** (`booking.reschedule`, `booking.cancel`) | "Move my salon to Sunday", "cancel Dr. Mehta" | Goal: change or cancel an existing booking (looked up in memory by business, date and beneficiary). Constraints: new time windows (reschedule); avoid cancellation fees, and if a fee is mentioned, ask the user (never accept it). The new slot needs approval (US-3.11) | Business confirms the cancellation, or the new slot is read back and approved | "Cancelled: Looks Salon, Sat 11 AM. No charge." / "Moved to Sun 12 Oct, 11:30 AM." Reminders are updated automatically, and the beneficiary is notified if opted in |
+| A2 | **Reconfirm / running late** (`booking.reconfirm`, `booking.late_notice`) | "Is my 7 pm table still on?", "tell the clinic I'm 20 min late" | Reconfirm: verify that the booking exists with the same details. Late notice: inform the business of a new ETA and ask whether the slot still holds. Constraint: don't accept a new slot without asking the user. Auto-offered from the reminder buttons (`Running late`) | Reconfirm: business confirms the details. Late: business acknowledges and states whether the slot is held | "Confirmed: table for 4 at 7 PM, Toit, under Ankit." / "Clinic knows you'll be 20 min late. Dr. Mehta will still see you, but after the 5:30 patient." |
+| A3 | **Phone order** (`order.pharmacy`, `order.kirana`, `order.water`, `order.tiffin`) | "Order Dolo 650 ×2 and ORS from Apollo to dad's home", "2 water cans", "tiffin for the week" | Goal: availability, price per item, total, delivery time and charge, payment mode. Constraints: deliver to a saved place (US-21); payment is **COD or the user's own UPI to the shop**, and Friday never pays (§5.4). Prescription items: share the user-provided prescription image only via WA-to-business (US-24) with user approval. Confirm the order only after the user approves items and total | Business confirms items, total, delivery ETA and address read-back, with user approval recorded | "Ordered from Apollo Malviya Nagar: Dolo 650 ×2, ORS ×4, ₹186 + ₹0 delivery, COD, ETA 45 min to Dad's home." Follow-up at ETA+30 min: `Arrived?` |
+| A4 | **Availability / stock hunt** (`hunt.stock`) | "Which chemist near Dad's home has Insulin Glargine?" | Goal: find the first business that has X (exact item, strength, quantity), near a place, open now or at a time. Uses discovery (US-17) without a shortlist approval step, then **parallel calls** (US-23) in ranked batches. **Stop at first confirmed match**: in-flight calls finish politely, and queued calls are cancelled. Optional: ask the matching shop to hold the item | ≥1 business confirms stock (item + quantity), with price and hours | "Found it: Wellness Forever, 900 m from Dad's home, has 3 pens, ₹780 each, open till 11 PM. Holding 1 till 8 PM. (Checked 4 shops.)" with `Order for delivery` / `Send address to Dad` |
+| A5 | **Service-provider coordination** (`service.coordinate`) | "Plumber was supposed to come at 11, chase him", "is the electrician on the way?" | Goal: get an ETA, chase no-shows, confirm arrival and confirm the work is done with the user. Runs as a **workflow** of calls and checks: confirm the day before (A2), ETA call at slot start if not arrived, chase at +30 min, ask the user "Did the work get done?" Constraint: escalate to the user if the provider asks for an advance or a revised price | Provider arrives (user confirms) and the user confirms the work is complete, or a firm new time is agreed | "Ravi (plumber) says he's 20 min away, stuck at Silk Board." → later: "Done? [Yes, all fixed] [Not fixed] [Didn't come]". Price and reliability go to vendor memory (US-29) |
+| A6 | **Status chasing** (`status.chase`) | "Is my phone repair done?", "has the tailor finished the blouse?", "where's my refund from the furniture shop?" | Goal: current status, expected ready date, pickup or delivery, any amount due (noted, never agreed). Context from memory (job, date given, receipt number if any). Polite persistence: re-chase at the promised date | Business gives a concrete status and date | "Mobile Care: screen replaced, ready after 6 PM today, ₹2,400 due (as quoted)." Auto-reminder or re-chase is scheduled on the promised date |
+| A7 | **Complaint to a local business** (`complaint.local`, non-IVR) | "The dry cleaner ruined my shirt, ask them to fix it" | Goal: state the issue factually and get a remedy (redo, replacement, refund or discount) with a date. Constraints: **calm, firm, never threatening, no legal threats, no abuse**; only the facts the user gave; the remedy the user wants (and the minimum acceptable one) is in the brief; Friday doesn't accept a settlement below the minimum, and asks the user | Business commits to a remedy and a date, or clearly refuses | "Fresh Cleaners agreed to re-clean free and deliver by Fri. If you want a refund instead, I can push." / Refused → options `Escalate in writing (WA)` / `Drop it` |
+| A8 | **Rental hunting** (`hunt.rental`) | "2BHK in HSR under ₹35k, bachelors OK, pet-friendly" | Goal: per listing (from user-shared listing numbers or broker/landlord numbers found via discovery): rent, deposit, maintenance, brokerage, bachelors/pets/food rules, availability date, visit slots. Constraints: **no token or advance** (§5.4); only basic disclosures (name, tenant type as given); visit slots need approval. Parallel calling, results compared | ≥1 listing with full answers, and visit slots offered | Comparison table: rent · deposit · brokerage · rules · visit slots, flagging rule mismatches. `Book visit <A>` / `Book visits for top 2` |
+| A9 | **Big-ticket quotes and negotiation** (`quote.bigticket`: packers & movers, event or wedding vendors, venues, car service, interiors) | "Get 4 quotes for moving a 2BHK Bengaluru → Pune on 1 Nov" | Goal: comparable quotes on a **standardised spec** (inventory, distance, dates, inclusions such as insurance, packing material, GST) with negotiation per US-18 (`firm` allowed). Accept WA-sent quote PDFs and photos (US-24). Constraint: no advance or booking amount; site-survey visits need approval | ≥3 comparable quotes (or all reachable), normalised with inclusions | Normalised comparison (₹ total incl. GST, inclusions ✓/✗, rating, red flags), initial → negotiated price, and a recommendation. `Book survey with <A>` / `Push <B> lower` |
+| A10 | **Family healthcare** (`health.*`: doctor slot, lab home collection, physio, nurse or attendant home visit) | "Lab home collection for Mom's thyroid test tomorrow 7 am", "find a night attendant for Dad" | Goal: slot, practitioner/agency, fees, preparation instructions (fasting etc.), what to bring. Beneficiary from the circle (US-20); minimum medical disclosure (US-22.4). **Never gives or relays medical advice of its own**, only the business's instructions verbatim | Booking confirmed with prep instructions captured, and the user has approved | "Booked: Thyrocare home collection for Mom, Thu 7–7:30 AM, ₹450 COD. **Prep: 10–12 h fasting.**" The prep reminder goes to Mom at 21:00 the previous night if she opted in |
+| A11 | **Enquiries: tutors, coaching, admissions, gyms** (`enquiry.education`, `enquiry.fitness`) | "Find maths tutors for class 8 near home, home tuition, under ₹4k/month" | Goal: fee structure, schedule, mode (home/centre/online), trial class, admission process and deadlines, documents. Parallel calling and comparison. Booking a trial class or visit needs approval | Answers to ≥80% of the brief's questions for ≥2 options | Comparison plus key dates ("Admission form due 15 Nov"). Deadlines are saved as facts and drive date nudges |
+| A12 | **Recurring bookings** (`booking.recurring`) | "Weekly physio for Dad, Tue & Fri 10 am", "haircut every 4 weeks", "AC service every quarter" | Goal: a booking series. The user approves a **recurrence rule + business + price ceiling** once (counts as pre-approval per US-3.11, see Q21). Each instance is booked automatically ahead of time (lead: weekly → 3 days, monthly → 7 days). Any deviation (slot, price, staff) → ask the user | Each instance is booked within the rule; the series continues until stopped | Per instance: "Booked next physio: Tue 14 Oct 10 AM (series 3 of ∞)." `Skip this one` / `Pause series` / `Stop series`. Series are listed under "my recurring" |
+| A13 | **Wellbeing check-in calls** to a circle member (`checkin.wellbeing`) | "Call Mom and Dad every morning at 10 to check in" | Goal: a short, warm call (≤3 min) in the member's language. Friday asks about medicines taken, how they're feeling, sleep and food, and whether anything is needed. **Requires the member's own opt-in** (US-22 mechanism, check-in specific consent). Schedule and frequency are set by the user and agreed by the member. Friday never gives medical advice; health questions → "I'll tell Ankit" (and 112/108 if urgent) | Call connected and answered; summary delivered | Daily summary (≤3 lines): "Mom: took BP meds ✅, slept well, wants coriander and atta (I can order?)." **Alert** (urgent, exempt from quiet hours and cap) if: no answer on 3 attempts across 2 h; distress words; mentions of a fall, chest pain, breathlessness or confusion; or a skipped critical medicine. Format: "⚠ Dad sounded unwell: said he's dizzy since morning. [Call Dad now (warm transfer)] [Call his doctor] [Listen to recording]" |
+
+**Catalogue acceptance criteria:**
+- **C.1** Each task type ships with: a brief template, a JSON schema for its structured result, a report formatter, ≥5 simulator personas in the eval set, and an entry in the intent classifier with Hindi, English and Hinglish examples.
+- **C.2** The intent classifier maps a request to a type with ≥90% accuracy on the labelled set. If unsure, Friday asks one question ("Want me to order it, or just check who has it?").
+- **C.3** A13 calls are to private individuals. They are allowed *only* for opted-in circle members (this updates the non-goal in §2). Check-in calls respect the member's quiet hours (default 09:00–20:00 local IST). The member can say "don't call tomorrow" or "stop calling", and Friday tells the user.
+- **C.4** Phone orders (A3) and anything with a price are confirmed only after the user's explicit approval of the total. Friday states the payment mode (COD or the user pays the shop directly) and never pays itself.
+
+### US-23 Parallel calling (B14 · Phase 1 · Priority 1)
+
+- **US-23.1** A task may fan out to N call legs with configurable concurrency. The defaults are **3 per task** and **5 per user**; a global limit applies per telephony number pool. This supersedes the concurrency limit of 2 in US-4.5, US-5.8, US-17.5 and E23.
+- **US-23.2 Strategies:**
+  - `all` (collect from all: quotes, rentals, A9, A11);
+  - `first_match` (stop at the first success: A4);
+  - `sequential_leverage` (one at a time, to use quotes as leverage: the US-17 default when negotiating).
+  The task engine picks the strategy per type, and the user can override it ("call them all at once").
+- **US-23.3** On `first_match`, Friday stops dialling new legs within 2 s of a confirmed match. Live legs end politely within one turn ("Thank you, I've found it elsewhere. Have a good day.").
+- **US-23.4** Mid-call questions from parallel legs are **batched** where possible ("2 shops offer delivery: A ₹40 in 30 min, B free in 90 min. Which?"). Each question names its business (US-5.8). Legs waiting on the user hold or call back per US-5.5.
+- **US-23.5** The aggregated report comes within 60 s of the last leg. It lists every leg's outcome. Unreached businesses get `Retry these`.
+- **US-23.6** Cap: a fan-out task counts as **1 task for up to 5 connected legs**, then +1 per 5 more (Q22). Cost is tracked per leg and per task.
+
+### US-24 WhatsApp-to-business channel with document extraction (B15 · Phase 1 · Priority 1)
+
+- **US-24.1** Friday may message a business on WA, from Friday's WA Business number, when:
+  1. the call fails (`no_answer`/`busy` after the 2nd attempt) and the number is on WA;
+  2. the business asks "WhatsApp kar do" ("just WhatsApp it") or offers to send a menu, price list or quote;
+  3. the brief requires a document (A9 quotes, A3 prescription sharing).
+- **US-24.2** The first message is the approved template `friday_biz_request` (AI disclosure, on behalf of <name>, the ask). After the business replies, free-form messages are allowed within 24 h.
+  - Friday never sends user-identifying data beyond `allowed_disclosures`.
+  - It sends a prescription image only with the user's per-task approval.
+- **US-24.3** Inbound business media (images, PDFs, voice notes) are extracted with Claude vision/LLM into structured data: line items, prices, inclusions, validity, dates, totals, and GST yes/no. Each extracted value carries a confidence score. Totals are cross-checked against the line items, and a mismatch is flagged.
+- **US-24.4** The extracted data feeds the same report and comparison as call results. The source file is forwarded to the user on request ("show me their quote").
+- **US-24.5** Users may also send images and PDFs (prescriptions, quotes, listing screenshots, bills). These are extracted the same way and confirmed before use. This updates E22.
+- **US-24.6** Business WA threads are logged in the action log. A business can reply STOP, which applies DNC to the WA channel (US-12.3).
+
+### US-25 Scam / fake-number check (B16 · Phase 1 · Priority 2)
+
+- **US-25.1** Before calling a number, or sharing any detail with it, that was not supplied directly by the user or already verified, Friday computes a **trust score**. Signals:
+  - the number matches the places-provider listing for that business;
+  - the number appears on the official website;
+  - there are multiple consistent listings;
+  - Friday has past call history with it (vendor memory);
+  - it is on the internal known-scam list or matches crowd reports;
+  - the listing is very new or has very few reviews;
+  - the number is a mobile that claims to be a big brand's "customer care".
+- **US-25.2** For scores below the threshold, Friday warns the user before calling ("This number isn't on Blue Dart's official site, and 3 people reported it. Still call?"). Friday never calls "customer care" numbers found only in search snippets.
+- **US-25.3** On calls, scam patterns trigger an immediate polite exit and a warning to the user: requests for OTPs, a "refund processing fee", an app install or screen sharing, or KYC updates. The number is added to the internal scam list after review.
+
+### US-26 Warm transfer / three-way call (B17 · Phase 1 · Priority 2)
+
+- **US-26.1** When the business insists on speaking to the user, the right person is finally on the line (e.g. the doctor's assistant), or the user taps `Connect me`, Friday asks the business "May I connect Ankit on this call?" Friday then dials the user's registered number (or the beneficiary's, with consent) and bridges the legs.
+- **US-26.2** Before bridging, Friday gives the user a **≤15 s whisper brief** on their leg only: "Connecting you to Dr. Meena's receptionist. They need Dad's previous report dates. The slot is Tue 11 AM, ₹1,300."
+- **US-26.3** If the user doesn't answer within 25 s, Friday returns to the business: "Ankit isn't available. I'll have him call you back." → `escalated`.
+- **US-26.4** After the bridge, Friday stays on silently by default to take notes and produce the report. The user can say "Friday, drop off" to have it leave. The recording continues only while Friday is on the call. The disclosure is repeated to the business at the bridge ("Ankit is joining now; I'm still on the line as his AI assistant").
+- **US-26.5** For international users (NRIs) the transfer uses the user's registered number. If cost is above a set threshold, Friday asks first ("This will connect an international call; OK?").
+
+### US-27 Live translator mode (B18 · Phase 1 · Priority 2)
+
+- **US-27.1** The user asks: "Call the Chennai landlord and translate for me", or taps `Translate live` when a business speaks a language the user doesn't. Friday sets up a three-way call (US-26) with translation on.
+- **US-27.2** Friday translates each utterance both ways (user language ↔ business language, from the supported set in US-13.2). Latency targets are p50 < 2 s per turn. Friday speaks translations in its own voice, prefixed on the first turn with "I'm Friday, an AI assistant translating for Ankit."
+- **US-27.3** Friday translates faithfully and adds nothing. Hard rules still apply to Friday's *own* speech. If the user speaks a PIN or OTP, Friday does not translate it, and it warns the user.
+- **US-27.4** The report includes a bilingual transcript and key agreed points.
+
+### US-28 Call timing intelligence (B19 · Phase 1 · Priority 1)
+
+- **US-28.1** For each business, Friday maintains `hours` (from the places provider and learned from calls), lunch closures, weekly off-days (e.g. Sunday or Tuesday closures common for salons), holidays, and **best-time-to-call** (the hour-of-week with the highest historical answer rate across all Friday calls to that business and category).
+- **US-28.2** The outer call window (09:00–20:30 IST) remains a hard bound, or 09:00–20:00 for private individuals (A13). Within it, the scheduler:
+  - places calls when the business is open;
+  - avoids 13:00–14:30 for clinics and small shops unless the business is known to answer then;
+  - avoids opening rush for restaurants (19:30–21:00);
+  - prefers the best-time slot when the task isn't urgent.
+- **US-28.3 Call queue.** Tasks waiting for a window are queued with an ETA shown to the user ("Clinic opens at 5 PM. I'll call at 5:05."). Queued tasks survive restarts and are re-ranked by deadline.
+- **US-28.4** Each call result updates the learned hours ("closed on Tuesdays" said by the business → stored).
+
+### US-29 Vendor memory (B20 · Phase 1 · Priority 1)
+
+- **US-29.1** For every business or provider the user has used or quoted, Friday stores per user: prices **quoted** and **paid** (the paid price comes from user confirmation after service), dates, services, reliability (on-time, no-show, rescheduled counts), the user's rating (asked once after service, 1–5 via buttons), notes, the people involved ("Ramesh, electrician") and the preferred language.
+- **US-29.2 Used in:**
+  - **recommendations**: "your usual electrician Ramesh, ₹400 last time, always on time" ranks first;
+  - **negotiation leverage** (US-18): "Last time it was ₹400" (only if true);
+  - **discovery ranking** (US-17.3);
+  - **scam checks** (US-25).
+- **US-29.3** Commands: "my vendors", "who's my usual plumber", "never use FrostFix again" (excluded from discovery and recommendations).
+- **US-29.4** Vendor memory is per user and is not shared across users in P1. Aggregate, anonymised answer rates and hours are shared to support US-28.
+
+**Out of Phase 1 (founder):**
+- payments and advances → P4;
+- physical errands via human runners → P3;
+- government portals and paperwork → P4.
+
+### Customer-care / IVR calls (C21–C26, founder decision: **in Phase 1**)
+
+These calls run on the same engine, with an IVR navigator, a hold-listening mode and stricter verification rules. They add catalogue entry **A14** below. Dependencies: the official-number directory (US-35) and the scam check (US-25) are **mandatory** for this flow. Warm transfer (US-26) is needed for account-holder verification, so PM recommends promoting B16 and B17 to Priority 1 (Q23).
+
+| # | Task type | Example request | CallBrief goal / key constraints | Success criteria | Report to user |
+|---|---|---|---|---|---|
+| A14 | **Customer care** (`care.complaint`, `care.refund`, `care.dispute`, `care.cancel`, `care.service_request`, `care.ticket_status`, `care.escalate`) for telecom, broadband, banks/cards, insurers, e-commerce/food delivery, airlines, utilities | "Airtel broadband was down 5 days, get me a refund", "cancel my Swiggy One", "status of my HDFC card dispute" | Goal: the specific resolution (refund amount or credit, cancellation, ticket, status). Constraints: the official number only (US-35); `allowed_identifiers` approved for this call (US-32); target and minimum acceptable outcome; escalate if the first agent can't resolve; **never** read OTP/PIN/CVV/passwords; never accept charges | Resolution confirmed by an agent with a **ticket/reference number**, or a ticket raised with a promised date and agent name | "Airtel agreed ₹350 credit on next bill. Ticket 2-58XXXXXX9, agent Neha, credit by 20 Oct. I'll check your bill after that." `Listen` / `Escalate further` / `Done` |
+
+### US-30 Customer-care task intake (C21)
+
+- **US-30.1** Friday identifies the company and the issue type (complaint, refund, dispute, cancellation, service request, ticket status or escalation). It then collects the facts needed: dates, amounts, order/booking/account references, previous ticket numbers and what the user wants (target and minimum).
+  - Friday asks at most 3 questions, in one message where possible.
+  - It accepts screenshots and PDFs of bills, orders and emails (US-24.5).
+- **US-30.2** Friday shows a **pre-call summary** for approval: the company, the official number it will call (US-35), what it will ask for, and **exactly which identifiers it will share**. Buttons: `Go` / `Edit`. No call starts without `Go`. This approval also covers identifier sharing per US-32.
+- **US-30.3** Status updates during long calls: "In the queue for Airtel. Estimated wait ~12 min. I'll ping you when a human picks up." There are at most 3 progress messages per call. These are task-lifecycle messages, so they are exempt from the cap but not from quiet hours. Customer-care calls run 09:00–20:30 unless the line is 24×7 and the user asks.
+
+### US-31 IVR navigation (C22)
+
+- **US-31.1** Friday understands spoken IVR menus in Hindi and English (and other supported languages when offered). It selects options by **DTMF** or by speaking, and chooses the IVR's language option matching the brief (default English for IVRs, for recognition accuracy; configurable).
+- **US-31.2** The goal is to reach a human agent via the shortest known path. Friday uses (a) **learned IVR maps** per company number (cached menu trees with the path last used successfully and its date) and (b) live menu understanding. It prefers "talk to an agent" or "other queries" options.
+- **US-31.3** For prompts such as "enter your registered mobile number / account number / order ID", Friday keys in **only identifiers approved for this task** (US-32). If a prompt asks for something not approved, or for a secret (OTP/PIN/CVV/password/T-PIN), Friday does not enter it. It tries "press 0 / agent" paths, then pauses and asks the user (US-33).
+- **US-31.4 Recovery.** If Friday reaches a wrong branch (detected from the menu content), it uses the "go back / main menu" key or redials. Max 3 recovery attempts and 2 redials. A failure is reported along with the menu path explored, and the IVR map is updated.
+- **US-31.5** IVR traversal is logged (menu prompts transcribed, keys pressed) in the action log and used to update IVR maps across users. Only menu structure is shared, never user data.
+
+### US-32 Account identifiers and sharing (C22, C24)
+
+- **US-32.1** Users can save account identifiers per company: registered mobile, customer/account ID, policy number, last 4 digits of a card, order ID, PNR. Saving or viewing them requires the PIN. They are encrypted at rest and never put into nudges or templates.
+- **US-32.2** Per call, the pre-call summary (US-30.2) lists the identifiers Friday will share. Only those may be keyed or spoken. Anything new requested mid-call needs a mid-call question to the user (US-5).
+- **US-32.3** Full card numbers, CVV, OTP, PIN, T-PIN, passwords, net-banking IDs and full Aadhaar are **never stored, never shared and never spoken**. If the user types one in chat, Friday warns them and does not store it.
+
+### US-33 Verification handling (C24)
+
+- **US-33.1** When the agent insists on account-holder verification (OTP, security questions, voice consent from the account holder), Friday says: "I'm an AI assistant and can't share verification codes. I'll connect the account holder now." It then **patches the user in** via warm transfer (US-26), with a whisper brief covering the context gathered so far.
+- **US-33.2** If the user is unavailable or declines, Friday gets everything it can without verification (ticket number, process, timelines). It ends the call and sends the user a **callback pack**: the number, the IVR path or keys, the ticket number, what to say, and the documents needed.
+- **US-33.3** If the agent reads out an OTP or asks Friday to repeat one, Friday refuses and does not repeat it. Scam patterns trigger US-25.3.
+
+### US-34 Hold handling (C23)
+
+- **US-34.1** Friday detects hold music, queue announcements ("your call is important to us", "estimated wait time") and silence. It then switches to **listening mode**: no LLM turns and no TTS, with only a lightweight classifier (VAD + a hold/human detector) running. The target is ≤10% of the active-conversation cost per minute.
+- **US-34.2** If the IVR announces a wait time or queue position, Friday relays it to the user once (US-30.3).
+- **US-34.3** When a human greeting is detected ("Hello, Airtel se Neha bol rahi hoon" — "Hello, this is Neha from Airtel"), Friday resumes full mode within **1.5 s**, opening with the disclosure line adapted for the agent (§5.1) and then the ask.
+- **US-34.4** Max hold is configurable, defaulting to **25 min per call**. After it, Friday hangs up and reschedules at the best-known time for that line (US-28; e.g. weekday 10–11 AM). It tells the user. Total hold per task is capped at 75 min/day.
+- **US-34.5** Agent-initiated holds ("please hold, checking") also use listening mode. Transfers between departments re-trigger the human-detect logic. Each new agent hears the disclosure again.
+- **US-34.6** A customer-care call is exempt from the 6-min limit (US-6.5). Active conversation is capped at **20 min** per call, plus hold.
+
+### US-35 Official numbers only (C26)
+
+- **US-35.1** Customer-care numbers come only from Friday's **curated, verified directory**, which is seeded manually for the top ~150 companies across the C21 categories. Each entry has: a source URL from the company's official site or app, the date verified, IVR language options, 24×7 or not, and grievance-officer and nodal-officer contacts where published.
+- **US-35.2** User-supplied customer-care numbers must pass the scam check (US-25). If they don't match the directory, Friday warns the user and uses the directory number instead. Numbers from web search snippets are never used.
+- **US-35.3** If a company is not in the directory, Friday tells the user it can't verify the number yet, offers to use an official number the user found in the company's app or on a bill (after the scam check), and logs a directory gap.
+- **US-35.4** The directory is re-verified every 90 days or on any `wrong_number` outcome.
+
+### US-36 Escalation, ticket capture and follow-up (C25)
+
+- **US-36.1** On every customer-care call Friday MUST capture: the ticket, complaint or reference number (read back digit by digit to confirm), the agent's name/ID, the promised action and the **promised resolution date**. If no ticket is offered, Friday asks for one explicitly.
+- **US-36.2** If the first agent can't resolve the issue, or offers less than the user's minimum, Friday politely requests escalation to a supervisor ("Kya aap ise supervisor ko escalate kar sakti hain?" — "Could you escalate this to a supervisor?"), at most twice per call. The outcome is recorded either way.
+- **US-36.3** Friday auto-schedules a **follow-up call** for the promised date + 1 working day (it doesn't count against the cap; see Q22). If the issue is unresolved at follow-up, Friday re-escalates on the same ticket.
+- **US-36.4** After 2 failed follow-ups, or when a promised date is missed by more than 7 days, Friday suggests **formal escalation routes as text guidance**: the company's grievance officer or nodal officer (from the directory), the sector ombudsman or regulator route (e.g. RBI Integrated Ombudsman for banks, TRAI/telecom appellate route for telecom, IRDAI Bima Bharosa for insurers, the National Consumer Helpline), and a draft complaint text with the ticket history. Friday does not file these itself in P1 (portals are P4).
+- **US-36.5** All tickets are listed under "my complaints", with status, dates and next follow-up.
 
 ---
 
@@ -670,7 +856,7 @@ Friday: Bistro 42 didn't want to talk to an AI assistant, sorry about that.
         Their number is 022 2640 1234 if you'd like to call. Or I can try somewhere else nearby.
         [Find another place] [OK]
 ```
-(`Find another place` in P1 asks the user for a number; it does not search. See Q2.)
+(`Find another place` runs discovery around the same area, US-17.)
 
 ### 6.7 Pattern nudge, with ignore-learning
 
@@ -788,8 +974,6 @@ Business: Haan, Priya karegi. ₹600. 10 minute pehle aana.
 Friday:   Perfect, shukriya ji! Aapko confirmation SMS aa jayega.
 ```
 
----
-
 ### 6.12 Hinglish negotiation call (Friday ↔ AC service, budget max ₹600, target ₹500)
 
 ```
@@ -873,13 +1057,104 @@ User:   mummy ke ghar ke paas koi achha physiotherapist dekho
 Friday: Kothrud ke paas dhoondh rahi hoon…
 ```
 
+### 6.16 Customer care: Airtel broadband refund (Hinglish, with IVR, hold and escalation)
+
+WhatsApp:
+```
+User:   Airtel broadband 2 se 6 Oct tak band tha, complaint kiya tha phir bhi. Refund dilwao
+Friday: 5 din ka outage, samajh gayi. Pichla complaint number hai? Aur bill ki photo bhej do toh plan amount mil jayega.
+User:   (bill photo)  complaint no yaad nahi
+Friday: Bill se: Plan ₹1,178/mo, Account ID 1-2XXXXXX8.
+        Plan: Airtel ke official number 121 pe call (verified, airtel.in). Main maangungi
+        5 din ka pro-rata credit (~₹190), minimum ₹150.
+        Share karungi: registered mobile +91 98XXXXX210, Account ID 1-2XXXXXX8. Aur kuch nahi.
+        [Go] [Edit]
+User:   [Go]
+Friday: Calling Airtel. IVR se agent tak pahunch ke batati hoon.
+```
+
+The call (Friday's own actions are in [brackets]):
+```
+IVR:      Airtel mein aapka swagat hai. For English press 2…
+Friday:   [DTMF 2]
+IVR:      For broadband, press 3…
+Friday:   [DTMF 3]   (learned IVR map: 2 → 3 → 9 → agent)
+IVR:      Please enter your registered mobile number.
+Friday:   [DTMF 98XXXXX210 — approved identifier]
+IVR:      …To speak to our customer service executive, press 9.
+Friday:   [DTMF 9]
+IVR:      All our executives are busy. Your estimated wait time is 11 minutes. ♪ (music)
+Friday:   [listening mode; WA to user: "Airtel queue mein hoon, ~11 min wait. Human aate hi batati hoon."]
+  … 13 min of hold …
+Agent:    Hello, Airtel se Neha bol rahi hoon, main aapki kya madad kar sakti hoon?
+Friday:   [full mode] Namaste Neha ji, main Friday hoon, ek AI assistant, Ankit Sharma ki taraf se call kar rahi hoon.
+          Unka broadband 2 se 6 October tak paanch din band tha. Account ID 1-2XXXXXX8. Is outage ka
+          pro-rata credit chahiye tha.
+Agent:    Ek minute, main check karti hoon… haan sir, area outage tha. Main ₹100 ka goodwill credit de sakti hoon.
+Friday:   Shukriya. Lekin paanch din ki service nahi mili, plan ₹1,178 ka hai, toh pro-rata lagbhag ₹190 banta hai.
+          Kya poora credit ho sakta hai?
+Agent:    Ma'am, mere paas ₹100 tak hi authority hai.
+Friday:   Samajh sakti hoon. Kya aap ise supervisor ko escalate kar sakti hain?
+Agent:    Please hold. ♪
+Friday:   [listening mode]
+Supervisor: Hello, main Vikram, team lead.
+Friday:   Namaste Vikram ji, main Friday hoon, ek AI assistant, Ankit Sharma ki taraf se. Paanch din ke outage
+          ke liye pro-rata credit ki baat ho rahi thi, lagbhag ₹190.
+Supervisor: Main ₹175 credit approve kar sakta hoon, next bill mein dikhega. Iske liye OTP verify karna hoga jo customer ke number pe aayega.
+Friday:   Main AI assistant hoon, OTP share nahi kar sakti. Main abhi Ankit ji ko call pe jod deti hoon, woh khud verify kar denge.
+          [WA + dial Ankit; whisper on Ankit's leg only: "Airtel team lead Vikram, ₹175 credit approve. Sirf OTP aapko
+          batana hai, main sun rahi hoon."]
+Ankit:    Hi Vikram, OTP 4-…
+Friday:   [OTP audio redacted from recording and transcript]
+Supervisor: Verified. ₹175 credit done. Ticket number 2-58XXXXXX9, 20 October tak bill mein reflect hoga.
+Friday:   Confirm kar leti hoon: ₹175 credit, ticket 2-5-8-X-X-X-X-X-X-9, 20 October tak. Sahi hai?
+Supervisor: Ji, sahi.
+Friday:   Bahut shukriya Vikram ji.
+```
+
+Report:
+```
+Friday: Done ✅ Airtel: ₹175 credit (asked ₹190, first offer ₹100 → escalated to team lead Vikram).
+        Ticket 2-58XXXXXX9 · Credit by 20 Oct on your next bill.
+        Main 21 Oct ko check karungi. Credit na dikha toh same ticket pe follow-up call.
+        Call time: 31 min (24 min on hold).
+        [Listen] [Transcript] [Done]
+```
+(If Ankit hadn't answered the bridge, Friday would have got the ticket raised without verification and sent a callback pack: "Call 121 → 2 → 3 → 9, quote ticket 2-58…, say Vikram approved ₹175 pending OTP.")
+
+### 6.17 Stock hunt with parallel calls (A4 + US-23)
+
+```
+User:   Dad ke ghar ke paas kis chemist ke paas Lantus insulin pen hai? Urgent
+Friday: Malviya Nagar, Jaipur ke 8 chemists ko 3-3 karke call kar rahi hoon. Mil gaya toh wahin ruk jaungi.
+  … (legs 1–3: no stock, busy, no stock; legs 4–5 live; leg 4 confirms) …
+Friday: Mil gaya ✅ Gupta Medicos, 700 m from Dad's home: Lantus pen ×3 in stock, ₹780 each, open till 10:30 PM.
+        Ek pen 8 baje tak hold karwaya hai. (5 shops checked, 1 call ended early.)
+        [Home delivery order] [Send address to Dad] [Done]
+```
+
+### 6.18 Wellbeing check-in: summary and alert (A13)
+
+```
+Friday (daily, 10:20 IST): Mom & Dad check-in ☀️
+        Mom: BP ki dawai li ✅, achhi neend aayi, dhania aur atta chahiye (order karun?)
+        Dad: Sugar test kiya (bole 140), walk pe gaye the.
+        [Order groceries] [Listen] [OK]
+
+Friday (another day, 10:14 IST, urgent): ⚠ Dad sounded unwell. He said he's been dizzy since morning and didn't take his BP medicine.
+        I told him I'd let you know right away. If it gets worse, call 112/108.
+        [Call Dad now] [Call his doctor] [Listen to recording]
+```
+
+---
+
 ## 7. Edge cases and error states
 
 | # | Situation | Expected behaviour |
 |---|---|---|
 | E1 | Task without a phone number and no memory match | Ask for the number or contact card (US-3.2). Friday never guesses a number |
-| E2 | Number is toll-free, IVR, international, a short code or an emergency number | Decline with the reason. For emergency numbers: "Please call 112 directly". For IVR/customer care: "That's coming in a later version" |
-| E3 | Request to call a private person (e.g. "call my ex", "call my mom and tell her…") | Decline in P1: "I can only call businesses and service providers for now." Service providers' personal mobiles (maid, tutor, plumber) are allowed for bookings/enquiries |
+| E2 | Number is premium, international or an emergency number; or a toll-free/IVR number not in the official directory | Decline with the reason. For emergency numbers: "Please call 112 directly". For unverified care numbers, apply US-35.3 |
+| E3 | Request to call a private person (e.g. "call my ex", "call my mom and tell her…") | Decline in P1: "I can only call businesses, service providers, and family who've opted in to check-ins." Exceptions as in §2 |
 | E4 | Harassing, prank, illegal or deceptive goal (e.g. "pretend to be police") | Refuse. Log `task_refused_policy`. Repeated abuse → account flagged for review |
 | E5 | Ambiguous dates ("kal" sent at 00:30; "Saturday" sent on a Saturday) | Before 04:00, "kal" means the upcoming day after the night. A day name sent on that same day means the next week, unless the user said "aaj"/"today". If confidence is < 0.8, confirm the absolute date |
 | E6 | User asks for a call during quiet hours or outside the call window | Friday replies normally and schedules the call for 09:00/09:30 (or the business's opening hours): "They're probably closed. I'll call at 9:30 AM." |
@@ -906,8 +1181,15 @@ Friday: Kothrud ke paas dhoondh rahi hoon…
 | E31 | Beneficiary number is the same as another Friday user's number | The opt-in still applies. That person's own Friday account and data stay completely separate |
 | E32 | "Near me" without a recent pin | Friday asks for a pin or area. It never guesses from the city alone for discovery |
 | E21 | User in another time zone (NRI) | Quiet hours and the briefing use IST in P1 (Q6). Friday shows "(9:40 AM in Delhi)" when it helps |
-| E22 | User sends a voice note longer than 3 min, an image or a document | Voice: ask the user to split it. Image/doc: "I can't read images yet. Could you type it?" (Exception: a contact card vCard is parsed) |
-| E23 | Concurrent calls >2 | The 3rd task is queued: "I'll call them right after the current two." |
+| E22 | User sends a voice note longer than 3 min, an image or a document | Voice: ask the user to split it. Images/PDFs (bills, prescriptions, quotes, screenshots) are extracted and confirmed (US-24.5). vCards and location pins are parsed |
+| E23 | Concurrency limit reached (US-23.1) | Extra legs or tasks are queued with an ETA: "I'll call them as soon as a line frees up." |
+| E33 | IVR changed since the learned map | Fall back to live menu understanding, then update the map (US-31.2) |
+| E34 | Customer-care agent asks Friday for an OTP, PIN or CVV, or to read one back | Refuse. Patch in the user (US-33). Never repeat the value |
+| E35 | Call drops after a long hold | Immediate redial with the same IVR path. Friday tells the user the queue was lost and gives the new ETA |
+| E36 | Agent promises a callback to the customer | Friday records the date and window, tells the user, and schedules a follow-up if the callback doesn't happen (US-36.3) |
+| E37 | Check-in member doesn't answer | 3 attempts across 2 h, then an alert to the user (A13). If the member opted for "skip if I don't answer", only the summary notes it |
+| E38 | Stock hunt finds two matches at once | Report the closer or cheaper one as primary and list the other |
+| E39 | Business sends a blurry or illegible quote image | Ask the business once for a clearer copy or to type it out. Otherwise report the values with low confidence and flag them |
 | E24 | Distress signal | US-15 |
 
 ## 8. Templates
@@ -930,6 +1212,12 @@ Category is `UTILITY` unless noted. Every template's footer: "Reply STOP to stop
 | `friday_beneficiary_optin` (to non-users) | UTILITY | "Namaste {{1}}, I'm Friday, an AI assistant. {{2}} ({{3}}) has booked {{4}} for you. May I send you confirmations and reminders for it?" (1=beneficiary, 2=requester, 3=relation, 4=what) | `Yes` · `No` |
 | `friday_beneficiary_reminder` | UTILITY | "{{1}}, reminder: {{2}} on {{3}} at {{4}}, {{5}}. {{6}}" (6=prep note) | `OK` · `I'll be late` · `Stop` |
 | `friday_comparison_ready` | UTILITY | "Your quotes for {{1}} are ready: best is {{2}} at {{3}}. Slots are held for a short time." | `See all` · `Book best` |
+| `friday_biz_request` (to businesses) | UTILITY | "Hello {{1}}, this is Friday, an AI assistant contacting you on behalf of a customer, {{2}}. {{3}}" (3=the ask, e.g. "Could you share your price list for AC service?") | `Reply` · `Stop messages` |
+| `friday_checkin_optin` (to circle member) | UTILITY | "Namaste {{1}}, I'm Friday, an AI assistant. {{2}} would like me to call you {{3}} at {{4}} for a short check-in. Is that okay?" | `Yes` · `No` |
+| `friday_checkin_summary` | UTILITY | "Check-in with {{1}} ({{2}}): {{3}}" | `Listen` · `OK` |
+| `friday_checkin_alert` | UTILITY (urgent) | "Alert about {{1}}: {{2}}. Please check on them." | `Call now` · `Listen` |
+| `friday_care_update` | UTILITY | "{{1}} update: {{2}}. Ticket {{3}}. Next step: {{4}}." | `See details` · `Escalate` |
+| `friday_recurring_booked` | UTILITY | "Booked your regular {{1}}: {{2}} at {{3}}." | `OK` · `Skip this one` · `Pause series` |
 | `friday_business_touch` (to businesses) | UTILITY | "Booking confirmed via Friday for {{1}}: {{2}} on {{3}} at {{4}}. Friday is an AI assistant that books on behalf of customers." | `OK` · `Stop messages` |
 
 Beneficiary templates are submitted in `hi`, `en`, `mr`, `ta`, `te`, `kn` and `bn`. If a beneficiary's language has no approved template, Friday uses DLT SMS in that language (Unicode) or a voice reminder.
@@ -979,6 +1267,9 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 - Language: % of calls with a switch; % of switches within 1 turn; call success by language.
 - People and places: % of users with ≥1 person or place; % of tasks for a beneficiary; beneficiary opt-in rate; reference-resolution accuracy (user corrections ÷ resolutions).
 - Voice quality: filler-token violations (target 0); human-claim violations (target 0).
+- Customer care: resolution rate (ticket + promised action) per company and category; % reaching a human agent; median hold time; IVR map hit rate; cost per care task (hold minutes in listening mode); promised dates kept (follow-up checks).
+- Footwork types: success rate and cost **per task type** (A1–A14), first-match hunt time-to-answer, check-in answer rate and alert precision (false alarms ÷ alerts), recurring-series retention.
+- Parallel calling: legs per task and wasted legs (ended after a first match).
 
 ### 9.3 Events (all events carry `user_id`, `ts`, `channel`, `env`; PII is excluded from properties, with IDs referencing entities)
 | Event | Key properties |
@@ -1017,6 +1308,22 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `business_touch_sent` | business_id, channel, template |
 | `business_opt_out` | business_id, source |
 | `inbound_call_received` | matched_task (bool) |
+| `task_type_classified` | task_id, task_type, confidence, asked_user |
+| `fanout_started` / `fanout_leg_ended` / `fanout_stopped_first_match` | task_id, strategy, n_legs, concurrency, leg_outcome |
+| `biz_wa_sent` / `biz_wa_received` | task_id, business_id, media_type |
+| `document_extracted` | source (user/business), doc_kind, fields, min_confidence |
+| `scam_check` | number_hash, score, decision (call/warn/block) |
+| `warm_transfer` | task_id, reason, user_answered, bridge_s |
+| `translator_session` | task_id, langs, turns, p50_latency_ms |
+| `call_scheduled_by_timing` | task_id, delay_s, reason (closed/lunch/best_time) |
+| `vendor_rated` | business_id, rating |
+| `ivr_step` | task_id, prompt_kind, key_or_utterance_kind, map_hit |
+| `hold_started` / `hold_ended` | task_id, hold_s, ended_by (human/timeout/drop) |
+| `care_ticket_captured` | task_id, company_id, has_promised_date, escalated |
+| `care_followup_scheduled` | task_id, due_date |
+| `verification_patch_in` | task_id, success |
+| `checkin_call_completed` | member_id, answered, summary_flags, alert_sent |
+| `recurring_instance_booked` | series_id, deviation (bool) |
 | `discovery_search_run` | task_id, category, radius_km, n_results, n_filtered |
 | `shortlist_presented` | task_id, n, ranks_with_reason_ids |
 | `shortlist_action` | task_id, action (call_all/pick/search_again) |
@@ -1053,9 +1360,16 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | Q12 | ~~Default call-opening language~~ **Resolved by founder: always Hinglish, then mirror** (US-13.2). Remaining question: which regional languages to enable at launch, given provider quality? | Launch with Hindi/English/Hinglish + Kannada, Tamil and Marathi (the three metros' needs); enable others behind a flag after evals |
 | Q13 | Should level 4 (auto-act) be available at all in the beta? | Yes for `personal_care`, `dining`, `enquiries`, `follow_ups` and `reminders`; not for `health` or `home_services` |
 | Q14 | Global DNC: one business's "don't call" blocks all Friday users from calling that number. Is that acceptable for users? | Yes. Respecting businesses matters for P5 Friday for Business |
+| Q15 | Caller ID: use one shared number pool or a dedicated number per city? Businesses that save "Friday" may block it | City-level pools with a consistent display name. Monitor block and answer rates |
 | Q16 | Cap accounting for discovery (one task = up to 3 compare calls + booking call). Cost per *successful task* may exceed ₹15 | Count as 1 task. Track cost per discovery task separately and revisit the ₹15 target for compare tasks |
 | Q17 | Is "pre-approval" (exact slot + price within budget given before the call) enough to satisfy "ask before booking", or must Friday always ask mid-call? | Pre-approval counts (US-3.11). Founder to confirm |
 | Q18 | DPDP: Friday stores third-party data (parents' names, phones, health notes) provided by the user, before the beneficiary consents. Lawful basis? Can a beneficiary demand deletion of the profile the user created? | Store minimal data under the user's consent. Health notes are user-entered, encrypted at rest and never shared beyond US-22.4. Honour the beneficiary's deletion requests. Needs legal sign-off |
 | Q19 | Negotiation default: `polite` for everyone, or ask the user at the first quote task? | `polite` default; the user can say "bargain hard" (→ `firm`) or "don't bargain" (→ `none`) per task or globally |
 | Q20 | Should Friday name competitors when citing quotes? | No, by default ("another service quoted…") |
-| Q15 | Caller ID: use one shared number pool or a dedicated number per city? Businesses that save "Friday" may block it | City-level pools with a consistent display name. Monitor block and answer rates |
+| Q21 | Recurring bookings (A12): does a one-time approval of the rule plus price ceiling count as "asking the user first" for every instance? | Yes. Each instance is still reported with `Skip this one`, and any deviation asks |
+| Q22 | Cap accounting is getting complicated (fan-out legs, discovery, care follow-ups, check-ins). Should the beta cap be on **tasks** with a **per-task call budget** instead of on calls? | Count user-initiated tasks (10/month). Check-ins and care follow-ups don't count. Fan-outs count 1 per 5 connected legs. Hard per-user monthly ₹ cost ceiling as a backstop |
+| Q23 | Customer care needs the scam check (B16) and warm transfer (B17), which the brief marks Priority 2 | Promote B16 and B17 to Priority 1, since care tasks are unsafe or incomplete without them |
+| Q24 | WA-to-business from Friday's number: Meta policy and template category risk, and whether businesses will reply to an AI | Pilot with utility-category `friday_biz_request`; fall back to SMS link-less requests if rejected |
+| Q25 | Check-in alerts (A13): liability if Friday misses a real emergency, and which signals count as an alert. Should a medical professional review the triggers? | Conservative trigger list (A13), clear "not an emergency service" wording in the member opt-in, and medical review of the trigger list before launch |
+| Q26 | Customer-care calls can run 30–60 min. Do toll-free and hold minutes break the < ₹15 cost target? | Track care separately with a target of < ₹40 per resolved care task. Listening mode is required |
+| Q27 | The curated directory needs ops effort (150 companies, re-verified every 90 days). Who owns it? | One ops owner, plus automated official-site checks |

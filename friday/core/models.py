@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from enum import IntEnum, StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from friday.core.clock import at_ist, ensure_utc, to_ist, utcnow
 
@@ -195,6 +195,7 @@ class TaskType(StrEnum):
     HEALTHCARE = "healthcare"  # A10: doctor slots, lab home collection, physio/nurse visits
     RECURRING_BOOKING = "recurring_booking"  # A12: parent; spawns a BOOKING per schedule
     WELLBEING_CHECKIN = "wellbeing_checkin"  # A13: call a circle member (opt-in only)
+    CUSTOMER_CARE = "customer_care"  # C21-26: IVR + hold + agent; complaint/refund/ticket...
     DISCOVERY = "discovery"  # generic parent: search -> shortlist -> child calls
     #                          -> comparison -> user picks -> child BOOKING call
 
@@ -215,6 +216,49 @@ class CallMode(StrEnum):
     AGENT = "agent"  # Friday converses alone (default)
     WARM_TRANSFER = "warm_transfer"  # B17: reach the right person, then patch the user in
     TRANSLATOR = "translator"  # B18: user + business on one call, Friday translates
+
+
+class CareRequestKind(StrEnum):
+    """What a CUSTOMER_CARE task is about (C21)."""
+
+    COMPLAINT = "complaint"
+    REFUND = "refund"
+    DISPUTE = "dispute"
+    CANCELLATION = "cancellation"
+    ESCALATION = "escalation"
+    SERVICE_REQUEST = "service_request"
+    TICKET_STATUS = "ticket_status"
+
+
+class EscalationLevel(IntEnum):
+    FRONTLINE = 1
+    SUPERVISOR = 2
+    GRIEVANCE_OFFICER = 3
+    NODAL_OFFICER = 4  # appellate / principal nodal officer
+    REGULATOR_OMBUDSMAN = 5  # text guidance only (RBI/insurance ombudsman, TRAI, consumer forum)
+
+
+class AudioClass(StrEnum):
+    """What the far end currently sounds like (C23). Produced by an AudioClassifier
+    inside real call legs; emitted directly by the simulator."""
+
+    HUMAN = "human"
+    IVR_PROMPT = "ivr_prompt"  # "press 1 for..."
+    HOLD_MUSIC = "hold_music"
+    QUEUE_ANNOUNCEMENT = "queue_announcement"  # "your call is important... wait 5 minutes"
+    VOICEMAIL = "voicemail"
+    SILENCE = "silence"
+    UNKNOWN = "unknown"
+
+
+class SensitiveKind(StrEnum):
+    """Never spoken or keyed by Friday, ever (C24)."""
+
+    OTP = "otp"
+    PIN = "pin"
+    CVV = "cvv"
+    PASSWORD = "password"
+    CARD_NUMBER = "card_number"  # full PAN
 
 
 class InteractionKind(StrEnum):
@@ -294,6 +338,8 @@ class CallOutcome(StrEnum):
     # Task -> AWAITING_APPROVAL; on approval the engine places a confirm call.
     PENDING_APPROVAL = "pending_approval"
     TRANSFERRED = "transferred"  # warm transfer done; user talking to the business
+    HOLD_TIMEOUT = "hold_timeout"  # C23: gave up after max hold; retry at a better time
+    NEEDS_USER_VERIFICATION = "needs_user_verification"  # C24: user must verify / call back
     FAILED = "failed"  # technical failure
     CANCELLED = "cancelled"
 
@@ -304,6 +350,7 @@ class CallOutcome(StrEnum):
             CallOutcome.NO_ANSWER,
             CallOutcome.VOICEMAIL,
             CallOutcome.CALLBACK_LATER,
+            CallOutcome.HOLD_TIMEOUT,
             CallOutcome.FAILED,
         )
 
@@ -326,7 +373,10 @@ class CallActionType(StrEnum):
     # brief.approval.hold_timeout_s; the answer (or timeout) comes back as a SYSTEM turn.
     ASK_USER = "ask_user"
     WAIT = "wait"  # say nothing, keep listening (callee checking something)
-    DTMF = "dtmf"  # press keys (simple menus) - optional for Phase 1
+    PRESS_KEYS = "press_keys"  # DTMF ``digits`` (IVR menu choice / approved identifier)
+    # Enter low-cost hold-listening: NO LLM turns until the AudioClassifier hears a
+    # HUMAN (or IVR_PROMPT), or ``max_hold_s`` passes (-> HOLD_TIMEOUT).
+    WAIT_ON_HOLD = "wait_on_hold"
     # WARM_TRANSFER mode: dial the user into the call (three-way). ``text`` is said to
     # the callee first ("Connecting you to Rahul now"). Runner then leaves if
     # ``leave_after_bridge`` else stays silent/monitoring.
@@ -367,6 +417,7 @@ class ApprovalMode(StrEnum):
 class Intent(StrEnum):
     NEW_TASK = "new_task"  # "book a haircut at Looks tomorrow 6pm" / "find me an AC guy"
     CHOOSE = "choose"  # picks a business/quote from a comparison
+    SAVE_IDENTIFIER = "save_identifier"  # "my Airtel account no is ..." (never OTP/PIN/CVV)
     TASK_UPDATE = "task_update"  # modifies / adds info to an open task
     ANSWER_QUESTION = "answer_question"  # answers an outstanding mid-call/clarifying q
     APPROVE = "approve"  # yes/go-ahead for a pending approval or nudge action
@@ -692,6 +743,8 @@ class Business(_Model):
     rating: float | None = None  # public rating from directory
     review_count: int | None = None
     verification: NumberVerdict | None = None  # last NumberVerifier verdict
+    is_customer_care: bool = False  # large company care line (C21)
+    ivr_notes: list[str] = Field(default_factory=list)  # learned: "2 -> 9 reaches an agent"
     created_by_user_id: str | None = None
     last_called_at: datetime | None = None
     created_at: datetime = Field(default_factory=utcnow)
@@ -960,6 +1013,59 @@ class NumberCheck(_Model):
     checked_at: datetime = Field(default_factory=utcnow)
 
 
+class OfficialNumber(_Model):
+    """Curated, verified customer-care number (C26)."""
+
+    company: str  # "Airtel"
+    phone: str  # E.164 or toll-free as dialable string
+    purpose: str | None = None  # "prepaid", "broadband", "credit card", "grievance"
+    region: str | None = None
+    source: str  # "company website (verified 2026-09)"
+    verified_at: date | None = None
+
+
+_SECRET_LABEL = re.compile(r"\b(otp|cvv|cvc|m?pin|password|passcode|passwd)\b", re.I)
+
+
+class AccountIdentifier(_Model):
+    """A user-saved identifier Friday MAY share on a care call, only if approved for
+    that task (C22/C24): registered mobile, account/consumer no., order id, policy no.
+    OTP/PIN/CVV/passwords can never be stored here."""
+
+    id: str = Field(default_factory=new_id)
+    user_id: str
+    company: str | None = None
+    label: str  # "Airtel broadband account number"
+    value: str  # SENSITIVE: never logged; encrypted at rest by the repository
+
+    @field_validator("label")
+    @classmethod
+    def _never_secrets(cls, v: str) -> str:
+        if _SECRET_LABEL.search(v):
+            raise ValueError("OTPs, PINs, CVVs and passwords can never be saved")
+        return v
+
+    @property
+    def masked(self) -> str:
+        return ("•" * max(0, len(self.value) - 4)) + self.value[-4:]
+
+
+class CareOutcome(_Model):
+    """Structured result of a customer-care call (C25)."""
+
+    company: str | None = None
+    request_kind: CareRequestKind | None = None
+    ticket_number: str | None = None
+    agent_name: str | None = None
+    promised_date: date | None = None  # IST date; auto follow-up when it passes
+    promised_text: str | None = None  # "within 48 hours"
+    escalation_level: EscalationLevel = EscalationLevel.FRONTLINE
+    resolved: bool = False
+    hold_seconds: int = 0
+    ivr_path: list[str] = Field(default_factory=list)  # keys pressed / options spoken
+    escalation_guidance: str | None = None  # text-only formal routes (ombudsman, etc.)
+
+
 class MediaBlob(_Model):
     """Downloaded media (voice note, image, PDF)."""
 
@@ -1021,7 +1127,11 @@ class TaskSpec(_Model):
     business_phone: str | None = None  # E.164; required before CALLING
     business_id: str | None = None
     category: str | None = None  # salon / clinic / restaurant / plumber...
-    reference: str | None = None  # existing booking/order ref for A1/A2/A6 ("token 42")
+    reference: str | None = None  # existing booking/order/ticket ref (A1/A2/A6/C25)
+    company: str | None = None  # CUSTOMER_CARE: "Airtel", "HDFC Bank"
+    care_request: CareRequestKind | None = None
+    # AccountIdentifier ids the user approved for THIS task (C24). Nothing else is shared.
+    approved_identifier_ids: list[str] = Field(default_factory=list)
     item: str | None = None  # A3/A4: "Dolo 650 x 2 strips"
     fan_out: FanOutPolicy | None = None  # None -> template default
     call_mode: CallMode = CallMode.AGENT
@@ -1096,6 +1206,7 @@ class TaskResult(_Model):
     comparison: QuoteComparison | None = None  # DISCOVERY parent
     needs_approval: MidCallQuestion | None = None  # PENDING_APPROVAL: what to ask the user
     alert: str | None = None  # A13: something sounded wrong -> URGENT nudge to the user
+    care: CareOutcome | None = None  # C25: ticket, promised date -> follow_up_at
     extracted: list[ExtractedDocument] = Field(default_factory=list)  # B15 menus/quotes
     interactions: list[VendorInteraction] = Field(default_factory=list)  # B20 to persist
     facts: list[Fact] = Field(default_factory=list)  # e.g. business notes learned
@@ -1171,6 +1282,9 @@ class CallAction(_Model):
     # refuses such an action unless the brief allows it (brief.can_commit(answers)).
     commits_booking: bool = False
     leave_after_bridge: bool = True  # BRIDGE_USER
+    max_hold_s: int | None = None  # WAIT_ON_HOLD (None -> brief.max_hold_s)
+    care: CareOutcome | None = None  # latest care details captured (ticket no, agent...)
+    user_update: str | None = None  # progress note for the user ("on hold, ~8 min wait")
 
 
 class ApprovalPolicy(_Model):
@@ -1224,7 +1338,15 @@ class CallBrief(_Model):
     approval: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
     # Set on a follow-up confirm call: the slot/price the user already approved.
     approved_terms: str | None = None
-    user_phone: str | None = None  # WARM_TRANSFER / TRANSLATOR: who to bridge in (never spoken)
+    user_phone: str | None = None  # BRIDGE_USER / TRANSLATOR: who to bridge in (never spoken)
+    # Customer care (C21-26)
+    company: str | None = None
+    care_request: CareRequestKind | None = None
+    reference: str | None = None  # existing ticket / order id
+    approved_identifiers: list[AccountIdentifier] = Field(default_factory=list)  # may share
+    ivr_notes: list[str] = Field(default_factory=list)  # known menu paths
+    max_hold_s: int = 1500
+    prefer_human_agent: bool = True
     attempt: int = 1
     max_duration_s: int = 300
 
@@ -1253,6 +1375,8 @@ class CallResult(_Model):
     questions: list[MidCallQuestion] = Field(default_factory=list)
     answers: list[UserAnswer] = Field(default_factory=list)
     languages_heard: list[Language] = Field(default_factory=list)  # callee, in order of switch
+    care: CareOutcome | None = None
+    hold_seconds: int = 0  # time spent in hold-listening mode (no LLM cost)
     recording_url: str | None = None
     started_at: datetime = Field(default_factory=utcnow)
     answered_at: datetime | None = None
@@ -1290,6 +1414,14 @@ class Transcription(_Model):
     language: Language | None = None
     confidence: float | None = None
     is_final: bool = True
+    # What the far end sounded like for this chunk (C23). Hold music/queue chunks may
+    # have empty ``text`` (or the announcement text).
+    audio_class: AudioClass = AudioClass.HUMAN
+
+
+class AudioClassification(_Model):
+    audio_class: AudioClass
+    confidence: float = 1.0
 
 
 class VoiceProfile(_Model):
@@ -1339,6 +1471,8 @@ class Interpretation(_Model):
     resolution: ReferenceResolution | None = None  # who/where (from resolve_references)
     person_upsert: Person | None = None  # ADD_PERSON (or edits)
     place_upsert: Place | None = None  # ADD_PLACE (address still to geocode)
+    identifier_upsert: AccountIdentifier | None = None  # SAVE_IDENTIFIER
+    vendor_interactions: list[VendorInteraction] = Field(default_factory=list)  # RATE_VENDOR
     answer: UserAnswer | None = None  # ANSWER_QUESTION
     facts: list[Fact] = Field(default_factory=list)  # REMEMBER or incidental extraction
     choice_index: int | None = None  # CHOOSE: index into the comparison/shortlist

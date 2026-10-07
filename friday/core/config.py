@@ -120,6 +120,21 @@ class Settings(BaseSettings):
     call_hold_reminder_interval_s: int = 20
     callback_after_approval_delay_s: int = 0  # dial the confirm call right after approval
 
+    # call engine (B14, B19)
+    max_concurrent_calls: int = 5  # global cap across all users (cost + provider limits)
+    fanout_default_concurrency: int = 3  # per parent task (PARALLEL / FIRST_MATCH)
+    # When a business's hours are unknown, only dial inside this IST window.
+    business_call_window_start: str = "09:30"
+    business_call_window_end: str = "20:00"
+    avoid_lunch_window: str = "13:30-14:30"  # IST; soft preference for small businesses
+    # Customer care / IVR (C21-26)
+    ivr_max_hold_s: int = 1500  # give up after 25 min on hold -> HOLD_TIMEOUT, retry later
+    hold_user_update_interval_s: int = 300  # "still on hold with Airtel" cadence
+    care_followup_grace_h: int = 24  # follow up this long after a promised date passes
+    # Wellbeing check-ins (A13)
+    checkin_default_time_ist: str = "10:30"
+    checkin_max_duration_s: int = 240
+
     # ------------------------------------------------------------------ STT / TTS (voice)
     stt_provider: STTProviderName = "auto"
     tts_provider: TTSProviderName = "auto"
@@ -202,7 +217,10 @@ class Settings(BaseSettings):
     discovery_max_candidates: int = 10  # fetched from the directory
     discovery_shortlist_size: int = 3  # called after the brain shortlists
     discovery_min_rating: float = 3.8
-    discovery_parallel_calls: int = 1  # 1 = one after another (default; simpler to follow)
+    # number safety (B16, C26)
+    verify_numbers: bool = True  # NumberVerifier before every first call to a number
+    scam_numbers_path: str | None = None  # extra known-scam list (one E.164 per line)
+    official_numbers_path: str | None = None  # override curated care-number JSON
 
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True

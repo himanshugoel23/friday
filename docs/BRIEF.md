@@ -142,6 +142,19 @@ Because calls are goal-driven (CallBrief), most of these are **new task types / 
 26. **Official numbers only**: customer-care numbers come from a curated/verified directory + the scam check
     (fake customer-care numbers are a major fraud vector in India).
 
+**D. Hotel & stay bookings (Phase 1 — founder decision)**
+27. Hotel/homestay/guesthouse booking for the user or a circle member. Hybrid flow:
+    (a) search & compare via an official hotel API (Expedia Rapid first; Booking.com/Agoda affiliate later) plus
+    places/reviews for ratings; (b) **call the property directly** for manual bookings — many Indian hotels,
+    homestays and guesthouses are offline or give better direct rates: check availability, room type, inclusions
+    (breakfast, early check-in), negotiate the direct rate, ask them to hold the room, get confirmation by
+    WhatsApp/SMS. Always confirm with the user before booking.
+28. No payments in Phase 1: book "pay at hotel" rates, or send the user the official booking/payment link, or have
+    the property hold the room against the user's own payment. Reconfirm the booking with the property the day
+    before check-in; handle modifications/cancellations by call.
+29. Unofficial scraping MCPs are not used (ToS risk). The hotel provider sits behind a `HotelProvider` interface
+    with a simulator.
+
 **Out of Phase 1:** payments/advances (P4), physical errands via human runners (P3),
 government portals/paperwork (P4).
 

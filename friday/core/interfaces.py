@@ -3,17 +3,19 @@
 Every external provider has (a) a real implementation and (b) a fake/simulator,
 both satisfying the Protocol below, wired by ``friday.core.container``.
 
-Ownership of implementations
-----------------------------
-  LLMClient, Brain/CallPolicy            -> AI Engineer      (friday/brain/)
-  TelephonyProvider/CallLeg, STT, TTS,
-  CallSessionRunner                      -> Voice Engineer   (friday/voice/)
-  MessagingChannel, SMSProvider,
-  BusinessDirectory, Geocoder, *Repository -> Backend Engineer (friday/channels/,
-                                            friday/discovery/, friday/db/repositories/)
+Implementation ownership
+------------------------
+  LLMClient, Brain (incl. CallPolicy, Translator), DocumentExtractor
+                                              -> AI Engineer      friday/brain/
+  TelephonyProvider/CallLeg, STTProvider, TTSProvider, AudioClassifier,
+  CallSessionRunner                           -> Voice Engineer   friday/voice/
+  MessagingChannel, SMSProvider               -> Backend Engineer friday/channels/
+  BusinessDirectory, Geocoder, NumberVerifier, OfficialNumberDirectory
+                                              -> Backend Engineer friday/discovery/
+  *Repository                                 -> Backend Engineer friday/db/repositories/
 
 Signatures here are FROZEN. Additive changes only (new optional kwargs with
-defaults, new methods with a default implementation in a mixin) - see TASKS.md.
+defaults; new Protocols) - see docs/TASKS.md "Changing core".
 
 Owner: Engineering Manager (core).
 """
@@ -28,7 +30,11 @@ from pydantic import BaseModel
 
 from friday.core.clock import Clock  # re-export
 from friday.core.models import (
+    AccountIdentifier,
+    AudioClassification,
     AudioClip,
+    BriefTemplate,
+    Business,
     BusinessCandidate,
     CallAction,
     CallBrief,
@@ -36,16 +42,21 @@ from friday.core.models import (
     Channel,
     ConversationContext,
     DialStatus,
+    ExtractedDocument,
+    ExtractionKind,
     Fact,
     GeocodeResult,
     GeoPoint,
     InboundMessage,
     Interpretation,
     Language,
+    MediaBlob,
     MidCallQuestion,
     Nudge,
     NudgeCandidate,
     NudgeDecision,
+    NumberCheck,
+    OfficialNumber,
     OnboardingStep,
     OnboardingTurn,
     OutboundCallRequest,
@@ -61,38 +72,48 @@ from friday.core.models import (
     TaskResult,
     TaskSpec,
     TaskStatus,
+    TaskType,
     TemplateRef,
     Transcript,
     Transcription,
     User,
     UserAnswer,
+    VendorInteraction,
     VoiceProfile,
 )
 
 __all__ = [
     "AskUser",
+    "AudioClassifier",
     "Brain",
     "BusinessDirectory",
+    "BusinessRepository",
     "CallEnded",
     "CallLeg",
     "CallPolicy",
     "CallSessionRunner",
     "Clock",
+    "DocumentExtractor",
     "FactRepository",
     "Geocoder",
-    "PersonRepository",
-    "PlaceRepository",
+    "IdentifierRepository",
     "LLMClient",
     "LLMMessage",
     "LLMResponse",
     "MessagingChannel",
+    "NotifyUser",
     "NudgeRepository",
+    "NumberVerifier",
+    "OfficialNumberDirectory",
+    "PersonRepository",
+    "PlaceRepository",
     "ProviderError",
     "SMSProvider",
     "STTProvider",
     "TTSProvider",
     "TaskRepository",
     "TelephonyProvider",
+    "Translator",
     "UserRepository",
 ]
 
@@ -127,12 +148,14 @@ Effort = Literal["low", "medium", "high"]
 
 @runtime_checkable
 class LLMClient(Protocol):
-    """Thin wrapper over a chat model. Brain builds prompts; this only transports.
+    """Thin transport over a chat model. The brain builds prompts; this only sends.
 
-    ``purpose`` is a stable label ("interpret", "call_turn", "summarize", ...) used
-    for logging/cost accounting and by the deterministic fake to pick a canned
-    response. ``json_schema`` asks for a JSON object matching the schema (the real
-    client uses structured outputs; ``text`` then holds the JSON string).
+    * ``purpose`` - stable label ("interpret", "call_turn", "summarize", "extract"...)
+      for logs/cost accounting; the deterministic fake keys canned output on it.
+    * ``json_schema`` - ask for a JSON object matching the schema (real client uses
+      structured outputs); ``LLMResponse.text`` then holds the JSON string.
+    * ``attachments`` - images/PDFs for vision (menus, quote photos - B15).
+    * ``model`` None -> Settings.llm_model. Live call turns pass Settings.llm_fast_model.
     """
 
     async def complete(
@@ -141,10 +164,11 @@ class LLMClient(Protocol):
         system: str,
         messages: Sequence[LLMMessage],
         purpose: str = "general",
-        model: str | None = None,  # None -> Settings.llm_model; pass llm_fast_model for calls
+        model: str | None = None,
         max_tokens: int = 1024,
         effort: Effort | None = None,
         json_schema: dict | None = None,
+        attachments: Sequence[MediaBlob] = (),
     ) -> LLMResponse: ...
 
 
@@ -157,19 +181,25 @@ class CallPolicy(Protocol):
 
     Called by the voice CallSessionRunner after every callee utterance (and once
     right after the fixed disclosure line). Must be fast (<~1.5s): use the fast model.
+    NOT called while the runner is in hold-listening mode (WAIT_ON_HOLD).
 
     Contract:
-      * ``transcript`` includes FRIDAY, CALLEE (with detected ``language``) and SYSTEM
-        turns (e.g. "USER ANSWERED: 6pm", "USER DID NOT ANSWER WITHIN 90s",
-        "RUNNER: booking confirmation requires user approval first").
+      * ``transcript`` has FRIDAY, CALLEE (with detected ``language`` and audio class)
+        and SYSTEM turns, e.g. "USER ANSWERED: 6pm", "USER DID NOT ANSWER WITHIN 90s",
+        "HUMAN AGENT JOINED AFTER 7m HOLD", "BLOCKED: unapproved long number".
       * Mirror the callee: ``CallAction.language`` = language of the last CALLEE turn
-        (if supported), else ``brief.opening_language``.
-      * Never commit money. Before confirming a booking emit ASK_USER with
-        ``question.purpose=APPROVE_BOOKING`` unless ``brief.can_commit(answers)``.
-        Set ``commits_booking=True`` on the action that confirms.
-      * Answer honestly if asked whether it is an AI/human.
-      * End with HANGUP + ``outcome`` (+ ``quote``/``collected``).
-    Phase 2 inbound calls reuse this protocol with a different brief/goal.
+        (if TTS supports it), else ``brief.opening_language``.
+      * Never commit money. Before confirming a booking/order emit ASK_USER with
+        ``question.purpose=APPROVE_BOOKING`` unless ``brief.can_commit(answers)``;
+        mark the confirming action ``commits_booking=True``.
+      * IVR: understand spoken menus -> PRESS_KEYS (or SAY the option); prefer the
+        human-agent path; WAIT_ON_HOLD on hold music/queue messages.
+      * Never speak/key OTP/PIN/CVV/password; share only ``brief.approved_identifiers``.
+        If verification is demanded -> BRIDGE_USER (patch-in) or HANGUP with
+        outcome NEEDS_USER_VERIFICATION and the gathered context.
+      * Answer honestly if asked whether it is an AI.
+      * End with HANGUP + ``outcome`` (+ ``quote`` / ``care`` / ``collected``).
+    Phase 2 inbound calls reuse this protocol with a different brief.
     """
 
     async def next_call_action(
@@ -178,35 +208,47 @@ class CallPolicy(Protocol):
 
 
 @runtime_checkable
-class Brain(CallPolicy, Protocol):
+class Translator(Protocol):
+    """Live translator mode (B18): one utterance at a time, meaning-preserving."""
+
+    async def translate(
+        self, text: str, *, target: Language, source: Language | None = None, context: str = ""
+    ) -> str: ...
+
+
+@runtime_checkable
+class Brain(CallPolicy, Translator, Protocol):
     """All language understanding/generation. Pure: no DB, no sending, no sleeping.
     The backend builds a ConversationContext snapshot and acts on the result.
     """
 
+    def template_for(self, task_type: TaskType) -> BriefTemplate:
+        """The data-driven template for a task type (friday/brain/templates/)."""
+        ...
+
     async def interpret(self, ctx: ConversationContext, message: InboundMessage) -> Interpretation:
-        """Understand a user message (text / voice-note transcript / button reply).
-        Hinglish-aware. Extracts task specs, facts, settings, answers to pending
-        questions (ctx.pending_question), choices from comparisons."""
+        """Understand a user message (text / voice-note transcript / button reply /
+        location pin). Hinglish-aware. Extracts task specs (incl. fan_out/recurrence
+        from the template), facts, people/places, settings, identifiers, vendor
+        ratings, answers to ctx.pending_question, choices from comparisons."""
+        ...
+
+    async def resolve_references(self, ctx: ConversationContext, text: str) -> ReferenceResolution:
+        """Map "papa", "mummy ke ghar ke paas", "near my office", "his place" onto
+        ctx.people / ctx.places. Ambiguous -> ``clarification`` (ask ONCE). Proposes
+        ``new_aliases``. ``interpret`` uses it internally (Interpretation.resolution)."""
         ...
 
     async def onboarding_turn(
         self, ctx: ConversationContext, step: OnboardingStep, message: InboundMessage | None
     ) -> OnboardingTurn:
-        """One step of conversational onboarding. ``message`` None = start the step."""
-        ...
-
-    async def resolve_references(
-        self, ctx: ConversationContext, text: str
-    ) -> ReferenceResolution:
-        """Map "papa", "mummy ke ghar ke paas", "near my office", "his place" (from
-        ctx.recent) onto ctx.people / ctx.places. Ambiguous -> ask ONCE via
-        ``clarification``. Proposes ``new_aliases`` it learned ("PG" = Bengaluru home).
-        ``interpret`` calls this internally and puts it in Interpretation.resolution;
-        exposed separately so the backend can re-resolve after a clarification."""
+        """One step of conversational onboarding. ``message`` None = open the step."""
         ...
 
     async def build_call_brief(self, ctx: ConversationContext, task: Task) -> CallBrief:
-        """Turn a task (+ user memory, sibling quotes, approved terms) into a CallBrief."""
+        """Task + template + memory (people, places, vendor history, sibling quotes,
+        approved identifiers, approved terms) -> CallBrief. Applies minimum-disclosure:
+        only what the business needs goes into shareable_details."""
         ...
 
     async def shortlist(
@@ -216,32 +258,43 @@ class Brain(CallPolicy, Protocol):
         candidates: Sequence[BusinessCandidate],
         n: int,
     ) -> list[ShortlistItem]:
-        """Pick the best ``n`` callable candidates using ratings + review text, with reasons."""
+        """Pick the best ``n`` callable candidates (ratings, reviews, vendor history)."""
         ...
 
     async def summarize_call(
         self, ctx: ConversationContext, task: Task, result: CallResult
     ) -> TaskResult:
-        """User-facing report, structured details/quotes, follow-ups, business touch."""
+        """User-facing report + structured details/quotes/care outcome, follow-ups,
+        vendor interactions to record, wellbeing alert, business-touch template."""
         ...
 
     async def compare_quotes(
         self, ctx: ConversationContext, parent: Task, quotes: Sequence[Quote]
     ) -> QuoteComparison:
-        """Rank quotes from a discovery task's child calls and write the comparison."""
+        """Rank quotes/answers from a parent task's child calls and write the comparison."""
         ...
 
     async def judge_nudge(self, ctx: ConversationContext, candidate: NudgeCandidate) -> NudgeDecision:
         """Should this proactive nudge be sent, and with what copy/action?
-        Guardrails (cap, quiet hours) are enforced by the backend, not here."""
+        Guardrails (cap, quiet hours, consent) are enforced by the backend."""
         ...
+
+
+@runtime_checkable
+class DocumentExtractor(Protocol):
+    """Menus / price lists / quote photos / PDFs -> structured data (B15).
+    Real impl: LLM vision in friday/brain/; fake: deterministic from filename/meta."""
+
+    async def extract(
+        self, media: MediaBlob, *, kind: ExtractionKind = ExtractionKind.GENERIC, hint: str = ""
+    ) -> ExtractedDocument: ...
 
 
 # =============================================================================== voice
 
 
-class CallEnded(Exception):  # noqa: N818 - it's a signal, not an error
-    """Raised by CallLeg.listen/speak when the remote side hung up."""
+class CallEnded(Exception):  # noqa: N818 - a signal, not an error
+    """Raised by CallLeg methods when the remote side hung up."""
 
 
 @runtime_checkable
@@ -252,8 +305,8 @@ class STTProvider(Protocol):
     async def transcribe(
         self, audio: AudioClip, *, language_hint: Language | None = None
     ) -> Transcription:
-        """Batch STT (WhatsApp voice notes, recordings). MUST set ``language``
-        (detected). Streaming STT for live calls is internal to friday/voice."""
+        """Batch STT (WhatsApp voice notes, recordings). MUST set the DETECTED
+        ``language``. Streaming STT for live calls is internal to friday/voice."""
         ...
 
 
@@ -274,9 +327,18 @@ class TTSProvider(Protocol):
 
 
 @runtime_checkable
+class AudioClassifier(Protocol):
+    """Human vs IVR prompt vs hold music vs queue announcement vs voicemail (C23).
+    Used inside real CallLegs to fill Transcription.audio_class."""
+
+    async def classify(self, audio: AudioClip) -> AudioClassification: ...
+
+
+@runtime_checkable
 class CallLeg(Protocol):
-    """One live phone call, at the *utterance* level. Real legs hide media streams,
-    VAD, streaming STT and TTS behind this; the simulator leg exchanges text.
+    """One party on a live call, at the *utterance* level. Real legs hide media
+    streams, VAD, streaming STT, audio classification and TTS behind this; the
+    simulator leg exchanges text (and emits audio classes directly).
     """
 
     provider: str
@@ -285,20 +347,34 @@ class CallLeg(Protocol):
     async def wait_for_answer(self, timeout_s: float) -> DialStatus: ...
 
     async def speak(self, text: str, language: Language) -> None:
-        """Synthesize + play; returns when playback finished. Raises CallEnded."""
+        """Synthesize + play to the call; returns when playback finished."""
         ...
 
     async def listen(self, timeout_s: float) -> Transcription | None:
-        """Next complete callee utterance (with detected language), or None on
-        silence timeout. Raises CallEnded if the remote hung up."""
+        """Next chunk from this party: a complete utterance (with detected language)
+        or an audio-class chunk (HOLD_MUSIC / QUEUE_ANNOUNCEMENT / IVR_PROMPT...).
+        None on silence timeout. Raises CallEnded if they hung up."""
         ...
 
-    async def send_dtmf(self, digits: str) -> None: ...
+    async def send_dtmf(self, digits: str) -> None:
+        """Press keys ('0'-'9', '*', '#', 'w' = 0.5s pause)."""
+        ...
 
-    async def hangup(self) -> None: ...
+    async def add_participant(self, phone: str, *, announce: str | None = None) -> CallLeg:
+        """Conference a third party into THIS call (warm transfer / patch-in /
+        translator). Returns the new party's leg (listen() on it hears only them)."""
+        ...
+
+    async def leave(self) -> None:
+        """Friday drops out; remaining participants stay bridged (warm transfer)."""
+        ...
+
+    async def hangup(self) -> None:
+        """End the call for everyone."""
+        ...
 
     async def recording_url(self) -> str | None:
-        """Available after hangup (may be None if recording disabled/failed)."""
+        """Available after the call ends (None if recording disabled/failed)."""
         ...
 
 
@@ -315,20 +391,32 @@ AskUser = Callable[[MidCallQuestion], Awaitable[UserAnswer | None]]
 """Supplied by the task engine. Sends the question to the user (WhatsApp buttons)
 and resolves with their answer, or None after ``question.timeout_s``."""
 
+NotifyUser = Callable[[str], Awaitable[None]]
+"""Supplied by the task engine. Fire-and-forget progress note to the user
+("On hold with Airtel, expected wait ~8 min")."""
+
 
 @runtime_checkable
 class CallSessionRunner(Protocol):
-    """Runs one call end to end: dial -> disclosure -> policy loop -> hangup.
+    """Runs one call end to end: dial -> fixed disclosure -> policy loop -> hangup.
 
-    Responsibilities: speak the fixed disclosure first (``brief.disclosure()``),
-    mirror language (speak each action in ``action.language``), hold with polished
-    hold lines while awaiting ``ask_user``, enforce ``brief.can_commit`` on
-    ``commits_booking`` actions, enforce max duration, map dial failures to
-    outcomes, collect recording + transcript, publish call events on the bus.
-    Never raises for call-level failures - returns CallResult(outcome=FAILED, error=...).
+    Responsibilities:
+      * speak ``brief.disclosure()`` first (to a human; on IVR, when an agent joins)
+      * mirror language (speak each action in ``action.language``)
+      * ASK_USER: hold with polished hold lines (no fillers) while awaiting ``ask_user``
+      * WAIT_ON_HOLD: hold-listening mode, no LLM turns, until HUMAN/IVR_PROMPT or
+        max hold -> HOLD_TIMEOUT; send hold progress via ``notify_user``
+      * PRESS_KEYS; BRIDGE_USER (add_participant + leave); TRANSLATOR mode loop
+      * enforce ``friday.core.safety`` on every utterance/key and ``brief.can_commit``
+        on ``commits_booking`` actions (block -> SYSTEM turn -> ask policy again)
+      * enforce max duration; map dial failures to outcomes; recording + transcript;
+        publish call events on the bus
+    Never raises for call-level failures: returns CallResult(outcome=FAILED, error=...).
     """
 
-    async def run(self, brief: CallBrief, ask_user: AskUser) -> CallResult: ...
+    async def run(
+        self, brief: CallBrief, ask_user: AskUser, notify_user: NotifyUser | None = None
+    ) -> CallResult: ...
 
 
 # =============================================================================== channels
@@ -336,15 +424,20 @@ class CallSessionRunner(Protocol):
 
 @runtime_checkable
 class MessagingChannel(Protocol):
-    """User-facing chat channel (WhatsApp Cloud API, local simulator).
+    """Chat channel (WhatsApp Cloud API, local simulator) to users, opted-in circle
+    members, and businesses (B15).
 
     ``send`` sends exactly what it is given; the 24h-window decision (free-form vs
-    ``msg.template``) is made by the backend notifier before calling it.
+    ``msg.template``) and consent checks are made by the backend notifier first.
     """
 
     channel: Channel
 
     async def send(self, msg: OutboundMessage) -> SendReceipt: ...
+
+    async def fetch_media(self, media_url: str) -> MediaBlob:
+        """Download inbound media (voice note, image, PDF) by provider id/url."""
+        ...
 
 
 @runtime_checkable
@@ -366,28 +459,26 @@ class BusinessDirectory(Protocol):
     name: str
 
     async def search(
-        self, query: str, location: str, *, limit: int = 10
+        self, query: str, location: str, *, near: GeoPoint | None = None, limit: int = 10
     ) -> list[BusinessCandidate]:
         """Text search, e.g. ("AC repair", "Indiranagar, Bengaluru"). Results may lack
         phone/reviews; call ``details`` for the ones you shortlist."""
         ...
 
     async def details(self, place_id: str) -> BusinessCandidate | None:
-        """Full record incl. phone (E.164), rating, review_count, review_snippets."""
+        """Full record: phone (E.164), rating, review_count, review_snippets, hours."""
         ...
 
 
 @runtime_checkable
 class Geocoder(Protocol):
-    """Address/maps-link -> coordinates (Google Geocoding/Places, simulator)."""
+    """Address / maps link / pin -> coordinates + normalised address."""
 
     name: str
 
     async def geocode(
         self, text: str, *, near: GeoPoint | None = None, region: str = "in"
-    ) -> GeocodeResult | None:
-        """Free-text address ("Kothrud, Pune", "B-12 Vasant Kunj Delhi")."""
-        ...
+    ) -> GeocodeResult | None: ...
 
     async def resolve_maps_link(self, url: str) -> GeocodeResult | None:
         """Pasted Google Maps URL (incl. maps.app.goo.gl short links)."""
@@ -398,9 +489,30 @@ class Geocoder(Protocol):
         ...
 
 
+@runtime_checkable
+class OfficialNumberDirectory(Protocol):
+    """Curated, verified customer-care numbers (C26). Data file + simulator."""
+
+    async def lookup(self, company: str, *, purpose: str | None = None) -> list[OfficialNumber]: ...
+
+    async def find_by_phone(self, phone: str) -> OfficialNumber | None: ...
+
+
+@runtime_checkable
+class NumberVerifier(Protocol):
+    """Scam / fake-number check before calling or sharing details (B16, C26).
+    Signals: official directory, multiple consistent listings, past call history,
+    known-scam list. Simulator: deterministic verdicts from a fixture list."""
+
+    async def verify(
+        self, phone: str, *, claimed_name: str | None = None, company: str | None = None
+    ) -> NumberCheck: ...
+
+
 # =============================================================================== repositories
-# Minimal persistence contracts used across backend modules (tasks, proactive, api).
-# Backend Engineer implements them in friday/db/repositories/ and may add methods.
+# Minimal persistence contracts shared across backend modules (tasks, proactive,
+# api). Backend Engineer implements them in friday/db/repositories/ and may add
+# methods there. Brain and voice never touch repositories.
 
 
 class TaskRepository(Protocol):
@@ -411,7 +523,7 @@ class TaskRepository(Protocol):
     async def list_for_user(self, user_id: str, *, open_only: bool = False) -> list[Task]: ...
     async def list_children(self, parent_task_id: str) -> list[Task]: ...
     async def list_due(self, now: datetime) -> list[Task]:
-        """SCHEDULED tasks with next_attempt_at <= now."""
+        """SCHEDULED tasks / recurring parents with next run <= now."""
         ...
     async def save_call(self, result: CallResult) -> None: ...
 
@@ -421,11 +533,6 @@ class UserRepository(Protocol):
     async def get_by_phone(self, phone: str) -> User | None: ...
     async def add(self, user: User) -> User: ...
     async def save(self, user: User) -> User: ...
-
-
-class FactRepository(Protocol):
-    async def list_for_user(self, user_id: str) -> list[Fact]: ...
-    async def upsert(self, fact: Fact) -> Fact: ...
 
 
 class PersonRepository(Protocol):
@@ -440,10 +547,32 @@ class PlaceRepository(Protocol):
     async def upsert(self, place: Place) -> Place: ...
 
 
+class BusinessRepository(Protocol):
+    """Businesses + vendor memory (B20)."""
+
+    async def get(self, business_id: str) -> Business | None: ...
+    async def get_by_phone(self, phone: str) -> Business | None: ...
+    async def upsert(self, business: Business) -> Business: ...
+    async def add_interaction(self, interaction: VendorInteraction) -> VendorInteraction: ...
+    async def interactions(
+        self, user_id: str, *, business_id: str | None = None, limit: int = 50
+    ) -> list[VendorInteraction]: ...
+
+
+class IdentifierRepository(Protocol):
+    """Account identifiers; values encrypted at rest."""
+
+    async def list_for_user(self, user_id: str) -> list[AccountIdentifier]: ...
+    async def upsert(self, identifier: AccountIdentifier) -> AccountIdentifier: ...
+
+
+class FactRepository(Protocol):
+    async def list_for_user(self, user_id: str) -> list[Fact]: ...
+    async def upsert(self, fact: Fact) -> Fact: ...
+
+
 class NudgeRepository(Protocol):
     async def add(self, nudge: Nudge) -> Nudge: ...
     async def save(self, nudge: Nudge) -> Nudge: ...
     async def exists(self, user_id: str, dedupe_key: str) -> bool: ...
     async def count_sent_between(self, user_id: str, start: datetime, end: datetime) -> int: ...
-
-

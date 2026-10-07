@@ -135,6 +135,7 @@ class PersonRow(IdMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     contact_consent: Mapped[str] = mapped_column(String(16), default="not_asked", nullable=False)
     consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    checkin_consent: Mapped[str] = mapped_column(String(16), default="not_asked", nullable=False)
     linked_user_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey(_USER_FK, ondelete="SET NULL")
     )
@@ -167,9 +168,17 @@ class BusinessRow(IdMixin, Base):
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    whatsapp_phone: Mapped[str | None] = mapped_column(String(20))
     category: Mapped[str | None] = mapped_column(String(60))
     city: Mapped[str | None] = mapped_column(String(120))
     address: Mapped[str | None] = mapped_column(Text)
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    hours: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # BusinessHours
+    best_call_times: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    is_customer_care: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ivr_notes: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    verification: Mapped[str | None] = mapped_column(String(12))
     notes: Mapped[str | None] = mapped_column(Text)
     language_hint: Mapped[str | None] = mapped_column(String(12))
     directory_provider: Mapped[str | None] = mapped_column(String(30))
@@ -202,6 +211,39 @@ class FactRow(IdMixin, TimestampMixin, Base):
     source_message_id: Mapped[str | None] = mapped_column(String(32))
 
 
+class VendorInteractionRow(IdMixin, Base):
+    """Vendor memory (B20): per-user history with a business."""
+
+    __tablename__ = "vendor_interactions"
+    __table_args__ = (Index("ix_vendor_user_business", "user_id", "business_id"),)
+
+    user_id: Mapped[str] = _user_fk()
+    business_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    task_id: Mapped[str | None] = mapped_column(String(32))
+    call_id: Mapped[str | None] = mapped_column(String(32))
+    amount_inr: Mapped[int | None] = mapped_column(Integer)
+    rating: Mapped[int | None] = mapped_column(Integer)
+    outcome: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(Text)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class AccountIdentifierRow(IdMixin, TimestampMixin, Base):
+    """C22/C24: identifiers shareable on care calls when approved per task.
+    ``value_encrypted`` is encrypted by the repository with Settings.secret_key."""
+
+    __tablename__ = "account_identifiers"
+
+    user_id: Mapped[str] = _user_fk()
+    company: Mapped[str | None] = mapped_column(String(120))
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    value_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    last4: Mapped[str | None] = mapped_column(String(4))
+
+
 # ------------------------------------------------------------------------------ messages
 
 
@@ -214,8 +256,11 @@ class MessageRow(IdMixin, Base):
     user_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey(_USER_FK, ondelete="CASCADE")
     )
-    person_id: Mapped[str | None] = mapped_column(  # recipient circle member, if any
+    person_id: Mapped[str | None] = mapped_column(  # circle member counterpart, if any
         String(32), ForeignKey("people.id", ondelete="SET NULL")
+    )
+    business_id: Mapped[str | None] = mapped_column(  # business counterpart (B15)
+        String(32), ForeignKey("businesses.id", ondelete="SET NULL")
     )
     direction: Mapped[str] = mapped_column(String(8), nullable=False)
     channel: Mapped[str] = mapped_column(String(12), nullable=False)
@@ -261,6 +306,9 @@ class TaskRow(IdMixin, TimestampMixin, Base):
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="created")
     spec: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)  # TaskSpec
+    target: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # ContactTarget
+    recurrence: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # RecurrenceRule
+    next_run_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     next_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
@@ -291,6 +339,9 @@ class CallRow(IdMixin, Base):
     outcome: Mapped[str] = mapped_column(String(20), nullable=False)
     collected: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
     languages_heard: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    care: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # CareOutcome
+    hold_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    mode: Mapped[str] = mapped_column(String(16), default="agent", nullable=False)
     recording_url: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
