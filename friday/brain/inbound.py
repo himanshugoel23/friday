@@ -79,7 +79,22 @@ class InboundContext(BaseModel):
         return self.matched_task_id is None and len(self.related) > 1
 
 
-class InboundCallBrief(CallBrief):
+class _AwaitableBrief:
+    """Lets ``Brain.build_call_brief`` be used both ways: ``await brain.build_call_brief(...)``
+    (the Protocol is async) and plain ``brain.build_call_brief(...)`` (the brief is
+    built synchronously - no I/O - so awaiting just returns it)."""
+
+    def __await__(self):  # noqa: ANN204
+        if False:  # pragma: no cover - makes this a generator
+            yield None
+        return self
+
+
+class AwaitableCallBrief(_AwaitableBrief, CallBrief):
+    pass
+
+
+class InboundCallBrief(_AwaitableBrief, CallBrief):
     direction: CallDirection = CallDirection.INBOUND
     inbound: InboundContext | None = None
 

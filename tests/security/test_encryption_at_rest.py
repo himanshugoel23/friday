@@ -39,9 +39,8 @@ async def _raw_dump(db, table: str) -> str:
 
 
 async def _all_tables_dump(db) -> str:
-    from friday.db.base import Base
-
     import friday.db.tables  # noqa: F401
+    from friday.db.base import Base
 
     return "\n".join([await _raw_dump(db, t) for t in Base.metadata.tables])
 
@@ -105,14 +104,23 @@ async def test_place_address_encrypted_at_rest(repos, clock, db) -> None:
 )
 async def test_call_transcript_encrypted_at_rest(repos, clock, db) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
-    task = Task(requester_user_id=user.id, type=TaskType.HEALTHCARE,
-                spec=TaskSpec(type=TaskType.HEALTHCARE, goal="Book a diabetologist"))
+    task = Task(
+        requester_user_id=user.id,
+        type=TaskType.HEALTHCARE,
+        spec=TaskSpec(type=TaskType.HEALTHCARE, goal="Book a diabetologist"),
+    )
     await repos.tasks.add(task)
     tr = Transcript()
     tr.add(Speaker.CALLEE, "Patient ka sugar level kitna hai? Insulin le rahe hain?")
     await repos.tasks.save_call(
-        CallResult(task_id=task.id, provider="simulator", to_phone="+918040000001",
-                   dial_status=DialStatus.ANSWERED, outcome=CallOutcome.PARTIAL, transcript=tr)
+        CallResult(
+            task_id=task.id,
+            provider="simulator",
+            to_phone="+918040000001",
+            dial_status=DialStatus.ANSWERED,
+            outcome=CallOutcome.PARTIAL,
+            transcript=tr,
+        )
     )
     assert "Insulin" not in await _raw_dump(db, "call_turns")
 
@@ -144,8 +152,10 @@ def test_debug_logging_does_not_dump_sql_parameters(monkeypatch) -> None:
 
     root = logging.getLogger()
     saved = (root.level, list(root.handlers))
-    noisy = {n: logging.getLogger(n).level for n in ("aiosqlite", "httpx", "httpcore",
-                                                     "anthropic", "sqlalchemy.engine")}
+    noisy = {
+        n: logging.getLogger(n).level
+        for n in ("aiosqlite", "httpx", "httpcore", "anthropic", "sqlalchemy.engine")
+    }
     monkeypatch.setattr(flog, "_CONFIGURED", False)
     try:
         flog.setup_logging("DEBUG")

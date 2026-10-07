@@ -54,7 +54,6 @@ import hashlib
 import hmac
 import json
 import os
-import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
@@ -73,11 +72,12 @@ from friday.core.interfaces import (
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import DialStatus, Language, OutboundCallRequest, new_id
 from friday.voice._http import VendorHTTP
-from friday.voice.audio import clip_to_pcm16, dtmf_pcm16, resample_pcm16
+from friday.voice.audio import dtmf_pcm16
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.telephony.twilio import TwilioCallLeg
+from friday.voice.tts.cache import cached
 
 log = get_logger(__name__)
 
@@ -130,14 +130,7 @@ class ExotelCallLeg(TwilioCallLeg):
         self._check_live()
         if self.listen_only or self._send is None:
             raise ProviderError("exotel", "this leg cannot play audio")
-        t0 = time.perf_counter()
-        clip = await self.tel.tts.synthesize(text, language, voice=self.tel.tts.voice_for(language))
-        self.last_tts_ms = (time.perf_counter() - t0) * 1000
-        decoded = clip_to_pcm16(clip)
-        if decoded is None:
-            raise ProviderError("exotel", f"TTS returned unsupported audio ({clip.mime})")
-        pcm, rate = decoded
-        await self._play_pcm(resample_pcm16(pcm, rate, 8000))
+        await self._play_pcm(await self._synth(text, language))
 
     async def _play_pcm(self, pcm: bytes) -> None:
         assert self._send is not None
@@ -562,7 +555,7 @@ def build_exotel_direct(c: Container) -> ExotelTelephony:
         public_base_url=s.public_base_url,
         secret=s.secret_key.get_secret_value(),
         stt=c.stt,
-        tts=c.tts,
+        tts=cached(c.tts, s.media_dir),
         classifier=classifier,
         bus=c.bus,
         clock=c.clock,

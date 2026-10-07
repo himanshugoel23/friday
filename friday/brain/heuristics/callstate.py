@@ -247,13 +247,35 @@ def read_state(brief: CallBrief, transcript: Transcript, answers: list[UserAnswe
     return st
 
 
+_TAG = re.compile(r"^\s*\[(ivr_prompt|queue_announcement|hold_music|voicemail|silence|human)\]\s*",
+                  re.I)
+IDENTIFIER_PROMPT = (r"enter your|enter the|registered mobile|account number|customer id|"
+                     r"consumer number|order id|policy number|type your")
+
+
+def audio_tag(text: str) -> str | None:
+    """Voice runner prefixes non-human CALLEE chunks: [ivr_prompt], [hold_music]..."""
+    m = _TAG.match(text or "")
+    return m.group(1).lower() if m else None
+
+
+def strip_tag(text: str) -> str:
+    return _TAG.sub("", text or "")
+
+
 def is_ivr(text: str) -> bool:
+    tag = audio_tag(text)
+    if tag is not None:
+        return tag == "ivr_prompt"
     t = norm(text)
     return bool(re.search(r"\b(press|dial|dabaye\w*|enter)\s*\d|\b\d\s*(dabaye|press)", t)) or (
         has_any(t, IVR_WORDS) and has_any(t, ("press", "dabaye", "enter", "dabaiye", "dabayein")))
 
 
 def is_hold(text: str) -> bool:
+    tag = audio_tag(text)
+    if tag is not None:
+        return tag in ("hold_music", "queue_announcement")
     t = norm(text)
     return has_any(t, HOLD_WORDS) or t in ("", "♪", "(hold music)", "[hold music]")
 

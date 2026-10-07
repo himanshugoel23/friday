@@ -39,6 +39,7 @@ from ..textutil import (
 )
 from .callstate import (
     AI_QUESTION,
+    IDENTIFIER_PROMPT,
     CALL_LATER,
     CANT_RESOLVE,
     DISTRESS,
@@ -58,6 +59,7 @@ from .callstate import (
     is_ivr,
     ivr_options,
     read_state,
+    strip_tag,
     wait_minutes,
 )
 
@@ -379,13 +381,13 @@ _AVOID_WORDS = ("repeat", "balance", "recharge offers", "offers", "new connectio
 
 def _ivr(tn: Turn, prompt: str) -> CallActionOut:
     st, b = tn.st, tn.b
+    prompt = strip_tag(prompt)
     p = norm(prompt)
     path = _ivr_path(st)
     care = CareOut(ivr_path=path, escalation_level=1)
     if has_any(p, ("otp", "one time password", "verification code", "pin", "cvv", "password")):
         return _verification(tn)
-    if has_any(p, ("enter your", "enter the", "registered mobile", "account number", "customer id",
-                   "consumer number", "order id", "policy number", "type your")):
+    if re.search(IDENTIFIER_PROMPT, p):
         ident = _identifier_for(b, p)
         if ident is None:
             return tn.hangup(None, CallOutcome.NEEDS_USER_VERIFICATION,
@@ -401,7 +403,7 @@ def _ivr(tn: Turn, prompt: str) -> CallActionOut:
         if has_any(p, ("say", "boliye", "tell us")) and has_any(p, ("agent", "executive")):
             return tn.say("Agent", care=care)
         return tn.act(CallActionType.WAIT, care=care)
-    repeats = sum(1 for t in st.callee if norm(t.text) == p)
+    repeats = sum(1 for t in st.callee if norm(strip_tag(t.text)) == p)
     key = _pick_ivr_key(b, options, tried=_tried_for_prompt(st, p) if repeats > 1 else set())
     return tn.act(CallActionType.PRESS_KEYS, digits=key, care=care)
 
@@ -410,7 +412,7 @@ def _tried_for_prompt(st: CallState, p: str) -> set[str]:
     tried: set[str] = set()
     turns = st.transcript.turns
     for i, t in enumerate(turns[:-1]):
-        if t.speaker.value == "callee" and norm(t.text) == p:
+        if t.speaker.value == "callee" and norm(strip_tag(t.text)) == p:
             nxt = turns[i + 1]
             m = re.search(r"(?:dtmf|pressed|keys?)\D*([0-9*#]+)", norm(nxt.text))
             if m:

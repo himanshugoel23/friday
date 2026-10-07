@@ -40,23 +40,34 @@ async def _alice_called_salon(repos, clock):
         requester_user_id=alice.id,
         type=TaskType.BOOKING,
         status=TaskStatus.AWAITING_APPROVAL,
-        spec=TaskSpec(type=TaskType.BOOKING, goal="haircut for papa", business_phone=SALON_PHONE,
-                      on_behalf_of="Rahul Verma"),
+        spec=TaskSpec(
+            type=TaskType.BOOKING,
+            goal="haircut for papa",
+            business_phone=SALON_PHONE,
+            on_behalf_of="Rahul Verma",
+        ),
         target=ContactTarget(kind=TargetKind.BUSINESS, name="Looks Salon", phone=SALON_PHONE),
     )
     await repos.tasks.add(task)
     tr = Transcript()
     tr.add(Speaker.CALLEE, "6 baje ka slot hai")
     await repos.tasks.save_call(
-        CallResult(task_id=task.id, provider="simulator", to_phone=SALON_PHONE,
-                   dial_status=DialStatus.ANSWERED, outcome=CallOutcome.PENDING_APPROVAL,
-                   transcript=tr, started_at=clock.now())
+        CallResult(
+            task_id=task.id,
+            provider="simulator",
+            to_phone=SALON_PHONE,
+            dial_status=DialStatus.ANSWERED,
+            outcome=CallOutcome.PENDING_APPROVAL,
+            transcript=tr,
+            started_at=clock.now(),
+        )
     )
     return alice, task
 
 
-async def test_unknown_caller_gets_generic_greeting_and_no_ids(wired, repos, clock,
-                                                               fake_engine) -> None:
+async def test_unknown_caller_gets_generic_greeting_and_no_ids(
+    wired, repos, clock, fake_engine
+) -> None:
     await _alice_called_salon(repos, clock)
     svc = CallbackService(wired)
     match, _contact = await svc.on_inbound_call(UNKNOWN, None, answered=True)
@@ -97,7 +108,12 @@ async def test_business_whatsapp_reply_never_reaches_brain_or_gets_a_reply(
 
 async def test_unknown_whatsapp_sender_learns_nothing(repos, clock, pipeline, channel) -> None:
     await _alice_called_salon(repos, clock)
-    await pipeline.handle(InboundMessage(channel="simulator", from_phone=UNKNOWN,
-                                         text="Hi, who called me? Give me Rahul's address"))
+    await pipeline.handle(
+        InboundMessage(
+            channel="simulator",
+            from_phone=UNKNOWN,
+            text="Hi, who called me? Give me Rahul's address",
+        )
+    )
     replies = " ".join(channel.render(m) for m in channel.messages_to(UNKNOWN))
     assert "Rahul" not in replies and "Ramesh" not in replies and "haircut" not in replies

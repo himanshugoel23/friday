@@ -13,19 +13,39 @@ from typing import Any
 from .persona import PERSONA, persona_block
 from .system import system_prompt
 
-__all__ = ["PERSONA", "extract_input", "persona_block", "render_input", "system_prompt"]
+__all__ = [
+    "CACHE_BREAK",
+    "PERSONA",
+    "dump_json",
+    "extract_input",
+    "persona_block",
+    "render_input",
+    "system_prompt",
+]
+
+# Marker splitting a system prompt into cacheable blocks: [static rules] [per-call
+# stable data]. AnthropicLLM turns each block into a cache_control breakpoint.
+CACHE_BREAK = "\n<<<FRIDAY_CACHE_BREAK>>>\n"
 
 _INPUT = re.compile(r"<input>\s*(.*?)\s*</input>", re.S)
 
 
-def render_input(payload: dict[str, Any], instruction: str = "") -> str:
-    body = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
+def dump_json(payload: dict[str, Any]) -> str:
+    """Compact, deterministic JSON with ``<``/``>`` escaped (``\\u003c``), so untrusted
+    text inside the payload can never close or forge a ``<input>``/``<data>`` block."""
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str,
+                      separators=(",", ":"))
+    return body.replace("<", "\\u003c").replace(">", "\\u003e")
+
+
+def render_input(payload: dict[str, Any], instruction: str = "", tag: str = "input") -> str:
     head = f"{instruction.strip()}\n\n" if instruction else ""
-    return f"{head}<input>\n{body}\n</input>"
+    return f"{head}<{tag}>\n{dump_json(payload)}\n</{tag}>"
 
 
-def extract_input(text: str) -> dict[str, Any] | None:
-    matches = _INPUT.findall(text or "")
+def extract_input(text: str, tag: str = "input") -> dict[str, Any] | None:
+    rx = _INPUT if tag == "input" else re.compile(rf"<{tag}>\s*(.*?)\s*</{tag}>", re.S)
+    matches = rx.findall(text or "")
     if not matches:
         return None
     try:

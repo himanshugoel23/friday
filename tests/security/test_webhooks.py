@@ -69,8 +69,9 @@ async def _post(app, body: bytes, headers: dict[str, str]) -> httpx.Response:
     [None, "sha256=deadbeef", "sha256=" + "0" * 64, "garbage"],
 )
 async def test_whatsapp_webhook_rejects_bad_signature(settings, clock, bus, db, header) -> None:
-    app = _app(settings.model_copy(update={"whatsapp_app_secret": SecretStr(APP_SECRET)}),
-               clock, bus, db)
+    app = _app(
+        settings.model_copy(update={"whatsapp_app_secret": SecretStr(APP_SECRET)}), clock, bus, db
+    )
     headers = {"content-type": "application/json"}
     if header:
         headers["x-hub-signature-256"] = header
@@ -79,10 +80,14 @@ async def test_whatsapp_webhook_rejects_bad_signature(settings, clock, bus, db, 
 
 
 async def test_whatsapp_webhook_accepts_valid_signature(settings, clock, bus, db) -> None:
-    app = _app(settings.model_copy(update={"whatsapp_app_secret": SecretStr(APP_SECRET)}),
-               clock, bus, db)
-    resp = await _post(app, BODY, {"x-hub-signature-256": sign(BODY, APP_SECRET),
-                                   "content-type": "application/json"})
+    app = _app(
+        settings.model_copy(update={"whatsapp_app_secret": SecretStr(APP_SECRET)}), clock, bus, db
+    )
+    resp = await _post(
+        app,
+        BODY,
+        {"x-hub-signature-256": sign(BODY, APP_SECRET), "content-type": "application/json"},
+    )
     assert resp.status_code == 200
 
 
@@ -131,11 +136,17 @@ async def test_media_stream_needs_per_call_secret() -> None:
     tw = _twilio()
     from friday.voice.stt.fake import FakeSTT
 
-    tel = tw.TwilioTelephony(account_sid="AC1", auth_token="t", from_number="+918000000000",
-                             public_base_url="https://friday.example.in", stt=FakeSTT(),
-                             tts=None)  # type: ignore[arg-type]
-    leg = tw.TwilioCallLeg(tel, key="secret-key-123", to_phone="+918040000001",
-                           from_number="+918000000000")
+    tel = tw.TwilioTelephony(
+        account_sid="AC1",
+        auth_token="t",
+        from_number="+918000000000",
+        public_base_url="https://friday.example.in",
+        stt=FakeSTT(),
+        tts=None,
+    )  # type: ignore[arg-type]
+    leg = tw.TwilioCallLeg(
+        tel, key="secret-key-123", to_phone="+918040000001", from_number="+918000000000"
+    )
     tel.legs[leg.key] = leg
     tel.by_sid["CA_KNOWN"] = leg
     state: dict = {}
@@ -143,8 +154,11 @@ async def test_media_stream_needs_per_call_secret() -> None:
     async def send(_t: str) -> None:
         return None
 
-    start = {"event": "start", "streamSid": "MZ1",
-             "start": {"callSid": "CA_KNOWN", "customParameters": {}}}
+    start = {
+        "event": "start",
+        "streamSid": "MZ1",
+        "start": {"callSid": "CA_KNOWN", "customParameters": {}},
+    }
     try:
         await tel.handle_stream_message(start, send, state)
         assert "leg" not in state  # attacker without the key must not get the call audio
@@ -164,6 +178,9 @@ async def test_media_stream_needs_per_call_secret() -> None:
 async def test_inbound_flood_is_throttled(repos, clock, pipeline, fake_brain) -> None:
     await make_active_user(repos, clock, ALICE_PHONE)
     for i in range(60):
-        await pipeline.handle(InboundMessage(channel="simulator", from_phone=ALICE_PHONE,
-                                             text=f"call this number again {i}"))
+        await pipeline.handle(
+            InboundMessage(
+                channel="simulator", from_phone=ALICE_PHONE, text=f"call this number again {i}"
+            )
+        )
     assert len(fake_brain.seen) <= 30

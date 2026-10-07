@@ -56,7 +56,9 @@ def test_normal_speech_allowed(text: str) -> None:
 
 
 def test_approved_identifier_may_be_spoken_but_only_for_that_call() -> None:
-    ident = AccountIdentifier(user_id="u", company="Airtel", label="Account number", value=ACCOUNT_NO)
+    ident = AccountIdentifier(
+        user_id="u", company="Airtel", label="Account number", value=ACCOUNT_NO
+    )
     approved = booking_brief(approved_identifiers=[ident])
     assert check_speech(f"Account number {ACCOUNT_NO} hai", approved).allowed
     assert not check_speech(f"Account number {ACCOUNT_NO} hai", booking_brief()).allowed

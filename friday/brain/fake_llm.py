@@ -69,6 +69,17 @@ def minimal_instance(schema: dict[str, Any], root: dict[str, Any] | None = None)
             "null": None}.get(t)
 
 
+def merge_payload(stable: dict[str, Any], volatile: dict[str, Any]) -> dict[str, Any]:
+    """Cached ``<data>`` (system) + volatile ``<input>`` (message): one level deep."""
+    out = dict(stable)
+    for k, v in volatile.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = {**out[k], **v}
+        else:
+            out[k] = v
+    return out
+
+
 class FakeLLM:
     """Deterministic ``LLMClient``."""
 
@@ -84,6 +95,7 @@ class FakeLLM:
         self.calls: list[FakeCall] = []
         self._scripts: dict[str, deque[str]] = defaultdict(deque)
         self.fail_purposes: set[str] = set()
+        self._batches: dict[str, dict[str, str]] = {}
 
     def script(self, purpose: str, *responses: str | BaseModel | dict) -> None:
         """Queue canned responses for ``purpose`` (consumed in order, then handlers)."""
@@ -93,6 +105,22 @@ class FakeLLM:
             elif isinstance(r, dict):
                 r = json.dumps(r)
             self._scripts[purpose].append(r)
+
+    async def submit_batch(self, requests: Sequence[dict[str, Any]]) -> str:
+        """Fake Batches API: answers immediately and deterministically."""
+        results: dict[str, str] = {}
+        for r in requests:
+            resp = await self.complete(system=r.get("system", ""), messages=r["messages"],
+                                       purpose=r.get("purpose", "batch"), model=r.get("model"),
+                                       json_schema=r.get("json_schema"),
+                                       attachments=r.get("attachments", ()))
+            results[r["custom_id"]] = resp.text
+        batch_id = f"fakebatch_{len(self._batches) + 1}"
+        self._batches[batch_id] = results
+        return batch_id
+
+    async def batch_results(self, batch_id: str) -> dict[str, str] | None:
+        return self._batches.get(batch_id)
 
     def calls_for(self, purpose: str) -> list[FakeCall]:
         return [c for c in self.calls if c.purpose == purpose]
@@ -132,6 +160,9 @@ class FakeLLM:
                 payload = extract_input(m.content)
                 if payload is not None:
                     break
+        stable = extract_input(system, tag="data")
+        if stable is not None:
+            payload = merge_payload(stable, payload or {})
         handler = self.handlers.get(purpose)
         if handler is not None and payload is not None:
             out = handler(payload)

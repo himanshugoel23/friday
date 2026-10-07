@@ -12,6 +12,7 @@ import pytest
 
 from friday.core.models import (
     AccountIdentifier,
+    AutonomyCategory,
     Fact,
     FactKind,
     InboundMessage,
@@ -21,7 +22,6 @@ from friday.core.models import (
     MidCallQuestion,
     Nudge,
     NudgeKind,
-    AutonomyCategory,
     Person,
     Place,
     QuestionPurpose,
@@ -47,8 +47,13 @@ from tests.security.conftest import (
 async def _seed_alice(repos, clock):
     alice = await make_active_user(repos, clock, ALICE_PHONE)
     dad = await repos.people.upsert(
-        Person(owner_user_id=alice.id, name="Ramesh", relation="father", phone=DAD_PHONE,
-               notes=DAD_NOTES)
+        Person(
+            owner_user_id=alice.id,
+            name="Ramesh",
+            relation="father",
+            phone=DAD_PHONE,
+            notes=DAD_NOTES,
+        )
     )
     home = await repos.places.upsert(
         Place(owner_user_id=alice.id, label="Home", address_text=HOME_ADDRESS)
@@ -57,8 +62,9 @@ async def _seed_alice(repos, clock):
         Fact(user_id=alice.id, kind=FactKind.GENERAL, key="dad_bp", value="BP check every month")
     )
     ident = await repos.identifiers.upsert(
-        AccountIdentifier(user_id=alice.id, company="Airtel", label="Account number",
-                          value=ACCOUNT_NO)
+        AccountIdentifier(
+            user_id=alice.id, company="Airtel", label="Account number", value=ACCOUNT_NO
+        )
     )
     task = Task(
         requester_user_id=alice.id,
@@ -68,9 +74,14 @@ async def _seed_alice(repos, clock):
     )
     await repos.tasks.add(task)
     question = await repos.tasks.add_question(
-        MidCallQuestion(task_id=task.id, text="Book 6pm for ₹400?",
-                        purpose=QuestionPurpose.APPROVE_BOOKING, options=["Yes, book 6pm", "No"],
-                        timeout_s=0, asked_at=clock.now())
+        MidCallQuestion(
+            task_id=task.id,
+            text="Book 6pm for ₹400?",
+            purpose=QuestionPurpose.APPROVE_BOOKING,
+            options=["Yes, book 6pm", "No"],
+            timeout_s=0,
+            asked_at=clock.now(),
+        )
     )
     return alice, dad, home, fact, ident, task, question
 
@@ -113,8 +124,13 @@ async def test_forged_approval_button_for_foreign_task_is_ignored(
     *_, task, _q = await _seed_alice(repos, clock)
     bob = await make_active_user(repos, clock, BOB_PHONE)
     await pipeline.handle(
-        InboundMessage(channel="simulator", from_phone=bob.phone, kind=MessageKind.BUTTON_REPLY,
-                       text="Yes", button_id=approval_button_id(task.id, True))
+        InboundMessage(
+            channel="simulator",
+            from_phone=bob.phone,
+            kind=MessageKind.BUTTON_REPLY,
+            text="Yes",
+            button_id=approval_button_id(task.id, True),
+        )
     )
     assert "approve" not in fake_engine.names()
     assert (await repos.tasks.get(task.id)).status == TaskStatus.AWAITING_USER
@@ -122,14 +138,23 @@ async def test_forged_approval_button_for_foreign_task_is_ignored(
 
 async def test_forged_nudge_button_for_foreign_nudge_is_ignored(repos, clock, pipeline) -> None:
     alice, *_ = await _seed_alice(repos, clock)
-    nudge = Nudge(user_id=alice.id, kind=NudgeKind.PATTERN, category=AutonomyCategory.ROUTINES,
-                  dedupe_key="pattern:haircut",
-                  proposed_task=TaskSpec(type=TaskType.BOOKING, goal="haircut"))
+    nudge = Nudge(
+        user_id=alice.id,
+        kind=NudgeKind.PATTERN,
+        category=AutonomyCategory.ROUTINES,
+        dedupe_key="pattern:haircut",
+        proposed_task=TaskSpec(type=TaskType.BOOKING, goal="haircut"),
+    )
     await repos.nudges.add(nudge)
     bob = await make_active_user(repos, clock, BOB_PHONE)
     await pipeline.handle(
-        InboundMessage(channel="simulator", from_phone=bob.phone, kind=MessageKind.BUTTON_REPLY,
-                       text="Book", button_id=nudge_button_id(nudge.id, "book"))
+        InboundMessage(
+            channel="simulator",
+            from_phone=bob.phone,
+            kind=MessageKind.BUTTON_REPLY,
+            text="Book",
+            button_id=nudge_button_id(nudge.id, "book"),
+        )
     )
     assert await repos.tasks.list_for_user(bob.id) == []
     stored = await repos.nudges.get(nudge.id)
@@ -147,8 +172,13 @@ async def test_forged_question_button_for_foreign_question_is_ignored(
     *_, question = await _seed_alice(repos, clock)
     bob = await make_active_user(repos, clock, BOB_PHONE)
     await pipeline.handle(
-        InboundMessage(channel="simulator", from_phone=bob.phone, kind=MessageKind.BUTTON_REPLY,
-                       text="Yes, book 6pm", button_id=question_button_id(question.id, 0))
+        InboundMessage(
+            channel="simulator",
+            from_phone=bob.phone,
+            kind=MessageKind.BUTTON_REPLY,
+            text="Yes, book 6pm",
+            button_id=question_button_id(question.id, 0),
+        )
     )
     assert await repos.tasks.get_answer(question.id) is None
 

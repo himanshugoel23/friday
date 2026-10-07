@@ -70,6 +70,7 @@ from friday.voice.callerid import CallerIdSelector, choose_from_number, number_p
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.telephony.media import Segment, UtteranceSegmenter
+from friday.voice.tts.cache import cached
 
 log = get_logger(__name__)
 
@@ -212,6 +213,10 @@ class TwilioCallLeg:
         self._segmenter = UtteranceSegmenter()
         self._worker: asyncio.Task | None = None
         self._stream_started_at: float | None = None
+        self.hold_mode = False
+        self._announcements: dict[str, _SegTranscription] = {}
+        self.stt_seconds = 0.0  # audio actually sent to STT (cost ledger)
+        self.tts_billed_chars = 0  # TTS characters not served from the cache
 
     # ------------------------------------------------------------------ webhook side
     def on_status(self, params: Mapping[str, str]) -> None:
@@ -296,13 +301,24 @@ class TwilioCallLeg:
             sample_rate=seg.sample_rate,
         )
         t0 = time.perf_counter()
-        if seg.forced_cut:  # continuous audio: classify first, skip STT for music
+        if seg.forced_cut or self.hold_mode:  # classify locally first; never STT music
             cls = await self.tel.classifier.classify(clip)
-            if cls.audio_class == AudioClass.HOLD_MUSIC:
-                return _SegTranscription(
-                    text="", audio_class=AudioClass.HOLD_MUSIC, duration_s=seg.duration_s
+            # on hold only speech-like audio may reach STT (a human / announcement)
+            non_speech = cls.audio_class != AudioClass.HUMAN and (
+                self.hold_mode or cls.audio_class in (AudioClass.HOLD_MUSIC, AudioClass.SILENCE)
+            )
+            if non_speech:
+                kind = (
+                    AudioClass.SILENCE
+                    if cls.audio_class == AudioClass.SILENCE
+                    else AudioClass.HOLD_MUSIC
                 )
+                return _SegTranscription(text="", audio_class=kind, duration_s=seg.duration_s)
+        fp = _fingerprint(seg.pcm16) if self.hold_mode else None
+        if fp is not None and fp in self._announcements:  # looping queue message
+            return self._announcements[fp].model_copy(update={"duration_s": seg.duration_s})
         stt = await self.tel.stt.transcribe(clip, language_hint=self.language)
+        self.stt_seconds += seg.duration_s
         self.last_stt_ms = (time.perf_counter() - t0) * 1000
         combine = getattr(self.tel.classifier, "combine", None)
         if combine is not None:
@@ -311,13 +327,16 @@ class TwilioCallLeg:
             cls = await self.tel.classifier.classify(clip)
         if not stt.text and cls.audio_class in (AudioClass.SILENCE, AudioClass.UNKNOWN):
             return None
-        return _SegTranscription(
+        out = _SegTranscription(
             text=stt.text,
             language=stt.language,
             confidence=stt.confidence,
             audio_class=cls.audio_class,
             duration_s=seg.duration_s,
         )
+        if fp is not None and cls.audio_class == AudioClass.QUEUE_ANNOUNCEMENT:
+            self._announcements[fp] = out
+        return out
 
     # ------------------------------------------------------------------ CallLeg
     async def wait_for_answer(self, timeout_s: float) -> DialStatus:
@@ -348,14 +367,31 @@ class TwilioCallLeg:
         self._check_live()
         if self.listen_only or self.bridged or self._send is None:
             raise ProviderError("twilio", "this leg cannot play audio (bridged / listen-only)")
+        pcm = await self._synth(text, language)
+        await self._play(pcm16_to_ulaw(pcm))
+
+    async def _synth(self, text: str, language: Language) -> bytes:
+        """TTS (through the pre-render cache when present) -> 8 kHz PCM16."""
+        tts = self.tel.tts
         t0 = time.perf_counter()
-        clip = await self.tel.tts.synthesize(text, language, voice=self.tel.tts.voice_for(language))
+        voice = tts.voice_for(language)
+        cached = getattr(tts, "synthesize_cached", None)
+        if cached is not None:
+            clip, hit = await cached(text, language, voice=voice)
+        else:
+            clip, hit = await tts.synthesize(text, language, voice=voice), False
+        if not hit:
+            self.tts_billed_chars += len(text)
         self.last_tts_ms = (time.perf_counter() - t0) * 1000
         decoded = clip_to_pcm16(clip)
         if decoded is None:
-            raise ProviderError("twilio", f"TTS returned unsupported audio ({clip.mime})")
+            raise ProviderError(self.provider, f"TTS returned unsupported audio ({clip.mime})")
         pcm, rate = decoded
-        await self._play(pcm16_to_ulaw(resample_pcm16(pcm, rate, 8000)))
+        return resample_pcm16(pcm, rate, 8000)
+
+    def set_hold_mode(self, on: bool) -> None:
+        """Hold-listening: no STT on music; repeated announcements reuse a cached result."""
+        self.hold_mode = on
 
     async def _play(self, ulaw: bytes) -> None:
         assert self._send is not None
@@ -474,6 +510,15 @@ class TwilioCallLeg:
 
 class _SegTranscription(Transcription):
     duration_s: float | None = None
+
+
+def _fingerprint(pcm16: bytes, bucket_ms: int = 100) -> str:
+    """Coarse loudness envelope -> identical looping recordings hash the same."""
+    from friday.voice.audio import frame_features
+
+    feats = frame_features(pcm16, 8000, bucket_ms)
+    env = "".join(chr(48 + min(9, int(e // 1500))) for e, _ in feats)
+    return f"{len(feats) // 5}:{env[:60]}"
 
 
 # =============================================================================== provider
@@ -763,7 +808,7 @@ def build_twilio_direct(c: Container) -> TwilioTelephony:
         from_number=s.twilio_from_number,
         public_base_url=s.public_base_url,
         stt=c.stt,
-        tts=c.tts,
+        tts=cached(c.tts, s.media_dir),
         classifier=classifier,
         bus=c.bus,
         clock=c.clock,

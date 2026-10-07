@@ -55,13 +55,33 @@ class UsageTotals:
     calls: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
     cost_inr: float = 0.0
 
 
-def estimate_cost_inr(model: str, input_tokens: int, output_tokens: int) -> float:
+def estimate_cost_inr(model: str, input_tokens: int, output_tokens: int,
+                      cache_read: int = 0, cache_write: int = 0) -> float:
+    """Internal estimate (never shown to users). Cache reads ~0.1x, writes ~1.25x input."""
     price = next((p for k, p in PRICING_USD_PER_MTOK.items() if model.startswith(k)), (4.0, 20.0))
-    usd = input_tokens / 1e6 * price[0] + output_tokens / 1e6 * price[1]
+    usd = (input_tokens + 0.1 * cache_read + 1.25 * cache_write) / 1e6 * price[0] \
+        + output_tokens / 1e6 * price[1]
     return round(usd * USD_TO_INR, 4)
+
+
+def system_blocks(system: str) -> list[dict[str, Any]] | str:
+    """Split on ``CACHE_BREAK`` into blocks, each a prompt-cache breakpoint:
+    [static persona + rules] [per-call stable data, e.g. the CallBrief]. Volatile
+    content (transcript tail, the message) stays in ``messages`` after them."""
+    from .prompts import CACHE_BREAK
+
+    parts = [p for p in system.split(CACHE_BREAK) if p.strip()]
+    if not parts:
+        return system
+    blocks = [{"type": "text", "text": p} for p in parts[:4]]
+    for b in blocks:
+        b["cache_control"] = {"type": "ephemeral"}
+    return blocks
 
 
 def _supports_server_fallback(model: str) -> bool:
@@ -135,7 +155,7 @@ class AnthropicLLM:
         kwargs: dict[str, Any] = {
             "model": model,
             "max_tokens": max_tokens,
-            "system": system,
+            "system": system_blocks(system),
             "messages": api_messages,
         }
         if output_config:
@@ -175,26 +195,70 @@ class AnthropicLLM:
         usage = getattr(response, "usage", None)
         in_tok = int(getattr(usage, "input_tokens", 0) or 0)
         out_tok = int(getattr(usage, "output_tokens", 0) or 0)
+        c_read = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+        c_write = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
         served = getattr(response, "model", model) or model
+        cost = estimate_cost_inr(served, in_tok, out_tok, c_read, c_write)
         totals = self.usage[purpose]
         totals.calls += 1
         totals.input_tokens += in_tok
         totals.output_tokens += out_tok
-        totals.cost_inr += estimate_cost_inr(served, in_tok, out_tok)
-        log.debug(
-            "llm purpose=%s model=%s in=%d out=%d stop=%s cost_inr=%.4f",
-            purpose, served, in_tok, out_tok, stop_reason,
-            estimate_cost_inr(served, in_tok, out_tok),
+        totals.cache_read_tokens += c_read
+        totals.cache_write_tokens += c_write
+        totals.cost_inr += cost
+        log.info(
+            "llm purpose=%s model=%s in=%d out=%d cache_read=%d cache_write=%d stop=%s "
+            "cost_inr=%.4f", purpose, served, in_tok, out_tok, c_read, c_write, stop_reason, cost,
         )
         if stop_reason == "max_tokens" and json_schema:
             raise ProviderError("anthropic", f"output truncated ({purpose})", retryable=True)
         return LLMResponse(
             text=text,
             model=served,
-            input_tokens=in_tok,
+            input_tokens=in_tok + c_read + c_write,
             output_tokens=out_tok,
             stop_reason=stop_reason,
         )
+
+    # ------------------------------------------------------------------ batches
+    async def submit_batch(self, requests: Sequence[dict[str, Any]]) -> str:
+        """Message Batches API (50% cost) for non-real-time work. Each request is
+        ``{"custom_id", "system", "messages": [LLMMessage], "model", "max_tokens",
+        "json_schema", "attachments"}``. Returns the batch id."""
+        items = []
+        for r in requests:
+            params: dict[str, Any] = {
+                "model": r.get("model") or self.fast_model,
+                "max_tokens": r.get("max_tokens", 2000),
+                "system": system_blocks(r.get("system", "")),
+                "messages": self._messages(r["messages"], r.get("attachments", ())),
+            }
+            if r.get("json_schema"):
+                params["output_config"] = {"format": {"type": "json_schema",
+                                                      "schema": r["json_schema"]}}
+            items.append({"custom_id": r["custom_id"], "params": params})
+        try:
+            batch = await self._client.messages.batches.create(requests=items)
+        except anthropic.APIError as e:
+            raise ProviderError("anthropic", f"batch submit failed: {type(e).__name__}",
+                                retryable=True) from e
+        return batch.id
+
+    async def batch_results(self, batch_id: str) -> dict[str, str] | None:
+        """None while processing; else custom_id -> text ('' for failed items)."""
+        batch = await self._client.messages.batches.retrieve(batch_id)
+        if getattr(batch, "processing_status", "") != "ended":
+            return None
+        out: dict[str, str] = {}
+        results = await self._client.messages.batches.results(batch_id)
+        async for item in results:
+            text = ""
+            if getattr(item.result, "type", "") == "succeeded":
+                msg = item.result.message
+                text = "".join(getattr(b, "text", "") for b in msg.content
+                               if getattr(b, "type", "") == "text")
+            out[item.custom_id] = text
+        return out
 
     @staticmethod
     def _messages(

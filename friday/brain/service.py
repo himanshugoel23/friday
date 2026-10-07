@@ -512,11 +512,13 @@ class FridayBrain:
         return turn
 
     # ------------------------------------------------------------------ briefs
-    async def build_call_brief(self, ctx: ConversationContext, task: Task, *,
-                               inbound: InboundContext | None = None) -> CallBrief:
+    def build_call_brief(self, ctx: ConversationContext, task: Task, *,
+                         inbound: InboundContext | None = None) -> CallBrief:
+        """Deterministic (no I/O). The returned brief is awaitable, so both
+        ``await brain.build_call_brief(...)`` (Protocol) and a plain call work."""
         return briefs.build_call_brief(ctx, task, self.settings, inbound=inbound)
 
-    async def build_inbound_brief(self, ctx: ConversationContext, *, caller_phone: str,
+    def build_inbound_brief(self, ctx: ConversationContext, *, caller_phone: str,
                                   tasks: Sequence[Task] = (),
                                   related: Sequence[RelatedTask] = (), kind: str = "answered",
                                   friday_number: str | None = None,

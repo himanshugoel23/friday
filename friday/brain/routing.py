@@ -1,0 +1,110 @@
+"""Model routing + token budgets (founder cost rule).
+
+* Haiku (``claude-haiku-5-5``) for interpretation, extraction, nudge judgement,
+  summaries, comparisons, shortlist reasons, translation.
+* Sonnet (``claude-sonnet-5-5``) for live call turns.
+* Opus (``claude-opus-5-5``) ONLY as an explicit escalation - never a default.
+* Deterministic inputs never reach a model at all (see ``interpret`` fast path,
+  hold / learned-IVR shortcuts in ``next_call_action``, rule-first nudges).
+
+Per-purpose overrides, until core grows Settings fields (proposed in
+docs/CORE_CHANGES.md): env ``FRIDAY_LLM_MODEL_<PURPOSE>`` (e.g.
+``FRIDAY_LLM_MODEL_CALL_TURN=claude-haiku-5-5``), ``FRIDAY_LLM_ESCALATION_MODEL``,
+``FRIDAY_LLM_TASK_TOKEN_BUDGET``; or ``Settings.llm_models`` / ``llm_task_token_budget``
+once they exist.
+"""
+
+from __future__ import annotations
+
+import os
+from collections import defaultdict
+from dataclasses import dataclass, field
+
+from friday.core.config import Settings
+from friday.core.logging import get_logger
+
+log = get_logger(__name__)
+
+HAIKU = "claude-haiku-5-5"
+SONNET = "claude-sonnet-5-5"
+OPUS = "claude-opus-5-5"
+
+DEFAULT_MODELS: dict[str, str] = {
+    "interpret": HAIKU,
+    "resolve_references": HAIKU,
+    "extract": HAIKU,
+    "judge_nudge": HAIKU,
+    "summarize": HAIKU,
+    "compare": HAIKU,
+    "shortlist_reasons": HAIKU,
+    "translate": HAIKU,
+    "sim_business": HAIKU,
+    "call_turn": SONNET,
+}
+# tight output caps: short structured outputs (cost rule 3)
+MAX_TOKENS: dict[str, int] = {
+    "interpret": 700, "resolve_references": 300, "extract": 2500, "judge_nudge": 300,
+    "summarize": 500, "compare": 500, "shortlist_reasons": 400, "translate": 300,
+    "sim_business": 150, "call_turn": 400,
+}
+EFFORT: dict[str, str] = {p: "low" for p in DEFAULT_MODELS}
+# cheaper model when a task is over its token budget
+CHEAPER: dict[str, str] = {SONNET: HAIKU, OPUS: SONNET}
+DEFAULT_TASK_TOKEN_BUDGET = 60_000
+
+
+@dataclass
+class ModelRouter:
+    settings: Settings | None = None
+    overrides: dict[str, str] = field(default_factory=dict)
+    escalation_model: str = OPUS
+    task_token_budget: int = DEFAULT_TASK_TOKEN_BUDGET
+    _used: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    _alerted: set[str] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        s = self.settings
+        configured = dict(getattr(s, "llm_models", None) or {})
+        for purpose in DEFAULT_MODELS:
+            env = os.environ.get(f"FRIDAY_LLM_MODEL_{purpose.upper()}")
+            if env:
+                configured[purpose] = env
+        self.overrides = {**configured, **self.overrides}
+        self.escalation_model = (os.environ.get("FRIDAY_LLM_ESCALATION_MODEL")
+                                 or getattr(s, "llm_escalation_model", None)
+                                 or self.escalation_model)
+        budget = os.environ.get("FRIDAY_LLM_TASK_TOKEN_BUDGET") or getattr(
+            s, "llm_task_token_budget", None)
+        if budget:
+            self.task_token_budget = int(budget)
+
+    def model_for(self, purpose: str, *, task_id: str | None = None,
+                  escalate: bool = False) -> str:
+        if escalate:
+            return self.escalation_model
+        model = self.overrides.get(purpose) or DEFAULT_MODELS.get(purpose, HAIKU)
+        if task_id and self.over_budget(task_id):
+            return CHEAPER.get(model, model)
+        return model
+
+    def max_tokens(self, purpose: str) -> int:
+        return MAX_TOKENS.get(purpose, 600)
+
+    def effort(self, purpose: str) -> str | None:
+        return EFFORT.get(purpose)
+
+    # ------------------------------------------------------------------ budgets
+    def record(self, task_id: str | None, tokens: int) -> None:
+        if not task_id:
+            return
+        self._used[task_id] += tokens
+        if self.over_budget(task_id) and task_id not in self._alerted:
+            self._alerted.add(task_id)
+            log.warning("task %s over its LLM token budget (%d > %d): cheaper models now",
+                        task_id[:8], self._used[task_id], self.task_token_budget)
+
+    def used(self, task_id: str) -> int:
+        return self._used.get(task_id, 0)
+
+    def over_budget(self, task_id: str) -> bool:
+        return self._used.get(task_id, 0) > self.task_token_budget

@@ -4,6 +4,7 @@ brute force stopped by lockout."""
 from __future__ import annotations
 
 import logging
+
 import pytest
 
 from friday.api.security import PinCheck, PinHasher, PinService, extract_pin, pin_problem
@@ -82,8 +83,9 @@ async def test_wrong_pins_lock_sensitive_actions_via_chat(
     assert user.status == UserStatus.ACTIVE  # nothing was deleted
 
 
-async def test_onboarding_pin_never_reaches_brain_or_log(repos, clock, pipeline, channel,
-                                                         fake_brain) -> None:
+async def test_onboarding_pin_never_reaches_brain_or_log(
+    repos, clock, pipeline, channel, fake_brain
+) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE, pin=None)
     user.status = UserStatus.ONBOARDING
     user.onboarding_step = OnboardingStep.PIN
@@ -110,8 +112,9 @@ def test_extract_pin_requires_exactly_one_group() -> None:
 async def test_pin_inside_sentence_is_redacted(repos, clock, pipeline, fake_brain) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     await pipeline.handle(
-        InboundMessage(channel="simulator", from_phone=ALICE_PHONE,
-                       text=f"delete everything, my pin is {PIN}")
+        InboundMessage(
+            channel="simulator", from_phone=ALICE_PHONE, text=f"delete everything, my pin is {PIN}"
+        )
     )
     assert all(PIN not in (s or "") for s in fake_brain.seen)
     assert PIN not in await _messages_text(repos, user.id)

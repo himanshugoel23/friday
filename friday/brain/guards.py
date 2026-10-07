@@ -63,6 +63,12 @@ _COMMIT_TYPES_NEED_APPROVAL = {
 }
 
 
+_BOOKING_TYPES = {TaskType.BOOKING, TaskType.HEALTHCARE, TaskType.ORDER,
+                  TaskType.RECURRING_BOOKING, TaskType.HOTEL_BOOKING, TaskType.RESCHEDULE}
+# inbound call-back successes that are not new commitments (E-37)
+_INBOUND_SUCCESS_KEYS = {"reconfirmed", "ready", "closed_loop", "message_taken"}
+
+
 def strip_fillers(text: str | None) -> str | None:
     if not text:
         return text
@@ -70,8 +76,28 @@ def strip_fillers(text: str | None) -> str | None:
     return re.sub(r"\s{2,}", " ", out) or text
 
 
+_COMMIT_VERB = re.compile(r"\b(reserve|reserved|book|booked|confirm|confirmed|final|finali[sz]e|"
+                          r"lock|pakka|done)\b", re.I)
+_SLOT_MENTION = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm|baje|bje|o'?clock)\b|"
+                           r"\b(?:today|tomorrow|kal|aaj|slot)\b|₹\s*\d", re.I)
+_NOT_A_COMMIT = ("call back", "callback", "confirm karke", "se confirm", "confirm with",
+                 "check with", "checking with", "like to book", "want to book", "chahiye tha",
+                 "what slots", "kaunse slot", "available", "kya aap", "could you", "can you",
+                 "kar sakte", "will confirm", "baad mein", "get back", "check karke",
+                 "hold kar", "share this", "bata ke")
+
+
 def _looks_like_commit(text: str | None) -> bool:
-    return bool(text) and has_any(norm(text), _COMMIT_PHRASES)
+    """Catches verbal commitments the model did not flag: an explicit phrase, or a
+    commit verb next to a slot/time/price - unless it is clearly a call-back/ask."""
+    if not text:
+        return False
+    t = norm(text)
+    if has_any(t, _COMMIT_PHRASES):
+        return True
+    if has_any(t, _NOT_A_COMMIT):
+        return False
+    return bool(_COMMIT_VERB.search(t) and _SLOT_MENTION.search(t))
 
 
 def quote_from(out: QuoteOut | None, brief: CallBrief) -> Quote | None:
@@ -195,12 +221,12 @@ def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswe
                 brief, quote, text):
             return callback_action(brief, out, "outside_delegation")
     if out.type == CallActionType.HANGUP and out.outcome == CallOutcome.SUCCESS and \
-            brief.task_type in {TaskType.BOOKING, TaskType.HEALTHCARE, TaskType.ORDER,
-                                TaskType.RECURRING_BOOKING, TaskType.HOTEL_BOOKING,
-                                TaskType.RESCHEDULE} and not brief.can_commit(list(answers)) \
-            and not out.collected and quote is not None and quote.available_slots:
-        # a "success" without any approval for a booking type is really an offer
-        out.outcome = CallOutcome.PENDING_APPROVAL
+            brief.task_type in _BOOKING_TYPES and not brief.can_commit(list(answers)) and \
+            not (set(collected) & _INBOUND_SUCCESS_KEYS):
+        # a booking "success" without any approval is a hallucinated confirmation:
+        # report it as an offer (call-back route) or as partial info, never as booked
+        out.outcome = CallOutcome.PENDING_APPROVAL if quote is not None else CallOutcome.PARTIAL
+        collected["guard"] = "unapproved_success_downgraded"
 
     # ---- safety on speech / keys
     if text and out.type in (CallActionType.SAY, CallActionType.HANGUP, CallActionType.ASK_USER,

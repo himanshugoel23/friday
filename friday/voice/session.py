@@ -75,13 +75,14 @@ from friday.core.models import (
     UserAnswer,
 )
 from friday.core.safety import check_keys, check_speech
-from friday.voice.events import CallLanguageSwitched, CallLatencyReport
+from friday.voice.events import CallCostReport, CallLanguageSwitched, CallLatencyReport
 from friday.voice.latency import LatencyRecorder
 from friday.voice.text import mask_digits, redact_secrets, strip_fillers
 
 log = get_logger(__name__)
 
 MAX_MID_CALL_QUESTIONS = 2  # US-5.6
+P95_BUDGET_MS = 1500  # founder guardrail: p95 turn latency < 1.5 s
 MAX_BLOCKED_IN_A_ROW = 3
 MAX_SILENCES = 3
 HOLD_LISTEN_S = 30.0
@@ -149,6 +150,13 @@ class VoiceCallResult(CallResult):
     """CallResult + fields proposed for core (docs/CORE_CHANGES.md)."""
 
     from_number: str | None = None  # Friday caller-ID used (sticky per business, E30)
+    # cost components for the ledger (founder cost rule 7/8); also in CallCostReport
+    telephony_seconds: float = 0.0  # answered -> end, incl. hold
+    stt_seconds: float = 0.0  # audio actually sent to STT (VAD'd, none on hold music)
+    tts_chars: int = 0  # characters spoken
+    tts_billed_chars: int = 0  # characters not served from the pre-render cache
+    translate_calls: int = 0
+    ivr_keys_replayed: int = 0  # menu steps replayed from a learned IVR map (no LLM)
     policy_calls: int = 0
     latency: dict[str, float] = {}
 
@@ -337,6 +345,8 @@ class _Session:
         self.tts_chars = 0
         self.translations = 0
         self.voicemail_detected = False
+        self._prerender: asyncio.Future | None = None
+        self._extra_legs: list[CallLeg] = []
         self.care: CareOutcome | None = None
         if brief.task_type == TaskType.CUSTOMER_CARE or brief.company:
             self.care = CareOutcome(company=brief.company, request_kind=brief.care_request)
@@ -384,8 +394,18 @@ class _Session:
                 log.warning("recording unavailable for %s", r.call_id)
         summary = self.latency.summary()
         r.latency = summary
+        self._collect_costs()
         r.cost_inr_est = round(self._cost(), 2)
+        if self._prerender is not None and not self._prerender.done():
+            self._prerender.cancel()
         r.answers = self.answers
+        if summary["p95_ms"] > P95_BUDGET_MS:
+            log.warning(
+                "call %s p95 turn latency %.0fms over the %dms budget",
+                r.call_id,
+                summary["p95_ms"],
+                P95_BUDGET_MS,
+            )
         if summary["turns"]:
             log.info(
                 "call %s latency p50=%.0fms p95=%.0fms over %d turns",
@@ -410,8 +430,38 @@ class _Session:
         self.r._cancelled.discard(self.brief.task_id)
         log.info("call %s to %s finished: %s", r.call_id, mask_phone(r.to_phone), r.outcome.value)
         await self.r.bus.publish(
+            CallCostReport(
+                task_id=r.task_id,
+                call_id=r.call_id,
+                provider=r.provider,
+                telephony_seconds=r.telephony_seconds,
+                hold_seconds=r.hold_seconds,
+                stt_seconds=r.stt_seconds,
+                tts_chars=r.tts_chars,
+                tts_billed_chars=r.tts_billed_chars,
+                policy_calls=r.policy_calls,
+                translate_calls=r.translate_calls,
+                cost_inr_est=r.cost_inr_est,
+            )
+        )
+        await self.r.bus.publish(
             CallFinished(task_id=r.task_id, call_id=r.call_id, outcome=r.outcome)
         )
+
+    def _collect_costs(self) -> None:
+        r = self.result
+        if r.answered_at:
+            r.telephony_seconds = round(
+                max(0.0, (self.clock.now() - r.answered_at).total_seconds()), 1
+            )
+        legs = [self.leg, *self._extra_legs] if self.leg is not None else list(self._extra_legs)
+        r.stt_seconds = round(sum(float(getattr(x, "stt_seconds", 0.0) or 0.0) for x in legs), 1)
+        billed = [getattr(x, "tts_billed_chars", None) for x in legs]
+        r.tts_billed_chars = (
+            sum(b for b in billed if b) if any(b is not None for b in billed) else 0
+        )
+        r.tts_chars = self.tts_chars
+        r.translate_calls = self.translations
 
     def _cost(self) -> float:
         r = self.result
@@ -422,7 +472,7 @@ class _Session:
         return (
             minutes * COST_TELEPHONY_PER_MIN
             + active_min * COST_STT_PER_MIN
-            + self.tts_chars / 1000 * COST_TTS_PER_1K_CHARS
+            + (self.result.tts_billed_chars or 0) / 1000 * COST_TTS_PER_1K_CHARS
             + r.policy_calls * COST_POLICY_CALL
             + self.translations * COST_TRANSLATE_CALL
         )
@@ -479,6 +529,7 @@ class _Session:
                 provider=self.result.provider,
             )
         )
+        self._start_prerender()
         status = await self.leg.wait_for_answer(req.ring_timeout_s)
         self.result.dial_status = status
         if status != DialStatus.ANSWERED:
@@ -488,10 +539,104 @@ class _Session:
         try:
             if b.mode == CallMode.TRANSLATOR:
                 return await self._translator_loop()
-            await self._hear()
+            first = await self._hear()
+            if first is not None and first.audio_class == AudioClass.IVR_PROMPT:
+                outcome = await self._replay_ivr(first)
+                if outcome is not None:
+                    return outcome
             return await self._loop()
         except CallEnded:
             return await self._callee_hung_up()
+
+    # ------------------------------------------------------------------ learned IVR maps
+    def _ivr_steps(self) -> list[tuple[str, str | None]]:
+        """Learned menu path for this company number (cost rule 4).
+
+        Source: ``CallBrief.ivr_map`` (proposed core field: list of steps) or an
+        ``ivr_notes`` entry ``"replay: 2 | 3@broadband | {Registered mobile}# | 9"``.
+        A step is DTMF keys, optionally ``@keyword`` the current prompt must contain;
+        ``{label or id}`` is replaced by that APPROVED identifier's value."""
+        raw: list[str] = list(getattr(self.brief, "ivr_map", None) or [])
+        if not raw:
+            for note in self.brief.ivr_notes:
+                if note.lower().startswith("replay:"):
+                    raw = [x.strip() for x in note.split(":", 1)[1].split("|") if x.strip()]
+                    break
+        steps: list[tuple[str, str | None]] = []
+        for item in raw:
+            keys, _, expect = item.partition("@")
+            steps.append((keys.strip(), expect.strip() or None))
+        return steps
+
+    def _resolve_keys(self, keys: str) -> str | None:
+        def sub(m: re.Match) -> str:
+            ref = m.group(1).strip().lower()
+            for ident in self.brief.approved_identifiers:
+                if ref in (ident.id.lower(), ident.label.lower()):
+                    return re.sub(r"\D", "", ident.value)
+            raise KeyError(ref)
+
+        try:
+            return re.sub(r"\{([^}]+)\}", sub, keys)
+        except KeyError:
+            return None
+
+    async def _replay_ivr(self, prompt: Transcription) -> CallOutcome | None:
+        """Navigate a known IVR without any policy call; hand back to the policy on surprise."""
+        steps = self._ivr_steps()
+        if not steps or self.leg is None:
+            return None
+        heard: Transcription | None = prompt
+        for keys, expect in steps:
+            if heard is None or heard.audio_class != AudioClass.IVR_PROMPT:
+                break
+            if expect and expect.lower() not in (heard.text or "").lower():
+                await self._system(f"IVR REPLAY STOPPED: menu changed (expected '{expect}')")
+                return None
+            digits = self._resolve_keys(keys)
+            if digits is None or not check_keys(digits, self.brief).allowed:
+                await self._system("IVR REPLAY STOPPED: step needs an unapproved identifier")
+                return None
+            await self.leg.send_dtmf(digits)
+            masked = mask_digits(digits)
+            await self._system(f"DTMF: {masked} (learned IVR map)")
+            if self.care is not None:
+                self.care.ivr_path.append(masked)
+            self.result.ivr_keys_replayed += 1
+            heard = await self._hear()
+            if heard is not None and "invalid" in (heard.text or "").lower():
+                await self._system("IVR REPLAY STOPPED: invalid option")
+                return None
+        if heard is not None and heard.audio_class in (
+            AudioClass.HOLD_MUSIC,
+            AudioClass.QUEUE_ANNOUNCEMENT,
+        ):
+            return await self._hold(CallAction(type=CallActionType.WAIT_ON_HOLD))
+        return None
+
+    def _fixed_lines(self) -> dict[Language, list[str]]:
+        """Lines the runner itself may speak on this call (pre-rendered while ringing)."""
+        b = self.brief
+        lang = b.opening_language
+        lines = {lang: [b.disclosure(lang)]}
+        for table in (_HOLD_LINES, _SAFE_EXIT, _CANCEL_LINE):
+            text, tl = _line(table, lang, name=self.name)
+            lines.setdefault(tl, []).append(text)
+        if self.care is not None and lang != Language.EN:  # agents after IVR often speak English
+            lines.setdefault(Language.EN, []).append(b.disclosure(Language.EN))
+        return lines
+
+    def _start_prerender(self) -> None:
+        tts = getattr(getattr(self.leg, "tel", None), "tts", None)
+        prerender = getattr(tts, "prerender", None)
+        if prerender is None:
+            return
+
+        async def warm() -> None:
+            for lang, texts in self._fixed_lines().items():
+                await prerender(texts, lang)
+
+        self._prerender = asyncio.ensure_future(warm())
 
     def _needs(self) -> set[str]:
         """Capabilities this call needs (RoutedTelephony falls back per call)."""
@@ -907,6 +1052,16 @@ class _Session:
 
     # ================================================================== hold
     async def _hold(self, action: CallAction) -> CallOutcome | None:
+        setter = getattr(self.leg, "set_hold_mode", None)
+        if setter:
+            setter(True)  # local classifier only; no STT on hold music
+        try:
+            return await self._hold_loop(action)
+        finally:
+            if setter:
+                setter(False)
+
+    async def _hold_loop(self, action: CallAction) -> CallOutcome | None:
         assert self.leg is not None
         max_hold = action.max_hold_s or self.brief.max_hold_s
         target = self.brief.target.name
@@ -989,6 +1144,7 @@ class _Session:
         if action.text:
             await self._say(action.text, action.language)
         user_leg = await self.leg.add_participant(self.brief.user_phone, announce=self._whisper())
+        self._extra_legs.append(user_leg)
         status = await user_leg.wait_for_answer(USER_JOIN_TIMEOUT_S)
         if status != DialStatus.ANSWERED:
             await self._system(f"USER DID NOT JOIN ({status.value})")
@@ -1098,6 +1254,7 @@ class _Session:
                 metadata={"role": "user", "call_id": self.result.call_id},
             )
         )
+        self._extra_legs.append(user_leg)
         status = await user_leg.wait_for_answer(USER_JOIN_TIMEOUT_S)
         if status != DialStatus.ANSWERED:
             await self._system(f"USER DID NOT JOIN ({status.value})")

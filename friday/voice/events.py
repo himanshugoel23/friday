@@ -18,6 +18,7 @@ Inbound (BRIEF E30-35):
 Call quality:
   * ``CallLanguageSwitched`` - callee language changed mid-call (US-13.2 logging).
   * ``CallLatencyReport``   - per-call STT -> policy -> TTS turn latency (V-9).
+  * ``CallCostReport``      - telephony seconds, STT seconds, TTS chars, LLM calls (cost ledger).
 """
 
 from __future__ import annotations
@@ -72,3 +73,19 @@ class CallLatencyReport(Event):
     policy_p95_ms: float
     stt_p95_ms: float
     tts_p95_ms: float
+
+
+class CallCostReport(Event):
+    """Per-call cost components for the internal cost ledger (never user-facing)."""
+
+    task_id: str
+    call_id: str
+    provider: str
+    telephony_seconds: float = 0.0  # answered -> end (incl. hold)
+    hold_seconds: int = 0
+    stt_seconds: float = 0.0  # audio sent to STT (VAD'd; no STT on hold music)
+    tts_chars: int = 0  # characters spoken
+    tts_billed_chars: int = 0  # characters actually synthesised (cache misses)
+    policy_calls: int = 0  # LLM call turns
+    translate_calls: int = 0
+    cost_inr_est: float = 0.0

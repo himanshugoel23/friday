@@ -37,7 +37,13 @@ from friday.core.models import (
     TaskType,
 )
 
-from .inbound import InboundCallBrief, InboundContext, RelatedTask, task_label
+from .inbound import (
+    AwaitableCallBrief,
+    InboundCallBrief,
+    InboundContext,
+    RelatedTask,
+    task_label,
+)
 from .templates import template_for
 from .textutil import format_inr
 
@@ -51,6 +57,11 @@ CARE_MAX_DURATION_S = 1200
 
 class BriefError(ValueError):
     """The task can't be turned into a call yet (no target / phone)."""
+
+
+def home_visit_task(task: Task, spec) -> bool:
+    return task.type in HOME_VISIT_TYPES or (spec.category in HOME_VISIT_CATEGORIES) \
+        or "home visit" in spec.constraints or "home collection" in (spec.goal or "").lower()
 
 
 def _person(ctx: ConversationContext, person_id: str | None) -> Person | None:
@@ -188,19 +199,22 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
         shareable[label] = booking_name
         if spec.party_size:
             shareable["party size"] = str(spec.party_size)
-        home_visit = task.type in HOME_VISIT_TYPES or (spec.category in HOME_VISIT_CATEGORIES) \
-            or "home visit" in spec.constraints or "home collection" in (spec.goal or "").lower()
-        if place and home_visit:
+        if place and home_visit_task(task, spec):
             addr = place.formatted_address or place.address_text
             if addr:
                 key = "delivery address" if task.type == TaskType.ORDER else "visit address"
                 shareable[key] = addr
         if spec.reference:
             shareable["reference"] = spec.reference
+    # location context: the full address only for home visits (it is then also a
+    # shareable detail); otherwise just the area/city so the agent can say "near X"
     location = None
     if place:
-        location = f"{place.label}" + (f", {place.formatted_address or place.address_text}"
-                                       if (place.formatted_address or place.address_text) else "")
+        if home_visit_task(task, spec):
+            addr = place.formatted_address or place.address_text
+            location = f"{place.label}" + (f", {addr}" if addr else "")
+        else:
+            location = place.city or spec.location_text or None
     elif spec.location_text:
         location = spec.location_text
 
@@ -292,14 +306,13 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
         max_duration_s=max_duration,
     )
     if inbound is None:
-        from friday.core.models import CallBrief
-
-        return CallBrief(**kwargs)
+        return AwaitableCallBrief(**kwargs)
+    if not inbound.caller_matches_business:
+        return build_inbound_brief(ctx, caller_phone=inbound.caller_phone,
+                                   kind=inbound.kind, friday_number=inbound.friday_number,
+                                   caller_matches_business=False, settings=settings)
     if inbound.matched_task_id is None and len(inbound.related) <= 1:
         inbound = inbound.model_copy(update={"matched_task_id": task.id})
-    if not inbound.caller_matches_business:
-        kwargs["shareable_details"] = {}
-        kwargs["allowed_disclosures"] = []
     direction = CallDirection.OUTBOUND if inbound.kind == "missed_call" else CallDirection.INBOUND
     return InboundCallBrief(direction=direction, inbound=inbound, **kwargs)
 
@@ -336,6 +349,10 @@ def build_inbound_brief(ctx: ConversationContext, *, caller_phone: str,
     """
     related = list(related or [])
     tasks = list(tasks or [])
+    if not caller_matches_business:
+        # E-34: caller ID doesn't match the business record -> treat as unknown; the
+        # brief must carry nothing about the user, the beneficiary or the task.
+        related, tasks = [], []
     if not related and tasks:
         related = [related_from_task(t, ctx) for t in tasks]
     ib = InboundContext(kind=kind if related else "unknown",  # type: ignore[arg-type]

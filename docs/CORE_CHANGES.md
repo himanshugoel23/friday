@@ -105,3 +105,67 @@ tasks_better_offer_pct: int = 15
 # events.py (today local in friday/tasks/events.py, no core change strictly needed)
 class WellbeingAlertRaised(Event): task_id; user_id; person_id: str | None; text: str
 ```
+
+## 2026-10-07 — Voice Engineer (friday/voice)
+What / why / diff (all additive). Voice already works without them via local workarounds
+(noted per item); merging them removes the workarounds.
+
+1. **Telephony selection: Sarvam > Exotel > Twilio** (founder/coordinator decisions).
+   Today: `FRIDAY_TELEPHONY_PROVIDER=exotel` (or `twilio`) + env `FRIDAY_TELEPHONY_ROUTE=sarvam,exotel,twilio`
+   makes those factories return `friday.voice.telephony.routing.RoutedTelephony` (per-call capability fallback,
+   Twilio for non-+91 numbers).
+```python
+# config.py
+TelephonyProviderName = Literal["auto", "simulator", "routed", "sarvam", "twilio", "exotel", "plivo"]
+telephony_route: list[str] = ["sarvam", "exotel", "twilio"]            # FRIDAY_TELEPHONY_ROUTE
+friday_numbers: list[str] = []          # FRIDAY_NUMBERS: sticky caller-ID pool (all providers)
+exotel_subdomain: str = "api.in.exotel.com"; exotel_voicebot_app_id: str | None = None   # EXOTEL_*
+exotel_caller_ids: list[str] = []
+sarvam_telephony_auth_id: str | None = None; sarvam_telephony_auth_token: SecretStr | None = None
+sarvam_telephony_base_url: str = "https://api.vobiz.ai/api/v1"; sarvam_caller_ids: list[str] = []
+sim_time_scale: float | None = None     # simulator legs: virtual-time scale (None = auto)
+def resolve_telephony(self):
+    if not self.is_live: return "simulator"
+    if self.telephony_provider != "auto": return self.telephony_provider
+    return "routed"   # RoutedTelephony skips providers without credentials
+# live_problems(): exotel -> also EXOTEL_VOICEBOT_APP_ID; sarvam -> SARVAM_TELEPHONY_AUTH_ID/_TOKEN;
+#                  routed -> at least one provider in telephony_route fully configured
+# container.py FACTORIES["telephony"]
+"routed": "friday.voice.telephony.routing:build_routed_telephony",
+"sarvam": "friday.voice.telephony.sarvam:build_sarvam_telephony",
+```
+2. **Capabilities + inbound on the telephony Protocol** (BRIEF E30-37; per-call fallback).
+   Today: duck-typed (`capabilities()`, `take_inbound()` exist on every voice provider).
+```python
+class TelephonyProvider(Protocol):
+    def capabilities(self) -> frozenset[str]: ...   # outbound, inbound, missed_call, media_stream,
+                                                   # dtmf, recording, amd, bridge_transfer, bridge_conference
+    def take_inbound(self, provider_call_id: str) -> CallLeg | None: ...  # claim a parked inbound leg
+class CallSessionRunner(Protocol):
+    async def run_inbound(self, leg: CallLeg, brief: CallBrief, ask_user: AskUser,
+                          notify_user: NotifyUser | None = None, *, context: str | None = None
+                          ) -> CallResult: ...       # (also accepts brief-first order)
+    def cancel(self, task_id: str) -> None: ...      # FIRST_MATCH sibling found -> CANCELLED politely
+```
+   Events: voice publishes `InboundCallReceived(from_phone, to_number, provider_call_id, provider,
+   business_id)` and `MissedCallReceived(from_phone, to_number, provider_call_id, provider, ring_seconds,
+   reason)` from `friday/voice/events.py` — same names/fields as Backend A's proposal above; please move
+   them (plus `CallCostReport`, `CallLatencyReport`, `CallLanguageSwitched`) into core events.py.
+3. **Models** (today: `friday.voice.session.VoiceCallResult(CallResult)` subclass + request metadata).
+```python
+class OutboundCallRequest:  from_number: str | None = None   # sticky caller ID (runner also sets metadata)
+class CallBrief:            from_number: str | None = None   # Backend B's CallMemory choice
+                            ivr_map: list[str] = []          # learned menu path, e.g. ["2","3@broadband",
+                                                             #  "{Registered mobile}#","9"] (today: ivr_notes
+                                                             #  entry "replay: 2 | 3@broadband | ...")
+class CallTurn:             audio_class: AudioClass | None = None  # today: "[ivr_prompt] ..." text prefix
+class CallResult:           from_number: str | None = None
+                            telephony_seconds: float = 0.0; stt_seconds: float = 0.0
+                            tts_chars: int = 0; tts_billed_chars: int = 0
+                            policy_calls: int = 0; translate_calls: int = 0; ivr_keys_replayed: int = 0
+class Transcription:        duration_s: float | None = None  # chunk length (hold accounting)
+```
+4. **simworld** (today: `persona.notes` directives `sim:alt_phones=...`, `sim:no_answer_attempts=N`,
+   `sim:calls_back_after=S`, `sim:missed_call_after=S`, `sim:agent_asks_otp`, `sim:person`, ...; see
+   friday/voice/simulator.py docstring). Proposal: `SimBusiness.alt_phones: list[str] = []` so the
+   directory/verifier simulators can list alternate numbers too (BRIEF E36).

@@ -66,6 +66,7 @@ from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.telephony.exotel import exotel_token as _token
 from friday.voice.telephony.twilio import FRAME_BYTES, TwilioCallLeg
+from friday.voice.tts.cache import cached
 
 log = get_logger(__name__)
 
@@ -495,7 +496,7 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
         public_base_url=s.public_base_url,
         secret=s.secret_key.get_secret_value(),
         stt=c.stt,
-        tts=c.tts,
+        tts=cached(c.tts, s.media_dir),
         classifier=classifier,
         bus=c.bus,
         clock=c.clock,
