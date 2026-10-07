@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import IntEnum, StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from friday.core.clock import utcnow
+from friday.core.clock import at_ist, ensure_utc, to_ist, utcnow
 
 
 def new_id() -> str:
@@ -174,11 +174,76 @@ class PlaceSource(StrEnum):
 
 
 class TaskType(StrEnum):
-    BOOKING = "booking"  # clinic, salon, restaurant, service provider
-    ENQUIRY = "enquiry"  # open? price? stock?
-    QUOTE = "quote"  # get (and negotiate) a price quote; never commits
-    DISCOVERY = "discovery"  # parent: search -> shortlist -> child QUOTE/ENQUIRY calls
+    """Every Phase-1 "footwork" job. Behaviour per type comes from DATA - a
+    ``BriefTemplate`` (friday/brain/templates/) - never from per-type code branches.
+    Brief section refs (A1..A13) in comments.
+    """
+
+    BOOKING = "booking"  # core: clinic, salon, restaurant, service provider
+    ENQUIRY = "enquiry"  # core + A11: open? price? tutors, coaching, admissions, gyms
+    RESCHEDULE = "reschedule"  # A1
+    CANCEL_BOOKING = "cancel_booking"  # A1
+    RECONFIRM = "reconfirm"  # A2: "is my 7pm table still on?"
+    RUNNING_LATE = "running_late"  # A2: notify the business
+    ORDER = "order"  # A3: pharmacy / kirana / water cans / tiffin (no payment)
+    STOCK_HUNT = "stock_hunt"  # A4: fan-out, stop at first match
+    SERVICE_COORDINATION = "service_coordination"  # A5: ETA, chase no-show, arrival, done?
+    STATUS_CHASE = "status_chase"  # A6: repair shop, tailor, refund, delivery
+    COMPLAINT = "complaint"  # A7: non-IVR local business
+    RENTAL_HUNT = "rental_hunt"  # A8: brokers/landlords - rent, deposit, rules, visit slots
+    QUOTE = "quote"  # A9: big-ticket quote collection + negotiation; never commits
+    HEALTHCARE = "healthcare"  # A10: doctor slots, lab home collection, physio/nurse visits
+    RECURRING_BOOKING = "recurring_booking"  # A12: parent; spawns a BOOKING per schedule
+    WELLBEING_CHECKIN = "wellbeing_checkin"  # A13: call a circle member (opt-in only)
+    DISCOVERY = "discovery"  # generic parent: search -> shortlist -> child calls
     #                          -> comparison -> user picks -> child BOOKING call
+
+
+class TargetKind(StrEnum):
+    BUSINESS = "business"
+    PERSON = "person"  # circle member (wellbeing check-in, reminders) - needs opt-in
+
+
+class FanOutStrategy(StrEnum):
+    SINGLE = "single"  # one target
+    SEQUENTIAL = "sequential"  # one after another (quotes: each call gets prior quotes)
+    PARALLEL = "parallel"  # up to ``concurrency`` at once, aggregate all (B14)
+    FIRST_MATCH = "first_match"  # parallel/sequential, cancel the rest on first success (A4)
+
+
+class CallMode(StrEnum):
+    AGENT = "agent"  # Friday converses alone (default)
+    WARM_TRANSFER = "warm_transfer"  # B17: reach the right person, then patch the user in
+    TRANSLATOR = "translator"  # B18: user + business on one call, Friday translates
+
+
+class InteractionKind(StrEnum):
+    """Vendor memory events (B20)."""
+
+    CALLED = "called"
+    QUOTED = "quoted"
+    BOOKED = "booked"
+    PAID = "paid"  # user-reported price paid (Friday never pays)
+    NO_SHOW = "no_show"
+    COMPLETED = "completed"  # service done
+    RATED = "rated"
+    COMPLAINT = "complaint"
+    NOTE = "note"
+
+
+class NumberVerdict(StrEnum):
+    TRUSTED = "trusted"  # e.g. multiple consistent listings / used before successfully
+    UNKNOWN = "unknown"
+    SUSPICIOUS = "suspicious"  # warn the user before calling / sharing details
+    SCAM = "scam"  # known scam list -> never call, never share
+
+
+class ExtractionKind(StrEnum):
+    MENU = "menu"
+    PRICE_LIST = "price_list"
+    QUOTE = "quote"
+    BILL = "bill"
+    GENERIC = "generic"
 
 
 class TaskStatus(StrEnum):
@@ -228,6 +293,7 @@ class CallOutcome(StrEnum):
     # Offer/slot obtained, business agreed to wait; call ended to get user approval.
     # Task -> AWAITING_APPROVAL; on approval the engine places a confirm call.
     PENDING_APPROVAL = "pending_approval"
+    TRANSFERRED = "transferred"  # warm transfer done; user talking to the business
     FAILED = "failed"  # technical failure
     CANCELLED = "cancelled"
 
@@ -260,7 +326,11 @@ class CallActionType(StrEnum):
     # brief.approval.hold_timeout_s; the answer (or timeout) comes back as a SYSTEM turn.
     ASK_USER = "ask_user"
     WAIT = "wait"  # say nothing, keep listening (callee checking something)
-    DTMF = "dtmf"  # press keys (IVR menus) - optional for Phase 1
+    DTMF = "dtmf"  # press keys (simple menus) - optional for Phase 1
+    # WARM_TRANSFER mode: dial the user into the call (three-way). ``text`` is said to
+    # the callee first ("Connecting you to Rahul now"). Runner then leaves if
+    # ``leave_after_bridge`` else stays silent/monitoring.
+    BRIDGE_USER = "bridge_user"
     HANGUP = "hangup"  # speak text (goodbye) then end the call
 
 
@@ -269,6 +339,7 @@ class MessageKind(StrEnum):
     VOICE_NOTE = "voice_note"
     BUTTON_REPLY = "button_reply"
     IMAGE = "image"
+    DOCUMENT = "document"  # PDF quotes, menus
     LOCATION = "location"
     CONTACT = "contact"  # shared vCard (business phone!)
     SYSTEM = "system"
@@ -302,6 +373,7 @@ class Intent(StrEnum):
     REJECT = "reject"
     CANCEL_TASK = "cancel_task"
     REMEMBER = "remember"  # "my rent is due on 5th"
+    RATE_VENDOR = "rate_vendor"  # "plumber was great, 5 stars" / "he overcharged"
     ADD_PERSON = "add_person"  # "add my dad, +91 98..., lives in Jaipur"
     ADD_PLACE = "add_place"  # "save this as Mom & Dad's home" / location pin / maps link
     QUERY_MEMORY = "query_memory"  # "what's my dentist's number?"
@@ -335,6 +407,8 @@ class NudgeKind(StrEnum):
     DATE_BASED = "date_based"  # from Fact(kind=DATE)
     PATTERN = "pattern"  # "4 weeks since haircut - book usual?"
     MORNING_BRIEFING = "morning_briefing"
+    RECURRING_DUE = "recurring_due"  # "weekly physio tomorrow - book same slot?"
+    WELLBEING_ALERT = "wellbeing_alert"  # check-in sounded wrong -> URGENT
     TASK_RESULT = "task_result"  # not unprompted; report of a finished task
 
 
@@ -378,6 +452,7 @@ class AutonomyCategory(StrEnum):
     FOLLOW_UPS = "follow_ups"
     ROUTINES = "routines"  # pattern nudges (haircut, groceries...)
     BRIEFING = "briefing"
+    FAMILY = "family"  # wellbeing check-ins, nudges about circle members
 
 
 # =============================================================================== people
@@ -464,8 +539,9 @@ class Person(_Model):
     phone: str | None = None  # E.164
     language: Language | None = None  # for reminders to them and calls about them
     notes: str | None = None  # PRIVATE: "diabetic, prefers morning appointments"
-    contact_consent: PersonConsent = PersonConsent.NOT_ASKED
+    contact_consent: PersonConsent = PersonConsent.NOT_ASKED  # messages/reminders to them
     consent_at: datetime | None = None
+    checkin_consent: PersonConsent = PersonConsent.NOT_ASKED  # A13 wellbeing CALLS to them
     linked_user_id: str | None = None  # if they later join Friday themselves
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -543,18 +619,109 @@ class ReferenceResolution(_Model):
 # =============================================================================== memory
 
 
+class OpeningPeriod(_Model):
+    """One open interval on an IST weekday (0=Mon..6=Sun), 'HH:MM' 24h, close > open."""
+
+    weekday: int = Field(ge=0, le=6)
+    open: str  # "10:00"
+    close: str  # "13:30"
+
+
+class BusinessHours(_Model):
+    """Weekly opening hours in IST (B19). Lunch breaks = two periods on a day."""
+
+    periods: list[OpeningPeriod] = Field(default_factory=list)
+    source: str | None = None  # "google_places" / "learned_on_call" / "user"
+    notes: str | None = None  # "closed 2nd Sunday"
+
+    @staticmethod
+    def _minutes(hhmm: str) -> int:
+        h, m = hhmm.split(":")
+        return int(h) * 60 + int(m)
+
+    def is_open(self, when: datetime) -> bool | None:
+        """None if hours unknown (no periods)."""
+        if not self.periods:
+            return None
+        local = to_ist(when)
+        mins = local.hour * 60 + local.minute
+        return any(
+            p.weekday == local.weekday()
+            and self._minutes(p.open) <= mins < self._minutes(p.close)
+            for p in self.periods
+        )
+
+    def next_open(self, when: datetime, *, margin_min: int = 0) -> datetime | None:
+        """Earliest UTC instant >= ``when`` at which the business is open (and stays
+        open for ``margin_min``). None if hours unknown."""
+        if not self.periods:
+            return None
+        local = to_ist(when)
+        for day in range(8):
+            d = local.date() + timedelta(days=day)
+            for p in sorted(
+                (p for p in self.periods if p.weekday == d.weekday()),
+                key=lambda p: self._minutes(p.open),
+            ):
+                start = at_ist(d, *divmod(self._minutes(p.open), 60))
+                end = at_ist(d, *divmod(self._minutes(p.close), 60)) - timedelta(minutes=margin_min)
+                candidate = max(start, ensure_utc(when))
+                if candidate < end:
+                    return candidate
+        return None
+
+
 class Business(_Model):
+    """A business Friday has dealt with or found. Shared across users (B2B groundwork);
+    per-user history lives in VendorInteraction."""
+
     id: str = Field(default_factory=new_id)
     name: str
     phone: str  # E.164
+    whatsapp_phone: str | None = None  # B15: if reachable on WhatsApp
     category: str | None = None  # "salon", "clinic", "restaurant", "plumber"...
     city: str | None = None
     address: str | None = None
+    location: GeoPoint | None = None
+    hours: BusinessHours | None = None  # B19
+    best_call_times: list[str] = Field(default_factory=list)  # learned: "after 11am", "not 1-3pm"
     notes: str | None = None  # "closed Tuesdays", "ask for Ramesh"
     language_hint: Language | None = None
+    directory_provider: str | None = None
+    directory_place_id: str | None = None
+    rating: float | None = None  # public rating from directory
+    review_count: int | None = None
+    verification: NumberVerdict | None = None  # last NumberVerifier verdict
     created_by_user_id: str | None = None
     last_called_at: datetime | None = None
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class VendorInteraction(_Model):
+    """Vendor memory (B20): one event between a user and a business."""
+
+    id: str = Field(default_factory=new_id)
+    user_id: str
+    business_id: str
+    kind: InteractionKind
+    task_id: str | None = None
+    call_id: str | None = None
+    amount_inr: int | None = None  # quoted / paid
+    rating: int | None = Field(default=None, ge=1, le=5)  # user's rating
+    outcome: str | None = None  # "on time", "no-show", "overcharged"
+    note: str | None = None
+    at: datetime = Field(default_factory=utcnow)
+
+
+class ContactTarget(_Model):
+    """Who a call/message goes to: a business OR a circle member."""
+
+    kind: TargetKind
+    name: str
+    phone: str  # E.164
+    business_id: str | None = None
+    person_id: str | None = None
+    language_hint: Language | None = None
 
 
 class Fact(_Model):
@@ -636,6 +803,10 @@ class InboundMessage(_Model):
     button_id: str | None = None  # for BUTTON_REPLY: ReplyButton.id
     contact_phone: str | None = None  # for CONTACT: shared number
     location: LocationPin | None = None  # for LOCATION: WhatsApp pin
+    # Set by backend when the sender is a known business (B15 WhatsApp-to-business
+    # replies: menus, price lists, quote photos) or a circle member.
+    business_id: str | None = None
+    person_id: str | None = None
     provider_message_id: str | None = None
     reply_to_provider_id: str | None = None
     received_at: datetime = Field(default_factory=utcnow)
@@ -661,6 +832,7 @@ class OutboundMessage(_Model):
     task_id: str | None = None
     nudge_id: str | None = None
     question_id: str | None = None
+    business_id: str | None = None  # recipient is a business (B15)
     # Set when the recipient is a circle member (not the user). The backend
     # notifier MUST refuse unless Person.contact_consent == OPTED_IN (except the
     # one-time opt-in request itself, which is a template).
@@ -759,7 +931,85 @@ class QuoteComparison(_Model):
     buttons: list[ReplyButton] = Field(default_factory=list, max_length=3)
 
 
+class PriceItem(_Model):
+    name: str
+    amount_inr: int | None = None
+    price_text: str | None = None
+    unit: str | None = None  # "per plate", "per visit"
+
+
+class ExtractedDocument(_Model):
+    """DocumentExtractor output for a menu / price list / quote image or PDF."""
+
+    kind: ExtractionKind
+    text: str  # faithful transcription (OCR-ish)
+    items: list[PriceItem] = Field(default_factory=list)
+    quote: Quote | None = None
+    business_name: str | None = None
+    confidence: float = 1.0
+
+
+class NumberCheck(_Model):
+    """NumberVerifier output (B16)."""
+
+    phone: str
+    verdict: NumberVerdict
+    score: float = 0.5  # 0 = surely scam, 1 = surely genuine
+    signals: list[str] = Field(default_factory=list)  # "3 consistent listings", "on scam list"
+    warn_user: bool = False
+    checked_at: datetime = Field(default_factory=utcnow)
+
+
+class MediaBlob(_Model):
+    """Downloaded media (voice note, image, PDF)."""
+
+    data: bytes
+    mime: str
+    filename: str | None = None
+
+
 # =============================================================================== tasks
+
+
+class FanOutPolicy(_Model):
+    """How a parent task spreads over several targets (B14, A4, A9)."""
+
+    strategy: FanOutStrategy = FanOutStrategy.SINGLE
+    concurrency: int = 3  # PARALLEL / FIRST_MATCH
+    max_targets: int = 5
+
+
+class RecurrenceRule(_Model):
+    """A12 recurring bookings / A13 daily check-ins. Times are IST wall-clock."""
+
+    freq: Recurrence  # WEEKLY / MONTHLY / YEARLY (DAILY via interval_days)
+    interval: int = 1  # every N freq units
+    interval_days: int | None = None  # overrides freq: every N days (1 = daily)
+    weekdays: list[int] = Field(default_factory=list)  # 0=Mon (WEEKLY)
+    day_of_month: int | None = None  # MONTHLY
+    time_ist: str = "10:00"  # "HH:MM" when to run / place the call
+    lead_days: int = 0  # book this many days before the occurrence
+    until: date | None = None
+    next_run_at: datetime | None = None  # UTC, maintained by the task engine
+
+
+class BriefTemplate(_Model):
+    """Data, not code: how a TaskType becomes calls. Shipped as files in
+    friday/brain/templates/ (AI Engineer); the brain applies it in build_call_brief
+    and when planning (fills TaskSpec.fan_out etc.)."""
+
+    task_type: TaskType
+    goal_template: str  # "Book {what} for {beneficiary} {when} at {target}"
+    required_fields: list[str] = Field(default_factory=list)  # spec fields before calling
+    default_questions: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+    target_kind: TargetKind = TargetKind.BUSINESS
+    fan_out: FanOutPolicy = Field(default_factory=FanOutPolicy)
+    call_mode: CallMode = CallMode.AGENT
+    needs_approval_to_commit: bool = True  # bookings/orders: always True
+    may_negotiate: bool = False
+    follow_up_after_h: int | None = None  # A5 "did the plumber come?"
+    safety_rules: list[str] = Field(default_factory=list)  # e.g. "never give medical advice"
 
 
 class TaskSpec(_Model):
@@ -771,6 +1021,11 @@ class TaskSpec(_Model):
     business_phone: str | None = None  # E.164; required before CALLING
     business_id: str | None = None
     category: str | None = None  # salon / clinic / restaurant / plumber...
+    reference: str | None = None  # existing booking/order ref for A1/A2/A6 ("token 42")
+    item: str | None = None  # A3/A4: "Dolo 650 x 2 strips"
+    fan_out: FanOutPolicy | None = None  # None -> template default
+    call_mode: CallMode = CallMode.AGENT
+    recurrence: RecurrenceRule | None = None  # A12 / A13
     # discovery (TaskType.DISCOVERY or no business named)
     discovery_query: str | None = None  # "AC repair"
     location_text: str | None = None  # "near Indiranagar, Bangalore"
@@ -797,7 +1052,7 @@ class TaskSpec(_Model):
 
     @property
     def needs_discovery(self) -> bool:
-        return self.type == TaskType.DISCOVERY or (
+        return self.type in (TaskType.DISCOVERY, TaskType.STOCK_HUNT) or (
             not self.business_phone and bool(self.discovery_query)
         )
 
@@ -810,13 +1065,15 @@ class Task(_Model):
     type: TaskType
     status: TaskStatus = TaskStatus.CREATED
     spec: TaskSpec
+    target: ContactTarget | None = None  # resolved who-to-call (business or person)
     attempts: int = 0
     max_attempts: int = 3
-    next_attempt_at: datetime | None = None
+    next_attempt_at: datetime | None = None  # queued/scheduled dial time (business-hours aware)
     last_outcome: CallOutcome | None = None
     result: TaskResult | None = None
-    # multi-call: DISCOVERY parent -> child QUOTE/ENQUIRY/BOOKING tasks
+    # multi-call: parent (DISCOVERY/STOCK_HUNT/QUOTE/RECURRING_BOOKING...) -> children
     parent_task_id: str | None = None
+    recurrence: RecurrenceRule | None = None  # parent of recurring children
     candidate: BusinessCandidate | None = None  # child: which shortlisted business
     shortlist: list[ShortlistItem] = Field(default_factory=list)  # parent
     approved_terms: str | None = None  # user-approved slot/price for a confirm call
@@ -838,6 +1095,9 @@ class TaskResult(_Model):
     quotes: list[Quote] = Field(default_factory=list)
     comparison: QuoteComparison | None = None  # DISCOVERY parent
     needs_approval: MidCallQuestion | None = None  # PENDING_APPROVAL: what to ask the user
+    alert: str | None = None  # A13: something sounded wrong -> URGENT nudge to the user
+    extracted: list[ExtractedDocument] = Field(default_factory=list)  # B15 menus/quotes
+    interactions: list[VendorInteraction] = Field(default_factory=list)  # B20 to persist
     facts: list[Fact] = Field(default_factory=list)  # e.g. business notes learned
     business_touch: TemplateRef | None = None  # end-of-call SMS/WA to the business
 
@@ -910,6 +1170,7 @@ class CallAction(_Model):
     # True if ``text`` confirms a booking/commitment to the business. The runner
     # refuses such an action unless the brief allows it (brief.can_commit(answers)).
     commits_booking: bool = False
+    leave_after_bridge: bool = True  # BRIDGE_USER
 
 
 class ApprovalPolicy(_Model):
@@ -930,9 +1191,10 @@ class CallBrief(_Model):
     requester_user_id: str
     task_type: TaskType
     goal: str  # "Get a quote for AC servicing (2 split ACs) and a Sat slot"
-    business_name: str | None = None
-    business_phone: str  # E.164 - who we dial
-    business: Business | None = None
+    target: ContactTarget  # who we dial (business or circle member)
+    business: Business | None = None  # when target.kind == BUSINESS and known
+    mode: CallMode = CallMode.AGENT
+    template: BriefTemplate | None = None  # success criteria, safety rules
     on_behalf_of: str  # requester's name for the disclosure
     # Who the booking is for, if not the requester ("Ramesh Sharma", "father").
     beneficiary_name: str | None = None
@@ -953,6 +1215,7 @@ class CallBrief(_Model):
     budget: Budget | None = None
     negotiation: NegotiationPolicy = Field(default_factory=NegotiationPolicy)
     competing_quotes: list[Quote] = Field(default_factory=list)  # leverage from sibling calls
+    vendor_history: list[str] = Field(default_factory=list)  # "charged ₹400 last time (Mar)"
     user_context: list[str] = Field(default_factory=list)  # relevant facts, e.g. "has 2 split ACs"
     allowed_disclosures: list[str] = Field(default_factory=list)  # "first name", "area"
     forbidden_disclosures: list[str] = Field(
@@ -961,6 +1224,7 @@ class CallBrief(_Model):
     approval: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
     # Set on a follow-up confirm call: the slot/price the user already approved.
     approved_terms: str | None = None
+    user_phone: str | None = None  # WARM_TRANSFER / TRANSLATOR: who to bridge in (never spoken)
     attempt: int = 1
     max_duration_s: int = 300
 
@@ -1058,6 +1322,7 @@ class ConversationContext(_Model):
     open_tasks: list[Task] = Field(default_factory=list)
     pending_question: MidCallQuestion | None = None  # outstanding mid-call question
     known_businesses: list[Business] = Field(default_factory=list)
+    vendor_history: list[VendorInteraction] = Field(default_factory=list)  # B20
     people: list[Person] = Field(default_factory=list)  # owner's circle
     places: list[Place] = Field(default_factory=list)  # owner's saved places
     autonomy: list[AutonomySetting] = Field(default_factory=list)
