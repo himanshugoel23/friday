@@ -759,6 +759,7 @@ class Business(_Model):
     name: str
     phone: str  # E.164
     whatsapp_phone: str | None = None  # B15: if reachable on WhatsApp
+    alt_phones: list[str] = Field(default_factory=list)  # E.36 other listed numbers (E.164)
     category: str | None = None  # "salon", "clinic", "restaurant", "plumber"...
     city: str | None = None
     address: str | None = None
@@ -996,6 +997,8 @@ class BusinessCandidate(_Model):
     maps_url: str | None = None
     open_now: bool | None = None
     price_level: int | None = None  # 0-4 if provider has it
+    hours: BusinessHours | None = None  # B19, from directory details
+    alt_phones: list[str] = Field(default_factory=list)  # E.36 other listed numbers
 
 
 class ShortlistItem(_Model):
@@ -1072,6 +1075,18 @@ class AccountIdentifier(_Model):
     def _never_secrets(cls, v: str) -> str:
         if _SECRET_LABEL.search(v):
             raise ValueError("OTPs, PINs, CVVs and passwords can never be saved")
+        return v
+
+    @field_validator("value")
+    @classmethod
+    def _value_not_secret(cls, v: str) -> str:
+        """SECURITY-31: the VALUE must not smuggle a secret either."""
+        if _SECRET_LABEL.search(v) or re.search(r"(ओटीपी|पिन|पासवर्ड|सीवीवी)", v):
+            raise ValueError("identifier value looks like an OTP/PIN/CVV/password")
+        digits = _DIGITS.sub("", v)
+        letters = re.sub(r"[\W\d_]", "", v)
+        if not letters and len(digits) < 5:
+            raise ValueError("identifier too short - looks like a PIN/CVV, not an account id")
         return v
 
     @property
@@ -1329,6 +1344,8 @@ class Task(_Model):
     approved_terms: str | None = None  # user-approved slot/price for the confirmation call-back
     delegation: Delegation = Field(default_factory=Delegation)  # copied from spec / recurrence
     cost_inr_est: float = 0.0  # internal per-task cost tracking (never shown to the user)
+    # Engine role of this task in a family (TaskRole values; free str for forward compat).
+    role: str | None = None
     source_message_id: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -1366,6 +1383,7 @@ class CallTurn(_Model):
     at: datetime = Field(default_factory=utcnow)
     language: Language | None = None  # detected (CALLEE) / spoken (FRIDAY)
     confidence: float | None = None  # STT confidence for CALLEE turns
+    audio_class: AudioClass | None = None  # CALLEE: human / ivr_prompt / queue_announcement...
 
 
 class Transcript(_Model):
@@ -1489,7 +1507,13 @@ class CallBrief(_Model):
     care_request: CareRequestKind | None = None
     reference: str | None = None  # existing ticket / order id
     approved_identifiers: list[AccountIdentifier] = Field(default_factory=list)  # may share
-    ivr_notes: list[str] = Field(default_factory=list)  # known menu paths
+    ivr_notes: list[str] = Field(default_factory=list)  # known menu paths (human-readable)
+    # Learned IVR menu map replayed WITHOUT the LLM (cost rule 4), shared per company:
+    # e.g. ["2", "3@broadband", "{Registered mobile}#", "9"]. "{label}" = approved identifier.
+    ivr_map: list[str] = Field(default_factory=list)
+    # Caller-ID (BRIEF E.30 + number rotation): sticky Friday number for this business.
+    from_number: str | None = None
+    number_changed: bool = False  # first line: "Friday here - calling from a new number"
     max_hold_s: int = 1500
     prefer_human_agent: bool = True
     # Hotel direct call (D27): availability, room type, inclusions, direct rate, hold.
@@ -1530,6 +1554,15 @@ class CallResult(_Model):
     care: CareOutcome | None = None
     hold_seconds: int = 0  # time spent in hold-listening mode (no LLM cost)
     cost_inr_est: float = 0.0  # telephony + STT/TTS + LLM estimate (internal only)
+    from_number: str | None = None  # Friday caller-ID used
+    # cost components (founder cost rule 7/8; also published as CallCostReport)
+    telephony_seconds: float = 0.0
+    stt_seconds: float = 0.0
+    tts_chars: int = 0
+    tts_billed_chars: int = 0  # not served from the pre-rendered TTS cache
+    policy_calls: int = 0
+    translate_calls: int = 0
+    ivr_keys_replayed: int = 0
     recording_url: str | None = None
     started_at: datetime = Field(default_factory=utcnow)
     answered_at: datetime | None = None
@@ -1551,6 +1584,7 @@ class OutboundCallRequest(_Model):
     max_duration_s: int = 300
     language: Language = DEFAULT_CALL_LANGUAGE  # opening language (STT hint)
     metadata: dict[str, str] = Field(default_factory=dict)
+    from_number: str | None = None  # Friday caller-ID to present (NumberPool choice)
 
 
 class AudioClip(_Model):
@@ -1567,6 +1601,7 @@ class Transcription(_Model):
     language: Language | None = None
     confidence: float | None = None
     is_final: bool = True
+    duration_s: float | None = None  # audio length of this chunk (hold accounting)
     # What the far end sounded like for this chunk (C23). Hold music/queue chunks may
     # have empty ``text`` (or the announcement text).
     audio_class: AudioClass = AudioClass.HUMAN
@@ -1719,4 +1754,109 @@ class AuditEntry(_Model):
 
 
 # Resolve forward refs (Task -> TaskResult).
+class TaskRole(StrEnum):
+    """Values for ``Task.role`` (Backend B's engine)."""
+
+    FANOUT = "fanout"
+    BOOKING = "booking"
+    INSTANCE = "instance"  # recurring instance
+    RECONFIRM = "reconfirm"
+    CARE_FOLLOWUP = "care_followup"
+    CALLBACK = "callback"  # confirmation call-back
+    CLOSE_LOOP = "close_loop"
+    RETRY = "retry"
+
+
+# =============================================================================== caller-ID pool
+
+
+class NumberStatus(StrEnum):
+    """Lifecycle of a Friday caller-ID (founder: caller-ID reputation & rotation)."""
+
+    WARMING = "warming"  # new: low daily volume, ramping up
+    ACTIVE = "active"
+    COOLING = "cooling"  # health below threshold: NO outbound, still answers inbound
+    RETIRED = "retired"  # no outbound; forwards call-backs for retired_forward_days
+
+
+class NumberLimits(_Model):
+    max_calls_per_hour: int = 15
+    max_calls_per_day: int = 80
+    max_concurrent: int = 2
+    min_gap_s: int = 45
+
+
+class NumberHealth(_Model):
+    """Rolling health metrics over the last N outbound calls."""
+
+    calls: int = 0
+    answered: int = 0
+    short_calls: int = 0  # answered but < number_short_call_s (hang-up / spam reflex)
+    dnc_requests: int = 0  # "don't call this number again"
+    blocks: int = 0  # provider-reported blocks / rejects
+    spam_labelled: bool = False  # e.g. Truecaller spam label check
+    score: float = 1.0  # 0..1, computed by the pool
+    computed_at: datetime | None = None
+
+    @property
+    def answer_rate(self) -> float:
+        return self.answered / self.calls if self.calls else 1.0
+
+    @property
+    def short_call_rate(self) -> float:
+        return self.short_calls / self.answered if self.answered else 0.0
+
+
+class FridayNumber(_Model):
+    """One caller-ID in the pool. Indian 10-digit numbers only (never 140-series)."""
+
+    id: str = Field(default_factory=new_id)
+    phone: str  # E.164 +91XXXXXXXXXX
+    provider: str  # "sarvam" / "exotel" / "twilio" / "simulator"
+    city: str | None = None  # local presence
+    circle: str | None = None  # telecom circle, e.g. "KA", "MH", "DL"
+    status: NumberStatus = NumberStatus.WARMING
+    warmup_day: int = 0  # index into Settings.number_warmup_daily_caps
+    limits: NumberLimits = Field(default_factory=NumberLimits)
+    health: NumberHealth = Field(default_factory=NumberHealth)
+    cooldowns: int = 0
+    cooling_until: datetime | None = None
+    retired_at: datetime | None = None
+    forward_until: datetime | None = None  # retired: keep forwarding call-backs until
+    verified_caller_name: str | None = None  # CNAP / Truecaller for Business label
+    created_at: datetime = Field(default_factory=utcnow)
+
+    @field_validator("phone")
+    @classmethod
+    def _indian_mobile_or_landline(cls, v: str) -> str:
+        if not re.fullmatch(r"\+91\d{10}", v) or v.startswith("+91140"):
+            raise ValueError("Friday numbers must be Indian 10-digit numbers (never 140-series)")
+        return v
+
+    @property
+    def can_dial(self) -> bool:
+        return self.status in (NumberStatus.WARMING, NumberStatus.ACTIVE)
+
+
+class NumberChoice(_Model):
+    """NumberPool.choose_for() result."""
+
+    number: FridayNumber
+    sticky: bool  # business already associated with this number
+    changed: bool = False  # business moved off a retired number -> brief.number_changed
+    not_before: datetime | None = None  # pacing: dial no earlier than this (UTC)
+    reason: str = ""
+
+
+class NumberOutcome(StrEnum):
+    ANSWERED = "answered"
+    SHORT_CALL = "short_call"  # answered, < short-call threshold
+    NO_ANSWER = "no_answer"
+    BUSY = "busy"
+    REJECTED = "rejected"
+    BLOCKED = "blocked"
+    DNC_REQUEST = "dnc_request"
+    FAILED = "failed"
+
+
 Task.model_rebuild()

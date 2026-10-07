@@ -207,7 +207,24 @@ def _is_disclosure(text: str, brief: CallBrief) -> bool:
     ) and len(t) < 160 and "?" not in t
 
 
+def normalize_transcript(transcript: Transcript) -> Transcript:
+    """Fold ``CallTurn.audio_class`` (core field) into the runner's text-prefix convention
+    (``[ivr_prompt] ...``) so both representations are read the same way."""
+    turns = []
+    changed = False
+    for t in transcript.turns:
+        cls = getattr(t, "audio_class", None)
+        val = getattr(cls, "value", cls)
+        if (t.speaker == Speaker.CALLEE and val and val != "human"
+                and audio_tag(t.text) is None):
+            t = t.model_copy(update={"text": f"[{val}] {t.text}".strip()})
+            changed = True
+        turns.append(t)
+    return Transcript(turns=turns) if changed else transcript
+
+
 def read_state(brief: CallBrief, transcript: Transcript, answers: list[UserAnswer]) -> CallState:
+    transcript = normalize_transcript(transcript)
     st = CallState(brief=brief, transcript=transcript, answers=list(answers))
     if transcript.turns:
         st.started = transcript.turns[0].at

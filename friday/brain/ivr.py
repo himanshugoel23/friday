@@ -24,7 +24,14 @@ from pydantic import BaseModel, Field
 from friday.core.clock import utcnow
 from friday.core.models import CallBrief, Speaker, Transcript
 
-from .heuristics.callstate import IDENTIFIER_PROMPT, is_hold, is_ivr, ivr_options, strip_tag
+from .heuristics.callstate import (
+    IDENTIFIER_PROMPT,
+    is_hold,
+    is_ivr,
+    ivr_options,
+    normalize_transcript,
+    strip_tag,
+)
 from .textutil import norm
 
 _DTMF = re.compile(r"^\s*dtmf:\s*([0-9*#w•x]+)", re.I)
@@ -64,6 +71,7 @@ def _keyword(prompt: str, key: str) -> str | None:
 
 def learn_ivr_map(transcript: Transcript, brief: CallBrief) -> IVRMap | None:
     """Menu path from a transcript that reached a human agent (None otherwise)."""
+    transcript = normalize_transcript(transcript)
     steps: list[IVRStep] = []
     last_prompt: str | None = None
     reached_human = False
@@ -126,7 +134,10 @@ def replay_step(brief: CallBrief, transcript: Transcript) -> str | None:
     """Keys for the CURRENT IVR prompt from the brief's learned map, or None.
     The step index = number of DTMF presses so far. Identifier placeholders resolve
     only to APPROVED identifiers."""
-    ivr_map = map_from_notes(brief.ivr_notes, brief.target.phone)
+    proposed = list(getattr(brief, "ivr_map", None) or [])  # proposed core field
+    notes = ["replay: " + " | ".join(proposed)] if proposed else list(brief.ivr_notes)
+    ivr_map = map_from_notes(notes, brief.target.phone)
+    transcript = normalize_transcript(transcript)
     if ivr_map is None or not transcript.turns:
         return None
     last = transcript.turns[-1]

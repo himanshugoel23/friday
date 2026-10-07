@@ -23,69 +23,21 @@ Call quality:
 
 from __future__ import annotations
 
-from friday.core.events import Event
-from friday.core.models import Language
+# Merged into core (docs/CORE_CHANGES.md, Stage 3): re-exported here so existing
+# imports keep working. Define new voice-only events below.
+from friday.core.events import (  # noqa: F401
+    CallCostReport,
+    CallLanguageSwitched,
+    CallLatencyReport,
+    Event,
+    InboundCallReceived,
+    MissedCallReceived,
+)
 
-
-class InboundCallReceived(Event):
-    """Contract shared with Backend A (docs/CORE_CHANGES.md): matched by class name."""
-
-    from_phone: str  # caller ID (E.164; may be "anonymous")
-    to_number: str | None = None  # the Friday number that was dialled
-    provider_call_id: str | None = None  # key for TelephonyProvider.take_inbound()
-    provider: str = "unknown"
-    business_id: str | None = None  # simulator only: the simworld business calling
-
-    @property
-    def friday_number(self) -> str | None:
-        return self.to_number
-
-
-class MissedCallReceived(Event):
-    """A call to a Friday number that was never answered (short ring / missed call)."""
-
-    from_phone: str
-    to_number: str | None = None
-    provider_call_id: str | None = None
-    provider: str = "unknown"
-    ring_seconds: float = 0.0
-    reason: str = "caller_hung_up"  # caller_hung_up | no_answer | short_ring
-
-    @property
-    def friday_number(self) -> str | None:
-        return self.to_number
-
-
-class CallLanguageSwitched(Event):
-    task_id: str
-    call_id: str
-    old: Language | None
-    new: Language
-
-
-class CallLatencyReport(Event):
-    task_id: str
-    call_id: str
-    turns: int
-    p50_ms: float
-    p95_ms: float
-    max_ms: float
-    policy_p95_ms: float
-    stt_p95_ms: float
-    tts_p95_ms: float
-
-
-class CallCostReport(Event):
-    """Per-call cost components for the internal cost ledger (never user-facing)."""
-
-    task_id: str
-    call_id: str
-    provider: str
-    telephony_seconds: float = 0.0  # answered -> end (incl. hold)
-    hold_seconds: int = 0
-    stt_seconds: float = 0.0  # audio sent to STT (VAD'd; no STT on hold music)
-    tts_chars: int = 0  # characters spoken
-    tts_billed_chars: int = 0  # characters actually synthesised (cache misses)
-    policy_calls: int = 0  # LLM call turns
-    translate_calls: int = 0
-    cost_inr_est: float = 0.0
+__all__ = [
+    "CallCostReport",
+    "CallLanguageSwitched",
+    "CallLatencyReport",
+    "InboundCallReceived",
+    "MissedCallReceived",
+]

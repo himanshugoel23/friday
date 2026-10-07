@@ -2,17 +2,7 @@
 
 from __future__ import annotations
 
-from friday.core.events import Event
-
-
-class WellbeingAlertRaised(Event):
-    """A13: a check-in sounded wrong (or nobody answered). The proactive engine turns
-    it into a SAFETY nudge (bypasses cap + quiet hours)."""
-
-    task_id: str
-    user_id: str
-    person_id: str | None = None
-    text: str
+from friday.core.events import Event, WellbeingAlertRaised  # noqa: F401  (moved to core)
 
 
 class BusinessContactLogged(Event):

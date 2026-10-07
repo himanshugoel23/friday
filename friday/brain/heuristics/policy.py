@@ -148,6 +148,7 @@ class Turn:
 def next_action(brief: CallBrief, transcript: Transcript, answers: list[UserAnswer],
                 speakable: frozenset[Language] | None = None) -> CallActionOut:
     st = read_state(brief, transcript, answers)
+    transcript = st.transcript  # normalized (audio_class folded into text tags)
     tn = Turn(st, speakable)
     ib = inbound_of(brief)
 

@@ -25,15 +25,20 @@ fields with defaults) - see docs/TASKS.md "Changing core".
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Mode = Literal["simulator", "live"]
 LLMProviderName = Literal["auto", "anthropic", "fake"]
-TelephonyProviderName = Literal["auto", "simulator", "twilio", "exotel", "plivo"]
+TelephonyProviderName = Literal[
+    "auto", "simulator", "routed", "sarvam", "twilio", "exotel", "plivo"
+]
 STTProviderName = Literal["auto", "fake", "sarvam", "deepgram"]
 TTSProviderName = Literal["auto", "fake", "sarvam", "elevenlabs"]
 WhatsAppProviderName = Literal["auto", "simulator", "cloud"]
@@ -41,6 +46,27 @@ SMSProviderName = Literal["auto", "fake", "msg91"]
 DirectoryProviderName = Literal["auto", "simulator", "google_places"]
 GeocoderProviderName = Literal["auto", "simulator", "google"]
 HotelProviderName = Literal["auto", "simulator", "expedia_rapid"]
+BackendName = Literal["auto", "memory", "postgres", "redis"]
+WorkerRole = Literal["api", "task", "voice", "proactive", "batch"]
+ALL_ROLES: tuple[str, ...] = ("api", "task", "voice", "proactive", "batch")
+
+# Comma-separated OR JSON list in env: FRIDAY_NUMBERS=+9180...,+9122...
+CsvList = Annotated[list[str], NoDecode]
+_DEV_SECRET = "dev-insecure-change-me"
+
+# Founder cost rule: Haiku by default, Sonnet for live call turns, Opus only on escalation.
+DEFAULT_LLM_MODELS: dict[str, str] = {
+    "interpret": "claude-haiku-5-5",
+    "resolve_references": "claude-haiku-5-5",
+    "extract": "claude-haiku-5-5",
+    "judge_nudge": "claude-haiku-5-5",
+    "summarize": "claude-haiku-5-5",
+    "compare": "claude-haiku-5-5",
+    "shortlist_reasons": "claude-haiku-5-5",
+    "translate": "claude-haiku-5-5",
+    "sim_business": "claude-haiku-5-5",
+    "call_turn": "claude-sonnet-5-5",
+}
 
 
 def _alias(*names: str) -> AliasChoices:
@@ -82,6 +108,14 @@ class Settings(BaseSettings):
     llm_fast_model: str = "claude-haiku-5-5"  # latency-critical: live call turns, intent
     llm_timeout_s: float = 30.0
     llm_max_retries: int = 2
+    # Per-purpose routing (founder cost rule). FRIDAY_LLM_MODELS='{"call_turn": "..."}'.
+    # ``llm_model`` / ``llm_fast_model`` are legacy fallbacks for unknown purposes.
+    llm_models: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_LLM_MODELS))
+    llm_default_purpose_model: str = "claude-haiku-5-5"  # purpose not in llm_models
+    llm_escalation_model: str = "claude-opus-5-5"  # ONLY on explicit escalation
+    llm_task_token_budget: int = 60_000  # per task; over budget -> cheaper model + alert
+    llm_prompt_caching: bool = True
+    llm_batch_enabled: bool = True  # Batch API for non-real-time work
 
     # ------------------------------------------------------------------ telephony (voice)
     telephony_provider: TelephonyProviderName = "auto"
@@ -107,6 +141,66 @@ class Settings(BaseSettings):
     plivo_from_number: str | None = Field(
         default=None, validation_alias=_alias("PLIVO_FROM_NUMBER")
     )
+    # Routing (founder: Sarvam > Exotel > Twilio; Twilio for non-+91). Used when
+    # resolve_telephony() == "routed" (live + auto). FRIDAY_TELEPHONY_ROUTE=sarvam,exotel,twilio
+    telephony_route: CsvList = Field(default_factory=lambda: ["sarvam", "exotel", "twilio"])
+    exotel_subdomain: str = Field(
+        default="api.in.exotel.com", validation_alias=_alias("EXOTEL_SUBDOMAIN")
+    )
+    exotel_voicebot_app_id: str | None = Field(
+        default=None, validation_alias=_alias("EXOTEL_VOICEBOT_APP_ID")
+    )
+    exotel_caller_ids: CsvList = Field(
+        default_factory=list, validation_alias=_alias("EXOTEL_CALLER_IDS")
+    )
+    sarvam_telephony_auth_id: str | None = Field(
+        default=None, validation_alias=_alias("SARVAM_TELEPHONY_AUTH_ID", "VOBIZ_AUTH_ID")
+    )
+    sarvam_telephony_auth_token: SecretStr | None = Field(
+        default=None, validation_alias=_alias("SARVAM_TELEPHONY_AUTH_TOKEN", "VOBIZ_AUTH_TOKEN")
+    )
+    sarvam_telephony_base_url: str = "https://api.vobiz.ai/api/v1"
+    sarvam_caller_ids: CsvList = Field(
+        default_factory=list, validation_alias=_alias("SARVAM_CALLER_IDS")
+    )
+    inbound_claim_timeout_s: float = 10.0  # parked inbound leg -> fixed P1 message after this
+
+    # Friday caller-ID pool (BRIEF E.30 + caller-ID reputation). Sticky per business.
+    # FRIDAY_NUMBERS=+918000000001,+912200000002 (or JSON). Details per number live in
+    # the NumberPool (FridayNumber rows); this is the bootstrap list.
+    friday_numbers: CsvList = Field(default_factory=list)
+
+    # ---- caller-ID reputation & rotation (NumberPool defaults; ops-configurable)
+    number_max_calls_per_hour: int = 15
+    number_max_calls_per_day: int = 80
+    number_max_concurrent: int = 2
+    number_min_gap_s: int = 45  # pacing: no bursts on one number
+    number_warmup_daily_caps: list[int] = Field(default_factory=lambda: [10, 20, 35, 50, 65])
+    number_health_window_calls: int = 50  # rolling window for health metrics
+    number_min_answer_rate: float = 0.35
+    number_max_short_call_rate: float = 0.30  # answered calls < 10 s
+    number_max_dnc_rate: float = 0.03
+    number_short_call_s: int = 10
+    number_cooldown_h: int = 72
+    number_max_cooldowns_before_retire: int = 2
+    number_retired_forward_days: int = 30  # retired numbers keep forwarding call-backs
+    number_health_min_score: float = 0.5  # below -> cooling
+
+    # ---- task retry / inbound policy (BRIEF E.30-37); env FRIDAY_TASKS_*
+    tasks_max_attempts: int = 3
+    tasks_no_answer_delays_min: list[int] = Field(default_factory=lambda: [10, 45])
+    tasks_final_window_gap_min: int = 120
+    tasks_busy_delay_min: int = 5
+    tasks_failed_delay_min: int = 5
+    tasks_vague_callback_min: int = 120
+    tasks_try_alt_numbers: bool = True
+    tasks_whatsapp_request_on_no_answer: bool = True
+    tasks_business_request_template: str = "friday_biz_request"
+    tasks_inbound_lookback_days: int = 30
+    tasks_missed_call_notify_after: int = 3
+    tasks_better_offer_pct: int = 15
+    tasks_offer_question_timeout_s: int = 7200
+    tasks_max_progress_updates_per_call: int = 3
 
     # call behaviour
     call_record: bool = True
@@ -258,15 +352,116 @@ class Settings(BaseSettings):
     pin_max_attempts: int = 5
     admin_phones: list[str] = Field(default_factory=list)  # bootstrap users, skip invite
 
+    # ------------------------------------------------------------------ security keys
+    # SECURITY-30: separate keys per purpose. In dev each falls back to
+    # HKDF(secret_key, label); in live all three are required (live_problems()).
+    pin_pepper: SecretStr | None = None
+    field_key: SecretStr | None = None  # local data key for field encryption (dev / no KMS)
+    field_key_id: str | None = None  # KMS key id/ARN for envelope encryption in live
+    index_key: SecretStr | None = None  # HMAC key for blind indexes (phone lookups)
+
+    # ------------------------------------------------------------------ scale-out
+    # One codebase, several process roles. FRIDAY_ROLES=api,task (CSV or JSON).
+    roles: CsvList = Field(default_factory=lambda: list(ALL_ROLES))
+    queue_backend: BackendName = "auto"  # auto: postgres if DATABASE_URL is Postgres
+    lock_backend: BackendName = "auto"
+    cache_backend: BackendName = "auto"  # auto: redis if redis_url, else memory
+    rate_limit_backend: BackendName = "auto"
+    redis_url: str | None = Field(default=None, validation_alias=_alias("REDIS_URL", "FRIDAY_REDIS_URL"))
+    db_pool_size: int = 10
+    db_max_overflow: int = 10
+    db_pool_timeout_s: float = 10.0
+    object_store_url: str | None = None  # s3://bucket/prefix for recordings (None = media_dir)
+    worker_concurrency: dict[str, int] = Field(
+        default_factory=lambda: {"task": 32, "voice": 50, "proactive": 8, "batch": 4}
+    )
+    queue_poll_interval_s: float = 0.5
+    queue_visibility_timeout_s: int = 300  # claimed job re-queued if not acked in time
+    queue_max_attempts: int = 8  # then dead-letter
+    # Provider concurrency / rate limits (backpressure). key -> limit.
+    provider_concurrency: dict[str, int] = Field(
+        default_factory=lambda: {
+            "telephony": 200, "sarvam": 200, "exotel": 100, "twilio": 50,
+            "stt": 300, "tts": 300, "llm": 200,
+        }
+    )
+    provider_rate_per_s: dict[str, float] = Field(
+        default_factory=lambda: {
+            "telephony": 20.0, "whatsapp": 70.0, "sms": 20.0, "llm": 50.0, "google_places": 20.0,
+        }
+    )
+    llm_tokens_per_min: int = 2_000_000
+    webhook_idempotency_ttl_h: int = 72
+    proactive_shards: int = 1  # proactive engine sharded by hash(user_id) % shards
+    proactive_shard_index: int | None = None  # None = all shards in this process
+
     # ------------------------------------------------------------------ simulator
     sim_seed: int = 7  # deterministic simulated businesses
     sim_business_answer_rate: float = 1.0  # 1.0 = always answers; <1 exercises retries
+    sim_time_scale: float | None = None  # simulator legs: virtual-time scale (None = auto)
 
     @field_validator("*", mode="before")
     @classmethod
     def _blank_is_none(cls, v: object) -> object:
         # `KEY=` lines in .env mean "unset", not "empty secret".
         return None if isinstance(v, str) and v.strip() == "" else v
+
+    @field_validator(
+        "telephony_route", "exotel_caller_ids", "sarvam_caller_ids", "friday_numbers", "roles",
+        mode="before",
+    )
+    @classmethod
+    def _csv_list(cls, v: object) -> object:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("["):
+                return json.loads(v)
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return v
+
+    # ================================================================== helpers
+    def model_for(self, purpose: str, *, escalate: bool = False) -> str:
+        """Model for an LLM purpose (founder routing). Never Opus unless ``escalate``."""
+        if escalate:
+            return self.llm_escalation_model
+        return self.llm_models.get(purpose, self.llm_default_purpose_model)
+
+    def derived_key(self, label: str) -> bytes:
+        """HKDF-style 32-byte key from ``secret_key`` for ``label`` (dev fallback only)."""
+        prk = hmac.new(b"friday-kdf-v1", self.secret_key.get_secret_value().encode(), hashlib.sha256)
+        return hmac.new(prk.digest(), label.encode() + b"\x01", hashlib.sha256).digest()
+
+    def key_material(self, purpose: Literal["pin_pepper", "field_key", "index_key"]) -> bytes:
+        """Explicit key if configured, else the HKDF fallback (SECURITY-30)."""
+        explicit: SecretStr | None = getattr(self, purpose)
+        if explicit is not None:
+            return explicit.get_secret_value().encode()
+        return self.derived_key(purpose)
+
+    def has_role(self, role: str) -> bool:
+        return role in self.roles
+
+    def resolve_queue(self) -> Literal["memory", "postgres"]:
+        if self.queue_backend in ("memory", "postgres"):
+            return self.queue_backend
+        return "postgres" if self.database_url.startswith("postgresql") else "memory"
+
+    def resolve_lock(self) -> Literal["memory", "postgres", "redis"]:
+        if self.lock_backend != "auto":
+            return self.lock_backend
+        return "postgres" if self.database_url.startswith("postgresql") else "memory"
+
+    def resolve_cache(self) -> Literal["memory", "redis"]:
+        if self.cache_backend in ("memory", "redis"):
+            return self.cache_backend
+        return "redis" if self.redis_url else "memory"
+
+    def resolve_rate_limiter(self) -> Literal["memory", "redis"]:
+        if self.rate_limit_backend in ("memory", "redis"):
+            return self.rate_limit_backend
+        return "redis" if self.redis_url else "memory"
 
     # ================================================================== resolution
     @property
@@ -313,10 +508,36 @@ class Settings(BaseSettings):
             return "simulator"
         return "expedia_rapid" if self.hotel_provider == "auto" else self.hotel_provider
 
-    def resolve_telephony(self) -> Literal["simulator", "twilio", "exotel", "plivo"]:
+    def resolve_telephony(
+        self,
+    ) -> Literal["simulator", "routed", "sarvam", "twilio", "exotel", "plivo"]:
         if not self.is_live:
             return "simulator"
-        return "twilio" if self.telephony_provider == "auto" else self.telephony_provider
+        # auto -> RoutedTelephony over telephony_route (skips unconfigured providers)
+        return "routed" if self.telephony_provider == "auto" else self.telephony_provider
+
+    def _telephony_needs(self, name: str) -> dict[str, object]:
+        if name == "twilio":
+            return {
+                "TWILIO_ACCOUNT_SID": self.twilio_account_sid,
+                "TWILIO_AUTH_TOKEN": self.twilio_auth_token,
+                "TWILIO_FROM_NUMBER": self.twilio_from_number,
+            }
+        if name == "exotel":
+            return {
+                "EXOTEL_SID": self.exotel_sid,
+                "EXOTEL_API_KEY": self.exotel_api_key,
+                "EXOTEL_API_TOKEN": self.exotel_api_token,
+                "EXOTEL_VOICEBOT_APP_ID": self.exotel_voicebot_app_id,
+            }
+        if name == "sarvam":
+            return {
+                "SARVAM_TELEPHONY_AUTH_ID": self.sarvam_telephony_auth_id,
+                "SARVAM_TELEPHONY_AUTH_TOKEN": self.sarvam_telephony_auth_token,
+            }
+        if name == "plivo":
+            return {"PLIVO_AUTH_ID": self.plivo_auth_id, "PLIVO_AUTH_TOKEN": self.plivo_auth_token}
+        return {}
 
     def resolve_whatsapp(self) -> Literal["simulator", "cloud"]:
         if not self.is_live:
@@ -335,20 +556,17 @@ class Settings(BaseSettings):
         if self.resolve_llm() == "anthropic":
             need["ANTHROPIC_API_KEY"] = self.anthropic_api_key
         tel = self.resolve_telephony()
-        if tel == "twilio":
-            need |= {
-                "TWILIO_ACCOUNT_SID": self.twilio_account_sid,
-                "TWILIO_AUTH_TOKEN": self.twilio_auth_token,
-                "TWILIO_FROM_NUMBER": self.twilio_from_number,
-            }
-        elif tel == "exotel":
-            need |= {
-                "EXOTEL_SID": self.exotel_sid,
-                "EXOTEL_API_KEY": self.exotel_api_key,
-                "EXOTEL_API_TOKEN": self.exotel_api_token,
-            }
-        elif tel == "plivo":
-            need |= {"PLIVO_AUTH_ID": self.plivo_auth_id, "PLIVO_AUTH_TOKEN": self.plivo_auth_token}
+        if tel == "routed":
+            route = self.telephony_route or ["twilio"]
+            per = {n: self._telephony_needs(n) for n in route}
+            if not any(needs and all(needs.values()) for needs in per.values()):
+                missing = sorted({k for needs in per.values() for k, v in needs.items() if not v})
+                problems.append(
+                    "telephony: no provider in FRIDAY_TELEPHONY_ROUTE is fully configured"
+                )
+                problems += [f"missing {k}" for k in missing]
+        elif tel != "simulator":
+            need |= self._telephony_needs(tel)
         if self.resolve_stt() == "sarvam" or self.resolve_tts() == "sarvam":
             need["SARVAM_API_KEY"] = self.sarvam_api_key
         if self.resolve_stt() == "deepgram":
@@ -371,8 +589,23 @@ class Settings(BaseSettings):
         if self.resolve_sms() == "msg91":
             need |= {"MSG91_AUTH_KEY": self.msg91_auth_key, "DLT_ENTITY_ID": self.dlt_entity_id}
         problems += [f"missing {k}" for k, v in need.items() if not v]
-        if self.is_live and self.secret_key.get_secret_value() == "dev-insecure-change-me":
+        if self.is_live and self.secret_key.get_secret_value() == _DEV_SECRET:
             problems.append("FRIDAY_SECRET_KEY must be set in live mode")
+        if (
+            self.is_live
+            and self.resolve_whatsapp() == "cloud"
+            and self.whatsapp_verify_token.get_secret_value() == "friday-dev-verify"
+        ):  # SECURITY-17
+            problems.append("WHATSAPP_VERIFY_TOKEN must be set in live mode")
+        if self.is_live:  # SECURITY-30: separate keys, never derived from one secret
+            if self.pin_pepper is None:
+                problems.append("missing FRIDAY_PIN_PEPPER (separate from FRIDAY_SECRET_KEY)")
+            if self.field_key is None and self.field_key_id is None:
+                problems.append("missing FRIDAY_FIELD_KEY_ID (KMS) or FRIDAY_FIELD_KEY")
+            if self.index_key is None:
+                problems.append("missing FRIDAY_INDEX_KEY (blind-index HMAC key)")
+            if self.log_level.upper() == "DEBUG":  # SECURITY-26
+                problems.append("FRIDAY_LOG_LEVEL=DEBUG is not allowed in live mode")
         return problems
 
 

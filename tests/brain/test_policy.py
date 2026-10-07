@@ -366,3 +366,16 @@ async def test_call_turn_routed_cached_and_compact(brain, fake_llm):
     assert '"goal"' in call.system  # brief lives in the cached prefix, not the message
     msg_body = call.messages[0].content
     assert '"earlier"' in msg_body and msg_body.count('"speaker"') <= 2 * 10 + 31
+
+
+async def test_core_audio_class_field_is_understood(brain, fake_llm):
+    from friday.core.models import AudioClass
+
+    brief = care_brief()
+    tr = transcript(brief)
+    tr.add(Speaker.CALLEE, "Your call is important to us", at=NOW)
+    if "audio_class" not in type(tr.turns[-1]).model_fields:
+        return  # core field not merged in this checkout
+    tr.turns[-1].audio_class = AudioClass.QUEUE_ANNOUNCEMENT
+    a = await brain.next_call_action(brief, tr, [])
+    assert a.type == CallActionType.WAIT_ON_HOLD and not fake_llm.calls_for("call_turn")

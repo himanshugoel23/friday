@@ -74,7 +74,7 @@ from friday.core.models import (
 
 from . import briefs, guards, handlers, reports
 from .copy import first_name
-from .heuristics.callstate import is_hold
+from .heuristics.callstate import is_hold, normalize_transcript
 from .heuristics.interpret import draft_missing
 from .heuristics.lexicon import DELEGATION_PHRASES, SECRET_WORDS
 from .heuristics.onboarding import onboarding_turn as _onboarding
@@ -385,7 +385,9 @@ class FridayBrain:
         structured output. Routed model, tight max_tokens, budget-aware; deterministic
         fallback on any failure; optional one-shot escalation for hard cases."""
         if stable:
-            system = f"{system}{CACHE_BREAK}{render_input(stable, tag='data')}"
+            # cached prefix: [static rules][stable data]; plain join if caching is off
+            sep = CACHE_BREAK if getattr(self.settings, "llm_prompt_caching", True) else "\n"
+            system = f"{system}{sep}{render_input(stable, tag='data')}"
         content = render_input(payload, instruction)
         out = await self._call(purpose, system, content, out_model, task_id=task_id)
         if out is not None and escalate_if is not None and escalate_if(out):
@@ -675,6 +677,7 @@ class FridayBrain:
         return action
 
     def _call_shortcut(self, brief: CallBrief, transcript: Transcript) -> CallActionOut | None:
+        transcript = normalize_transcript(transcript)
         last = transcript.turns[-1] if transcript.turns else None
         if last is None or last.speaker != Speaker.CALLEE:
             return None

@@ -55,34 +55,42 @@ DEFAULT_TASK_TOKEN_BUDGET = 60_000
 
 @dataclass
 class ModelRouter:
+    """Precedence: explicit constructor args > env ``FRIDAY_LLM_MODEL_<PURPOSE>`` >
+    ``Settings.llm_models`` / ``llm_escalation_model`` / ``llm_task_token_budget`` >
+    module defaults."""
+
     settings: Settings | None = None
     overrides: dict[str, str] = field(default_factory=dict)
-    escalation_model: str = OPUS
-    task_token_budget: int = DEFAULT_TASK_TOKEN_BUDGET
+    escalation_model: str | None = None
+    task_token_budget: int | None = None
+    default_model: str | None = None
     _used: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     _alerted: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         s = self.settings
-        configured = dict(getattr(s, "llm_models", None) or {})
-        for purpose in DEFAULT_MODELS:
+        models = dict(DEFAULT_MODELS)
+        models.update(getattr(s, "llm_models", None) or {})
+        for purpose in list(models):
             env = os.environ.get(f"FRIDAY_LLM_MODEL_{purpose.upper()}")
             if env:
-                configured[purpose] = env
-        self.overrides = {**configured, **self.overrides}
-        self.escalation_model = (os.environ.get("FRIDAY_LLM_ESCALATION_MODEL")
-                                 or getattr(s, "llm_escalation_model", None)
-                                 or self.escalation_model)
-        budget = os.environ.get("FRIDAY_LLM_TASK_TOKEN_BUDGET") or getattr(
-            s, "llm_task_token_budget", None)
-        if budget:
-            self.task_token_budget = int(budget)
+                models[purpose] = env
+        self.overrides = {**models, **self.overrides}
+        self.default_model = self.default_model or getattr(
+            s, "llm_default_purpose_model", None) or HAIKU
+        self.escalation_model = (self.escalation_model
+                                 or os.environ.get("FRIDAY_LLM_ESCALATION_MODEL")
+                                 or getattr(s, "llm_escalation_model", None) or OPUS)
+        if self.task_token_budget is None:
+            budget = os.environ.get("FRIDAY_LLM_TASK_TOKEN_BUDGET") or getattr(
+                s, "llm_task_token_budget", None)
+            self.task_token_budget = int(budget) if budget else DEFAULT_TASK_TOKEN_BUDGET
 
     def model_for(self, purpose: str, *, task_id: str | None = None,
                   escalate: bool = False) -> str:
         if escalate:
-            return self.escalation_model
-        model = self.overrides.get(purpose) or DEFAULT_MODELS.get(purpose, HAIKU)
+            return self.escalation_model  # type: ignore[return-value]
+        model = self.overrides.get(purpose) or self.default_model or HAIKU
         if task_id and self.over_budget(task_id):
             return CHEAPER.get(model, model)
         return model
@@ -107,4 +115,4 @@ class ModelRouter:
         return self._used.get(task_id, 0)
 
     def over_budget(self, task_id: str) -> bool:
-        return self._used.get(task_id, 0) > self.task_token_budget
+        return self._used.get(task_id, 0) > (self.task_token_budget or 0)

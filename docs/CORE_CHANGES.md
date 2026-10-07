@@ -169,3 +169,53 @@ class Transcription:        duration_s: float | None = None  # chunk length (hol
    `sim:calls_back_after=S`, `sim:missed_call_after=S`, `sim:agent_asks_otp`, `sim:person`, ...; see
    friday/voice/simulator.py docstring). Proposal: `SimBusiness.alt_phones: list[str] = []` so the
    directory/verifier simulators can list alternate numbers too (BRIEF E36).
+
+## 2026-10-07 — AI Engineer (friday/brain)
+All additive. Brain works today via local workarounds (noted per item).
+
+1. **Inbound / call-back context on the brief** (BRIEF E-30..37). Today:
+   `friday.brain.inbound.InboundCallBrief(CallBrief)` subclass + `inbound_of(brief)`; the brain also
+   exposes `brain.build_inbound_brief(ctx, caller_phone=, tasks=|related=, kind="answered"|"missed_call",
+   caller_matches_business=)` and `build_call_brief(ctx, task, *, inbound=InboundContext)`.
+```python
+class CallBrief:  direction: CallDirection = CallDirection.OUTBOUND
+                  inbound: InboundContext | None = None   # move friday.brain.inbound.{InboundContext,
+                                                          #  RelatedTask} into core models
+class Brain(Protocol):
+    def build_inbound_brief(self, ctx, *, caller_phone: str, tasks: Sequence[Task] = (),
+                            related: Sequence[RelatedTask] = (), kind: str = "answered",
+                            friday_number: str | None = None,
+                            caller_matches_business: bool = True,
+                            business_name: str | None = None) -> CallBrief: ...
+```
+   Note: `brain.build_call_brief` is deterministic; it returns an *awaitable* brief so both
+   `await brain.build_call_brief(...)` (Protocol) and a plain call work.
+2. **Approved identifiers in the context** (C24). `ConversationContext` has no identifiers, so the brain
+   can't fill `CallBrief.approved_identifiers`. Today it reads `getattr(ctx, "identifiers", [])`;
+   otherwise the backend must set `brief.approved_identifiers` after `build_call_brief`.
+```python
+class ConversationContext:  identifiers: list[AccountIdentifier] = []   # user's saved ids
+```
+3. **Cost/routing settings** (founder cost rule). Today: env `FRIDAY_LLM_MODEL_<PURPOSE>`,
+   `FRIDAY_LLM_ESCALATION_MODEL`, `FRIDAY_LLM_TASK_TOKEN_BUDGET` read by `friday.brain.routing`.
+   Defaults: Haiku for everything except `call_turn` (Sonnet); Opus only as escalation.
+```python
+llm_models: dict[str, str] = {}          # purpose -> model override
+llm_call_model: str = "claude-sonnet-5-5"
+llm_escalation_model: str = "claude-opus-5-5"
+llm_task_token_budget: int = 60000       # per task; over budget -> cheaper model + warning log
+# and change llm_model default use: never the default for any purpose (kept for compatibility)
+```
+4. **Button ids.** Brain emits/accepts `c:<parent_task_id>:<index|none>` (comparison choice) and
+   `r:person|place:<id>` (reference disambiguation); onboarding uses `ob:*`. Proposal:
+   `choice_button_id(task_id, i)`, `ref_button_id(kind, id)` helpers and `parse_button_id` accepting
+   `c`/`r`.
+5. **Forget command.** No intent exists; today "forget my rent date" -> `Intent.SETTINGS` with the
+   matching facts in `Interpretation.facts` and a confirm reply. Proposal: `Intent.FORGET` +
+   `Interpretation.forget_fact_ids: list[str] = []`.
+6. **Nudge ids for buttons.** `judge_nudge` runs before the Nudge exists, so buttons use
+   `brain.nudge_id_for(candidate)` (sha1 of user+dedupe_key) or `candidate.data["nudge_id"]`. Backend:
+   create the `Nudge` with that id. Proposal: `NudgeCandidate.nudge_id: str = Field(default_factory=new_id)`.
+7. **Learned IVR maps.** `CallAction.collected["ivr_map"]` / `friday.brain.ivr.learn_ivr_map()` emit the
+   voice runner's replay format (`"replay: 2@english | 3@broadband | {Registered mobile}# | 9"`, no
+   personal data); store it on `Business.ivr_notes` (shared). +1 to Voice's `CallBrief.ivr_map`.
