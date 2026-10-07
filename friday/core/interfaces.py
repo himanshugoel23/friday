@@ -47,6 +47,11 @@ from friday.core.models import (
     Fact,
     GeocodeResult,
     GeoPoint,
+    GuestDetails,
+    HotelBooking,
+    HotelBookingMode,
+    HotelOffer,
+    HotelProperty,
     InboundMessage,
     Interpretation,
     Language,
@@ -68,6 +73,7 @@ from friday.core.models import (
     ReferenceResolution,
     SendReceipt,
     ShortlistItem,
+    StayRequest,
     Task,
     TaskResult,
     TaskSpec,
@@ -96,6 +102,7 @@ __all__ = [
     "DocumentExtractor",
     "FactRepository",
     "Geocoder",
+    "HotelProvider",
     "IdentifierRepository",
     "LLMClient",
     "LLMMessage",
@@ -507,6 +514,35 @@ class NumberVerifier(Protocol):
     async def verify(
         self, phone: str, *, claimed_name: str | None = None, company: str | None = None
     ) -> NumberCheck: ...
+
+
+@runtime_checkable
+class HotelProvider(Protocol):
+    """Official hotel API (Expedia Rapid first; Booking.com/Agoda affiliate later)
+    + simulator (D27-29). No scraping. No payments: only pay-at-hotel bookings or
+    official booking links. Direct phone bookings go through the call engine."""
+
+    name: str
+
+    async def search(self, stay: StayRequest, *, limit: int = 20) -> list[HotelOffer]:
+        """Availability + rates for the stay."""
+        ...
+
+    async def property_details(self, property_id: str) -> HotelProperty | None:
+        """Incl. phone number (for the direct call), ratings, amenities."""
+        ...
+
+    async def book(
+        self, offer: HotelOffer, stay: StayRequest, guest: GuestDetails, *, mode: HotelBookingMode
+    ) -> HotelBooking:
+        """PAY_AT_HOTEL -> real reservation (only if ``offer.pay_at_hotel``);
+        BOOKING_LINK -> no reservation, returns status LINK_SENT with ``booking_link``.
+        Never called without the user's explicit approval."""
+        ...
+
+    async def cancel(self, booking: HotelBooking) -> HotelBooking: ...
+
+    async def modify(self, booking: HotelBooking, stay: StayRequest) -> HotelBooking: ...
 
 
 # =============================================================================== repositories

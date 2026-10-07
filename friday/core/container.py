@@ -81,6 +81,10 @@ FACTORIES: dict[str, dict[str, str]] = {
         "simulator": "friday.discovery.simulator:build_simulated_geocoder",
         "google": "friday.discovery.google_geocoder:build_google_geocoder",
     },
+    "hotels": {
+        "simulator": "friday.discovery.hotels.simulator:build_simulated_hotels",
+        "expedia_rapid": "friday.discovery.hotels.expedia:build_expedia_rapid",
+    },
     "official_numbers": {"*": "friday.discovery.official_numbers:build_official_numbers"},
     "number_verifier": {"*": "friday.discovery.verify:build_number_verifier"},
     "repos": {"*": "friday.db.repositories:build_repositories"},
@@ -120,6 +124,7 @@ class Container:
             "sms": s.resolve_sms,
             "directory": s.resolve_directory,
             "geocoder": s.resolve_geocoder,
+            "hotels": s.resolve_hotels,
         }
         return resolvers[component]() if component in resolvers else "*"
 
@@ -182,6 +187,7 @@ class Container:
     sms = property(lambda self: self.get("sms"))
     directory = property(lambda self: self.get("directory"))
     geocoder = property(lambda self: self.get("geocoder"))
+    hotels = property(lambda self: self.get("hotels"))
     official_numbers = property(lambda self: self.get("official_numbers"))
     number_verifier = property(lambda self: self.get("number_verifier"))
     repos = property(lambda self: self.get("repos"))

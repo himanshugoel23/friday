@@ -40,6 +40,7 @@ WhatsAppProviderName = Literal["auto", "simulator", "cloud"]
 SMSProviderName = Literal["auto", "fake", "msg91"]
 DirectoryProviderName = Literal["auto", "simulator", "google_places"]
 GeocoderProviderName = Literal["auto", "simulator", "google"]
+HotelProviderName = Literal["auto", "simulator", "expedia_rapid"]
 
 
 def _alias(*names: str) -> AliasChoices:
@@ -222,6 +223,18 @@ class Settings(BaseSettings):
     scam_numbers_path: str | None = None  # extra known-scam list (one E.164 per line)
     official_numbers_path: str | None = None  # override curated care-number JSON
 
+    # ------------------------------------------------------------------ hotels (D27-29)
+    hotel_provider: HotelProviderName = "auto"
+    expedia_rapid_api_key: str | None = Field(
+        default=None, validation_alias=_alias("EXPEDIA_RAPID_API_KEY")
+    )
+    expedia_rapid_shared_secret: SecretStr | None = Field(
+        default=None, validation_alias=_alias("EXPEDIA_RAPID_SHARED_SECRET")
+    )
+    expedia_rapid_base_url: str = "https://test.ean.com/v3"  # sandbox by default
+    hotel_shortlist_size: int = 3
+    hotel_reconfirm_hour_ist: int = 11  # day-before reconfirm call time
+
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
     proactive_tick_s: int = 60
@@ -283,6 +296,12 @@ class Settings(BaseSettings):
             return self.geocoder_provider
         return "google" if (self.is_live or self.google_places_api_key) else "simulator"
 
+    def resolve_hotels(self) -> Literal["simulator", "expedia_rapid"]:
+        # book() has real-world side effects -> real provider only in live mode.
+        if not self.is_live:
+            return "simulator"
+        return "expedia_rapid" if self.hotel_provider == "auto" else self.hotel_provider
+
     def resolve_telephony(self) -> Literal["simulator", "twilio", "exotel", "plivo"]:
         if not self.is_live:
             return "simulator"
@@ -333,6 +352,11 @@ class Settings(BaseSettings):
             }
         if self.resolve_directory() == "google_places" or self.resolve_geocoder() == "google":
             need["GOOGLE_PLACES_API_KEY"] = self.google_places_api_key
+        if self.resolve_hotels() == "expedia_rapid":
+            need |= {
+                "EXPEDIA_RAPID_API_KEY": self.expedia_rapid_api_key,
+                "EXPEDIA_RAPID_SHARED_SECRET": self.expedia_rapid_shared_secret,
+            }
         if self.resolve_sms() == "msg91":
             need |= {"MSG91_AUTH_KEY": self.msg91_auth_key, "DLT_ENTITY_ID": self.dlt_entity_id}
         problems += [f"missing {k}" for k, v in need.items() if not v]

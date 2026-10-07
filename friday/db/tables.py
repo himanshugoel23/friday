@@ -410,6 +410,37 @@ class QuoteRow(IdMixin, Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
+class HotelBookingRow(IdMixin, TimestampMixin, Base):
+    """D27-29: held / linked / confirmed stays. ``property`` = HotelProperty JSON."""
+
+    __tablename__ = "hotel_bookings"
+
+    task_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("tasks.id", ondelete="SET NULL"), index=True
+    )
+    user_id: Mapped[str] = _user_fk()
+    guest_person_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("people.id", ondelete="SET NULL")
+    )
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    property: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)
+    business_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("businesses.id", ondelete="SET NULL")
+    )
+    room_type: Mapped[str | None] = mapped_column(String(120))
+    check_in: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    check_out: Mapped[date] = mapped_column(Date, nullable=False)
+    guests: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+    total_inr: Mapped[int | None] = mapped_column(Integer)
+    confirmation_ref: Mapped[str | None] = mapped_column(String(80))
+    booking_link: Mapped[str | None] = mapped_column(Text)
+    hold_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    guest_name: Mapped[str | None] = mapped_column(String(120))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
 # ------------------------------------------------------------------------------ proactive
 
 

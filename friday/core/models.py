@@ -196,6 +196,8 @@ class TaskType(StrEnum):
     RECURRING_BOOKING = "recurring_booking"  # A12: parent; spawns a BOOKING per schedule
     WELLBEING_CHECKIN = "wellbeing_checkin"  # A13: call a circle member (opt-in only)
     CUSTOMER_CARE = "customer_care"  # C21-26: IVR + hold + agent; complaint/refund/ticket...
+    HOTEL_BOOKING = "hotel_booking"  # D27-29: API search + reviews -> shortlist -> call
+    #                                  properties (rate, hold) -> approval -> confirm -> reconfirm
     DISCOVERY = "discovery"  # generic parent: search -> shortlist -> child calls
     #                          -> comparison -> user picks -> child BOOKING call
 
@@ -259,6 +261,24 @@ class SensitiveKind(StrEnum):
     CVV = "cvv"
     PASSWORD = "password"
     CARD_NUMBER = "card_number"  # full PAN
+
+
+class HotelBookingMode(StrEnum):
+    """No payments in Phase 1 (D28)."""
+
+    PAY_AT_HOTEL = "pay_at_hotel"  # API booking of a pay-at-property rate
+    BOOKING_LINK = "booking_link"  # send the user the official booking/payment link
+    DIRECT_HOLD = "direct_hold"  # property holds the room by phone against user's own payment
+
+
+class HotelBookingStatus(StrEnum):
+    HELD = "held"  # property holding the room (until hold_until)
+    LINK_SENT = "link_sent"
+    CONFIRMED = "confirmed"
+    RECONFIRMED = "reconfirmed"  # day-before check
+    MODIFIED = "modified"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
 
 
 class InteractionKind(StrEnum):
@@ -1066,6 +1086,82 @@ class CareOutcome(_Model):
     escalation_guidance: str | None = None  # text-only formal routes (ombudsman, etc.)
 
 
+class StayRequest(_Model):
+    """What the user wants for a hotel/homestay/guesthouse (D27)."""
+
+    destination: str  # "Udaipur", "near Mom & Dad's home, Pune"
+    near: GeoPoint | None = None
+    check_in: date
+    check_out: date
+    adults: int = 2
+    children: int = 0
+    rooms: int = 1
+    max_rate_per_night_inr: int | None = None
+    property_types: list[str] = Field(default_factory=list)  # "hotel", "homestay", "guesthouse"
+    preferences: list[str] = Field(default_factory=list)  # "breakfast", "early check-in", "lake view"
+    guest_person_id: str | None = None  # booking for a circle member
+
+    @property
+    def nights(self) -> int:
+        return (self.check_out - self.check_in).days
+
+
+class HotelProperty(_Model):
+    provider: str  # "expedia_rapid" / "simulator"
+    property_id: str
+    name: str
+    phone: str | None = None  # E.164 - needed for the direct call
+    address: str | None = None
+    location: GeoPoint | None = None
+    star_rating: float | None = None
+    guest_rating: float | None = None  # provider's, 0-5 normalised
+    review_count: int = 0
+    review_snippets: list[str] = Field(default_factory=list)
+    amenities: list[str] = Field(default_factory=list)
+    maps_url: str | None = None
+
+
+class HotelOffer(_Model):
+    property: HotelProperty
+    room_type: str
+    rate_per_night_inr: int | None = None
+    total_inr: int | None = None
+    pay_at_hotel: bool = False
+    refundable: bool | None = None
+    inclusions: list[str] = Field(default_factory=list)  # "breakfast"
+    cancellation_policy: str | None = None
+    booking_link: str | None = None  # official link (BOOKING_LINK mode)
+    offer_token: str | None = None  # provider rate/room token for book()
+
+
+class GuestDetails(_Model):
+    """Minimum guest info shared with the hotel/provider."""
+
+    name: str
+    phone: str | None = None
+    email: str | None = None
+
+
+class HotelBooking(_Model):
+    id: str = Field(default_factory=new_id)
+    task_id: str | None = None
+    provider: str  # "expedia_rapid" / "direct_call" / "simulator"
+    mode: HotelBookingMode
+    status: HotelBookingStatus
+    property: HotelProperty
+    room_type: str | None = None
+    check_in: date
+    check_out: date
+    guests: int = 2
+    total_inr: int | None = None
+    confirmation_ref: str | None = None  # itinerary id / hotel's booking number
+    booking_link: str | None = None
+    hold_until: datetime | None = None
+    guest_name: str | None = None
+    notes: str | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class MediaBlob(_Model):
     """Downloaded media (voice note, image, PDF)."""
 
@@ -1136,6 +1232,7 @@ class TaskSpec(_Model):
     fan_out: FanOutPolicy | None = None  # None -> template default
     call_mode: CallMode = CallMode.AGENT
     recurrence: RecurrenceRule | None = None  # A12 / A13
+    stay: StayRequest | None = None  # HOTEL_BOOKING
     # discovery (TaskType.DISCOVERY or no business named)
     discovery_query: str | None = None  # "AC repair"
     location_text: str | None = None  # "near Indiranagar, Bangalore"
@@ -1207,6 +1304,8 @@ class TaskResult(_Model):
     needs_approval: MidCallQuestion | None = None  # PENDING_APPROVAL: what to ask the user
     alert: str | None = None  # A13: something sounded wrong -> URGENT nudge to the user
     care: CareOutcome | None = None  # C25: ticket, promised date -> follow_up_at
+    hotel_offers: list[HotelOffer] = Field(default_factory=list)  # D27 API search results
+    hotel_booking: HotelBooking | None = None  # D28 (held/confirmed/link)
     extracted: list[ExtractedDocument] = Field(default_factory=list)  # B15 menus/quotes
     interactions: list[VendorInteraction] = Field(default_factory=list)  # B20 to persist
     facts: list[Fact] = Field(default_factory=list)  # e.g. business notes learned
@@ -1347,6 +1446,9 @@ class CallBrief(_Model):
     ivr_notes: list[str] = Field(default_factory=list)  # known menu paths
     max_hold_s: int = 1500
     prefer_human_agent: bool = True
+    # Hotel direct call (D27): availability, room type, inclusions, direct rate, hold.
+    stay: StayRequest | None = None
+    api_offer: HotelOffer | None = None  # online rate to beat when negotiating
     attempt: int = 1
     max_duration_s: int = 300
 
