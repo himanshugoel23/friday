@@ -272,3 +272,28 @@ Goal: Friday's numbers must never get labelled spam, because pickup rate is the 
 8. **Compliance rule:** rotation is for load-spreading and reputation health — NEVER to get around a business that
    blocked Friday or asked not to be called. Blocks/DNC are honoured across the entire pool.
 9. Ops dashboard data: per-number health, volume, status (active / warming / cooling / retired).
+
+## Founder requirement: built for scale (Phase 1 architecture, scale-out ready)
+Design target (to validate with load tests): 100k+ users, 1,000+ concurrent live calls at peak, bursts of WhatsApp
+webhooks; no lost tasks, no duplicate calls, no double-sent messages.
+1. **Stateless API tier** (FastAPI replicas behind a load balancer): webhooks verify, store, **ack fast** and enqueue;
+   no in-memory per-user state. **Idempotency keys** for every webhook (WhatsApp/telephony retry deliveries).
+2. **Durable job queue** replaces the in-process event bus for anything that must not be lost: task steps, calls,
+   retries, scheduled call-backs, nudges, outbound messages (transactional outbox). Postgres-backed queue
+   (`FOR UPDATE SKIP LOCKED`) for Phase 1; swappable for SQS/Redis later. Priorities: live-call & user replies >
+   task steps > proactive > batch.
+3. **Separate worker pools:** task workers, **voice/call workers** (long-lived media WebSockets; a call stays pinned to
+   one worker; scale by concurrent calls), proactive/scheduler workers, batch workers.
+4. **Distributed scheduling:** scheduled jobs live in the DB (due_at index); exactly-once firing across replicas;
+   proactive engine sharded by user.
+5. **Distributed per-user locks** (Postgres advisory locks or Redis) instead of in-memory locks; one conversation
+   turn per user at a time.
+6. **Data:** Postgres with connection pooling (PgBouncer), indexes on hot paths, partitioning of large append-only
+   tables (messages, call_turns, audit, costs), read replica later; recordings in object storage (S3) — never DB.
+7. **Shared cache** (Redis): business info/reviews, learned IVR maps, pre-rendered TTS audio, rate-limit counters.
+8. **Provider limits & backpressure:** per-provider concurrency/rate limiters (LLM tokens/min, telephony calls/sec
+   and concurrent channels, STT/TTS streams), circuit breakers + failover (already: Sarvam→Exotel→Twilio).
+9. **Observability:** metrics (queue depth, call concurrency, p95 turn latency, error rates, ₹/task), tracing per
+   task, alerts; autoscaling on queue depth and concurrent calls.
+10. **Load testing:** simulator-driven load test (thousands of simulated users and concurrent calls, no real
+    providers) proving the targets before launch.
