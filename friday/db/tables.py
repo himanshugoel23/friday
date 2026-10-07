@@ -510,4 +510,22 @@ class AuditRow(IdMixin, Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
+# ------------------------------------------------------------------------------ costs
+
+
+class CostEntryRow(IdMixin, Base):
+    """Internal per-user cost ledger (never shown to users). One row per billable
+    leg: call, llm, message, sms, api. Roll-ups feed ops alerts (no user cap)."""
+
+    __tablename__ = "cost_entries"
+    __table_args__ = (Index("ix_cost_user_at", "user_id", "at"),)
+
+    user_id: Mapped[str] = _user_fk()
+    task_id: Mapped[str | None] = mapped_column(String(32))
+    call_id: Mapped[str | None] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    amount_inr: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
 ALL_TABLES = sorted(Base.metadata.tables)
