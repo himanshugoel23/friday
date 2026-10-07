@@ -1,7 +1,8 @@
 # Friday: Vision
 
-> "Friday, call the dentist and get me something Saturday morning."
-> Two minutes later: "Done. Dr. Mehta, Saturday 10:30. I'll remind you Friday night."
+> "Friday, find me a good dentist near Indiranagar and get me something Saturday morning."
+> A minute later: "Shortlisted 3 (4.6★+ and reviews praise painless cleanings). Dr. Mehta has 10:30 or 11:15, ₹800 for a cleaning. Which one?"
+> "10:30." / "Done. I'll remind you Friday night."
 
 ## What Friday is
 
@@ -16,17 +17,19 @@ The north star is a trusted, always-available chief of staff for every Indian ho
 - **India's errands run on phone calls.** Clinics, salons, plumbers, kirana stores, tutors, RWAs and local restaurants take bookings by phone or WhatsApp. They don't have APIs or booking widgets. Getting something done means making a call, and people put off calls they don't want to make.
 - **India is voice-first.** Hundreds of millions of users prefer speaking to typing and switch between Hindi and English mid-sentence. Voice notes are already a default way to communicate.
 - **A plain phone call works offline.** It reaches feature phones, people on patchy 2G and elderly parents. An assistant whose backbone is a phone call can reach people that app-based assistants cannot.
-- **The time is right.** Real-time speech models can now hold a natural Hinglish call at a cost below ₹15 per task.
+- **The time is right.** Real-time speech models can now hold a natural Hinglish call at a cost below ₹15 per task, and they can switch to Tamil, Kannada or Marathi when that is what the person on the other end speaks.
+- **Finding the right business is half the work.** Comparing ratings, reading reviews, collecting quotes and haggling a little is exactly what busy people skip. Friday does all of it.
 - **There are two sides to every call.** Each call Friday makes reaches a small business. Every call is therefore a touchpoint for a future "Friday for Business".
 
 ## Principles
 
 1. **Acts, not answers.** Success means a task got done: a booking made or a price found. A good reply on its own is not success. Every message should move something forward.
-2. **Proactive, not noisy.** Friday notices things such as dates, patterns and loose ends, and brings them up at the right moment. Each nudge must offer an action ("Book usual?"), not just information. Hard limits apply: at most 3 unprompted messages a day, and quiet hours from 22:00 to 08:00 IST. Friday learns from what the user ignores.
-3. **Trust beats autonomy.** Friday never pays or commits money without approval. It always says it is an AI on calls. Every action is logged, and the user can delete everything by chat. Users raise autonomy one category at a time: inform, then suggest, then act with approval, then act automatically (explicit opt-in only). Sensitive actions need the 4-digit Friday PIN.
-4. **Channel-agnostic.** The user is a person, not a WhatsApp ID. Meta's January 2026 policy on "AI-as-product" assistants means WhatsApp could be lost. Friday's core logic (brain, memory, task engine) does not know which channel it is using. Voice is the backbone and SMS is the guaranteed (DLT-templated) fallback.
-5. **India by default.** Hindi, English and Hinglish. Times in IST and amounts in ₹. DPDP consent is recorded, data is stored in India and SMS follows TRAI/DLT rules.
-6. **One character.** Friday sounds like the same person everywhere: in chat, on a call to a salon and in the 7 a.m. briefing.
+2. **Goal-driven, not scripted.** On a call, Friday gets a goal, constraints, a budget and the user's context, then talks freely with an LLM to achieve the goal. It handles whatever the person says. There are no Q&A trees per business type. Only the AI disclosure line and the safety rules are fixed.
+3. **Proactive, not noisy.** Friday notices things such as dates, patterns and loose ends, and brings them up at the right moment. Each nudge must offer an action ("Book usual?"), not just information. Hard limits apply: at most 3 unprompted messages a day, and quiet hours from 22:00 to 08:00 IST. Friday learns from what the user ignores.
+4. **Trust beats autonomy.** Friday never pays or commits money. It negotiates within the user's budget and brings the best offer back. It never confirms a booking until the user has approved the slot and price. It always says it is an AI on calls. Every action is logged, and the user can delete everything by chat. Users raise autonomy one category at a time: inform, then suggest, then act with approval, then act automatically (explicit opt-in only). Sensitive actions need the 4-digit Friday PIN.
+5. **Channel-agnostic.** The user is a person, not a WhatsApp ID. Meta's January 2026 policy on "AI-as-product" assistants means WhatsApp could be lost. Friday's core logic (brain, memory, task engine) does not know which channel it is using. Voice is the backbone and SMS is the guaranteed (DLT-templated) fallback.
+6. **India by default.** Hindi, English and Hinglish in chat. On calls, Friday opens in Hinglish and mirrors whatever language the business speaks, turn by turn (including Tamil, Telugu, Kannada, Marathi and Bengali where speech providers support them). Times in IST and amounts in ₹. DPDP consent is recorded, data is stored in India and SMS follows TRAI/DLT rules.
+7. **One character.** Friday sounds like the same person everywhere: in chat, on a call to a salon and in the 7 a.m. briefing.
 
 ## Persona: who Friday is
 
@@ -59,16 +62,18 @@ Friday's grammatical gender in Hindi is feminine ("karti hoon", "dila dungi"). T
 - Example: "I'm here. If anyone is hurt, call 112 now. I can't call emergency services yet. I *can* call your brother Rohit right after. Should I?"
 - Phase 1 has no Lifeline feature. Friday still never ignores distress, and it always points to 112 or 108.
 
-**On calls with businesses** Friday is polite, clear and patient, and uses "ji" naturally. It opens with an AI disclosure, stays on the goal, reads details back to confirm them and never pretends to be human.
+**On calls with businesses** Friday is polite, clear and patient, and uses "ji" naturally. It opens with an AI disclosure and answers honestly whenever asked. It stays on the goal, negotiates firmly but courteously, and reads details back to confirm them.
+
+**The voice** is clean, calm, polished and confident, like JARVIS or F.R.I.D.A.Y. It is unmistakably an AI and never pretends to be human. It uses no fake fillers ("umm", "uh"), no fake breaths or typing sounds, and no pretend hesitations. When Friday needs a moment it says so plainly ("One moment, I'm checking with Ankit.") and then waits in silence or with a neutral hold tone.
 
 ## Roadmap
 
 | Phase | Theme | What ships |
 |---|---|---|
-| **P1: Friday makes calls** | Prove the core loop | WhatsApp chat (text and voice notes). Outbound AI calls for bookings and enquiries in Hindi/English/Hinglish. Mid-call questions with reply buttons. Result reports with recordings. Memory (profile, businesses, facts and dates). Proactive v1: reminders, follow-ups, date and pattern nudges, opt-in morning briefing. Autonomy levels. Invite-only with call caps. Post-call business touch. |
+| **P1: Friday makes calls** | Prove the core loop | WhatsApp chat (text and voice notes). Outbound, goal-driven AI calls for bookings and enquiries. Calls open in Hinglish and mirror the business's language. Discovery: search, read reviews, shortlist, call and compare. Quotes and negotiation within the user's budget. Mid-call questions with reply buttons; bookings are confirmed only after the user approves. Result reports with recordings. Memory (profile, businesses, facts and dates). Proactive v1: reminders, follow-ups, date and pattern nudges, opt-in morning briefing. Autonomy levels. Invite-only with call caps. Post-call business touch. |
 | **P2: Friday answers the phone** | Reach everyone, offline | Inbound voice: users call Friday's number and talk. Feature-phone and no-internet use. Toll-free number. Missed-call-to-callback ("give a missed call, Friday calls back"). SMS fallback for results. Customer-care and IVR navigation. |
 | **P3: Lifeline** | Safety and deeper proactivity | Emergency and safety flows (SOS to family, nearby help, check-ins for elderly parents). These are exempt from quiet hours. Richer proactive engine: multi-signal context, smarter timing and household-level awareness. |
 | **P4: Connected life** | Friday sees your world | Email and calendar (OAuth via one-time links), UPI with PIN-gated approval (never auto-paying without consent), and a document vault (insurance, PUC, passport expiries). Bills and renewals handled end to end. |
 | **P5: Friday everywhere** | Ecosystem | Home and devices (smart home, car). **Friday for Business**: an AI receptionist for the SMBs Friday has been calling. Agent-to-agent: Friday negotiates directly with business agents. |
 
-Each phase must keep the earlier promises: Friday discloses that it is an AI, keeps a full action log, never moves money without approval and lets the user delete everything by chat.
+Each phase must keep the earlier promises: Friday discloses that it is an AI, asks before it books, keeps a full action log, never moves money without approval and lets the user delete everything by chat.

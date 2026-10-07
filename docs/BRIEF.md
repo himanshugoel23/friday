@@ -63,6 +63,31 @@ No app, no website: users reach Friday only via **WhatsApp, voice call, and SMS*
    disclose) and converses freely with an LLM to achieve it, handling whatever the rep says.
    Only safety rules and the disclosure line are fixed.
 
+## Founder requirements: people & places (added — Phase 1 scope)
+Users book for **themselves and for others** — parents, spouse, kids, friends. NRIs managing their parents'
+errands in India are a core segment, so this must work from day one.
+1. **People (circle).** The user can create profiles for people they take care of: name, relation
+   (mom, dad, spouse, friend…), phone, preferred language, addresses, and optional notes
+   (e.g. "dad is diabetic, prefers morning appointments", "mom only speaks Marathi").
+   Tasks have a **beneficiary** (who the booking is for) separate from the **requester** (the user).
+2. **Places.** Saved, labelled addresses: Home, Office, "Mom & Dad's home", "Priya's place", etc.,
+   geocoded (lat/lng) and linked to people. Created by typed/spoken address, a pasted Google Maps link, or a
+   **WhatsApp location pin**. No app → no background GPS; location comes only from what the user shares
+   (in chat or by voice), plus "current location" pins shared in the moment.
+3. **Recognition.** The AI resolves natural references to saved people and places, in English and Hinglish:
+   "book a doctor for papa near their home", "mummy ke ghar ke paas", "near my office", "his place" (from
+   context). If ambiguous, it asks once ("Mom & Dad's Pune home or the Delhi flat?"). It learns new aliases
+   ("PG" = Bengaluru home, "Nani's" = grandma's house).
+4. **Onboarding.** Optional quick setup: "Who else do you look after?" and "Save your home and office?"
+   Users can also add people and places anytime by chat ("add my dad, +91 98xxxx, lives in Jaipur").
+5. **Beneficiary communication & consent.** Friday can send booking confirmations and reminders to the
+   beneficiary (e.g. dad gets an SMS/WhatsApp/voice reminder in his language) only after that person has
+   opted in once (a one-time consent message to them). Share with businesses only the minimum needed
+   (name, phone, address for home visits). Never share one family member's notes with another unless the
+   user set that up.
+6. **Proactive** nudges can be about the people the user cares for ("Dad's BP check is due next week, book
+   the usual clinic?").
+
 ## NOT in Phase 1
 Customer-care/IVR calls, payments/UPI, Gmail/Calendar, Lifeline/emergency, users calling Friday's number
 (inbound voice — Phase 2, but voice pipeline must be reusable for it), business accounts, regional languages

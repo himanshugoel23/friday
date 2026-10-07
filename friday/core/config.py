@@ -38,6 +38,7 @@ STTProviderName = Literal["auto", "fake", "sarvam", "deepgram"]
 TTSProviderName = Literal["auto", "fake", "sarvam", "elevenlabs"]
 WhatsAppProviderName = Literal["auto", "simulator", "cloud"]
 SMSProviderName = Literal["auto", "fake", "msg91"]
+DirectoryProviderName = Literal["auto", "simulator", "google_places"]
 
 
 def _alias(*names: str) -> AliasChoices:
@@ -112,8 +113,11 @@ class Settings(BaseSettings):
     call_max_attempts: int = 3  # per task, across busy/no-answer retries
     call_retry_backoff_s: int = 900  # wait before re-dialling after busy/no-answer
     call_silence_timeout_s: float = 8.0  # callee silence before Friday re-prompts
-    mid_call_question_timeout_s: int = 90  # how long the business is kept on hold
-    call_hold_filler_interval_s: int = 15  # "one moment please" cadence while holding
+    mid_call_question_timeout_s: int = 90  # default ApprovalPolicy.hold_timeout_s
+    # While holding for the user, a short polished hold line ("Thank you for holding,
+    # I'm still waiting for Rahul's confirmation") every N s. NOT a filler sound.
+    call_hold_reminder_interval_s: int = 20
+    callback_after_approval_delay_s: int = 0  # dial the confirm call right after approval
 
     # ------------------------------------------------------------------ STT / TTS (voice)
     stt_provider: STTProviderName = "auto"
@@ -131,6 +135,12 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str | None = Field(
         default=None, validation_alias=_alias("ELEVENLABS_VOICE_ID", "FRIDAY_ELEVENLABS_VOICE_ID")
     )
+    # Language -> provider voice id (JSON in env). Missing languages fall back to
+    # the provider default for that language. Voice must be calm & polished; the
+    # TTS layer must never inject fillers ("umm"), breaths or typing sounds.
+    tts_voices: dict[str, str] = Field(default_factory=dict)
+    tts_speaking_rate: float = 1.0
+    tts_style: str = "calm"
 
     # ------------------------------------------------------------------ WhatsApp (channels)
     whatsapp_provider: WhatsAppProviderName = "auto"
@@ -177,6 +187,17 @@ class Settings(BaseSettings):
             "user_reminder": "DLT_TPL_USER_REMINDER",
         }
     )
+
+    # ------------------------------------------------------------------ discovery
+    directory_provider: DirectoryProviderName = "auto"
+    google_places_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=_alias("GOOGLE_PLACES_API_KEY", "FRIDAY_GOOGLE_PLACES_API_KEY"),
+    )
+    discovery_max_candidates: int = 10  # fetched from the directory
+    discovery_shortlist_size: int = 3  # called after the brain shortlists
+    discovery_min_rating: float = 3.8
+    discovery_parallel_calls: int = 1  # 1 = one after another (default; simpler to follow)
 
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
@@ -228,6 +249,12 @@ class Settings(BaseSettings):
             return "elevenlabs"
         return "sarvam" if self.is_live else "fake"
 
+    def resolve_directory(self) -> Literal["simulator", "google_places"]:
+        # Read-only provider: real Places data is safe even in simulator mode.
+        if self.directory_provider != "auto":
+            return self.directory_provider
+        return "google_places" if (self.is_live or self.google_places_api_key) else "simulator"
+
     def resolve_telephony(self) -> Literal["simulator", "twilio", "exotel", "plivo"]:
         if not self.is_live:
             return "simulator"
@@ -276,6 +303,8 @@ class Settings(BaseSettings):
                 "WHATSAPP_PHONE_NUMBER_ID": self.whatsapp_phone_number_id,
                 "WHATSAPP_APP_SECRET": self.whatsapp_app_secret,
             }
+        if self.resolve_directory() == "google_places":
+            need["GOOGLE_PLACES_API_KEY"] = self.google_places_api_key
         if self.resolve_sms() == "msg91":
             need |= {"MSG91_AUTH_KEY": self.msg91_auth_key, "DLT_ENTITY_ID": self.dlt_entity_id}
         problems += [f"missing {k}" for k, v in need.items() if not v]

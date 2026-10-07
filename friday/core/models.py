@@ -75,9 +75,47 @@ class Channel(StrEnum):
 
 
 class Language(StrEnum):
+    """Spoken/written language. Calls OPEN in Hinglish and then MIRROR the callee.
+
+    EN/HI/HINGLISH are guaranteed in Phase 1; the regional languages are used when
+    the configured STT/TTS provider supports them (see ``SUPPORTED_*`` on providers).
+    """
+
     EN = "en"
     HI = "hi"
-    HINGLISH = "hinglish"
+    HINGLISH = "hinglish"  # code-mixed Hindi+English, Roman or Devanagari
+    TA = "ta"  # Tamil
+    TE = "te"  # Telugu
+    KN = "kn"  # Kannada
+    MR = "mr"  # Marathi
+    BN = "bn"  # Bengali
+    GU = "gu"  # Gujarati
+    ML = "ml"  # Malayalam
+    PA = "pa"  # Punjabi
+    OR = "or"  # Odia
+
+    @property
+    def bcp47(self) -> str:
+        """Locale tag for STT/TTS vendors (Hinglish -> hi-IN; vendors code-switch)."""
+        return {"en": "en-IN", "hinglish": "hi-IN"}.get(self.value, f"{self.value}-IN")
+
+
+CORE_LANGUAGES: frozenset[Language] = frozenset({Language.EN, Language.HI, Language.HINGLISH})
+DEFAULT_CALL_LANGUAGE = Language.HINGLISH
+
+# The ONE fixed line of every call (founder rule #5). Spoken by the voice runner
+# itself before the policy's first turn, so it can never be skipped or rephrased.
+_DISCLOSURE = {
+    Language.EN: "Hi, I'm Friday, an AI assistant calling on behalf of {name}.",
+    Language.HI: "नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट, {name} की ओर से कॉल कर रही हूँ।",
+    Language.HINGLISH: "Hi, main Friday hoon, ek AI assistant, {name} ki taraf se call kar rahi hoon.",
+}
+
+
+def disclosure_line(on_behalf_of: str | None, language: Language = DEFAULT_CALL_LANGUAGE) -> str:
+    """Mandatory AI disclosure. Falls back to Hinglish for languages without a template."""
+    tpl = _DISCLOSURE.get(language, _DISCLOSURE[Language.HINGLISH])
+    return tpl.format(name=on_behalf_of or "my user")
 
 
 class Tone(StrEnum):
@@ -118,13 +156,21 @@ class ConsentKind(StrEnum):
 class TaskType(StrEnum):
     BOOKING = "booking"  # clinic, salon, restaurant, service provider
     ENQUIRY = "enquiry"  # open? price? stock?
+    QUOTE = "quote"  # get (and negotiate) a price quote; never commits
+    DISCOVERY = "discovery"  # parent: search -> shortlist -> child QUOTE/ENQUIRY calls
+    #                          -> comparison -> user picks -> child BOOKING call
 
 
 class TaskStatus(StrEnum):
     CREATED = "created"
     PLANNING = "planning"  # brain is extracting spec / resolving business
+    DISCOVERING = "discovering"  # parent: searching directory + shortlisting
+    WAITING_CHILDREN = "waiting_children"  # parent: child calls in progress
+    AWAITING_CHOICE = "awaiting_choice"  # parent: comparison sent, user must pick
     NEEDS_INFO = "needs_info"  # waiting for the user to fill a missing spec field
-    AWAITING_APPROVAL = "awaiting_approval"  # user must OK the call (autonomy < 4)
+    # user must OK something: the call itself (autonomy < 4), or - after a
+    # "call back later" approval call - the slot/price; then a follow-up call confirms.
+    AWAITING_APPROVAL = "awaiting_approval"
     SCHEDULED = "scheduled"  # will dial at next_attempt_at (retry / call-back-later)
     CALLING = "calling"
     AWAITING_USER = "awaiting_user"  # mid-call question outstanding, business on hold
@@ -159,6 +205,9 @@ class CallOutcome(StrEnum):
     VOICEMAIL = "voicemail"
     HUNG_UP = "hung_up"  # business hung up mid-call (metric: <20%)
     USER_TIMEOUT = "user_timeout"  # mid-call question unanswered; call wrapped up
+    # Offer/slot obtained, business agreed to wait; call ended to get user approval.
+    # Task -> AWAITING_APPROVAL; on approval the engine places a confirm call.
+    PENDING_APPROVAL = "pending_approval"
     FAILED = "failed"  # technical failure
     CANCELLED = "cancelled"
 
@@ -186,7 +235,10 @@ class Speaker(StrEnum):
 
 class CallActionType(StrEnum):
     SAY = "say"  # speak text, then listen for the reply
-    ASK_USER = "ask_user"  # speak hold_text, ask the user on WhatsApp, wait for answer
+    # speak ``text`` (e.g. "Let me confirm with Rahul, could you hold a moment?"), send
+    # ``question`` to the user on WhatsApp, keep the line on HOLD up to
+    # brief.approval.hold_timeout_s; the answer (or timeout) comes back as a SYSTEM turn.
+    ASK_USER = "ask_user"
     WAIT = "wait"  # say nothing, keep listening (callee checking something)
     DTMF = "dtmf"  # press keys (IVR menus) - optional for Phase 1
     HANGUP = "hangup"  # speak text (goodbye) then end the call
@@ -207,8 +259,23 @@ class Direction(StrEnum):
     OUTBOUND = "outbound"
 
 
+class QuestionPurpose(StrEnum):
+    CLARIFY = "clarify"  # "Do you want the AC gas refill too?"
+    APPROVE_BOOKING = "approve_booking"  # slot/price approval - mandatory before confirming
+    CHOOSE_OPTION = "choose_option"  # "4pm or 6pm?"
+
+
+class ApprovalMode(StrEnum):
+    """How the call agent gets the owner's OK before committing to a booking."""
+
+    HOLD_THEN_CALLBACK = "hold_then_callback"  # hold up to N s; if no answer, call back later
+    HOLD_ONLY = "hold_only"  # hold up to N s; if no answer, wrap up politely, no callback
+    CALLBACK_ONLY = "callback_only"  # never hold; collect offer, end, call back after approval
+
+
 class Intent(StrEnum):
-    NEW_TASK = "new_task"  # "book a haircut at Looks tomorrow 6pm"
+    NEW_TASK = "new_task"  # "book a haircut at Looks tomorrow 6pm" / "find me an AC guy"
+    CHOOSE = "choose"  # picks a business/quote from a comparison
     TASK_UPDATE = "task_update"  # modifies / adds info to an open task
     ANSWER_QUESTION = "answer_question"  # answers an outstanding mid-call/clarifying q
     APPROVE = "approve"  # yes/go-ahead for a pending approval or nudge action
@@ -480,6 +547,95 @@ class SendReceipt(_Model):
     sent_at: datetime = Field(default_factory=utcnow)
 
 
+# =============================================================================== money & quotes
+
+
+class Budget(_Model):
+    """User's limits. Amounts in whole rupees. Friday NEVER pays or commits money."""
+
+    max_inr: int | None = None  # hard ceiling - never accept above this
+    target_inr: int | None = None  # what we'd like to pay
+    notes: str | None = None  # "including parts", "per person"
+
+
+class NegotiationPolicy(_Model):
+    enabled: bool = True
+    # tactics the call agent may use; brain prompt enforces, QA tests
+    may_ask_discount: bool = True
+    may_cite_competing_quotes: bool = True  # "another shop quoted ₹1,800"
+    may_ask_package_deal: bool = True
+    max_rounds: int = 2  # discount asks per call before accepting best offer
+    walk_away_above_inr: int | None = None  # defaults to Budget.max_inr
+
+
+class Quote(_Model):
+    """Structured price offer captured on a call."""
+
+    business_id: str | None = None
+    business_name: str
+    amount_inr: int | None = None  # final (post-negotiation) price, if numeric
+    original_amount_inr: int | None = None  # first price quoted, before negotiation
+    price_text: str  # verbatim-ish: "₹1,500 + ₹300 visiting charge"
+    inclusions: list[str] = Field(default_factory=list)
+    exclusions: list[str] = Field(default_factory=list)
+    validity: str | None = None  # "valid till Sunday", "today only"
+    available_slots: list[str] = Field(default_factory=list)  # "Sat 4pm", "Sun 11am"
+    notes: str | None = None
+    within_budget: bool | None = None
+    call_id: str | None = None
+    task_id: str | None = None
+
+    @property
+    def negotiated(self) -> bool:
+        return (
+            self.amount_inr is not None
+            and self.original_amount_inr is not None
+            and self.amount_inr < self.original_amount_inr
+        )
+
+
+# =============================================================================== discovery
+
+
+class GeoPoint(_Model):
+    lat: float
+    lng: float
+
+
+class BusinessCandidate(_Model):
+    """A business found via a BusinessDirectory (Google Places / simulator)."""
+
+    provider: str  # "google_places" / "simulator"
+    place_id: str  # provider's stable id
+    name: str
+    phone: str | None = None  # E.164; candidates without a phone can't be called
+    category: str | None = None
+    address: str | None = None
+    location: GeoPoint | None = None
+    distance_km: float | None = None
+    rating: float | None = None  # 0-5
+    review_count: int = 0
+    review_snippets: list[str] = Field(default_factory=list)  # a few recent/relevant reviews
+    maps_url: str | None = None
+    open_now: bool | None = None
+    price_level: int | None = None  # 0-4 if provider has it
+
+
+class ShortlistItem(_Model):
+    candidate: BusinessCandidate
+    rank: int  # 1 = best
+    reason: str  # short, user-facing: "4.7★ (320 reviews), people praise quick visits"
+
+
+class QuoteComparison(_Model):
+    """brain.compare_quotes() output, sent to the user to pick from."""
+
+    summary: str  # user-facing comparison text
+    ranked_quotes: list[Quote] = Field(default_factory=list)  # best first
+    recommended_index: int | None = None  # into ranked_quotes
+    buttons: list[ReplyButton] = Field(default_factory=list, max_length=3)
+
+
 # =============================================================================== tasks
 
 
@@ -492,6 +648,13 @@ class TaskSpec(_Model):
     business_phone: str | None = None  # E.164; required before CALLING
     business_id: str | None = None
     category: str | None = None  # salon / clinic / restaurant / plumber...
+    # discovery (TaskType.DISCOVERY or no business named)
+    discovery_query: str | None = None  # "AC repair"
+    location_text: str | None = None  # "near Indiranagar, Bangalore"
+    shortlist_size: int = 3
+    budget: Budget | None = None
+    negotiation: NegotiationPolicy = Field(default_factory=NegotiationPolicy)
+    preferred_times: list[str] = Field(default_factory=list)  # "Sat morning", "after 6pm"
     when_text: str | None = None  # user's words: "tomorrow evening"
     window_start: datetime | None = None  # resolved UTC window, if any
     window_end: datetime | None = None
@@ -501,13 +664,19 @@ class TaskSpec(_Model):
     # decisions Friday may take alone on the call; anything else -> ASK_USER
     allowed_decisions: list[str] = Field(default_factory=list)
     on_behalf_of: str | None = None  # name used in the AI disclosure
-    call_language: Language = Language.HINGLISH
+    call_language: Language = Language.HINGLISH  # OPENING language; mirrored after that
     notes: str | None = None
     missing: list[str] = Field(default_factory=list)  # fields the brain still needs
 
     @property
     def is_ready_to_call(self) -> bool:
         return bool(self.business_phone) and not self.missing
+
+    @property
+    def needs_discovery(self) -> bool:
+        return self.type == TaskType.DISCOVERY or (
+            not self.business_phone and bool(self.discovery_query)
+        )
 
 
 class Task(_Model):
@@ -521,6 +690,11 @@ class Task(_Model):
     next_attempt_at: datetime | None = None
     last_outcome: CallOutcome | None = None
     result: TaskResult | None = None
+    # multi-call: DISCOVERY parent -> child QUOTE/ENQUIRY/BOOKING tasks
+    parent_task_id: str | None = None
+    candidate: BusinessCandidate | None = None  # child: which shortlisted business
+    shortlist: list[ShortlistItem] = Field(default_factory=list)  # parent
+    approved_terms: str | None = None  # user-approved slot/price for a confirm call
     source_message_id: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -536,6 +710,9 @@ class TaskResult(_Model):
     next_steps: list[str] = Field(default_factory=list)
     follow_up_at: datetime | None = None  # feeds FOLLOW_UP nudges
     retry_suggested: bool = False
+    quotes: list[Quote] = Field(default_factory=list)
+    comparison: QuoteComparison | None = None  # DISCOVERY parent
+    needs_approval: MidCallQuestion | None = None  # PENDING_APPROVAL: what to ask the user
     facts: list[Fact] = Field(default_factory=list)  # e.g. business notes learned
     business_touch: TemplateRef | None = None  # end-of-call SMS/WA to the business
 
@@ -547,7 +724,7 @@ class CallTurn(_Model):
     speaker: Speaker
     text: str
     at: datetime = Field(default_factory=utcnow)
-    language: Language | None = None
+    language: Language | None = None  # detected (CALLEE) / spoken (FRIDAY)
     confidence: float | None = None  # STT confidence for CALLEE turns
 
 
@@ -577,6 +754,7 @@ class MidCallQuestion(_Model):
     task_id: str
     call_id: str | None = None
     text: str  # "They have 4pm or 6pm. Which one?"
+    purpose: QuestionPurpose = QuestionPurpose.CLARIFY
     options: list[str] = Field(default_factory=list, max_length=3)  # become reply buttons
     allow_free_text: bool = True
     timeout_s: int = 90
@@ -587,6 +765,8 @@ class UserAnswer(_Model):
     question_id: str
     text: str  # chosen option title or free text
     option_index: int | None = None
+    # brain/backend set True when this answers an APPROVE_BOOKING question positively
+    approves: bool = False
     message_id: str | None = None
     answered_at: datetime = Field(default_factory=utcnow)
 
@@ -601,19 +781,62 @@ class CallAction(_Model):
     digits: str | None = None  # DTMF
     outcome: CallOutcome | None = None  # HANGUP: brain's verdict on the call
     collected: dict[str, str] = Field(default_factory=dict)  # facts learned so far
+    quote: Quote | None = None  # latest/best quote captured so far
+    # True if ``text`` confirms a booking/commitment to the business. The runner
+    # refuses such an action unless the brief allows it (brief.can_commit(answers)).
+    commits_booking: bool = False
 
 
-class CallContext(_Model):
-    """Everything the call policy needs; built by the task engine, read-only to voice."""
+class ApprovalPolicy(_Model):
+    """Book only after asking the owner (founder rule #3). Not optional."""
 
-    task: Task
-    user_name: str | None = None  # for "calling on behalf of <name>"
-    user_language: Language = Language.HINGLISH
+    mode: ApprovalMode = ApprovalMode.HOLD_THEN_CALLBACK
+    hold_timeout_s: int = 90  # how long the business may be kept on hold
+    # Free-form rules the brain must follow, e.g. "price above ₹2000 needs approval".
+    rules: list[str] = Field(default_factory=list)
+
+
+class CallBrief(_Model):
+    """Goal-driven call instructions (founder rule #6). Built by the task engine
+    (via brain.build_call_brief), consumed by the CallPolicy each turn. No scripts.
+    """
+
+    task_id: str
+    user_id: str
+    task_type: TaskType
+    goal: str  # "Get a quote for AC servicing (2 split ACs) and a Sat slot"
+    business_name: str | None = None
+    business_phone: str  # E.164 - who we dial
     business: Business | None = None
-    direction: CallDirection = CallDirection.OUTBOUND
+    on_behalf_of: str  # user's name for the disclosure
+    opening_language: Language = DEFAULT_CALL_LANGUAGE
+    user_language: Language = Language.HINGLISH  # for mid-call questions to the user
+    constraints: list[str] = Field(default_factory=list)
+    preferred_times: list[str] = Field(default_factory=list)
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    party_size: int | None = None
+    questions: list[str] = Field(default_factory=list)  # things to find out
+    budget: Budget | None = None
+    negotiation: NegotiationPolicy = Field(default_factory=NegotiationPolicy)
+    competing_quotes: list[Quote] = Field(default_factory=list)  # leverage from sibling calls
+    user_context: list[str] = Field(default_factory=list)  # relevant facts, e.g. "has 2 split ACs"
+    allowed_disclosures: list[str] = Field(default_factory=list)  # "first name", "area"
+    forbidden_disclosures: list[str] = Field(
+        default_factory=lambda: ["user's phone number", "home address", "payment details"]
+    )
+    approval: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
+    # Set on a follow-up confirm call: the slot/price the user already approved.
+    approved_terms: str | None = None
     attempt: int = 1
-    answers: list[UserAnswer] = Field(default_factory=list)  # mid-call answers so far
     max_duration_s: int = 300
+
+    def disclosure(self, language: Language | None = None) -> str:
+        return disclosure_line(self.on_behalf_of, language or self.opening_language)
+
+    def can_commit(self, answers: list[UserAnswer]) -> bool:
+        """Booking may be confirmed only with prior user approval."""
+        return bool(self.approved_terms) or any(a.approves for a in answers)
 
 
 class CallResult(_Model):
@@ -629,8 +852,10 @@ class CallResult(_Model):
     outcome: CallOutcome
     transcript: Transcript = Field(default_factory=Transcript)
     collected: dict[str, str] = Field(default_factory=dict)  # last CallAction.collected
+    quotes: list[Quote] = Field(default_factory=list)
     questions: list[MidCallQuestion] = Field(default_factory=list)
     answers: list[UserAnswer] = Field(default_factory=list)
+    languages_heard: list[Language] = Field(default_factory=list)  # callee, in order of switch
     recording_url: str | None = None
     started_at: datetime = Field(default_factory=utcnow)
     answered_at: datetime | None = None
@@ -650,7 +875,7 @@ class OutboundCallRequest(_Model):
     record: bool = True
     ring_timeout_s: int = 30
     max_duration_s: int = 300
-    language: Language = Language.HINGLISH
+    language: Language = DEFAULT_CALL_LANGUAGE  # opening language (STT hint)
     metadata: dict[str, str] = Field(default_factory=dict)
 
 
@@ -661,9 +886,23 @@ class AudioClip(_Model):
 
 
 class Transcription(_Model):
+    """STT output. ``language`` is the DETECTED language of this utterance - it
+    drives language mirroring (founder rule #1), so providers must fill it."""
+
     text: str
     language: Language | None = None
     confidence: float | None = None
+    is_final: bool = True
+
+
+class VoiceProfile(_Model):
+    """Which TTS voice to use. Calm, clean, polished - no fillers/breaths (rule #5)."""
+
+    provider: str  # "sarvam" / "elevenlabs" / "fake"
+    voice_id: str
+    language: Language
+    speaking_rate: float = 1.0
+    style: str = "calm"
 
 
 # =============================================================================== brain I/O
@@ -699,6 +938,7 @@ class Interpretation(_Model):
     task_id: str | None = None  # which open task this refers to
     answer: UserAnswer | None = None  # ANSWER_QUESTION
     facts: list[Fact] = Field(default_factory=list)  # REMEMBER or incidental extraction
+    choice_index: int | None = None  # CHOOSE: index into the comparison/shortlist
     profile_updates: dict[str, Any] = Field(default_factory=dict)  # SETTINGS: Profile fields
     autonomy_updates: list[AutonomySetting] = Field(default_factory=list)
     requires_pin: bool = False  # sensitive action (DELETE_DATA, autonomy level 4...)
