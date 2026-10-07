@@ -176,6 +176,27 @@ Because calls are goal-driven (CallBrief), most of these are **new task types / 
 35. Same matching for **WhatsApp/SMS replies from businesses**. The inbound call path reuses the same
     CallSessionRunner (groundwork for Phase 2 user inbound calls).
 
+36. **No-answer retry policy.** If a business doesn't pick up: retry automatically — default 3 attempts total
+    (e.g. +10 min, +45 min, then the next good calling window within business hours; never outside hours/lunch
+    closures). Between attempts, also try other listed numbers for that business and, if it has WhatsApp,
+    send a short WhatsApp request. Tell the user only once ("Looks Salon isn't picking up — I'll keep trying,
+    next attempt 4:15pm"), not on every attempt. In discovery/compare/stock-hunt tasks, move on to the next
+    candidate in parallel instead of waiting. After the final attempt: report to the user with options
+    (try later today / tomorrow / pick another business). Busy signal → shorter retry (+5 min).
+37. **Late call-backs after the task is already resolved.** When a business calls back or gives a missed call
+    after the need was met, Friday decides by state:
+    - **Booked elsewhere / need fulfilled / user cancelled / stock already found:** Friday answers or calls back
+      once and **politely closes the loop** ("Thank you for calling back — Rahul's requirement has been taken
+      care of, so we won't need it this time."), cancels any pending retries for that business, records it in
+      vendor memory, and does not bother the user (only mention it in the task summary).
+    - **Booked with this same business:** treat it as being about that booking — reconfirmation, reschedule,
+      cancellation, "ready for pickup", directions — handle it and notify the user of anything that changes.
+    - **Business offers something materially better after the fact** (e.g. much cheaper, earlier slot): mention
+      it to the user once only if the existing booking can be changed without penalty; never switch on her own.
+    - **Task still open:** resume it normally (item 31).
+    All pending retries and scheduled call-backs are cancelled the moment a task resolves, so Friday never
+    calls a business about a need that's already been met.
+
 **Out of Phase 1:** payments/advances (P4), physical errands via human runners (P3),
 government portals/paperwork (P4).
 
