@@ -159,11 +159,26 @@ async def test_reject_shortlist_and_choice(env):
     await env.engine.drain()
     t2 = await env.get(t2.id)
     assert t2.status == S.AWAITING_CHOICE
+    env.runner.gate = asyncio.Event()  # keep the booking call in flight
     await env.engine.handle_button(env.user.id, question_button_id(t2.result.needs_approval.id, 2))
-    await env.engine.drain()
+    for _ in range(30):
+        await asyncio.sleep(0)
     assert (await env.get(t2.id)).status == S.WAITING_CHILDREN  # 3 offers -> 3rd is a booking
-    t3_cancel = await env.engine.cancel(t2.id)
-    assert t3_cancel.status == S.CANCELLED
+    assert (await env.engine.cancel(t2.id)).status == S.CANCELLED
+    env.runner.gate.set()
+    await env.engine.drain()
+    booking = env.repos.tasks.items[t2.result.details.get("booking_child_id") or
+                                    (await env.get(t2.id)).result.details["booking_child_id"]]
+    assert booking.status == S.CANCELLED
+    # declining a comparison with "None"
+    t3 = await env.task(AC)
+    await env.engine.approve(t3.id, True)
+    await env.engine.drain()
+    t3 = await env.get(t3.id)
+    from friday.core.models import UserAnswer
+
+    await env.engine.handle_answer(UserAnswer(question_id=t3.result.needs_approval.id, text="none"))
+    assert (await env.get(t3.id)).status == S.CANCELLED
 
 
 async def test_hotel_hybrid_with_api_offer_and_reconfirm(env):

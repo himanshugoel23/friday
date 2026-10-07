@@ -33,6 +33,7 @@ import json
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
+from urllib.parse import urlencode
 from xml.sax.saxutils import escape, quoteattr
 
 import httpx
@@ -67,6 +68,7 @@ from friday.voice.telephony.media import Segment, UtteranceSegmenter
 log = get_logger(__name__)
 
 TWILIO_API = "https://api.twilio.com"
+_FORM = {"Content-Type": "application/x-www-form-urlencoded"}
 FRAME_BYTES = 160  # 20 ms of 8 kHz mu-law
 INBOUND_MESSAGE = (
     "This is Friday, an AI assistant. I called you on behalf of a customer. "
@@ -213,6 +215,13 @@ class TwilioCallLeg:
         if self.status is None:
             self.status = DialStatus.ANSWERED
             self._status_event.set()
+        self._stream_event.set()
+        if self._worker is None:
+            self._worker = asyncio.ensure_future(self._transcribe_worker())
+
+    def attach_monitor(self, stream_sid: str) -> None:
+        self.stream_sid = stream_sid
+        self._send = None
         self._stream_event.set()
         if self._worker is None:
             self._worker = asyncio.ensure_future(self._transcribe_worker())
@@ -481,7 +490,8 @@ class TwilioTelephony:
         if amd:
             data += [("MachineDetection", "Enable")]
         resp = await self._http.request(
-            "POST", f"/2010-04-01/Accounts/{self.account_sid}/Calls.json", data=data
+            "POST", f"/2010-04-01/Accounts/{self.account_sid}/Calls.json",
+            content=urlencode(data), headers=_FORM,
         )
         sid = resp.json().get("sid")
         if not sid:
@@ -494,7 +504,10 @@ class TwilioTelephony:
             data["Twiml"] = twiml
         if status:
             data["Status"] = status
-        await self._http.request("POST", f"/2010-04-01/Accounts/{self.account_sid}/Calls/{sid}.json", data=data)
+        await self._http.request(
+            "POST", f"/2010-04-01/Accounts/{self.account_sid}/Calls/{sid}.json",
+            content=urlencode(data), headers=_FORM,
+        )
 
     # ------------------------------------------------------------------ TelephonyProvider
     async def place_call(self, request: OutboundCallRequest) -> TwilioCallLeg:
@@ -571,9 +584,8 @@ class TwilioTelephony:
                 log.warning("media stream for unknown call")
                 return
             state["leg"] = leg
-            if params.get("role") == "monitor":
-                leg._send = None
-                leg.stream_sid = msg.get("streamSid") or start.get("streamSid")
+            if params.get("role") == "monitor":  # listen-only fork after bridging
+                leg.attach_monitor(msg.get("streamSid") or start.get("streamSid"))
                 return
             leg.attach_stream(msg.get("streamSid") or start.get("streamSid"), send)
             if leg.inbound and not leg.claimed and leg.provider_call_id:
