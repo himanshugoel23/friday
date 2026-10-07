@@ -233,3 +233,20 @@ Default: the PM recommendations in docs/PRD.md §10 are adopted unless overridde
   sits behind an interface with a real implementation **and** a local simulator/fake, so the whole product
   runs end-to-end locally and in tests **without any API keys**.
 - Secrets only via environment variables (`.env.example` documents them). Never commit secrets.
+
+## Founder requirement: minimum AI / token cost without hurting UX (applies to all phases)
+1. **Model routing:** no LLM for deterministic inputs (buttons, yes/no, commands, status); `claude-haiku-5-5` for
+   interpretation, extraction, nudge judgement, summaries, reason-writing; `claude-sonnet-5-5` for live call turns;
+   `claude-opus-5-5` only as an escalation for rare hard cases. Never Opus by default.
+2. **Prompt caching** of stable prefixes (persona, safety rules, CallBrief, user context) on every LLM call.
+3. **Compact context:** rolling summary + last N turns instead of full transcripts; short structured outputs with
+   tight `max_tokens`.
+4. **Code before AI:** zero LLM on hold; learned IVR menu maps per company replayed without LLM (shared across
+   users); pre-rendered TTS for fixed lines (disclosure, hold, call-back); deterministic shortlist ranking (LLM only
+   for short reasons); rule/template-first nudges.
+5. **Shared caches** of non-personal data (business info, review summaries; TTL 7 days); downscale images.
+6. **Batch API** for non-real-time work (fact extraction, nudge planning, vendor memory).
+7. **Speech/telephony:** VAD (don't send silence to STT), no STT during hold, end calls promptly, cap concurrency.
+8. **Budgets & visibility:** per-call token/cost logging by purpose; per-task token budgets with alert + cheaper
+   fallback; ₹ per successful task as a tracked metric.
+Guardrails: never degrade live-call quality, safety checks, or responsiveness (p95 turn < 1.5 s).
