@@ -155,6 +155,27 @@ Because calls are goal-driven (CallBrief), most of these are **new task types / 
 29. Unofficial scraping MCPs are not used (ToS risk). The hotel provider sits behind a `HotelProvider` interface
     with a simulator.
 
+**E. Business call-backs & missed calls to Friday's number (Phase 1 — founder decision)**
+30. **Call memory.** Every outbound call records which Friday caller-ID number called which business number, for
+    which task/user, when, and the outcome. Caller-ID numbers are **sticky** per business (the same Friday
+    number is reused for the same business) so call-backs route back reliably.
+31. **Business calls back (answered).** An inbound call to a Friday number is matched by caller ID (+ the
+    Friday number dialled) to recent call memory. Friday answers with the disclosure and context:
+    "Hi, this is Friday, an AI assistant. We called you earlier on behalf of Rahul about a haircut on Saturday."
+    and **resumes the task** with the same CallBrief (quote, slot, availability). The approval rule still applies.
+32. **Missed call / unanswered ring from a business.** Friday logs it against the task and **calls back** promptly
+    (respecting business hours and the call queue); after N attempts it informs the user. If the task was already
+    completed, Friday still answers/calls back and handles it (e.g. "slot freed up", "your order is ready",
+    reschedule) — reopening or creating a follow-up task and notifying the user.
+33. **Ambiguity.** Several open tasks with the same business → Friday asks the caller which one ("Is this about
+    the haircut or the facial booking?"). Unknown caller with no match → polite AI greeting, take a message
+    (name, purpose, call-back number), notify ops/log; do not reveal any user's details.
+34. **Safety.** Treat inbound callers as unverified: share only what the CallBrief allows for that business,
+    and only if caller ID matches the business record; never accept payment demands; flag mismatches to the
+    scam check.
+35. Same matching for **WhatsApp/SMS replies from businesses**. The inbound call path reuses the same
+    CallSessionRunner (groundwork for Phase 2 user inbound calls).
+
 **Out of Phase 1:** payments/advances (P4), physical errands via human runners (P3),
 government portals/paperwork (P4).
 
