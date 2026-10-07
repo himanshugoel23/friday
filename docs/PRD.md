@@ -121,7 +121,7 @@ Number rules:
 
 **US-3.3 Missing info.** Before calling, Friday asks for at most **2** clarifying questions, combined into one message where possible. Required fields are: a business (or a discovery request), service, and a date or date window. Anything else is optional. Friday works out the rest on the call, within the stated flexibility.
 
-**US-3.4 Confirm before dialling.** The user's request is their approval, so Friday does not ask "shall I call?". It sends: "Calling Looks Salon now for a haircut, Sat 11 Oct, 9 AM–12 PM. I'll ping you if they ask anything."
+**US-3.4 Confirm before dialling.** The user's request is their approval, so Friday does not ask "shall I call?". It sends: "Calling Looks Salon now for a haircut, Sat 11 Oct, 9 AM–12 PM. I'll come back to you with their options before confirming." If the user delegated, Friday echoes the limits instead (US-3.11).
 - If the business-call window is closed (outside **09:00–20:30 IST**, or outside known or learned hours for that business, US-28), Friday queues the call for the next good window and says so.
 
 **US-3.5 The call** is goal-driven, using the call brief in §5. The booking is **successful** only when all of these hold:
@@ -148,7 +148,6 @@ Number rules:
 - **Recurring bookings** (A12): explicit delegation for the rule (time window + price ceiling) is authority for each instance. Deviations take the call-back route.
 - The autonomy level never substitutes for delegation: level 4 means Friday places the call unprompted, not that she confirms on it.
 - Friday never confirms "provisionally". The approval or delegation source (WA message or button ID, timestamp) is stored on the task and in the action log.
-
 
 **US-3.7 Info sharing.**
 - Friday may share the user's booking name and, for bookings, their registered mobile number. The user can turn the number off.
@@ -600,9 +599,9 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 
 | # | Task type (`task_type`) | Example request | CallBrief goal / key constraints | Success criteria | Report to user |
 |---|---|---|---|---|---|
-| A1 | **Reschedule / cancel** (`booking.reschedule`, `booking.cancel`) | "Move my salon to Sunday", "cancel Dr. Mehta" | Goal: change or cancel an existing booking (looked up in memory by business, date and beneficiary). Constraints: new time windows (reschedule); avoid cancellation fees, and if a fee is mentioned, ask the user (never accept it). The new slot needs approval (US-3.11) | Business confirms the cancellation, or the new slot is read back and approved | "Cancelled: Looks Salon, Sat 11 AM. No charge." / "Moved to Sun 12 Oct, 11:30 AM." Reminders are updated automatically, and the beneficiary is notified if opted in |
+| A1 | **Reschedule / cancel** (`booking.reschedule`, `booking.cancel`) | "Move my salon to Sunday", "cancel Dr. Mehta" | Goal: change or cancel an existing booking (looked up in memory by business, date and beneficiary). Constraints: new time windows (reschedule); avoid cancellation fees, and if a fee is mentioned, ask the user (never accept it). The new slot follows the approval rule (US-3.11: call back unless delegated) | Business confirms the cancellation, or the new slot is read back and approved | "Cancelled: Looks Salon, Sat 11 AM. No charge." / "Moved to Sun 12 Oct, 11:30 AM." Reminders are updated automatically, and the beneficiary is notified if opted in |
 | A2 | **Reconfirm / running late** (`booking.reconfirm`, `booking.late_notice`) | "Is my 7 pm table still on?", "tell the clinic I'm 20 min late" | Reconfirm: verify that the booking exists with the same details. Late notice: inform the business of a new ETA and ask whether the slot still holds. Constraint: don't accept a new slot without asking the user. Auto-offered from the reminder buttons (`Running late`) | Reconfirm: business confirms the details. Late: business acknowledges and states whether the slot is held | "Confirmed: table for 4 at 7 PM, Toit, under Ankit." / "Clinic knows you'll be 20 min late. Dr. Mehta will still see you, but after the 5:30 patient." |
-| A3 | **Phone order** (`order.pharmacy`, `order.kirana`, `order.water`, `order.tiffin`) | "Order Dolo 650 ×2 and ORS from Apollo to dad's home", "2 water cans", "tiffin for the week" | Goal: availability, price per item, total, delivery time and charge, payment mode. Constraints: deliver to a saved place (US-21); payment is **COD or the user's own UPI to the shop**, and Friday never pays (§5.4). Prescription items: share the user-provided prescription image only via WA-to-business (US-24) with user approval. Confirm the order only after the user approves items and total | Business confirms items, total, delivery ETA and address read-back, with user approval recorded | "Ordered from Apollo Malviya Nagar: Dolo 650 ×2, ORS ×4, ₹186 + ₹0 delivery, COD, ETA 45 min to Dad's home." Follow-up at ETA+30 min: `Arrived?` |
+| A3 | **Phone order** (`order.pharmacy`, `order.kirana`, `order.water`, `order.tiffin`) | "Order Dolo 650 ×2 and ORS from Apollo to dad's home", "2 water cans", "tiffin for the week" | Goal: availability, price per item, total, delivery time and charge, payment mode. Constraints: deliver to a saved place (US-21); payment is **COD or the user's own UPI to the shop**, and Friday never pays (§5.4). Prescription items: share the user-provided prescription image only via WA-to-business (US-24) with user approval. Confirm the order on a call-back after the user approves items and total, or on the call if within a delegated ceiling ("order if under ₹300") | Business confirms items, total, delivery ETA and address read-back, with user approval recorded | "Ordered from Apollo Malviya Nagar: Dolo 650 ×2, ORS ×4, ₹186 + ₹0 delivery, COD, ETA 45 min to Dad's home." Follow-up at ETA+30 min: `Arrived?` |
 | A4 | **Availability / stock hunt** (`hunt.stock`) | "Which chemist near Dad's home has Insulin Glargine?" | Goal: find the first business that has X (exact item, strength, quantity), near a place, open now or at a time. Uses discovery (US-17) without a shortlist approval step, then **parallel calls** (US-23) in ranked batches. **Stop at first confirmed match**: in-flight calls finish politely, and queued calls are cancelled. Optional: ask the matching shop to hold the item | ≥1 business confirms stock (item + quantity), with price and hours | "Found it: Wellness Forever, 900 m from Dad's home, has 3 pens, ₹780 each, open till 11 PM. Holding 1 till 8 PM. (Checked 4 shops.)" with `Order for delivery` / `Send address to Dad` |
 | A5 | **Service-provider coordination** (`service.coordinate`) | "Plumber was supposed to come at 11, chase him", "is the electrician on the way?" | Goal: get an ETA, chase no-shows, confirm arrival and confirm the work is done with the user. Runs as a **workflow** of calls and checks: confirm the day before (A2), ETA call at slot start if not arrived, chase at +30 min, ask the user "Did the work get done?" Constraint: escalate to the user if the provider asks for an advance or a revised price | Provider arrives (user confirms) and the user confirms the work is complete, or a firm new time is agreed | "Ravi (plumber) says he's 20 min away, stuck at Silk Board." → later: "Done? [Yes, all fixed] [Not fixed] [Didn't come]". Price and reliability go to vendor memory (US-29) |
 | A6 | **Status chasing** (`status.chase`) | "Is my phone repair done?", "has the tailor finished the blouse?", "where's my refund from the furniture shop?" | Goal: current status, expected ready date, pickup or delivery, any amount due (noted, never agreed). Context from memory (job, date given, receipt number if any). Polite persistence: re-chase at the promised date | Business gives a concrete status and date | "Mobile Care: screen replaced, ready after 6 PM today, ₹2,400 due (as quoted)." Auto-reminder or re-chase is scheduled on the promised date |
@@ -611,7 +610,7 @@ For each type, *the "Report" column is what the user sees on WA*. All reports en
 | A9 | **Big-ticket quotes and negotiation** (`quote.bigticket`: packers & movers, event or wedding vendors, venues, car service, interiors) | "Get 4 quotes for moving a 2BHK Bengaluru → Pune on 1 Nov" | Goal: comparable quotes on a **standardised spec** (inventory, distance, dates, inclusions such as insurance, packing material, GST) with negotiation per US-18 (`firm` allowed). Accept WA-sent quote PDFs and photos (US-24). Constraint: no advance or booking amount; site-survey visits need approval | ≥3 comparable quotes (or all reachable), normalised with inclusions | Normalised comparison (₹ total incl. GST, inclusions ✓/✗, rating, red flags), initial → negotiated price, and a recommendation. `Book survey with <A>` / `Push <B> lower` |
 | A10 | **Family healthcare** (`health.*`: doctor slot, lab home collection, physio, nurse or attendant home visit) | "Lab home collection for Mom's thyroid test tomorrow 7 am", "find a night attendant for Dad" | Goal: slot, practitioner/agency, fees, preparation instructions (fasting etc.), what to bring. Beneficiary from the circle (US-20); minimum medical disclosure (US-22.4). **Never gives or relays medical advice of its own**, only the business's instructions verbatim | Booking confirmed with prep instructions captured, and the user has approved | "Booked: Thyrocare home collection for Mom, Thu 7–7:30 AM, ₹450 COD. **Prep: 10–12 h fasting.**" The prep reminder goes to Mom at 21:00 the previous night if she opted in |
 | A11 | **Enquiries: tutors, coaching, admissions, gyms** (`enquiry.education`, `enquiry.fitness`) | "Find maths tutors for class 8 near home, home tuition, under ₹4k/month" | Goal: fee structure, schedule, mode (home/centre/online), trial class, admission process and deadlines, documents. Parallel calling and comparison. Booking a trial class or visit needs approval | Answers to ≥80% of the brief's questions for ≥2 options | Comparison plus key dates ("Admission form due 15 Nov"). Deadlines are saved as facts and drive date nudges |
-| A12 | **Recurring bookings** (`booking.recurring`) | "Weekly physio for Dad, Tue & Fri 10 am", "haircut every 4 weeks", "AC service every quarter" | Goal: a booking series. The user approves a **recurrence rule + business + price ceiling** once (counts as pre-approval per US-3.11, see Q21). Each instance is booked automatically ahead of time (lead: weekly → 3 days, monthly → 7 days). Any deviation (slot, price, staff) → ask the user | Each instance is booked within the rule; the series continues until stopped | Per instance: "Booked next physio: Tue 14 Oct 10 AM (series 3 of ∞)." `Skip this one` / `Pause series` / `Stop series`. Series are listed under "my recurring" |
+| A12 | **Recurring bookings** (`booking.recurring`) | "Weekly physio for Dad, Tue & Fri 10 am", "haircut every 4 weeks", "AC service every quarter" | Goal: a booking series. The user explicitly delegates a **recurrence rule (time window) + business + price ceiling** once. This is authority for each instance (US-3.11, founder decision). Each instance is booked on the call ahead of time (lead: weekly → 3 days, monthly → 7 days). Any deviation (slot, price, staff) → call-back route | Each instance is booked within the rule; the series continues until stopped | Per instance: "Booked next physio: Tue 14 Oct 10 AM (series 3 of ∞)." `Skip this one` / `Pause series` / `Stop series`. Series are listed under "my recurring" |
 | A13 | **Wellbeing check-in calls** to a circle member (`checkin.wellbeing`) | "Call Mom and Dad every morning at 10 to check in" | Goal: a short, warm call (≤3 min) in the member's language. Friday asks about medicines taken, how they're feeling, sleep and food, and whether anything is needed. **Requires the member's own opt-in** (US-22 mechanism, check-in specific consent). Schedule and frequency are set by the user and agreed by the member. Friday never gives medical advice; health questions → "I'll tell Ankit" (and 112/108 if urgent) | Call connected and answered; summary delivered | Daily summary (≤3 lines): "Mom: took BP meds ✅, slept well, wants coriander and atta (I can order?)." **Alert** (urgent, exempt from quiet hours and cap) if: no answer on 3 attempts across 2 h; distress words; mentions of a fall, chest pain, breathlessness or confusion; or a skipped critical medicine. Format: "⚠ Dad sounded unwell: said he's dizzy since morning. [Call Dad now (warm transfer)] [Call his doctor] [Listen to recording]" |
 
 **Catalogue acceptance criteria:**
@@ -715,7 +714,7 @@ These calls run on the same engine, with an IVR navigator, a hold-listening mode
 - **US-30.1** Friday identifies the company and the issue type (complaint, refund, dispute, cancellation, service request, ticket status or escalation). It then collects the facts needed: dates, amounts, order/booking/account references, previous ticket numbers and what the user wants (target and minimum).
   - Friday asks at most 3 questions, in one message where possible.
   - It accepts screenshots and PDFs of bills, orders and emails (US-24.5).
-- **US-30.2** Friday shows a **pre-call summary** for approval: the company, the official number it will call (US-35), what it will ask for, and **exactly which identifiers it will share**. Buttons: `Go` / `Edit`. No call starts without `Go`. This approval also covers identifier sharing per US-32.
+- **US-30.2** Friday shows a **pre-call summary** for approval: the company, the official number it will call (US-35), what it will ask for, and **exactly which identifiers it will share**. Buttons: `Go` / `Edit`. No call starts without `Go`. This approval also covers identifier sharing per US-32. The target and minimum outcome in the summary count as an **explicit delegation** (US-3.11): Friday may accept a resolution at or above the minimum on the call. Anything below the minimum, or anything that costs the user money, takes the call-back route.
 - **US-30.3** Status updates during long calls: "In the queue for Airtel. Estimated wait ~12 min. I'll ping you when a human picks up." There are at most 3 progress messages per call. These are task-lifecycle messages, so they are exempt from the cap but not from quiet hours. Customer-care calls run 09:00–20:30 unless the line is 24×7 and the user asks.
 
 ### US-31 IVR navigation (C22)
@@ -853,40 +852,58 @@ Friday: PIN set. (Tip: woh message chat se delete kar do.)
         e.g. "Dentist appointment Saturday", "AC service ka price poocho"
 ```
 
-### 6.2 Booking with a mid-call question (Hinglish)
+### 6.2 Booking on the default call-back route (Hinglish)
 
 ```
 User:   Looks salon indiranagar mein sat ko haircut book kar do, 080 4123 4567
-Friday: Calling Looks Salon now, haircut, Sat 11 Oct. Koi time preference?
-        Nahi toh main subah ka try karti hoon.
+Friday: Looks Salon, haircut, Sat 11 Oct. Koi time preference?
 User:   subah 11 ke aaspaas
-Friday: Theek hai, calling now. Kuch poochna hua toh yahin ping karungi.
-        ...
-Friday: 📞 Looks Salon is asking: 11 baje full hai. Kaunsa chalega?
-        [10:00 AM] [12:30 PM] [None of these]
+Friday: Theek hai, calling now. Options lekar aapse confirm karungi, phir book.
+```
+Call 1 (Friday ↔ salon):
+```
+Friday:   Namaste, main Friday hoon, ek AI assistant, Ankit Sharma ki taraf se call kar rahi hoon.
+          Saturday subah 11 baje ke aaspaas haircut ka slot mil sakta hai?
+Salon:    11 full hai. 10 ya 12:30 hai. ₹600, Priya karegi.
+Friday:   Ji, shukriya. Main Ankit ji se confirm karke 10–15 minute mein call back karti hoon.
+          Tab tak dono slot rakh sakte hain?
+Salon:    12:30 rakh dete hain, 10 ka pakka nahi.
+Friday:   Theek hai, thank you ji.
+```
+WhatsApp:
+```
+Friday: Looks Salon: 11 full hai. Options (₹600, Priya):
+        [10:00 AM (not held)] [12:30 PM (held 15 min)] [None of these]
 User:   12:30 wala
-Friday: ...
+Friday: Calling back to confirm…
+```
+Call 2, the call-back:
+```
+Friday:   Namaste, main Friday, Ankit Sharma ki AI assistant. Abhi 12:30 ke liye baat hui thi.
+          Ankit ji ne 12:30 confirm kiya hai. Toh: Ankit Sharma, haircut, Saturday 11 October, 12:30, Priya ke saath, ₹600. Sahi hai?
+Salon:    Haan, done. 10 minute pehle aana.
+Friday:   Shukriya ji! Confirmation SMS aa jayega.
+```
+WhatsApp:
+```
 Friday: Ho gaya! ✅
         Looks Salon, Indiranagar
         Sat 11 Oct, 12:30 PM · Haircut with Priya
         Price: ₹600 (pay at salon)
         Note: 10 min pehle aana
         Main Sat 10:30 baje remind karungi.
-        🎧 [recording voice note]
-        [Add note] [Reschedule] [Cancel booking]
+        🎧 [recordings] [Add note] [Reschedule] [Cancel booking]
 ```
 
-### 6.3 Mid-call question timeout
+### 6.3 Delegated decision: confirmed on the call (English)
 
 ```
-Friday: 📞 Dr. Mehta's clinic offers: [Thu 5 PM] [Fri 6 PM] [None of these]
-        (45 s pass, no reply)
-Friday: You were busy, no worries. I asked the clinic to hold Thu 5 PM for 15 min.
-        [Confirm Thu 5 PM] [Fri 6 PM instead] [Leave it]
-User:   [Confirm Thu 5 PM]          (8 min later)
-Friday: Calling them back to confirm…
-Friday: Confirmed. Dr. Mehta, Thu 9 Oct, 5:00 PM.
+User:   Book Dr. Mehta for a cleaning, any slot Thu or Fri between 5 and 7 pm, under ₹1,000. You decide. 080 2345 6789
+Friday: Got it. I'll book any slot Thu/Fri 5–7 PM under ₹1,000 without checking back. Calling now.
+  (Clinic offers Thu 5:30 PM, ₹800 → within limits → Friday confirms on the call and reads it back.)
+Friday: Booked ✅ Dr. Mehta, Thu 9 Oct, 5:30 PM, cleaning, ₹800. Reminder at 3:30.
 ```
+If the clinic had offered only Thu 7:30 PM, or ₹1,200, Friday would have said "I'll confirm with Ankit and call you back" and switched to the call-back route.
 
 ### 6.4 Enquiry (English, formal)
 
@@ -1027,10 +1044,11 @@ Friday:   Bilkul samajh sakti hoon ji. Bas 30 second ka kaam hai, Saturday ke li
 Business: Achha bolo, kitne baje?
 Friday:   Subah 11 baje ke aaspaas?
 Business: 11 full hai. 10 ya 12:30.
-Friday:   Ek minute ji, Ankit ji se confirm kar leti hoon… 12:30 chalega.
-          Toh confirm kar leti hoon: Ankit Sharma, haircut, Saturday 11 October, 12:30 baje. Sahi hai?
-Business: Haan, Priya karegi. ₹600. 10 minute pehle aana.
-Friday:   Perfect, shukriya ji! Aapko confirmation SMS aa jayega.
+Friday:   Ji. Aur price kitna hoga?
+Business: ₹600. Priya karegi.
+Friday:   Shukriya. Main Ankit ji se confirm karke 10 minute mein call back karti hoon. Kya tab tak 12:30 rakh sakte hain?
+Business: Haan, 10 minute.
+Friday:   Thank you ji.
 ```
 
 ### 6.12 Hinglish negotiation call (Friday ↔ AC service, budget max ₹600, target ₹500)
@@ -1046,19 +1064,22 @@ Friday:   Samajh gayi. Ek aur service ne 450 quote kiya hai jet wash ke saath ga
 Rep:      500 nahi hoga. 600 final, aur visit charge nahi lagega.
 Friday:   Theek hai. Toh 600, visit charge waived, gas top-up chahiye toh alag. Saturday kaunsa time free hai?
 Rep:      10 baje ya 12 baje.
-Friday:   Ek minute ji, main Ankit se confirm kar rahi hoon.
-          → WA to Ankit: "CoolCare: ₹699 → ₹600 (visit charge waived). Gas top-up extra from ₹1,500.
-            Sat slots: [10:00 AM] [12:00 PM] [Don't book]"
-          ← Ankit taps [10:00 AM]
-Friday:   Ankit ne 10 baje confirm kiya hai. Toh confirm kar leti hoon: Ankit Sharma, split AC service,
-          Saturday 11 October subah 10 baje, 12, 4th Cross Indiranagar, ₹600 quoted, visit charge nahi.
-          Sahi hai?
+Friday:   Shukriya. Main Ankit ji se confirm karke 15 minute mein call back karti hoon. Dono slot tab tak rakh sakte hain?
+Rep:      Haan, rakh deta hoon.
+```
+WA to Ankit: "CoolCare: ₹699 → ₹600 (visit charge waived). Gas top-up extra from ₹1,500. Sat slots: [10:00 AM] [12:00 PM] [Don't book]". Ankit taps [10:00 AM].
+
+Call-back:
+```
+Friday:   Namaste, main Friday, Ankit Sharma ki AI assistant, AC service ke liye abhi baat hui thi.
+          Ankit ji ne Saturday subah 10 baje confirm kiya hai. Toh: split AC service, 11 October subah 10 baje,
+          12, 4th Cross Indiranagar, ₹600 quoted, visit charge nahi. Sahi hai?
 Rep:      Haan, technician Ravi aayega.
 Friday:   Shukriya ji. Aapko confirmation SMS bhi aa jayega.
 ```
 Report to Ankit: "Booked. CoolCare, Sat 11 Oct, 10 AM, technician Ravi. ₹699 → **₹600**, visit charge waived (pay after service). Gas top-up only if needed, from ₹1,500; they'll ask you first."
 
-(Friday did *not* say "₹600 done, we'll pay". The price was approved by Ankit's tap and stated as the quoted booking price.)
+(Friday never said "₹600 done, we'll pay". A budget alone isn't delegation, so she took the call-back route.)
 
 ### 6.13 Discovery → shortlist → compare → book (English)
 
@@ -1085,7 +1106,6 @@ User:   [Book FrostFix]
 Friday: Calling FrostFix to confirm…
 Friday: Booked ✅ FrostFix · Thu 9 Oct, 11 AM–1 PM at your office (Embassy Tech Village, Block C)
         ₹399 inspection, waived if they repair it. I'll check in at 2 PM to see if they came.
-        Counted as 1 of your 10 monthly calls.
 ```
 
 ### 6.14 Language mirroring mid-call (Friday ↔ salon in Bengaluru)
@@ -1486,7 +1506,7 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | Q4 | Announce call recording in the opening line? It adds ~2 s and may raise the hang-up rate. Indian law is generally one-party consent, but disclosure is the safer trust posture | Yes, announce it; A/B the phrasing |
 | Q5 | Retention for recordings and transcripts | 30 days, then auto-delete. Summaries are kept until the user deletes them |
 | Q6 | Quiet hours for NRIs: IST (per BRIEF) or user-local? | Keep IST for P1 per BRIEF. Add user-local time zone in P1.1 |
-| Q7 | "Delete everything": what may we legally retain (consent log, invite graph, DNC flags, phone-number hash to stop cap abuse)? | Retain only a salted phone hash, cap counters and consent/deletion receipts. Get legal sign-off |
+| Q7 | "Delete everything": what may we legally retain (consent log, invite graph, DNC flags, phone-number hash to stop abuse)? | Retain only a salted phone hash, cost counters and consent/deletion receipts. Get legal sign-off |
 | Q8 | PIN reset flow (forgotten PIN) | SMS OTP to the registered number, plus a 24 h cool-down before PIN-gated actions. Foreign numbers need support-assisted reset |
 | Q9 | Hinglish templates: Meta has no Hinglish locale. Register Romanised Hindi under `en`? | Yes, with separate template names (`*_hinglish`) |
 | Q10 | Will Meta classify pattern nudges as MARKETING (higher cost, opt-in rules, possible policy exposure)? | Phrase them as reminders tied to the user's own past bookings to qualify as UTILITY. Accept MARKETING if rejected |
