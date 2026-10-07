@@ -512,7 +512,7 @@ def slot_to_datetime(slot: str, ref: datetime) -> datetime | None:
         d = dates[0]
     else:
         d = local.date()
-        if start <= local.hour * 60 + local.minute:
+        if start < local.hour * 60 + local.minute:
             d = d + timedelta(days=1)
     return at_ist(d, *divmod(start, 60))
 

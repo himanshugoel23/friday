@@ -478,7 +478,7 @@ def _delegated_slot(tn: Turn) -> str | None:
             tw_end = tw_start + 60
     candidates = []
     for slot in st.slots:
-        when = slot_to_datetime(slot, st.started)
+        when = slot_to_datetime(slot, d.window_start or tn.b.window_start or st.started)
         if when is None:
             continue
         if (d.window_start or d.window_end) and not d.allows_time(when):
@@ -1145,8 +1145,6 @@ def _about_booking(tn: Turn, rel: RelatedTask, greet: str, collected: list[KV]
                       collected=collected)
     if not reply:
         return tn.act(CallActionType.WAIT, collected=collected)
-    later = Turn(st, None)
-    later.lang = tn.lang
     if has_any(reply, PAYMENT_WORDS):
         return tn.callback({"advance_requested": reply[:120], **_kv(collected)},
                            pre=tn.t(en="I can't agree to any payment on this call. ",

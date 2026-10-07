@@ -1295,7 +1295,9 @@ class TaskEngine:
         if self.policy.try_alt_numbers and alternates:
             alt = alternates[0]
             check = await self._verify(alt, name=biz.name)
-            if check.verdict not in (NumberVerdict.SCAM, NumberVerdict.SUSPICIOUS):
+            # listed on the business's own record: only a known scam disqualifies it
+            # (a "different number" listing signal is expected for an alternate)
+            if check.verdict != NumberVerdict.SCAM:
                 task.target = task.target.model_copy(update={"phone": alt})
                 await self._audit(task, "call.alternate_number", phone=mask_phone(alt))
         if self.policy.whatsapp_request_on_no_answer and biz.whatsapp_phone and task.attempts == 1:
