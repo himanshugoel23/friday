@@ -159,9 +159,13 @@ Because calls are goal-driven (CallBrief), most of these are **new task types / 
 government portals/paperwork (P4).
 
 ## NOT in Phase 1
-Payments/UPI, Gmail/Calendar, Lifeline/emergency, users calling Friday's number
-(inbound voice — Phase 2, but voice pipeline must be reusable for it), business accounts, regional languages
-beyond Hindi/English/Hinglish, agent-to-agent.
+Payments/UPI (incl. hotel prepayment), Gmail/Calendar, Lifeline/emergency service (opt-in wellbeing check-ins
+are in scope but are NOT an emergency service), users calling Friday's number (inbound voice — Phase 2, but the
+voice pipeline must be reusable for it), business accounts, agent-to-agent, physical errands via runners,
+government portals. (IVR customer care, regional-language mirroring on calls, and hotel bookings ARE in Phase 1.)
+
+## Founder decisions on PRD open questions
+Default: the PM recommendations in docs/PRD.md §10 are adopted unless overridden below.
 
 ## Success metrics for Phase 1
 >80% call task success, ≥2 requests/user/week by week 3, cost per successful call < ₹15, business hang-up rate < 20%.

@@ -1,6 +1,6 @@
 # Friday: Phase 1 PRD ("Friday makes calls")
 
-Status: Draft v3 (includes all founder addenda: voice agent, people & places, real-world footwork A1–A13 / B14–B20, customer-care/IVR C21–C26) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
+Status: Draft v3 (includes all founder addenda: voice agent, people & places, real-world footwork A1–A13 / B14–B20, customer-care/IVR C21–C26, hotel & stay bookings D27–D29) · Owner: Product · Source of truth for decisions: `docs/BRIEF.md` (the "Founder requirements for the voice agent" section overrides everything else) · North star: `docs/VISION.md`
 
 Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal, for example "book a haircut". A task may involve several **call attempts**. **MUST**, **SHOULD** and **MAY** are used in the RFC sense. Requirement IDs (`US-x.y`) are referenced in tests and tickets.
 
@@ -21,7 +21,8 @@ Conventions: all times are IST. "WA" means WhatsApp. A **task** is one user goal
 
 - Payments, UPI, deposits, advances, or any money commitment (→ P4). Phone orders are COD, or the user pays the shop directly (A3).
 - Physical errands via human runners (→ P3). Government portals and paperwork (→ P4).
-- *Customer-care and IVR calls are **in** scope (founder decision; US-30–US-36).*
+- *Customer-care and IVR calls are **in** scope (founder decision; US-30–US-36). Hotel and stay bookings are **in** scope (US-37–US-39), pay-at-hotel or the user's own payment only.*
+- Unofficial scraping tools/MCPs for hotels or listings (ToS risk). Only official APIs behind provider interfaces are used.
 - Gmail, Calendar, documents, OAuth integrations.
 - Lifeline or emergency features (SOS, emergency dispatch). Friday still always points distressed users to 112/108 (US-15). Opt-in wellbeing check-in calls (A13) are in scope, and they are *not* an emergency service.
 - Inbound voice (users calling Friday). The voice pipeline MUST be reusable for P2. P1 only plays a fixed message on inbound calls (US-16).
@@ -577,7 +578,7 @@ call_brief:
 
 ---
 
-## 5B. Task-type catalogue (A1–A13, founder "real-world footwork" scope, all **Phase 1 · Priority 1**; A14 customer care is defined further below)
+## 5B. Task-type catalogue (A1–A13 founder "real-world footwork" scope, all **Phase 1 · Priority 1**; A14 customer care and A15 stays are defined further below)
 
 Goal: Phase 1 covers every offline task that today needs a human to phone or coordinate with a business or person. Each task type below is a **CallBrief template** (§5.2) on the same engine. It adds a `task_type`, default goal and constraints, success criteria, a report format and type-specific rules. Rules that apply to every type:
 - the hard rules (§5.4);
@@ -750,6 +751,54 @@ These calls run on the same engine, with an IVR navigator, a hold-listening mode
 - **US-36.3** Friday auto-schedules a **follow-up call** for the promised date + 1 working day (it doesn't count against the cap; see Q22). If the issue is unresolved at follow-up, Friday re-escalates on the same ticket.
 - **US-36.4** After 2 failed follow-ups, or when a promised date is missed by more than 7 days, Friday suggests **formal escalation routes as text guidance**: the company's grievance officer or nodal officer (from the directory), the sector ombudsman or regulator route (e.g. RBI Integrated Ombudsman for banks, TRAI/telecom appellate route for telecom, IRDAI Bima Bharosa for insurers, the National Consumer Helpline), and a draft complaint text with the ticket history. Friday does not file these itself in P1 (portals are P4).
 - **US-36.5** All tickets are listed under "my complaints", with status, dates and next follow-up.
+
+### Hotel and stay bookings (D27–D29, founder decision: **in Phase 1**)
+
+Catalogue entry **A15**, on the same engine, plus a `HotelProvider` interface (Expedia Rapid first; Booking.com/Agoda affiliate later) with a simulator for local runs and tests. **Unofficial scraping tools and MCPs are never used** (ToS risk).
+
+| # | Task type | Example request | CallBrief goal / key constraints | Success criteria | Report to user |
+|---|---|---|---|---|---|
+| A15 | **Stay booking** (`stay.search`, `stay.book`, `stay.reconfirm`, `stay.modify`, `stay.cancel`) | "Homestay in Coorg for Mom & Dad, 14–16 Nov, ground-floor room, under ₹4k/night" | Goal: the best stay matching dates, guests, room type, inclusions and budget. Hybrid: API search plus direct property calls. Constraints: **no payment by Friday**: pay-at-hotel, the user's own payment via the official link, or the property holds against the user's later payment; a hold or booking only after user approval; negotiate the direct rate (US-18); minimum guest data (US-22.4) | Property or API confirms the booking (dates, room, rate, inclusions, cancellation policy, payment mode) **and** written confirmation (WA/SMS/email from the property, or an API confirmation number) is received | "Booked ✅ Misty Woods Homestay, Coorg · 14–16 Nov (2 nights) · Garden cottage, ground floor · ₹3,600/night incl. breakfast (direct; ₹4,200 online) · Pay at check-in · Free cancellation till 11 Nov. Reconfirm call on 13 Nov." |
+
+### US-37 Stay search and compare (D27a)
+
+- **US-37.1 Intake:**
+  - required: destination or area, check-in/check-out dates, guests (adults, children with ages), and who the stay is for (a beneficiary from the circle, US-20);
+  - optional: budget per night or total, type (hotel/homestay/guesthouse/resort), must-haves (ground floor, lift, veg food, parking, pet-friendly, couple-friendly, early check-in), and refundable vs cheapest.
+  Friday asks at most 3 questions. Beneficiary notes apply (e.g. "Dad can't climb stairs" → ground floor or a lift is required).
+- **US-37.2 Search.** Friday queries the `HotelProvider` for availability and rates (pay-at-hotel rates are flagged). It enriches results with places-provider ratings and reviews (US-17.3 ranking, with review evidence for must-haves). It adds **offline candidates**: well-rated homestays and guesthouses from the places provider that have a phone number but no API inventory.
+- **US-37.3 Shortlist.** Friday presents up to 4 options. Each shows: name, ★, price per night and total, whether the rate is online or "call for direct rate", key inclusions, cancellation policy, and a ≤12-word review-based reason. Buttons: `Call these for direct rates` / `Book <A> online` / `Search again`.
+- **US-37.4 Direct-rate calls.** Friday calls shortlisted properties (US-23 parallel, or sequential when it is using leverage). Each call checks:
+  - availability for the exact dates and room type;
+  - inclusions (breakfast, early check-in/late check-out, extra bed, meals);
+  - the cancellation policy;
+  - the payment terms (pay at hotel? advance required?).
+  Friday then **negotiates the direct rate** within the budget (US-18), e.g. "The online rate is ₹4,200. Can you do better if booked directly?" Calls open in Hinglish and mirror the property's language (e.g. Kannada or English in Coorg, per US-13.2). Properties may send room photos or tariff cards on WA (US-24).
+- **US-37.5 Comparison report**: API rates side by side with direct quotes, the recommendation and its reason, and buttons per option. **No booking or hold happens without the user's tap** (US-3.11).
+
+### US-38 Booking, hold and payment handling (D27b, D28)
+
+- **US-38.1** After the user approves, Friday books through one of these paths, in order of preference:
+  1. **Direct, pay at property**: Friday calls back, confirms the room, dates, rate, inclusions, guest name(s) and arrival time, and asks for **written confirmation by WA or SMS** to Friday (or to the guest's number, if approved).
+  2. **Direct, held against the user's own payment**: if the property needs an advance, Friday asks them to hold the room for a stated time (e.g. 6 h). Friday relays the property's **official payment details** to the user only after a scam check (US-25: listing match, a payment name consistent with the business, no "pay to personal number" red flags). It then tells the user plainly: "They need ₹3,600 advance. Pay them directly if you're comfortable; I can't pay." The booking is marked confirmed only when the property confirms receipt.
+  3. **API booking with pay-at-hotel**, or the user completes the payment via the **official booking or payment link** that Friday sends (a one-time link; Friday never enters card details).
+- **US-38.2** Friday never pays, never shares the user's payment details, and never agrees to a non-refundable term without the user's explicit approval of that term.
+- **US-38.3** Stored on the booking: property, address, phone, dates, room, rate, inclusions, payment mode and status, cancellation deadline, confirmation number or message, guest(s) and source (API/direct).
+- **US-38.4** Reminders:
+  - check-in reminder to the user, and to the beneficiary if opted in (US-22), the evening before, with the address, Maps pin, property phone and check-in time;
+  - a **cancellation-deadline nudge** 24 h before free cancellation ends, if the trip might change ("Free cancellation ends tomorrow 12 PM. Still going?").
+
+### US-39 Reconfirm, modify, cancel (D28)
+
+- **US-39.1 Reconfirm the day before.** At 11:00 IST on the day before check-in (shifted per US-28), Friday calls the property. It confirms the booking exists with the same room, rate and inclusions, and shares the arrival time. It requests early check-in if wanted.
+  - If a discrepancy is found (no record, a different rate, the room is not available), the user gets an **urgent** message with options, and Friday may immediately search for alternatives with `Find alternatives`.
+  - API bookings are reconfirmed by calling the property too.
+- **US-39.2 Modify** (dates, room, guests, arrival time) by call to the property, or via the API if the booking was made there. Any change to price or policy needs the user's approval before confirming. The new written confirmation is captured.
+- **US-39.3 Cancel** by call or API.
+  - Before cancelling, Friday states the cancellation policy and any charge to the user, and requires approval if a charge applies.
+  - Friday captures a cancellation reference and requests written confirmation.
+  - For advances the user paid directly, Friday asks about the refund timeline and records it. A chase follows on the promised date (A6).
+- **US-39.4** All stay tasks appear under "my trips".
 
 ---
 
@@ -1146,6 +1195,69 @@ Friday (another day, 10:14 IST, urgent): ⚠ Dad sounded unwell. He said he's be
         [Call Dad now] [Call his doctor] [Listen to recording]
 ```
 
+### 6.19 Homestay in Coorg for parents (A15: compare, Kannada/English call, direct rate, hold, pay at hotel, reconfirm, modify)
+
+WhatsApp:
+```
+User:   Mom-Dad ke liye Coorg mein ek achha homestay, 14 se 16 Nov. Papa stairs nahi chadh sakte. 4k/night tak
+Friday: Mom & Dad, 2 adults, 14–16 Nov (2 nights), ground floor ya lift zaroori. Veg khana chahiye?
+User:   haan veg
+Friday: 4 options:
+        1. Misty Woods Homestay: 4.7★ (240) · online ₹4,200/night · "hosts cook great veg food"
+        2. Coorg Cliff Resort: 4.4★ (1.8k) · online ₹5,100 (over budget) · lift, refundable
+        3. Kaveri Nest Guesthouse: 4.6★ (95) · not online, call for rate · "ground-floor cottages, quiet"
+        4. Hillview Stays: 4.3★ (310) · online ₹3,400 · ⚠ reviews mention steep steps
+        Recommend calling 1 and 3 for direct rates.
+        [Call 1 & 3] [Book 1 online] [Search again]
+User:   [Call 1 & 3]
+```
+
+Call to Misty Woods (Friday's actions in [brackets]):
+```
+Friday:   Namaste, main Friday hoon, ek AI assistant, Ankit Sharma ki taraf se call kar rahi hoon,
+          unke parents ke liye.
+Owner:    Hello? Hindi swalpa swalpa… English please.   (Kannada mixed in: "only a little")
+Friday:   [switches to English] Of course. I'm looking for a ground-floor room for two senior guests,
+          14 to 16 November, vegetarian meals. Do you have availability?
+Owner:    Garden cottage is free, ground floor. Online it is 4,200 with breakfast.
+Friday:   Thank you. Since it's a direct booking for two nights, could you do 3,500 a night including breakfast?
+Owner:    [Kannada] ಮೂರು ಸಾವಿರದ ಆರುನೂರು ಕೊಡಿ, ಕೊನೆ.   ("Give 3,600, that's final.")
+Friday:   [switches to Kannada] ಸರಿ, ಮೂರು ಸಾವಿರದ ಆರುನೂರು, ತಿಂಡಿ ಸೇರಿ. ರಾತ್ರಿ ಊಟ ಸಸ್ಯಾಹಾರ ಸಿಗುತ್ತಾ?
+          ("Okay, 3,600 with breakfast. Is vegetarian dinner available?")
+Owner:    ಸಿಗುತ್ತೆ, 300 ರೂ.   ("Yes, ₹300.")
+Friday:   Payment and cancellation? Can they pay at check-in?
+Owner:    Pay at check-in fine. Free cancel till 3 days before.
+Friday:   Could you hold the garden cottage for one hour while I confirm with Ankit?
+Owner:    Okay, one hour.
+Friday:   Thank you. I'll call back shortly.
+```
+(The Kaveri Nest call, in parallel: ₹3,000/night, but no meals on site and cash-only advance of 50% to a personal number. Flagged by the scam check, US-38.1.)
+
+```
+Friday: Direct rates:
+        • Misty Woods: ₹4,200 → ₹3,600/night incl. breakfast · veg dinner ₹300 · ground-floor cottage
+          · pay at check-in · free cancellation till 11 Nov
+        • Kaveri Nest: ₹3,000, but wants 50% advance to a personal UPI number ⚠ and has no meals
+        Recommend Misty Woods (₹1,200 cheaper than online, pay later, parents-friendly). Room held for 1 hour.
+        [Book Misty Woods] [Book Kaveri Nest] [Neither]
+User:   [Book Misty Woods]
+Friday: Calling them back to confirm…
+Friday: Booked ✅ Misty Woods Homestay, Coorg
+        14–16 Nov · Garden cottage (ground floor) · Suresh & Kamla Verma
+        ₹3,600/night incl. breakfast · veg dinner ₹300/person on request · pay at check-in
+        Free cancellation till 11 Nov · Owner sent WA confirmation (saved)
+        Mom-Dad ko Hindi mein reminder bhejun? (Both opted in earlier) [Yes] [No]
+```
+
+Day before (13 Nov, 11:05 IST), reconfirm call → to the user: "Reconfirmed with Misty Woods: cottage ready, they'll keep dinner for 8 PM. Check-in from 12 PM." To Dad (Hindi template): "कल कूर्ग: मिस्टी वुड्स होमस्टे, चेक-इन 12 बजे से। फ़ोन: 08272-XXXXXX।" ("Tomorrow, Coorg: Misty Woods Homestay, check-in from 12 noon. Phone: 08272-XXXXXX.")
+
+Modification:
+```
+User:   papa ka plan ek din badh gaya, 17 tak kar do
+Friday: Calling Misty Woods to extend to 17 Nov…
+Friday: Extended ✅ 14–17 Nov (3 nights), same rate ₹3,600. New WA confirmation saved. No other changes.
+```
+
 ---
 
 ## 7. Edge cases and error states
@@ -1183,6 +1295,10 @@ Friday (another day, 10:14 IST, urgent): ⚠ Dad sounded unwell. He said he's be
 | E21 | User in another time zone (NRI) | Quiet hours and the briefing use IST in P1 (Q6). Friday shows "(9:40 AM in Delhi)" when it helps |
 | E22 | User sends a voice note longer than 3 min, an image or a document | Voice: ask the user to split it. Images/PDFs (bills, prescriptions, quotes, screenshots) are extracted and confirmed (US-24.5). vCards and location pins are parsed |
 | E23 | Concurrency limit reached (US-23.1) | Extra legs or tasks are queued with an ETA: "I'll call them as soon as a line frees up." |
+| E40 | Property asks for an advance to a personal UPI number, or the details don't match the listing | Scam check (US-25). Warn the user and recommend against it. Never mark the booking confirmed without the property's confirmation of receipt |
+| E41 | Reconfirm call finds no record of the booking or a different rate | Urgent message to the user with the written confirmation attached, plus `Call them with me` (warm transfer) / `Find alternatives` |
+| E42 | API rate disappears between search and booking | Re-quote and ask the user again. Friday never books at a higher price silently |
+| E43 | Property doesn't send written confirmation | Friday asks once more on WA, sends the user the verbal-confirmation recording and flags the booking as "verbal only" |
 | E33 | IVR changed since the learned map | Fall back to live menu understanding, then update the map (US-31.2) |
 | E34 | Customer-care agent asks Friday for an OTP, PIN or CVV, or to read one back | Refuse. Patch in the user (US-33). Never repeat the value |
 | E35 | Call drops after a long hold | Immediate redial with the same IVR path. Friday tells the user the queue was lost and gives the new ETA |
@@ -1218,6 +1334,8 @@ Category is `UTILITY` unless noted. Every template's footer: "Reply STOP to stop
 | `friday_checkin_alert` | UTILITY (urgent) | "Alert about {{1}}: {{2}}. Please check on them." | `Call now` · `Listen` |
 | `friday_care_update` | UTILITY | "{{1}} update: {{2}}. Ticket {{3}}. Next step: {{4}}." | `See details` · `Escalate` |
 | `friday_recurring_booked` | UTILITY | "Booked your regular {{1}}: {{2}} at {{3}}." | `OK` · `Skip this one` · `Pause series` |
+| `friday_stay_reminder` | UTILITY | "Check-in {{1}}: {{2}}, {{3}}. Check-in from {{4}}. Property phone {{5}}." | `Directions` · `Running late` · `Need changes` |
+| `friday_cancel_deadline` | UTILITY | "Free cancellation for {{1}} ends {{2}}. Still going?" | `Yes, keep it` · `Cancel it` |
 | `friday_business_touch` (to businesses) | UTILITY | "Booking confirmed via Friday for {{1}}: {{2}} on {{3}} at {{4}}. Friday is an AI assistant that books on behalf of customers." | `OK` · `Stop messages` |
 
 Beneficiary templates are submitted in `hi`, `en`, `mr`, `ta`, `te`, `kn` and `bn`. If a beneficiary's language has no approved template, Friday uses DLT SMS in that language (Unicode) or a voice reminder.
@@ -1324,6 +1442,10 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | `verification_patch_in` | task_id, success |
 | `checkin_call_completed` | member_id, answered, summary_flags, alert_sent |
 | `recurring_instance_booked` | series_id, deviation (bool) |
+| `stay_search_run` | task_id, provider, n_api_results, n_offline_candidates |
+| `stay_direct_quote` | task_id, property_id, online_rate_paise, direct_rate_paise, pay_at_hotel |
+| `stay_booked` / `stay_modified` / `stay_cancelled` | task_id, path (direct_pay_at_hotel/direct_hold/api), nights, has_written_confirmation |
+| `stay_reconfirm_result` | task_id, discrepancy (bool) |
 | `discovery_search_run` | task_id, category, radius_km, n_results, n_filtered |
 | `shortlist_presented` | task_id, n, ranks_with_reason_ids |
 | `shortlist_action` | task_id, action (call_all/pick/search_again) |
@@ -1373,3 +1495,5 @@ Rule: every template send stores `template_name`, `language`, `variables` and `w
 | Q25 | Check-in alerts (A13): liability if Friday misses a real emergency, and which signals count as an alert. Should a medical professional review the triggers? | Conservative trigger list (A13), clear "not an emergency service" wording in the member opt-in, and medical review of the trigger list before launch |
 | Q26 | Customer-care calls can run 30–60 min. Do toll-free and hold minutes break the < ₹15 cost target? | Track care separately with a target of < ₹40 per resolved care task. Listening mode is required |
 | Q27 | The curated directory needs ops effort (150 companies, re-verified every 90 days). Who owns it? | One ops owner, plus automated official-site checks |
+| Q28 | Hotels: Expedia Rapid requires partner approval and may require merchant-of-record payment flows that conflict with "no payments". Is a pay-at-hotel-only inventory enough for launch? | Launch with direct-property calls plus pay-at-hotel API rates. Apply for Rapid partner access now |
+| Q29 | Homestays often insist on a 30–50% advance. Is relaying official payment details (after the scam check) acceptable in P1, given the fraud risk? | Yes, with strict scam-check gating and explicit "pay at your own discretion" wording |
