@@ -43,7 +43,9 @@ def _cand(user_id: str, **kw) -> NudgeCandidate:
     return NudgeCandidate(user_id=user_id, **kw)
 
 
-def task_reminders(user_id: str, tasks: list[Task], now: datetime, s: Settings) -> list[NudgeCandidate]:
+def task_reminders(
+    user_id: str, tasks: list[Task], now: datetime, s: Settings
+) -> list[NudgeCandidate]:
     out = []
     lead = timedelta(minutes=s.task_reminder_lead_min)
     for t in tasks:
@@ -66,8 +68,10 @@ def task_reminders(user_id: str, tasks: list[Task], now: datetime, s: Settings) 
             out.append(
                 _cand(
                     user_id,
-                    urgency=Urgency.URGENT if appt - now <= URGENT_REMINDER_WINDOW else Urgency.NORMAL,
-                    reason=f"appointment at {where} in {int((appt - now).total_seconds() // 60)} min",
+                    urgency=Urgency.URGENT
+                    if appt - now <= URGENT_REMINDER_WINDOW
+                    else Urgency.NORMAL,
+                    reason=f"appointment at {where} in {(appt - now).seconds // 60} min",
                     dedupe_key=f"reminder:{t.id}:soon",
                     **common,
                 )
@@ -116,7 +120,8 @@ def follow_ups(user_id: str, tasks: list[Task], now: datetime, s: Settings) -> l
                         user_id,
                         kind=NudgeKind.FOLLOW_UP,
                         category=AutonomyCategory.FOLLOW_UPS,
-                        reason=f"{care.company or 'company'} promised a fix by {care.promised_date} "
+                        reason=f"{care.company or 'company'} promised a fix by "
+                        f"{care.promised_date} "
                         f"(ticket {care.ticket_number or '-'}); it has passed",
                         due_at=due,
                         task_id=t.id,
@@ -153,7 +158,9 @@ def date_facts(user_id: str, facts: list[Fact], now: datetime) -> list[NudgeCand
                     _cand(
                         user_id,
                         kind=NudgeKind.DATE_BASED,
-                        category=AutonomyCategory.FAMILY if f.person_id else AutonomyCategory.REMINDERS,
+                        category=AutonomyCategory.FAMILY
+                        if f.person_id
+                        else AutonomyCategory.REMINDERS,
                         reason=f"{f.key.replace('_', ' ')}: {f.value} on {f.due_on} ({lead} days)",
                         due_at=at_ist(f.due_on, 9),
                         fact_id=f.id,
@@ -212,7 +219,9 @@ def patterns(user_id: str, tasks: list[Task], now: datetime) -> list[NudgeCandid
 
 
 def _when(t: Task) -> datetime:
-    return (t.result.appointment_at if t.result and t.result.appointment_at else None) or t.created_at
+    return (
+        t.result.appointment_at if t.result and t.result.appointment_at else None
+    ) or t.created_at
 
 
 def recurring_due(user_id: str, tasks: list[Task], now: datetime) -> list[NudgeCandidate]:
@@ -271,7 +280,11 @@ def wellbeing_alerts(user_id: str, tasks: list[Task]) -> list[NudgeCandidate]:
     out = []
     for t in tasks:
         if t.type == TaskType.WELLBEING_CHECKIN and t.result and t.result.alert:
-            out.append(alert_candidate(user_id, t.id, t.beneficiary.person_id, t.result.alert, t.updated_at))
+            out.append(
+                alert_candidate(
+                    user_id, t.id, t.beneficiary.person_id, t.result.alert, t.updated_at
+                )
+            )
     return out
 
 

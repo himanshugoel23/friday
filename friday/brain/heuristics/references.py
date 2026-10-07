@@ -122,9 +122,9 @@ def _is_office(pl: Place) -> bool:
 
 
 _NEAR = re.compile(
-    r"(?:near|nearby|around|close to|in|at)\s+([a-z0-9][\w .,'-]{2,40}?)(?=$|[,.?!]| for | ke | "
-    r"tomorrow| today| on | at | under | by )"
-    r"|([a-z][\w .'-]{2,30}?)\s+(?:ke paas|ke pass|ke nazdeek|ke aas paas|mein|me)\b",
+    r"\b(?:near|nearby|around|close to)\s+([a-z0-9][\w .,'-]{2,40}?)(?=$|[,.?!]| for | ke | "
+    r"tomorrow| today| on | at | under | by | ideally)"
+    r"|\b([a-z][\w'-]{2,20}(?: [a-z][\w'-]{2,20})?)\s+(?:ke paas|ke pass|ke nazdeek|ke aas paas)\b",
     re.I,
 )
 _STOP_LOCATIONS = {"the", "my", "a", "an", "it", "them", "morning", "evening", "time", "budget",

@@ -240,7 +240,7 @@ def classify_task(t: str) -> TaskType | None:
 
 def detect_category(t: str) -> str | None:
     for cat, words in CATEGORIES:
-        if has_any(t, words) or any(w.endswith(" ") and w in t + " " for w in words):
+        if has_any(t, [w.strip() for w in words]):
             return cat
     return None
 
@@ -271,6 +271,7 @@ _NAME_STOP = {
     "Wednesday", "Thursday", "Friday", "Tomorrow", "Today", "You", "Budget", "Dad", "Mom",
     "Papa", "Mummy", "AC", "OK", "Ok", "Yes", "No", "Kal", "Aaj", "Need", "Want", "Also", "And",
     "Plumber", "Electrician", "Doctor", "Office", "Home", "Lantus", "Dolo", "Ideally",
+    "Urgent", "Please", "Btw", "Hey", "Mera", "Meri", "Mere", "Kal", "Aaj", "Kya", "Main",
 }
 
 
@@ -286,9 +287,11 @@ def detect_business_name(text: str, ctx: ConversationContext) -> tuple[str | Non
     m = re.search(r"\b(?:dr\.?|doctor)\s+([a-z][a-z]+)", t)
     if m and m.group(1) not in {"ke", "ka", "ki", "for", "near", "appointment", "slot"}:
         return f"Dr. {m.group(1).title()}", None
-    for cand in _CAP_NAME.findall(text or ""):
-        words = cand.split()
-        while words and (words[0].rstrip(".,") in _NAME_STOP or words[0].lower() in MONTHS):
+    src = text or ""
+    for m in _CAP_NAME.finditer(src):
+        words = m.group(1).split()
+        while words and (words[0].rstrip(".,").split("-")[0] in _NAME_STOP
+                         or words[0].lower() in MONTHS):
             words = words[1:]
         while words and words[-1].lower() in {"and", "of", "&"}:
             words = words[:-1]
@@ -296,14 +299,24 @@ def detect_business_name(text: str, ctx: ConversationContext) -> tuple[str | Non
             continue
         name = " ".join(words).strip(" ,.")
         low = name.lower()
-        if low in WEEKDAYS or low in MONTHS or len(name) < 3:
+        if low in WEEKDAYS or low in MONTHS or len(name) < 3 or low in _BIZ_SUFFIXES:
             continue
-        if any(low == w for ws in RELATION_WORDS.values() for w in ws):
+        if any(part in ws for ws in RELATION_WORDS.values() for part in low.split("-")):
             continue
         if detect_company(low) and len(words) == 1:
             continue
+        before = src[max(0, m.start() - 12): m.start()].lower()
+        has_suffix = words[-1].lower() in _BIZ_SUFFIXES
+        introduced = bool(re.search(r"\b(at|from|with|to|call|ko|se|phone)\s+$", before))
+        if not (has_suffix or introduced or len(words) >= 2):
+            continue
         return name, None
     return None, None
+
+
+_BIZ_SUFFIXES = {"salon", "clinic", "pharmacy", "chemist", "restaurant", "hospital", "service",
+                 "services", "plumbing", "homestay", "hotel", "cafe", "medicos", "store",
+                 "stores", "works", "repair", "lab", "labs", "dental", "parlour"}
 
 
 def detect_delegation(text: str, now: datetime, when_dates: list, budget_max: int | None
@@ -419,15 +432,15 @@ def detect_item(text: str, task_type: TaskType) -> str | None:
     if m:
         return f"{m.group(1).title()} x {m.group(2)}"
     if task_type == TaskType.STOCK_HUNT:
-        m = re.search(r"(?:has|have|paas|stock of)\s+(.+?)(?:\s+(?:hai|in stock|available)|\?|$)",
-                      t)
+        m = re.search(r"(?:kis|which|kaun ?se?)\s+\w+\s+(?:ke paas|mein|me|has|have)\s+(.+?)"
+                      r"(?:\s+(?:hai|milega|in stock|available)|\?|$)", t)
+        if not m:
+            m = re.search(r"(?:has|have|stock of)\s+(.+?)(?:\s+(?:hai|in stock|available)|\?|$)",
+                          t)
         if m:
             item = re.sub(r"^(a|an|the)\s+", "", m.group(1)).strip(" ?.")
             item = re.sub(r"\s*(hai|urgent).*$", "", item)
             return item.title() if item else None
-        m = re.search(r"(?:kis|which)\s+\w+\s+(?:ke paas|mein|me)\s+(.+?)(?:\s+hai|\?|$)", t)
-        if m:
-            return m.group(1).strip().title()
     m = re.search(r"(\d+)\s+(water cans?|cans?|strips?|packets?|tiffins?|bottles?|kg [a-z]+)", t)
     if m:
         return f"{m.group(1)} {m.group(2)}"
@@ -586,6 +599,8 @@ def draft_task(c: _Ctx, text: str, msg: InboundMessage | None = None) -> TaskDra
     goal = _goal(ttype, service=service, who=who, when=when.text, target=target, item=item,
                  company=company, care=care_request, text=text, reference=reference)
 
+    if ttype in (TaskType.CUSTOMER_CARE, TaskType.COMPLAINT, TaskType.STATUS_CHASE):
+        when = parse_when("", now)  # dates there describe the problem, not a booking
     ws, we = _resolve_window(when, now)
     preferred = [when.text] if when.text else []
     draft = TaskDraft(
@@ -1405,9 +1420,9 @@ def interpret(ctx: ConversationContext, msg: InboundMessage) -> InterpretOut:
     if facts:
         f = facts[0]
         when = ""
-        if f.due_on:
-            when = f" ({datetime.fromisoformat(f.due_on).strftime('%d %b')})" if len(
-                f.due_on) == 10 else ""
+        if f.due_on and f.confidence >= 0.8 and len(f.due_on) == 10 and \
+                f.kind == FactKind.DATE and f.due_on[5:7] not in f.value:
+            when = f" ({datetime.fromisoformat(f.due_on).strftime('%d %b')})"
         ask = ""
         if f.confidence < 0.8:
             ask = c.say(en=" Do you know the exact date?", hinglish=" Exact date pata hai?")

@@ -100,11 +100,16 @@ async def env(env_settings) -> Env:
     c.override(
         "number_verifier",
         NumberVerifierImpl(
-            scam_numbers=scam, official=official, directory=directory,
-            businesses=repos.businesses, clock=clock,
+            scam_numbers=scam,
+            official=official,
+            directory=directory,
+            businesses=repos.businesses,
+            clock=clock,
         ),
     )
-    engine = TaskEngine(c, policy=TaskPolicy(_env_file=None, caller_ids=["+918069110001", "+918069110002"]))
+    engine = TaskEngine(
+        c, policy=TaskPolicy(_env_file=None, caller_ids=["+918069110001", "+918069110002"])
+    )
     c.override("task_engine", engine)
     user = User(phone="+919811111111")
     await repos.users.add(user)
@@ -122,8 +127,13 @@ async def env(env_settings) -> Env:
 
 
 def booking(phone=LOOKS, name="Looks Unisex Salon", **kw) -> TaskSpec:
-    return TaskSpec(type=TaskType.BOOKING, goal="Haircut for Rahul tomorrow evening",
-                    business_name=name, business_phone=phone, **kw)
+    return TaskSpec(
+        type=TaskType.BOOKING,
+        goal="Haircut for Rahul tomorrow evening",
+        business_name=name,
+        business_phone=phone,
+        **kw,
+    )
 
 
 __all__ = ["TaskStatus", "booking"]

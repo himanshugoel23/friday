@@ -250,10 +250,10 @@ class TaskEngine:
         job.add_done_callback(done)
         return job
 
-    async def drain(self, timeout: float = 30.0) -> None:
+    async def drain(self, limit_s: float = 30.0) -> None:
         """Wait until no engine work is in flight (tests / graceful shutdown)."""
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + timeout
+        deadline = loop.time() + limit_s
         while True:
             jobs = [j for js in self._jobs.values() for j in js if not j.done()]
             if not jobs:
@@ -365,7 +365,7 @@ class TaskEngine:
                 polite(task_id)
             else:
                 job.cancel()
-        for qid, (fut, tid, _, _) in list(self._pending.items()):
+        for fut, tid, _, _ in list(self._pending.values()):
             if tid == task_id and not fut.done():
                 fut.set_result(None)
         if task.recurrence is not None:
@@ -700,10 +700,13 @@ class TaskEngine:
     # ================================================================== planning
     async def _plan(self, task: Task, *, needs_approval: bool = False) -> None:
         spec = task.spec
-        if task.parent_task_id is None and task.recurrence is not None:
-            if task.type in (TaskType.RECURRING_BOOKING, TaskType.WELLBEING_CHECKIN):
-                await self._plan_recurring(task)
-                return
+        if (
+            task.parent_task_id is None
+            and task.recurrence is not None
+            and task.type in (TaskType.RECURRING_BOOKING, TaskType.WELLBEING_CHECKIN)
+        ):
+            await self._plan_recurring(task)
+            return
         if spec.missing:
             await self._needs_info(task, spec.missing)
             return
@@ -1006,7 +1009,8 @@ class TaskEngine:
                 who = task.target.name if task.target else "them"
                 await self.outbox.to_user(
                     task.requester_user_id,
-                    f"{who} can't take calls right now. I'll call at {format_ist(when, '%a %I:%M %p')}.",
+                    f"{who} can't take calls right now. "
+                    f"I'll call at {format_ist(when, '%a %I:%M %p')}.",
                     task_id=task.id,
                 )
             return
@@ -1052,7 +1056,9 @@ class TaskEngine:
         async with self._global_calls:
             try:
                 if inbound_leg is not None:
-                    kw = {"context": context} if _accepts(self.runner.run_inbound, "context") else {}
+                    kw = (
+                        {"context": context} if _accepts(self.runner.run_inbound, "context") else {}
+                    )
                     coro = self.runner.run_inbound(brief, inbound_leg, ask, notify, **kw)
                 elif from_number and _accepts(self.runner.run, "from_number"):
                     coro = self.runner.run(brief, ask, notify, from_number=from_number)
@@ -1466,7 +1472,8 @@ class TaskEngine:
                 ROLE_CARE_FOLLOWUP,
                 TaskType.CUSTOMER_CARE,
                 when,
-                goal=f"Follow up on {care.company or task.target.name} ticket {care.ticket_number or ''}".strip(),
+                goal=f"Follow up on {care.company or task.target.name} ticket "
+                f"{care.ticket_number or ''}".strip(),
                 reference=care.ticket_number,
                 care_request=task.spec.care_request,
             )
@@ -1490,7 +1497,8 @@ class TaskEngine:
                 ROLE_RECONFIRM,
                 TaskType.RECONFIRM,
                 when,
-                goal=f"Reconfirm stay at {booking.property.name} {booking.check_in}–{booking.check_out}",
+                goal=f"Reconfirm stay at {booking.property.name} "
+                f"{booking.check_in} to {booking.check_out}",
                 reference=booking.confirmation_ref,
                 stay=task.spec.stay,
             )
@@ -1886,13 +1894,14 @@ class TaskEngine:
             children = [
                 c for c in await self.tasks.list_children(parent.id) if role_of(c) == ROLE_FANOUT
             ]
-            if policy.strategy == FanOutStrategy.FIRST_MATCH:
-                if any(_is_match(c) for c in children):
-                    for c in children:
-                        if not c.status.is_terminal:
-                            await self.cancel(c.id, by_user=False)
-                    await self._aggregate(parent)
-                    return
+            if policy.strategy == FanOutStrategy.FIRST_MATCH and any(
+                _is_match(c) for c in children
+            ):
+                for c in children:
+                    if not c.status.is_terminal:
+                        await self.cancel(c.id, by_user=False)
+                await self._aggregate(parent)
+                return
             # SCHEDULED (retrying) children don't hold a slot: move on (E.36)
             active = [
                 c
@@ -1953,7 +1962,8 @@ class TaskEngine:
                 quotes.append(q.model_copy(update={"task_id": q.task_id or c.id}))
         if not quotes:
             outcomes = ", ".join(
-                f"{c.target.name}: {(c.last_outcome or CallOutcome.CANCELLED).value.replace('_', ' ')}"
+                f"{c.target.name}: "
+                f"{(c.last_outcome or CallOutcome.CANCELLED).value.replace('_', ' ')}"
                 for c in children
                 if c.target
             )
@@ -1993,7 +2003,8 @@ class TaskEngine:
         if parent.delegation.granted and comparison.recommended_index is not None:
             await self.outbox.to_user(
                 parent.requester_user_id,
-                f"{comparison.summary}\nAs you asked, I'm booking the best option within your limits.",
+                f"{comparison.summary}\n"
+                "As you asked, I'm booking the best option within your limits.",
                 task_id=parent.id,
             )
             await self.choose(parent.id, comparison.recommended_index)
@@ -2097,9 +2108,7 @@ class TaskEngine:
         tasks = [t for t in [await self.tasks.get(tid) for tid in ids] if t is not None]
         phone = getattr(match, "from_phone", "")
         key = phone_key(phone) if phone else ""
-        called = {
-            phone_key(m.business_phone) for m in getattr(match, "candidates", []) or []
-        }
+        called = {phone_key(m.business_phone) for m in getattr(match, "candidates", []) or []}
         on_record = key in called or any(
             t.target is not None and phone_key(t.target.phone) == key for t in tasks
         )
@@ -2115,7 +2124,9 @@ class TaskEngine:
             self._verified.pop(key, None)
             await self._verify(phone, name=tasks[0].target.name if tasks[0].target else None)
             await self._audit(tasks[0], "inbound.caller_mismatch", phone=mask_phone(phone))
-            log.warning("inbound caller-ID %s does not match the business record", mask_phone(phone))
+            log.warning(
+                "inbound caller-ID %s does not match the business record", mask_phone(phone)
+            )
         return tasks, verified
 
     async def _classify(self, tasks: list[Task]) -> tuple[str, list[Task]]:
@@ -2301,7 +2312,9 @@ class TaskEngine:
         await self._audit(primary, "inbound.call", decision=action, verified=verified)
         leg = leg or self._take_leg(contact)
         if leg is not None and hasattr(self.runner, "run_inbound"):
-            plan.result = await self._run_inbound(run_task, leg, brief, matched, action, context_line)
+            plan.result = await self._run_inbound(
+                run_task, leg, brief, matched, action, context_line
+            )
         return plan
 
     async def _run_inbound(
@@ -2339,9 +2352,7 @@ class TaskEngine:
             if other is not None and other.status in (S.SCHEDULED, S.AWAITING_APPROVAL):
                 # the caller meant another open request: restore this one, run that one
                 back = prev_status if prev_status == S.AWAITING_APPROVAL else S.SCHEDULED
-                await self._transition(
-                    task, back, next_attempt_at=prev_next or self.clock.now()
-                )
+                await self._transition(task, back, next_attempt_at=prev_next or self.clock.now())
                 other = await self._transition(
                     other, S.CONFIRMATION_CALLBACK if other.approved_terms else S.CALLING
                 )
@@ -2391,15 +2402,18 @@ class TaskEngine:
                     primary.next_attempt_at = self.clock.now()
                     await self._save(primary)
                 self._spawn(primary.id, self._run(primary.id))
-            return InboundPlan("callback_scheduled", task_ids=[t.id for t in matched], verified=True)
+            return InboundPlan(
+                "callback_scheduled", task_ids=[t.id for t in matched], verified=True
+            )
         if action == "close_loop" and (
             role_of(primary) == ROLE_CLOSE_LOOP
             or any(
-                role_of(ch) == ROLE_CLOSE_LOOP
-                for ch in await self.tasks.list_children(primary.id)
+                role_of(ch) == ROLE_CLOSE_LOOP for ch in await self.tasks.list_children(primary.id)
             )
         ):  # once only
-            await self._note_late_contact(primary, f"{name} called again after the loop was closed.")
+            await self._note_late_contact(
+                primary, f"{name} called again after the loop was closed."
+            )
             return InboundPlan("logged", task_ids=[primary.id], verified=True)
         child = await self._inbound_task(action, primary, phone)
         if action in ("reopen", "about_booking", "about_offer"):
@@ -2512,7 +2526,8 @@ class TaskEngine:
         await self._save(root)
         await self.outbox.to_user(
             root.requester_user_id,
-            f"FYI: {task.target.name if task.target else 'a business'} offered ₹{offer} after the fact "
+            f"FYI: {task.target.name if task.target else 'a business'} offered ₹{offer} "
+            "after the fact "
             f"(you're booked at ₹{booked}). Your booking can be changed without penalty. "
             "Want me to look into switching? I won't change anything unless you say so.",
             task_id=root.id,

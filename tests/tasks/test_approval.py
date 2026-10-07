@@ -10,10 +10,12 @@ from friday.core.models import (
     InteractionKind,
     MidCallQuestion,
     QuestionPurpose,
-    TaskStatus as S,
     UserAnswer,
     approval_button_id,
     question_button_id,
+)
+from friday.core.models import (
+    TaskStatus as S,
 )
 from tests.tasks.conftest import LOOKS, booking
 from tests.tasks.fakes import offer_then_confirm, outcome, result
@@ -29,7 +31,9 @@ async def test_default_callback_flow(env):
     q = t.result.needs_approval
     assert q.purpose == QuestionPurpose.APPROVE_BOOKING and q.options[-1] == "None"
     msg = env.notifier.last()
-    assert [b.id for b in msg.buttons] == [question_button_id(q.id, i) for i in range(len(q.options))]
+    assert [b.id for b in msg.buttons] == [
+        question_button_id(q.id, i) for i in range(len(q.options))
+    ]
     assert msg.template is not None  # template fallback for outside the 24h window
 
     assert await env.engine.handle_button(env.user.id, question_button_id(q.id, 1))
@@ -42,12 +46,15 @@ async def test_default_callback_flow(env):
     # vendor memory + business touch + report
     kinds = env.repos.businesses.kinds()
     assert InteractionKind.QUOTED in kinds and InteractionKind.BOOKED in kinds
-    assert any(m.template and m.template.key == "business_booking_confirmed"
-               for m in env.notifier.to_business())
+    assert any(
+        m.template and m.template.key == "business_booking_confirmed"
+        for m in env.notifier.to_business()
+    )
     assert "Booked Looks" in env.texts()[-1]
     assert len(env.repos.tasks.calls) == 2
     assert {m.friday_number for m in env.repos.calls.memory} == {"+918069110002"} or len(
-        {m.friday_number for m in env.repos.calls.memory}) == 1  # sticky caller-ID
+        {m.friday_number for m in env.repos.calls.memory}
+    ) == 1  # sticky caller-ID
 
 
 async def test_approval_via_a_button_and_handle_answer(env):
@@ -96,7 +103,9 @@ async def test_approve_false_rejects(env):
 
 async def test_delegation_pass_through_confirms_on_call(env):
     env.runner.script(LOOKS, offer_then_confirm("Looks", 400))
-    d = Delegation(granted=True, max_price_inr=800, scope=["slot"], user_words="any slot, you decide")
+    d = Delegation(
+        granted=True, max_price_inr=800, scope=["slot"], user_words="any slot, you decide"
+    )
     t = await env.task(booking(delegation=d))
     assert t.status == S.COMPLETED and len(env.runner.briefs) == 1
     brief = env.runner.briefs[0]
@@ -115,8 +124,12 @@ async def test_engine_overrides_brain_invented_authority(env):
 
 async def test_mid_call_question_answered(env):
     async def asks(brief, ask_user, notify):
-        q = MidCallQuestion(task_id=brief.task_id, text="Male or female stylist?",
-                            options=["Male", "Female"], timeout_s=5)
+        q = MidCallQuestion(
+            task_id=brief.task_id,
+            text="Male or female stylist?",
+            options=["Male", "Female"],
+            timeout_s=5,
+        )
         ans = await ask_user(q)
         return result(brief, CallOutcome.PENDING_APPROVAL, collected={"summary": f"ok {ans.text}"})
 

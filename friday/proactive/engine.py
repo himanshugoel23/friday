@@ -129,7 +129,9 @@ class ProactiveEngine:
     async def candidates(self, user_id: str) -> list[NudgeCandidate]:
         now = self.clock.now()
         tasks = await call_opt(self.repos.tasks, "list_for_user", user_id, default=[]) or []
-        facts = await call_opt(repo(self.repos, "facts"), "list_for_user", user_id, default=[]) or []
+        facts = (
+            await call_opt(repo(self.repos, "facts"), "list_for_user", user_id, default=[]) or []
+        )
         profile = await call_opt(repo(self.repos, "profiles"), "get", user_id)
         s = self.settings
         out = [
@@ -182,7 +184,9 @@ class ProactiveEngine:
 
     async def _guard(self, cand: NudgeCandidate) -> Verdict:
         now = self.clock.now()
-        autonomy = await call_opt(repo(self.repos, "autonomy"), "list_for_user", cand.user_id, default=[])
+        autonomy = await call_opt(
+            repo(self.repos, "autonomy"), "list_for_user", cand.user_id, default=[]
+        )
         history = await self._history(cand.user_id)
         start, end = ist_day_bounds(now)
         sent_today = sum(
@@ -194,9 +198,12 @@ class ProactiveEngine:
             and n.kind not in CAP_EXEMPT_KINDS
         )
         if not history:  # repo without listing: fall back to its counter
-            sent_today = await call_opt(
-                self.nudges, "count_sent_between", cand.user_id, start, end, default=0
-            ) or 0
+            sent_today = (
+                await call_opt(
+                    self.nudges, "count_sent_between", cand.user_id, start, end, default=0
+                )
+                or 0
+            )
         same = [n for n in history if n.kind == cand.kind and n.category == cand.category]
         streak, last_ignored = 0, None
         for n in same:  # newest first
@@ -273,7 +280,9 @@ class ProactiveEngine:
         )
         return nudge
 
-    def _buttons(self, nudge: Nudge, decision: NudgeDecision, level: AutonomyLevel) -> list[ReplyButton]:
+    def _buttons(
+        self, nudge: Nudge, decision: NudgeDecision, level: AutonomyLevel
+    ) -> list[ReplyButton]:
         """Every nudge offers an action (US-10.2 #4)."""
         if level == AutonomyLevel.INFORM or nudge.kind == NudgeKind.MORNING_BRIEFING:
             return [
@@ -288,7 +297,9 @@ class ProactiveEngine:
             return out
         first = "Yes" if nudge.proposed_task else "Got it"
         return [
-            ReplyButton(id=nudge_button_id(nudge.id, "yes" if nudge.proposed_task else "ack"), title=first),
+            ReplyButton(
+                id=nudge_button_id(nudge.id, "yes" if nudge.proposed_task else "ack"), title=first
+            ),
             ReplyButton(id=nudge_button_id(nudge.id, "not_now"), title="Not now"),
             ReplyButton(id=nudge_button_id(nudge.id, "stop"), title="Stop these"),
         ]
@@ -397,9 +408,9 @@ class ProactiveEngine:
         current = autonomy_for(
             await call_opt(store, "list_for_user", nudge.user_id, default=[]) or [], nudge.category
         )
-        setting = (current or AutonomySetting(user_id=nudge.user_id, category=nudge.category)).model_copy(
-            update={"enabled": False, "updated_at": self.clock.now()}
-        )
+        setting = (
+            current or AutonomySetting(user_id=nudge.user_id, category=nudge.category)
+        ).model_copy(update={"enabled": False, "updated_at": self.clock.now()})
         await call_opt(store, "upsert", setting)
 
     async def _create_task(self, nudge: Nudge, spec: TaskSpec):

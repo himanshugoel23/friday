@@ -4,9 +4,11 @@ from friday.core.models import (
     OutboundMessage,
     Person,
     PersonConsent,
-    TaskStatus as S,
     TemplateRef,
     User,
+)
+from friday.core.models import (
+    TaskStatus as S,
 )
 from friday.tasks import states
 from friday.tasks.context import build_context

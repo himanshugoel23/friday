@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 
+from friday.core.clock import utcnow
 from friday.core.models import (
     CallAction,
     CallActionType,
@@ -30,7 +31,6 @@ from friday.core.models import (
     TaskType,
     UserAnswer,
 )
-from friday.core.clock import utcnow
 from friday.core.safety import check_keys, check_speech
 
 from .lang import text_language

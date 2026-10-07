@@ -57,7 +57,9 @@ def test_retry_table():
     assert retry_at(CallOutcome.FAILED, 1, now, P) - now == timedelta(minutes=5)
     assert retry_at(CallOutcome.CALLBACK_LATER, 1, now, P) - now == timedelta(hours=2)
     cb = now + timedelta(hours=5)
-    assert retry_at(CallOutcome.CALLBACK_LATER, 1, now, P, callback_at=cb) == cb + timedelta(minutes=5)
+    assert retry_at(CallOutcome.CALLBACK_LATER, 1, now, P, callback_at=cb) == cb + timedelta(
+        minutes=5
+    )
     assert to_ist(retry_at(CallOutcome.HOLD_TIMEOUT, 1, now, P)).strftime("%d %H") == "06 10"
     custom = TaskPolicy(_env_file=None, no_answer_delays_min=[1], busy_delay_min=2)
     assert retry_at(CallOutcome.NO_ANSWER, 1, now, custom) - now == timedelta(minutes=1)

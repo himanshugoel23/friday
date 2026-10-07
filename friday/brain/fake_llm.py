@@ -66,7 +66,7 @@ def minimal_instance(schema: dict[str, Any], root: dict[str, Any] | None = None)
         return {k: minimal_instance(v, root) for k, v in schema.get("properties", {}).items()
                 if k in schema.get("required", [])}
     return {"string": "", "integer": 0, "number": 0, "boolean": False, "array": [],
-            "null": None}.get(t, None)
+            "null": None}.get(t)
 
 
 class FakeLLM:

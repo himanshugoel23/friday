@@ -26,7 +26,7 @@ from friday.core.models import (
 from ..copy import first_name
 from ..inbound import CLOSED_ELSEWHERE, InboundContext, RelatedTask, inbound_of
 from ..lang import mirror, text_language
-from ..schemas import CallActionOut, CareOut, KV, QuestionOut, QuoteOut
+from ..schemas import KV, CallActionOut, CareOut, QuestionOut, QuoteOut
 from ..textutil import (
     format_inr,
     has_any,
@@ -332,11 +332,28 @@ def _ask_line(tn: Turn) -> str:
     if tt in INFO_TYPES or tt in QUOTE_TYPES:
         q = (b.questions or (b.template.default_questions if b.template else []) or [goal])[0]
         return q
-    return tn.t(en=f"I'm calling to {goal[:1].lower() + goal[1:]}"
-                   f"{' - ' + when if when and when not in goal else ''}. "
-                   f"What slots do you have?",
-                hinglish=f"{goal}{' - ' + when if when and when not in goal else ''} ke liye "
-                         f"call kar rahi thi. Kaunse slots available hain?")
+    need = _need_phrase(goal, b.target.name)
+    when_part = f", {when}" if when and when not in need else ""
+    if tt == TaskType.ORDER:
+        return tn.t(en=f"I'd like to place an order: {need}{when_part}. Is it available, and "
+                       f"what would the total be with delivery?",
+                    hinglish=f"Ek order dena tha: {need}{when_part}. Available hai, aur delivery "
+                             f"ke saath total kitna hoga?")
+    if tt == TaskType.RESCHEDULE:
+        return tn.t(en=f"I'm calling to move a booking: {need}{when_part}. Is that possible?",
+                    hinglish=f"Ek booking shift karni thi: {need}{when_part}. Ho payega?")
+    return tn.t(en=f"I'd like to book {need}{when_part}. What slots do you have?",
+                hinglish=f"{need}{when_part} ke liye slot chahiye tha. Kaunse slots available "
+                         f"hain?",
+                hi=f"{need}{when_part} के लिए स्लॉट चाहिए था। कौनसे स्लॉट available हैं?")
+
+
+def _need_phrase(goal: str, target: str) -> str:
+    """'Book a haircut for Ankit at Looks salon, Sat' -> 'a haircut for Ankit, Sat'."""
+    g = re.sub(r"^(book|order|get|reschedule|schedule)\s+", "", goal, flags=re.I)
+    if target:
+        g = re.sub(rf"\s+(at|from|with)\s+{re.escape(target)}", "", g, flags=re.I)
+    return g.strip()
 
 
 def _wrap_up(tn: Turn) -> CallActionOut:

@@ -65,3 +65,43 @@ class OutboundCallRequest: from_number: str | None = None   # sticky caller ID (
 Until merged: `friday/api/callbacks.py` subscribes to `Event` and filters by the class names
 above; `TaskRepo.save_call` reads `getattr(result, "from_number", None)`; engine/voice may call
 `c.repos.calls.record_outbound(..., friday_number=...)` and `c.repos.calls.match(phone, friday_number=...)`.
+
+## 2026-10-07 — Backend Engineer B (tasks/proactive/discovery)
+What / why / diff (all additive). Until merged, the workarounds named below are live.
+```python
+# models.py
+class Task:            role: str | None = None
+#   fanout | booking | instance | reconfirm | care_followup | callback | close_loop | retry.
+#   Workaround: "[friday:role=<role>]" tag in TaskSpec.notes (friday/tasks/engine.py:role_of).
+class Business:        alt_phones: list[str] = []          # E.36 "other listed numbers"
+#   Workaround: Business.whatsapp_phone is tried as the alternate number.
+class BusinessCandidate: hours: BusinessHours | None = None  # B19 hours from Places details
+#   Workaround: optional `directory.business_hours(place_id)` on the discovery providers.
+class CallBrief:       from_number: str | None = None      # sticky caller-ID (also Voice's ask)
+#   Workaround: engine passes runner.run(..., from_number=...) when the runner accepts it.
+
+# config.py - E.36/E.37 policy (today: friday/tasks/policy.py TaskPolicy, env FRIDAY_TASKS_*)
+friday_numbers: list[str] = []            # Friday caller-ID pool (Voice proposed the same)
+tasks_max_attempts: int = 3
+tasks_no_answer_delays_min: list[int] = [10, 45]
+tasks_final_window_gap_min: int = 120
+tasks_busy_delay_min: int = 5
+tasks_try_alt_numbers: bool = True
+tasks_whatsapp_request_on_no_answer: bool = True
+tasks_missed_call_notify_after: int = 3
+tasks_better_offer_pct: int = 15
+
+# interfaces.py
+# + endorse Backend A's Notifier / TaskEngine Protocols (my engine implements the
+#   TaskEngine one: submit, handle_answer, approve(task_id, approve), choose, cancel,
+#   update_spec, handle_business_callback, handle_missed_call, handle_business_message,
+#   handle_unknown_caller, start, stop).
+# + CallSessionRunner: run_inbound(brief, leg, ask_user, notify_user, *, context=None)
+#   and cancel(task_id) (Voice already implements both; the engine uses them if present).
+# + TaskRepository extras the engines call when present: add_question, get_question,
+#   answer_question, save_hotel_booking; NudgeRepository: get, list_for_user,
+#   list_scheduled_due, list_sent_unanswered_before, add_feedback; UserRepository.list_active.
+
+# events.py (today local in friday/tasks/events.py, no core change strictly needed)
+class WellbeingAlertRaised(Event): task_id; user_id; person_id: str | None; text: str
+```

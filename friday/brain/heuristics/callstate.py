@@ -189,8 +189,7 @@ def _is_disclosure(text: str, brief: CallBrief) -> bool:
                                                           Language.HINGLISH)):
         return True
     return ("ai assistant" in t or "एआई" in t or "ai असिस्टेंट" in t) and (
-        "on behalf of" in t or "ki taraf se" in t or "की ओर से" in t) and len(t) < 160 and not (
-        "?" in t)
+        "on behalf of" in t or "ki taraf se" in t or "की ओर से" in t) and len(t) < 160 and "?" not in t
 
 
 def read_state(brief: CallBrief, transcript: Transcript, answers: list[UserAnswer]) -> CallState:

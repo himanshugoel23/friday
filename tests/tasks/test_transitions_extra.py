@@ -5,16 +5,18 @@ import asyncio
 from datetime import datetime
 
 from friday.core.clock import IST, to_ist
+from friday.core.events import MidCallQuestionAsked
 from friday.core.models import (
     CallOutcome,
     MidCallQuestion,
     Task,
     TaskSpec,
-    TaskStatus as S,
     TaskType,
     UserAnswer,
 )
-from friday.core.events import MidCallQuestionAsked
+from friday.core.models import (
+    TaskStatus as S,
+)
 from tests.tasks.conftest import LOOKS, booking
 from tests.tasks.fakes import offer_then_confirm, outcome, result
 
@@ -51,13 +53,19 @@ async def test_confirmation_call_slot_lost_fails_and_busy_retries(env):
 
 async def test_question_during_confirmation_call(env):
     async def asks(brief, ask_user, notify):
-        ans = await ask_user(MidCallQuestion(task_id=brief.task_id, text="Name on booking?",
-                                             options=["Rahul"], timeout_s=5))
+        ans = await ask_user(
+            MidCallQuestion(
+                task_id=brief.task_id, text="Name on booking?", options=["Rahul"], timeout_s=5
+            )
+        )
         return result(brief, CallOutcome.SUCCESS, collected={"summary": f"booked for {ans.text}"})
 
     async def answer(ev):
-        asyncio.ensure_future(env.engine.handle_answer(
-            UserAnswer(question_id=ev.question.id, text="Rahul", option_index=0)))
+        asyncio.ensure_future(
+            env.engine.handle_answer(
+                UserAnswer(question_id=ev.question.id, text="Rahul", option_index=0)
+            )
+        )
 
     env.bus.subscribe(MidCallQuestionAsked, answer)
     t = await offered(env, asks)
@@ -121,8 +129,15 @@ async def test_cancel_created_needs_info_planning_discovering(env):
         return await real_search(*a, **k)
 
     directory.search = slow_search
-    d = await env.engine.create_task(env.user.id, TaskSpec(
-        type=TaskType.DISCOVERY, goal="AC", discovery_query="AC repair", location_text="Indiranagar"))
+    d = await env.engine.create_task(
+        env.user.id,
+        TaskSpec(
+            type=TaskType.DISCOVERY,
+            goal="AC",
+            discovery_query="AC repair",
+            location_text="Indiranagar",
+        ),
+    )
     for _ in range(20):
         await asyncio.sleep(0)
     assert (await env.get(d.id)).status == S.DISCOVERING
@@ -130,8 +145,12 @@ async def test_cancel_created_needs_info_planning_discovering(env):
     dgate.set()
     await env.engine.drain()
     assert (await env.get(d.id)).status == S.CANCELLED
-    for pair in [(S.CREATED, S.CANCELLED), (S.NEEDS_INFO, S.CANCELLED),
-                 (S.PLANNING, S.CANCELLED), (S.DISCOVERING, S.CANCELLED)]:
+    for pair in [
+        (S.CREATED, S.CANCELLED),
+        (S.NEEDS_INFO, S.CANCELLED),
+        (S.PLANNING, S.CANCELLED),
+        (S.DISCOVERING, S.CANCELLED),
+    ]:
         assert pair in env.transitions
 
 

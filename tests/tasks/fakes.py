@@ -317,16 +317,33 @@ class CallsRepo:
         self.memory: list[Mem] = []
         self.inbound: list[Mem] = []
 
-    async def record_outbound(self, *, task_id, user_id, business_phone, friday_number=None,
-                              call_id=None, business_id=None, outcome=None, at=None):
+    async def record_outbound(
+        self,
+        *,
+        task_id,
+        user_id,
+        business_phone,
+        friday_number=None,
+        call_id=None,
+        business_id=None,
+        outcome=None,
+        at=None,
+    ):
         for m in self.memory:
             if call_id and m.call_id == call_id:
                 m.friday_number = friday_number or m.friday_number
                 m.outcome = outcome
                 return m
-        m = Mem(task_id=task_id, user_id=user_id, business_phone=business_phone,
-                friday_number=friday_number, call_id=call_id, business_id=business_id,
-                outcome=outcome, at=at)
+        m = Mem(
+            task_id=task_id,
+            user_id=user_id,
+            business_phone=business_phone,
+            friday_number=friday_number,
+            call_id=call_id,
+            business_id=business_id,
+            outcome=outcome,
+            at=at,
+        )
         self.memory.append(m)
         return m
 
@@ -397,7 +414,9 @@ class FakeBrain:
         self.judged: list = []
 
     def template_for(self, task_type):
-        return BriefTemplate(task_type=task_type, goal_template="{goal}", fan_out=self.fan_out or FanOutPolicy())
+        return BriefTemplate(
+            task_type=task_type, goal_template="{goal}", fan_out=self.fan_out or FanOutPolicy()
+        )
 
     async def build_call_brief(self, ctx, task: Task) -> CallBrief:
         from friday.core.models import ContactTarget, Delegation, TargetKind
@@ -420,7 +439,9 @@ class FakeBrain:
         c = result.collected
         return TaskResult(
             success=result.outcome == CallOutcome.SUCCESS,
-            summary=c.get("summary", f"{task.target.name if task.target else ''}: {result.outcome.value}"),
+            summary=c.get(
+                "summary", f"{task.target.name if task.target else ''}: {result.outcome.value}"
+            ),
             details={k: v for k, v in c.items() if k in ("time", "price", "reference")},
             quotes=result.quotes,
             care=result.care,
@@ -432,12 +453,16 @@ class FakeBrain:
 
     async def shortlist(self, ctx, spec, candidates, n):
         ranked = sorted(candidates, key=lambda c: (-(c.rating or 0), c.name))[:n]
-        return [ShortlistItem(candidate=c, rank=i + 1, reason=f"{c.rating}★") for i, c in enumerate(ranked)]
+        return [
+            ShortlistItem(candidate=c, rank=i + 1, reason=f"{c.rating}★")
+            for i, c in enumerate(ranked)
+        ]
 
     async def compare_quotes(self, ctx, parent, quotes):
         ranked = sorted(quotes, key=lambda q: q.amount_inr or 10**9)
         return QuoteComparison(
-            summary="Comparison: " + ", ".join(f"{q.business_name} ₹{q.amount_inr}" for q in ranked),
+            summary="Comparison: "
+            + ", ".join(f"{q.business_name} ₹{q.amount_inr}" for q in ranked),
             ranked_quotes=ranked,
             recommended_index=0,
         )
@@ -472,7 +497,13 @@ def result(brief: CallBrief, outcome: CallOutcome, **kw) -> CallResult:
 
 
 def quote(name: str, amount: int, slots=("Sat 4pm",), **kw) -> Quote:
-    return Quote(business_name=name, amount_inr=amount, price_text=f"₹{amount}", available_slots=list(slots), **kw)
+    return Quote(
+        business_name=name,
+        amount_inr=amount,
+        price_text=f"₹{amount}",
+        available_slots=list(slots),
+        **kw,
+    )
 
 
 def offer_then_confirm(name: str, amount: int, slots=("4pm", "6pm")) -> Script:
@@ -480,10 +511,18 @@ def offer_then_confirm(name: str, amount: int, slots=("4pm", "6pm")) -> Script:
 
     async def script(brief, ask_user, notify):
         if brief.can_commit([]):
-            return result(brief, CallOutcome.SUCCESS, quotes=[quote(name, amount, slots)],
-                          collected={"summary": f"Booked {name} {brief.approved_terms}", "time": slots[0]})
-        return result(brief, CallOutcome.PENDING_APPROVAL, quotes=[quote(name, amount, slots)],
-                      collected={"summary": f"{name} has {' or '.join(slots)}, ₹{amount}"})
+            return result(
+                brief,
+                CallOutcome.SUCCESS,
+                quotes=[quote(name, amount, slots)],
+                collected={"summary": f"Booked {name} {brief.approved_terms}", "time": slots[0]},
+            )
+        return result(
+            brief,
+            CallOutcome.PENDING_APPROVAL,
+            quotes=[quote(name, amount, slots)],
+            collected={"summary": f"{name} has {' or '.join(slots)}, ₹{amount}"},
+        )
 
     return script
 

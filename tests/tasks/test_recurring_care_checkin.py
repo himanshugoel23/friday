@@ -15,8 +15,10 @@ from friday.core.models import (
     Recurrence,
     RecurrenceRule,
     TaskSpec,
-    TaskStatus as S,
     TaskType,
+)
+from friday.core.models import (
+    TaskStatus as S,
 )
 from friday.tasks.engine import ROLE_CARE_FOLLOWUP, ROLE_INSTANCE, role_of
 from friday.tasks.events import WellbeingAlertRaised
@@ -25,15 +27,25 @@ from tests.tasks.fakes import offer_then_confirm, outcome, result
 
 
 def rule(**kw):
-    base = dict(freq=Recurrence.WEEKLY, weekdays=[1, 4], time_ist="10:00", lead_days=3,
-                delegation=Delegation(granted=True, max_price_inr=800, time_window_text="10-11am"))
+    base = dict(
+        freq=Recurrence.WEEKLY,
+        weekdays=[1, 4],
+        time_ist="10:00",
+        lead_days=3,
+        delegation=Delegation(granted=True, max_price_inr=800, time_window_text="10-11am"),
+    )
     return RecurrenceRule(**{**base, **kw})
 
 
 async def test_recurring_series_spawns_delegated_instances(env):
     env.runner.script(LOOKS, offer_then_confirm("Looks", 400))
-    spec = TaskSpec(type=TaskType.RECURRING_BOOKING, goal="Weekly haircut", business_phone=LOOKS,
-                    business_name="Looks Unisex Salon", recurrence=rule())
+    spec = TaskSpec(
+        type=TaskType.RECURRING_BOOKING,
+        goal="Weekly haircut",
+        business_phone=LOOKS,
+        business_name="Looks Unisex Salon",
+        recurrence=rule(),
+    )
     t = await env.task(spec)
     assert t.status == S.SCHEDULED and t.delegation.granted
     run_at = to_ist(t.next_attempt_at)
@@ -55,15 +67,23 @@ async def test_recurring_series_spawns_delegated_instances(env):
 
 
 async def test_recurring_series_ends(env):
-    spec = TaskSpec(type=TaskType.RECURRING_BOOKING, goal="x", business_phone=LOOKS,
-                    recurrence=rule(until=date(2026, 1, 4)))
+    spec = TaskSpec(
+        type=TaskType.RECURRING_BOOKING,
+        goal="x",
+        business_phone=LOOKS,
+        recurrence=rule(until=date(2026, 1, 4)),
+    )
     t = await env.task(spec)
     assert t.status == S.COMPLETED
 
 
 async def test_recurring_last_instance_completes_parent(env):
-    spec = TaskSpec(type=TaskType.RECURRING_BOOKING, goal="x", business_phone=LOOKS,
-                    recurrence=rule(until=date(2026, 1, 9)))
+    spec = TaskSpec(
+        type=TaskType.RECURRING_BOOKING,
+        goal="x",
+        business_phone=LOOKS,
+        recurrence=rule(until=date(2026, 1, 9)),
+    )
     t = await env.task(spec)
     env.clock.set(t.next_attempt_at)
     await env.engine.tick()
@@ -75,9 +95,17 @@ async def test_queued_unplanned_recurring_from_pipeline(env):
     """The inbound pipeline may persist a task as SCHEDULED (abuse limiter) w/o submit."""
     from friday.core.models import Task
 
-    spec = TaskSpec(type=TaskType.RECURRING_BOOKING, goal="x", business_phone=LOOKS, recurrence=rule())
-    task = Task(requester_user_id=env.user.id, type=spec.type, spec=spec, recurrence=spec.recurrence,
-                status=S.SCHEDULED, next_attempt_at=env.clock.now())
+    spec = TaskSpec(
+        type=TaskType.RECURRING_BOOKING, goal="x", business_phone=LOOKS, recurrence=rule()
+    )
+    task = Task(
+        requester_user_id=env.user.id,
+        type=spec.type,
+        spec=spec,
+        recurrence=spec.recurrence,
+        status=S.SCHEDULED,
+        next_attempt_at=env.clock.now(),
+    )
     await env.repos.tasks.add(task)
     await env.engine.tick()
     await env.engine.drain()
@@ -86,8 +114,13 @@ async def test_queued_unplanned_recurring_from_pipeline(env):
 
 
 async def add_mom(env, consent=PersonConsent.NOT_ASKED):
-    mom = Person(owner_user_id=env.user.id, name="Sunita", relation="mother", phone="+919822222222",
-                 checkin_consent=consent)
+    mom = Person(
+        owner_user_id=env.user.id,
+        name="Sunita",
+        relation="mother",
+        phone="+919822222222",
+        checkin_consent=consent,
+    )
     await env.repos.people.upsert(mom)
     return mom
 
@@ -106,7 +139,9 @@ async def test_checkin_requires_member_consent_then_alerts(env):
     assert env.runner.briefs == []
     mom.checkin_consent = PersonConsent.OPTED_IN
     await env.repos.people.upsert(mom)
-    env.runner.script(mom.phone, outcome(CallOutcome.SUCCESS, collected={"alert": "Mom said she feels dizzy"}))
+    env.runner.script(
+        mom.phone, outcome(CallOutcome.SUCCESS, collected={"alert": "Mom said she feels dizzy"})
+    )
     await env.engine.update_spec(t.id, spec)
     await env.engine.drain()
     t = await env.get(t.id)
@@ -127,15 +162,19 @@ async def test_checkin_unreachable_alerts_after_attempts(env):
     mom = await add_mom(env, PersonConsent.OPTED_IN)
     env.runner.default = outcome(CallOutcome.NO_ANSWER)
     env.engine.policy.max_attempts = 1
-    t = await env.task(TaskSpec(type=TaskType.WELLBEING_CHECKIN, goal="check-in"),
-                       beneficiary_person_id=mom.id)
+    t = await env.task(
+        TaskSpec(type=TaskType.WELLBEING_CHECKIN, goal="check-in"), beneficiary_person_id=mom.id
+    )
     assert t.status == S.FAILED and alerts and "couldn't reach Sunita" in alerts[0].text
 
 
 async def test_daily_checkin_series_with_consent(env):
     mom = await add_mom(env, PersonConsent.OPTED_IN)
-    spec = TaskSpec(type=TaskType.WELLBEING_CHECKIN, goal="daily check-in",
-                    recurrence=RecurrenceRule(freq=Recurrence.WEEKLY, interval_days=1, time_ist="10:30"))
+    spec = TaskSpec(
+        type=TaskType.WELLBEING_CHECKIN,
+        goal="daily check-in",
+        recurrence=RecurrenceRule(freq=Recurrence.WEEKLY, interval_days=1, time_ist="10:30"),
+    )
     t = await env.task(spec, beneficiary_person_id=mom.id)
     assert t.status == S.SCHEDULED
     env.clock.set(t.next_attempt_at)
@@ -151,19 +190,28 @@ async def test_checkin_without_person(env):
 
 
 def care(**kw):
-    return TaskSpec(type=TaskType.CUSTOMER_CARE, goal="Broadband down 3 days, raise complaint",
-                    company="Airtel", care_request=CareRequestKind.COMPLAINT, **kw)
+    return TaskSpec(
+        type=TaskType.CUSTOMER_CARE,
+        goal="Broadband down 3 days, raise complaint",
+        company="Airtel",
+        care_request=CareRequestKind.COMPLAINT,
+        **kw,
+    )
 
 
 async def test_care_official_number_precall_summary_and_followup(env):
-    ident = AccountIdentifier(user_id=env.user.id, company="Airtel", label="Registered mobile",
-                              value="9811111111")
+    ident = AccountIdentifier(
+        user_id=env.user.id, company="Airtel", label="Registered mobile", value="9811111111"
+    )
     await env.repos.identifiers.upsert(ident)
     promised = date(2026, 1, 8)
 
     async def ticket(brief, ask, notify):
-        return result(brief, CallOutcome.SUCCESS, care=CareOutcome(
-            company="Airtel", ticket_number="SR12345", promised_date=promised))
+        return result(
+            brief,
+            CallOutcome.SUCCESS,
+            care=CareOutcome(company="Airtel", ticket_number="SR12345", promised_date=promised),
+        )
 
     env.runner.script(AIRTEL, ticket)
     t = await env.task(care(approved_identifier_ids=[ident.id]))
@@ -190,8 +238,11 @@ async def test_care_user_number_not_official_is_replaced(env):
 
 
 async def test_care_unknown_company_and_scam_number(env):
-    t = await env.task(TaskSpec(type=TaskType.CUSTOMER_CARE, goal="refund", company="Zorbo Telecom"))
+    t = await env.task(
+        TaskSpec(type=TaskType.CUSTOMER_CARE, goal="refund", company="Zorbo Telecom")
+    )
     assert t.status == S.FAILED and "can't verify" in t.result.summary
-    t2 = await env.task(TaskSpec(type=TaskType.CUSTOMER_CARE, goal="refund", company="Zorbo",
-                                 business_phone=SCAM))
+    t2 = await env.task(
+        TaskSpec(type=TaskType.CUSTOMER_CARE, goal="refund", company="Zorbo", business_phone=SCAM)
+    )
     assert t2.status == S.FAILED and env.runner.briefs == []

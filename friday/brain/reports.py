@@ -37,8 +37,8 @@ from friday.core.models import (
 )
 
 from .copy import first_name, say
-from .heuristics.callstate import DISTRESS, MED_SKIPPED
-from .schemas import CompareOut, KV, SummaryOut
+from .heuristics.callstate import DISTRESS
+from .schemas import KV, CompareOut, SummaryOut
 from .templates import template_for
 from .textutil import format_inr, has_any, norm, slot_to_datetime, truncate_title
 

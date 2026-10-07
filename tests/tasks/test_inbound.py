@@ -9,8 +9,10 @@ from friday.core.models import (
     InteractionKind,
     NumberVerdict,
     TaskSpec,
-    TaskStatus as S,
     TaskType,
+)
+from friday.core.models import (
+    TaskStatus as S,
 )
 from friday.tasks.engine import ROLE_CALLBACK, ROLE_CLOSE_LOOP, role_of
 from friday.tasks.events import BusinessContactLogged
@@ -67,8 +69,12 @@ async def test_ambiguous_open_tasks_policy_asks_which(env):
     assert match.status == "ambiguous"
 
     async def picks_second(brief, ask, notify):
-        return result(brief, CallOutcome.PENDING_APPROVAL, quotes=[quote("Looks", 380)],
-                      collected={"task_id": t1.id, "summary": "about the 1st"})
+        return result(
+            brief,
+            CallOutcome.PENDING_APPROVAL,
+            quotes=[quote("Looks", 380)],
+            collected={"task_id": t1.id, "summary": "about the 1st"},
+        )
 
     env.runner.scripts[LOOKS] = [picks_second]
     plan = await env.engine.handle_business_callback(match, None, leg=LEG)
@@ -101,7 +107,9 @@ async def test_unverified_caller_gets_no_details_and_is_flagged(env):
     biz = await env.repos.businesses.get_by_phone(LOOKS)
     biz.verification = NumberVerdict.SUSPICIOUS
     await env.repos.businesses.upsert(biz)
-    plan = await env.engine.handle_business_callback(await env.repos.calls.match(LOOKS), None, leg=LEG)
+    plan = await env.engine.handle_business_callback(
+        await env.repos.calls.match(LOOKS), None, leg=LEG
+    )
     assert not plan.verified
     brief = env.runner.inbound[0][1]
     assert brief.shareable_details == {} and any("unverified" in c for c in brief.constraints)
@@ -149,8 +157,12 @@ async def test_late_missed_call_about_existing_booking(env):
 async def discovery_booked_with_chill(env):
     for p, amt in ((COOL, 699), (FROSTY, 599), (CHILL, 550)):
         env.runner.script(p, offer_then_confirm(p, amt))
-    spec = TaskSpec(type=TaskType.DISCOVERY, goal="AC service", discovery_query="AC repair",
-                    location_text="Indiranagar Bengaluru")
+    spec = TaskSpec(
+        type=TaskType.DISCOVERY,
+        goal="AC service",
+        discovery_query="AC repair",
+        location_text="Indiranagar Bengaluru",
+    )
     t = await env.task(spec)
     await env.engine.approve(t.id, True)
     await env.engine.drain()
@@ -227,8 +239,9 @@ async def test_business_messages(env):
     plan = await env.engine.handle_business_message(msg, await env.repos.calls.match(LOOKS))
     assert plan.action == "close_loop" and len(env.texts()) == n
     # flagged sender: logged only
-    await env.repos.businesses.upsert(Business(name="Looks", phone=LOOKS,
-                                               verification=NumberVerdict.SCAM))
+    await env.repos.businesses.upsert(
+        Business(name="Looks", phone=LOOKS, verification=NumberVerdict.SCAM)
+    )
     t2 = await offered(env)
     plan = await env.engine.handle_business_message(msg, await env.repos.calls.match(LOOKS))
     assert plan.action == "logged" and not plan.verified

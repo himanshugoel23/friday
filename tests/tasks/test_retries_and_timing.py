@@ -8,9 +8,11 @@ from friday.core.models import (
     CallOutcome,
     Channel,
     NumberVerdict,
-    TaskStatus as S,
     approval_button_id,
     question_button_id,
+)
+from friday.core.models import (
+    TaskStatus as S,
 )
 from tests.tasks.conftest import LOOKS, RAJU, SCAM, booking
 from tests.tasks.fakes import offer_then_confirm, outcome
@@ -46,10 +48,18 @@ async def test_no_answer_retry_schedule_notify_once_then_options(env):
 async def test_final_options_another_business_starts_discovery(env):
     env.runner.default = outcome(CallOutcome.NO_ANSWER)
     env.engine.policy.max_attempts = 1
-    t = await env.task(booking(phone=RAJU, name="Raju Plumbing Works", category="plumber",
-                               location_text="Indiranagar Bengaluru"))
+    t = await env.task(
+        booking(
+            phone=RAJU,
+            name="Raju Plumbing Works",
+            category="plumber",
+            location_text="Indiranagar Bengaluru",
+        )
+    )
     assert t.status == S.FAILED
-    await env.engine.handle_button(env.user.id, question_button_id(env.notifier.last().question_id, 2))
+    await env.engine.handle_button(
+        env.user.id, question_button_id(env.notifier.last().question_id, 2)
+    )
     await env.engine.drain()
     from friday.core.models import TaskType
 
@@ -96,7 +106,9 @@ async def test_business_hours_queue_and_lunch(env):
     from friday.discovery.simulator import SimulatedDirectory
 
     hours = await SimulatedDirectory().business_hours("sim-sharma-clinic")
-    await env.repos.businesses.upsert(Business(name="Dr. Sharma", phone="+912040000002", hours=hours))
+    await env.repos.businesses.upsert(
+        Business(name="Dr. Sharma", phone="+912040000002", hours=hours)
+    )
     t = await env.task(booking(phone="+912040000002", name="Dr. Sharma"))
     assert t.status == S.SCHEDULED and to_ist(t.next_attempt_at).strftime("%H:%M") == "17:05"
     assert any("I'll call at" in x for x in env.texts())

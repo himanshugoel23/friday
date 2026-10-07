@@ -12,4 +12,3 @@ def test_every_allowed_transition_exercised():
         pytest.skip("run the whole tests/tasks package to check transition coverage")
     missing = states.all_transitions() - ALL_TRANSITIONS
     assert not missing, sorted((a.value, b.value) for a, b in missing)
-
