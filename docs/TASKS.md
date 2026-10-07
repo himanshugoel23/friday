@@ -131,3 +131,57 @@ Integration seams to agree on early (all already typed in core): `CallBrief` ↔
 `CallPolicy` (AI ↔ Voice), `CallSessionRunner.run(brief, ask_user, notify_user)`
 (Voice ↔ Backend), `ConversationContext` → `Interpretation` (Backend ↔ AI),
 `simworld` (Voice ↔ Backend ↔ QA).
+
+---
+
+## Stage 3 (wave 2) — security fixes, caller-ID pool, scale-out
+
+Core contracts for everything below are merged (see `docs/CORE_CHANGES.md` "Stage 3
+merge log" and ARCHITECTURE §10). Ownership is unchanged: everyone imports from
+`friday/core`, nobody edits it. Each task's tests go in the owner's `tests/<pkg>/`.
+Security fixes flip their strict xfail in `tests/security` (the Security Engineer reviews).
+
+**Already done in core (EM):** SECURITY-1, -2, -17, -24 (core half), -26, -30 (config
+half), -31, -12 (crypto primitives), -27 (helper `check_commit`).
+
+### Remove the wave-1 workarounds (all owners, P1)
+| Owner | Change |
+|---|---|
+| Backend A | Use `core.interfaces.Notifier`/`TaskEngine`. Subscribe to `core.events.InboundCallReceived`/`MissedCallReceived` by class, not by name. Read `CallResult.from_number` directly. |
+| Backend B | Drop `friday/tasks/policy.py` env duplication → `Settings.tasks_*`. Drop the `Task.role` notes tag. Use `Business.alt_phones`, `BusinessCandidate.hours`, `CallBrief.from_number`, `NudgeCandidate.nudge_id` → `Nudge(id=…)`. |
+| Voice | Drop `VoiceCallResult` duplicate fields. Use `CallTurn.audio_class` instead of the text prefix, `CallBrief.ivr_map`, `Settings.telephony_route`/`exotel_*`/`sarvam_*` instead of `os.environ`. Implement `CancellableRunner.cancel`. Add `capabilities()` to the simulator. |
+| AI (when staffed) | Use `Settings.model_for(purpose)` instead of `FRIDAY_LLM_MODEL_*` env. Use `ctx.identifiers`, `Intent.FORGET`, `choice_button_id`/`ref_button_id`. Treat `llm_model` as a fallback only. |
+
+### Security fixes still open (from `docs/SECURITY_FIXES.md`)
+| Owner | IDs | Notes |
+|---|---|---|
+| Backend A | **12** (Critical), 9, 15, 11, 14, 21, 23, 32, 10, 13, 16, 20, 29, 30, 33, 28, 34 | 12: switch columns to `core.crypto.EncryptedText/EncryptedJSON` (AAD `table.column`), add `phone_hmac` via `FieldCipher.blind_index`, and run the KMS provider at `friday.db.kms:build_kms_key_provider`. 13: key ids plus `LocalKeyProvider(previous=…)` give rotation; re-encrypt rows where `needs_rotation`. 30: use `Settings.key_material("pin_pepper"/"index_key")`. 34: use `core.scale.MemoryLock` / `DistributedLock`. |
+| Backend B | 4 (engine), 8 (engine), 21, 22, 25, 32 | 4: a `SUCCESS` without approval is downgraded unless `core.safety.check_commit` allows it. 22: DNC persisted pool-wide (`NumberPool.is_blocked`). |
+| Voice | 3, 4 (runner), 14, 18, 19, 24 (runner), 27 | 24: `KeyBuffer(brief)` per call, `reset()` on each IVR_PROMPT. 27: `check_commit(brief, answers, amount_inr=…, slot_at=…, decision=…)` before any `commits_booking` action. |
+| AI | 22, 23 (brain parts) | Flag private individuals and DNC requests (`collected["dnc_request"]="1"`). |
+| Ops | OPS-1, OPS-2, OPS-3, KMS keys, CNAP / Truecaller registration | Launch blockers. |
+
+### Caller-ID reputation & number rotation (P1)
+| # | Owner | Task | Acceptance criteria |
+|---|---|---|---|
+| NP-1 | Backend A | Tables + repos: `friday_numbers` (FridayNumber, health JSON), `number_assignments` (business_phone → number, sticky), `number_outcomes` (append-only, partitioned), `dnc_registry` (business phone, reason, at). | Round-trip tests. DNC lookup is by blind index. |
+| NP-2 | Backend B | `friday/tasks/number_pool.py::build_number_pool` implementing `NumberPool`: sticky + local-presence + health + least-load choice; pacing (`number_max_calls_per_hour/day`, warm-up ramp `number_warmup_daily_caps`, `number_max_concurrent`, `number_min_gap_s`) → `not_before`; `rescore()` with thresholds → cooling / retire (`number_max_cooldowns_before_retire`), retired numbers forward call-backs for `number_retired_forward_days`; `is_blocked` across the whole pool; publishes `NumberStatusChanged`. | FakeClock tests: no bursts; sticky kept; business moved only when retired (`changed=True`); cooling numbers never dial; DNC on one number blocks all numbers; warm-up caps respected. |
+| NP-3 | Backend B | Engine integration: choose before CALLING, `SCHEDULED` when None, `brief.from_number`/`number_changed`, `record_outcome` + `release` after every attempt (SHORT_CALL if answered < `number_short_call_s`), inbound routing via `owner_of` (incl. retired). | Engine tests with stub pool. |
+| NP-4 | Voice | Present `request.from_number` on every provider. Speak the "calling from a new number" line after the disclosure when `brief.number_changed` (pre-rendered TTS). Report provider block/reject signals. Accept inbound on retired numbers. | Simulator tests per provider. |
+| NP-5 | Backend A | Ops dashboard data endpoint (admin-only): `pool.list_numbers()` health/volume/status. | API test, auth required. |
+
+### Built for scale (P1)
+| # | Owner | Task | Acceptance criteria |
+|---|---|---|---|
+| S-1 | Backend A | **API idempotency + fast ack.** Every webhook goes through verify → `IdempotencyStore.first_seen` → store → enqueue `inbound.message` (LIVE) → 200. No per-user in-memory state in the API. | Duplicate deliveries are processed once. Ack p95 < 100 ms on the simulator. |
+| S-2 | Backend A | **Postgres JobQueue** `friday/db/queue.py::build_pg_job_queue` (SKIP LOCKED design in ARCHITECTURE §10.3), `enqueue(session=…)` as the transactional outbox, LISTEN/NOTIFY wake-up, dead-letter alerting, `friday/db/idempotency.py::build_pg_idempotency`. | The same contract test suite passes against Memory and Postgres (Postgres tests marked, run in CI with a service container). Two concurrent claimers never get the same job. |
+| S-3 | Backend A | **Locks:** `friday/db/locks.py::build_pg_lock` (`pg_advisory_xact_lock(hashtext(key))` with timeout) plus a Redis variant in `friday/db/redis_backends.py` (lock, cache, rate limiter; `redis` as an optional dependency via `uv add`). | One turn per user under concurrent webhooks. |
+| S-4 | Backend A | **Outbox adoption:** every outbound message and business touch goes `outbox.add(OutboxEntry(dedupe_key=…), session=s)` inside the state-change transaction; the notifier consumes `message.send`. | No double-send on retry or crash (test kills the consumer mid-send). |
+| S-5 | Backend A | **Data at scale:** Postgres driver (`asyncpg`) plus pool settings, PgBouncer-safe (no session state), hot-path indexes, monthly partitioning for `messages`, `call_turns`, `audit_log` and the cost ledger, Alembic migrations. | Migration up/down tests; EXPLAIN checks on hot queries. |
+| S-6 | Backend A + Voice | **Recordings to object storage** (`object_store_url`, S3 India region, signed URLs, lifecycle = retention), never in the DB or on local disk in live. Also covers SECURITY-14/19. | Erasure deletes the objects. Signed URLs expire. |
+| S-7 | Backend B | **Engine on the durable queue:** task steps, call placement, retries, call-backs, recurring instances, reconfirms and care follow-ups become jobs with `due_at` and `dedupe_key` (exactly-once scheduling across replicas). Remove in-memory futures for anything that must survive a restart; mid-call answer waits use the DB question row + a `task.step` wake-up. `TaskEngine.start()` runs claim loops for `JOB_ROUTES` of this process's roles. | Kill/restart test: no lost or duplicated calls. Two engine replicas never place the same call. |
+| S-8 | Backend B | **Proactive sharding:** shard by `hash(user_id) % proactive_shards` (`proactive_shard_index`); nudges via `nudge.evaluate`/`nudge.send` jobs with dedupe keys; cap and quiet hours stay deterministic under concurrency (per-user lock). | Two shards never double-nudge. |
+| S-9 | Voice | **Voice worker role:** claims `call.place`/`call.inbound` only when it has capacity (`worker_concurrency["voice"]`). A call stays pinned to its worker (media WS routed by call id, lease extended while live). Provider limiters via `RateLimiter.slot(provider)` and `acquire("telephony")`. Graceful drain on shutdown. | Simulator test with 2 voice workers: each call is handled once; the limiter caps concurrency; drain finishes live calls. |
+| S-10 | Voice | Pre-rendered TTS for fixed lines (disclosure, hold, call-back, new-number line) in the shared `Cache`. Also learned IVR maps from the cache. | Hit ratio is reported in `CallCostReport.tts_billed_chars`. |
+| S-11 | QA | **Load-test harness on the simulator:** N simulated users (WhatsApp bursts), M concurrent simulated calls with `sim_time_scale`, all roles in one process plus a multi-process mode; reports throughput, p95 turn latency, queue depth, duplicate/lost counts, ₹/task. | `uv run friday loadtest --users 1000 --calls 200` (CLI, QA-owned). Zero lost or duplicate tasks, calls and messages at target load. |
+| S-12 | QA | Contract test kit for `JobQueue`/`DistributedLock`/`Cache`/`RateLimiter`/`IdempotencyStore`, parametrised over the implementations, so Backend A's durable implementations prove parity with the core memory ones. | Kit lives in `tests/contracts/`. |

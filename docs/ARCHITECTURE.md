@@ -376,3 +376,139 @@ The voice pipeline is already direction-agnostic:
   and are skipped by default.
 * QA owns `tests/e2e/`: scripted conversations through the simulator channel covering
   every flow in §3 using `simworld` personas and the fake LLM.
+
+## 10. Stage 3: caller-ID reputation, security core, scale-out
+
+### 10.1 Caller-ID pool (founder: "caller-ID reputation & number rotation")
+
+Contracts: `FridayNumber`, `NumberStatus` (warming | active | cooling | retired),
+`NumberHealth`, `NumberLimits`, `NumberChoice`, `NumberOutcome` (`core.models`),
+the `NumberPool` Protocol (`core.interfaces`), `Settings.number_*` and the factory
+`friday.tasks.number_pool:build_number_pool` (Backend B).
+
+```
+engine (before CALLING)
+  pool.is_blocked(business)?  ── yes → never call (DNC/block honoured on EVERY number)
+  choice = pool.choose_for(business_phone, city, circle)
+     sticky number (if it can dial) ─┐   else: local city/circle → best health → least load
+     pacing: per-hour / per-day (warm-up ramp) / concurrent / min gap → not_before
+  None → SCHEDULED (retry when a number frees up)
+  brief.from_number = choice.number.phone ; brief.number_changed = choice.changed
+  runner.run(...) → CallResult.from_number
+  pool.record_outcome(number, ANSWERED|SHORT_CALL|NO_ANSWER|BUSY|REJECTED|BLOCKED|DNC_REQUEST)
+  pool.release(number)
+proactive/ops tick: pool.rescore() → WARMING→ACTIVE, ACTIVE→COOLING (no outbound, still
+  answers inbound), COOLING→ACTIVE or RETIRED (forwards call-backs for 30 days)
+  → NumberStatusChanged event (ops dashboard data: list_numbers())
+```
+
+Numbers must be Indian 10-digit numbers (never 140-series), validated in `FridayNumber`.
+Rotation is only for load and reputation. It is never used to get around a block or a DNC request.
+Verified caller name (CNAP, Truecaller for Business) is recorded per number
+(`verified_caller_name`) and handled by Ops.
+
+### 10.2 Security core (Stage 3)
+
+* `core.safety`: number words (EN/Hinglish/Devanagari) and comma-separated digits are
+  normalised before scanning. Secret keywords count anywhere in the sentence (before
+  or after the digits), including Hindi. A card number (Luhn check, 13–19 digits) is
+  always blocked, and the money exception covers at most 9 digits. Postal PIN codes are allowed.
+  `check_key_sequence` / `KeyBuffer` check DTMF across chunks keyed within one IVR prompt.
+  `check_commit` enforces the delegation price ceiling, time window and scope.
+* `core.crypto`: `FieldCipher` (AES-256-GCM, `v1:<key_id>:…`, AAD = table.column,
+  fail-closed), `KeyProvider` (Local in dev; KMS envelope skeleton for live),
+  blind-index HMAC for phone lookups, and `EncryptedText`/`EncryptedJSON` column types.
+  The container installs the cipher at startup; Backend A switches the columns.
+* Config: separate `pin_pepper` / `field_key(_id)` / `index_key` (required in live,
+  derived from `secret_key` only in dev). Live mode rejects the default WhatsApp
+  verify token and DEBUG logging. The root handler redacts phone numbers and drops SQL parameters.
+
+### 10.3 Deployment & scaling
+
+Target: 100k+ users, 1,000+ concurrent live calls, webhook bursts; no lost tasks,
+no duplicate calls, no double-sent messages.
+
+```
+                    WhatsApp / Telephony webhooks, media WebSockets
+                                       │
+                              ┌────────▼────────┐
+                              │  Load balancer  │  (sticky by call id for media WS)
+                              └───┬─────────┬───┘
+               HTTP webhooks      │         │  media streams (WS)
+                   ┌──────────────▼──┐   ┌──▼───────────────────────┐
+                   │ API replicas    │   │ VOICE workers (role=voice)│ long-lived calls,
+                   │ (role=api)      │   │ 1 call pinned per worker  │ scale on concurrent
+                   │ verify → dedupe │   │ provider concurrency caps │ calls
+                   │ → store → ACK   │   └──┬───────────▲────────────┘
+                   │ → enqueue       │      │claims call.place/inbound
+                   └───────┬─────────┘      │           │
+                           │ jobs (same txn = outbox)   │
+                 ┌─────────▼────────────────▼───────────┴──────────┐
+                 │ Postgres (+PgBouncer): data, jobs (SKIP LOCKED), │
+                 │ advisory locks, idempotency keys; partitioned    │
+                 │ messages / call_turns / audit / costs            │
+                 └──┬──────────────┬────────────────┬──────────────┘
+                    │              │                │
+          ┌─────────▼───┐  ┌───────▼──────┐  ┌──────▼──────┐   ┌───────────────┐
+          │ TASK workers│  │ PROACTIVE    │  │ BATCH       │   │ Redis: cache, │
+          │ (role=task) │  │ (sharded by  │  │ workers     │   │ rate limits,  │
+          │ engine steps│  │ user hash)   │  │ (Batch API) │   │ TTS audio     │
+          └─────────────┘  └──────────────┘  └─────────────┘   └───────────────┘
+                 S3-compatible object storage (India region): recordings, media — never in DB
+Autoscaling signals: queue depth per kind/priority (JobQueue.depth), concurrent calls
+per voice worker, p95 turn latency, webhook ack latency, provider 429s.
+```
+
+**One codebase, several roles.** `FRIDAY_ROLES=api|task|voice|proactive|batch` (CSV).
+`Container.role_components()` lists what a process wires (`ROLE_COMPONENTS`).
+`JOB_ROUTES` maps job kinds to the consuming role. The simulator and tests run all
+roles in one process with the in-memory backends.
+
+**Durable vs in-process.** Use `JobQueue` (or the outbox) for:
+
+| Must be durable | Job kind | Priority |
+|---|---|---|
+| inbound webhook processing (after verify + idempotency + store + ack) | `inbound.message` | LIVE |
+| mid-call answers, user replies | `task.step` | LIVE |
+| task steps, approvals, choices | `task.step` | TASK |
+| placing calls, call-backs, retries, reconfirms, recurring instances | `call.place` / `task.scheduled` (due_at) | TASK |
+| outbound messages (WA/SMS), business touch | `message.send` via outbox | TASK |
+| nudges | `nudge.evaluate` / `nudge.send` | PROACTIVE |
+| fact extraction, vendor memory, analytics | `batch.*` | BATCH |
+
+The `EventBus` remains for non-critical, same-process notifications: audit mirroring,
+simulator UI, metrics, `CallTurnRecorded`, `CallCostReport`, `NumberStatusChanged`.
+A lost bus event must never lose a task, call or message.
+
+**Exactly-once effects.** At-least-once delivery plus idempotent consumers:
+* jobs carry a `dedupe_key` (e.g. `call:<task_id>:<attempt>`, `msg:<outbound id>`);
+* webhooks use `IdempotencyStore.first_seen("wa:<wamid>")` / `("tel:<sid>:<status>")`;
+* scheduled jobs live in the DB (`due_at` index) and are claimed with SKIP LOCKED,
+  so exactly one replica fires each;
+* per-user `DistributedLock.hold(f"user:{id}")` allows one conversation turn at a time.
+
+**Postgres queue design (Backend A, `friday/db/queue.py`):** table `jobs(id, kind,
+payload jsonb, priority, due_at, dedupe_key unique where status in (queued,claimed),
+partition_key, attempts, max_attempts, status, claimed_by, lease_until, last_error,
+created_at)`, index `(status, priority, due_at)`. Claim query:
+`UPDATE jobs SET status='claimed', claimed_by=$w, lease_until=now()+$lease WHERE id IN
+(SELECT id FROM jobs WHERE (status='queued' OR (status='claimed' AND lease_until<now()))
+AND due_at<=now() [AND kind = ANY($kinds)] ORDER BY priority, due_at
+FOR UPDATE SKIP LOCKED LIMIT $n) RETURNING *`. `enqueue(job, session=s)` inserts
+within the caller's transaction, which makes the jobs table the transactional outbox.
+Use `LISTEN/NOTIFY` to wake idle workers. Dead letters stay in the table with
+`status='dead'` and trigger an alert.
+
+**Backpressure:** `RateLimiter` per provider (`provider_rate_per_s`,
+`provider_concurrency`, `llm_tokens_per_min`), circuit breakers with failover
+(Sarvam → Exotel → Twilio, already in `RoutedTelephony`). A rate-limited job is
+re-queued with a delay; it is never dropped.
+
+**Data:** PgBouncer in transaction mode (`db_pool_size`, `db_max_overflow`), hot-path
+indexes, and monthly partitions for `messages`, `call_turns`, `audit_log` and the cost ledger.
+A read replica comes later. Recordings go to object storage (`object_store_url`) with
+signed, expiring URLs.
+
+**Observability:** metrics for queue depth, call concurrency, p95 turn latency, error
+rates and ₹/task. Tracing is per task (task_id as trace id). Alerts fire on dead letters,
+cost and number health.
