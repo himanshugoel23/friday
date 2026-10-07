@@ -254,17 +254,28 @@ class CallRunner:
 
     async def run_inbound(
         self,
-        brief: CallBrief,
-        leg: CallLeg,
+        leg_or_brief: CallLeg | CallBrief,
+        brief_or_leg: CallBrief | CallLeg,
         ask_user: AskUser,
         notify_user: NotifyUser | None = None,
         *,
         context: str | None = None,
     ) -> CallResult:
         """A business called a Friday number (E31) and the leg is already answered.
-        Friday speaks the inbound disclosure + ``context`` first, then the policy
-        continues with the same brief (approval rule unchanged)."""
-        session = _Session(self, brief, ask_user, notify_user, inbound_leg=leg, context=context)
+
+        Accepts ``run_inbound(leg, brief, ...)`` (Backend B's call order) or
+        ``run_inbound(brief, leg, ...)``. Friday speaks the inbound disclosure +
+        ``context`` first, then the policy continues with the same brief (approval rule
+        unchanged)."""
+        if isinstance(leg_or_brief, CallBrief):
+            brief, leg = leg_or_brief, brief_or_leg
+        else:
+            leg, brief = leg_or_brief, brief_or_leg
+        assert isinstance(brief, CallBrief)
+        session = _Session(
+            self, brief, ask_user, notify_user, inbound_leg=leg,  # type: ignore[arg-type]
+            context=context,
+        )
         return await session.execute()
 
 
@@ -420,8 +431,11 @@ class _Session:
             return await self._run_inbound()
         b = self.brief
         meta = {"call_id": self.result.call_id}
+        extra: dict[str, Any] = {}
         if self.from_number:
             meta["from_number"] = self.from_number
+            if "from_number" in OutboundCallRequest.model_fields:  # proposed core field
+                extra["from_number"] = self.from_number
         req = OutboundCallRequest(
             to_phone=b.target.phone,
             task_id=b.task_id,
@@ -430,6 +444,7 @@ class _Session:
             max_duration_s=b.max_duration_s,
             language=b.opening_language,
             metadata=meta,
+            **extra,
         )
         tel = self.r.telephony
         self.result.provider = getattr(tel, "name", "unknown")
@@ -1016,7 +1031,12 @@ class _Session:
                         continue
                     if t is not None and (t.text or "").strip():
                         got_any = True
-                        if await on_chunk(who, t):
+                        try:
+                            stop = await on_chunk(who, t)
+                        except CallEnded:  # the party we were speaking to hung up
+                            ended.add("peer")
+                            return ended
+                        if stop:
                             return ended
                     pending[who] = asyncio.ensure_future(legs[who].listen(timeout))
                 idle_rounds = 0 if got_any else idle_rounds + 1

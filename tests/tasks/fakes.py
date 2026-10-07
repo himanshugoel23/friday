@@ -292,9 +292,84 @@ class CostRepo:
         self.records.append((user_id, amount, kw))
 
 
+class Mem:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+class Match:
+    """Shape of Backend A's CallbackMatch (duck-typed)."""
+
+    def __init__(self, status, from_phone, friday_number=None, task_id=None, candidates=()):
+        self.status = status
+        self.from_phone = from_phone
+        self.friday_number = friday_number
+        self.task_id = task_id
+        self.user_id = None
+        self.candidates = list(candidates)
+
+
+class CallsRepo:
+    """Fake of Backend A's call memory (repos.calls)."""
+
+    def __init__(self, tasks: TaskRepo):
+        self.tasks = tasks
+        self.memory: list[Mem] = []
+        self.inbound: list[Mem] = []
+
+    async def record_outbound(self, *, task_id, user_id, business_phone, friday_number=None,
+                              call_id=None, business_id=None, outcome=None, at=None):
+        for m in self.memory:
+            if call_id and m.call_id == call_id:
+                m.friday_number = friday_number or m.friday_number
+                m.outcome = outcome
+                return m
+        m = Mem(task_id=task_id, user_id=user_id, business_phone=business_phone,
+                friday_number=friday_number, call_id=call_id, business_id=business_id,
+                outcome=outcome, at=at)
+        self.memory.append(m)
+        return m
+
+    async def sticky_number(self, phone):
+        for m in reversed(self.memory):
+            if m.business_phone == phone and m.friday_number:
+                return m.friday_number
+        return None
+
+    async def choose_number(self, phone, pool):
+        if not pool:
+            return None
+        sticky = await self.sticky_number(phone)
+        return sticky if sticky in pool else pool[len(phone) % len(pool)]
+
+    async def match(self, from_phone, *, friday_number=None):
+        mems = [m for m in reversed(self.memory) if m.business_phone == from_phone]
+        if friday_number:
+            mems = [m for m in mems if m.friday_number == friday_number] or mems
+        per: dict[str, Mem] = {}
+        for m in mems:
+            per.setdefault(m.task_id, m)
+        if not per:
+            return Match("unmatched", from_phone, friday_number)
+        status = {tid: self.tasks.items[tid].status for tid in per if tid in self.tasks.items}
+        open_ = [m for m in per.values() if not status[m.task_id].is_terminal]
+        chosen = open_ or list(per.values())
+        if len(open_) > 1:
+            return Match("ambiguous", from_phone, friday_number, candidates=chosen)
+        return Match("matched", from_phone, friday_number, chosen[0].task_id, chosen)
+
+    async def inbound_for_task(self, task_id):
+        return [c for c in self.inbound if c.task_id == task_id]
+
+    def add_missed(self, task_id, n=1):
+        for _ in range(n):
+            self.inbound.append(Mem(kind="missed_call", task_id=task_id))
+
+
 class Repos:
     def __init__(self):
         self.tasks = TaskRepo()
+        self.calls = CallsRepo(self.tasks)
         self.users = UserRepo()
         self.profiles = ProfileRepo()
         self.people = OwnerRepo()
@@ -451,10 +526,12 @@ class StubRunner:
     async def run(self, brief, ask_user, notify_user=None):
         return await self._do(brief, ask_user, notify_user)
 
-    async def run_inbound(self, leg, brief, ask_user, notify_user=None):
+    async def run_inbound(self, brief, leg, ask_user, notify_user=None, *, context=None):
         self.inbound.append((leg, brief))
         r = await self._do(brief, ask_user, notify_user)
-        return r.model_copy(update={"direction": "inbound"})
+        from friday.core.models import CallDirection
+
+        return r.model_copy(update={"direction": CallDirection.INBOUND})
 
     def phones(self):
         return [b.target.phone for b in self.briefs]

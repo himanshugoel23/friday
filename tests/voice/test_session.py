@@ -511,10 +511,11 @@ async def test_translator_mode_marathi(make_runner, sim):
 
     sim.register_party("+919812345678", SimParty(
         name="Rahul", language=Language.HINGLISH, greeting="Haan, main hoon.",
-        script=["Consultation ka rate kitna hai?", "Kal ka slot milega?"],
+        script=["2BHK ka rent kitna hai?", "Visit ka slot kab hai?"],
     ))
     tr = FakeTranslator()
-    brief = make_brief(SHARMA, "Dr Sharma", mode=CallMode.TRANSLATOR, user_language=Language.HINGLISH)
+    brief = make_brief("+912040001001", "Deshpande (landlord)", mode=CallMode.TRANSLATOR,
+                       user_language=Language.HINGLISH, task_type=TaskType.RENTAL_HUNT)
     policy = ScriptedPolicy([])
     result = await make_runner(policy, translator=tr).run(brief, no_answer_user)
     assert result.outcome == CallOutcome.SUCCESS, result.transcript.render()

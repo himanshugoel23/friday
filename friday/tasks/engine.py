@@ -1,20 +1,21 @@
 """Task engine (B-6): the state machine that turns requests into calls and results.
 
-Public API (used by the inbound pipeline / API / proactive engine):
+Public API (Backend A's inbound pipeline + CallbackService call these by name):
 
-    engine = c.task_engine
-    task = await engine.create_task(user_id, spec, beneficiary_person_id=..., place_id=...)
-    await engine.handle_button(user_id, "q:<qid>:1" | "a:<task>:yes")   # replies
-    await engine.answer_question(UserAnswer(...))     # free-text answer (interpret)
-    await engine.approve(task_id) / reject(task_id) / choose(task_id, i)
-    await engine.provide_info(task_id, spec) / cancel(task_id)
-    engine.pending_question(user_id)                 # -> ctx.pending_question
-    await engine.tick()                              # due SCHEDULED tasks / recurring
-    await engine.start() / stop() / drain()
-    # BRIEF E.30-37: business call-backs, missed calls, replies
-    await engine.on_inbound_call(caller, dialled, leg=None) -> InboundPlan
-    await engine.on_missed_call(caller, dialled) -> InboundPlan
-    await engine.on_business_message(from_phone, text, channel=...) -> InboundPlan
+    await engine.submit(task)                        # task may already be persisted (CREATED)
+    await engine.handle_answer(UserAnswer(...))      # q:<qid>:<i> buttons / free text
+    await engine.approve(task_id, True|False)        # a:<task>:yes|no
+    await engine.choose(task_id, index)              # comparison pick
+    await engine.cancel(task_id)
+    await engine.update_spec(task_id, spec)          # NEEDS_INFO filled / task edited
+    await engine.start() / stop()                    # queue worker
+    # BRIEF E.30-37 (match = repos.calls.match(...) -> CallbackMatch)
+    await engine.handle_business_callback(match, contact)
+    await engine.handle_missed_call(match, contact)
+    await engine.handle_business_message(msg, match)
+    await engine.handle_unknown_caller(match, contact)
+    # also: create_task(), handle_button(), pending_question(), tick(), drain(),
+    #       on_inbound_call(caller, dialled, leg=...), on_missed_call(caller, dialled)
 
 Founder approval rule (final): the engine is the authority for ``CallBrief.delegation``
 and ``CallBrief.approved_terms`` - it overwrites whatever the brain put there, so
@@ -26,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
@@ -82,7 +84,6 @@ from friday.core.models import (
 from friday.core.models import TaskStatus as S
 from friday.discovery.geo import is_toll_free, phone_key
 from friday.tasks import states
-from friday.tasks.callmemory import CallMemory, CallRecord
 from friday.tasks.categories import category_for, level_for
 from friday.tasks.context import build_context
 from friday.tasks.events import BusinessContactLogged, WellbeingAlertRaised
@@ -181,17 +182,20 @@ class TaskEngine:
         self._calls_today: dict[tuple[str, str], int] = {}
         self._worker: asyncio.Task | None = None
         self._stopping = asyncio.Event()
-        caller_ids = self.policy.caller_ids or [
-            n
-            for n in (
-                self.settings.twilio_from_number,
-                self.settings.exotel_caller_id,
-                self.settings.plivo_from_number,
-            )
-            if n
-        ]
-        self.memory = CallMemory(store=None, caller_ids=caller_ids)
-        self._memory_bound = False
+        # Friday caller-ID pool (E.30). Settings.friday_numbers is proposed for core.
+        self.caller_ids: list[str] = list(
+            getattr(self.settings, "friday_numbers", None)
+            or self.policy.caller_ids
+            or [
+                n
+                for n in (
+                    self.settings.twilio_from_number,
+                    self.settings.exotel_caller_id,
+                    self.settings.plivo_from_number,
+                )
+                if n
+            ]
+        )
 
     # ================================================================== deps
     def _opt(self, name: str) -> Any:
@@ -223,10 +227,11 @@ class TaskEngine:
             notifier=self._opt("notifier"), users=repo(self.repos, "users"), sms=self._opt("sms")
         )
 
-    def _bind_memory(self) -> None:
-        if not self._memory_bound:
-            self.memory.store = repo(self.repos, "call_memory")
-            self._memory_bound = True
+    @property
+    def calls(self) -> Any:
+        """Call memory (Backend A: ``repos.calls`` - record_outbound / choose_number /
+        match / inbound_for_task)."""
+        return repo(self.repos, "calls")
 
     # ================================================================== lifecycle
     def _spawn(self, task_id: str, coro: Awaitable[Any]) -> asyncio.Task:
@@ -331,8 +336,12 @@ class TaskEngine:
             task.delegation = task.spec.delegation
         if task.recurrence is None and task.spec.recurrence is not None:
             task.recurrence = task.spec.recurrence
-        task = await self.tasks.add(task)
-        await self._audit(task, "task.created", type=task.type.value, approved=approved)
+        existing = await self.tasks.get(task.id)
+        if existing is None:
+            task = await self.tasks.add(task)
+            await self._audit(task, "task.created", type=task.type.value, approved=approved)
+        else:  # persisted by the inbound pipeline; keep our normalisation
+            task = await self.tasks.save(task)
         self._spawn(task.id, self._run(task.id, needs_approval=not approved))
         return task
 
@@ -346,7 +355,12 @@ class TaskEngine:
         job = self._calls.pop(task_id, None)
         task = await self._transition(task, S.CANCELLED, force=True)
         if job and not job.done():
-            job.cancel()
+            polite = getattr(self.runner, "cancel", None)
+            if callable(polite):  # runner wraps up politely -> outcome CANCELLED
+                self._calls[task_id] = job
+                polite(task_id)
+            else:
+                job.cancel()
         for qid, (fut, tid, _, _) in list(self._pending.items()):
             if tid == task_id and not fut.done():
                 fut.set_result(None)
@@ -355,6 +369,24 @@ class TaskEngine:
         if by_user:
             await self.outbox.to_user(task.requester_user_id, "Cancelled.", task_id=task.id)
         return task
+
+    async def update_spec(self, task_id: str, spec: TaskSpec) -> Task | None:
+        """User edited / completed the spec. NEEDS_INFO resumes planning; a task that
+        hasn't dialled yet is re-planned; a live call keeps going with the old spec."""
+        task = await self.tasks.get(task_id)
+        if task is None or task.status.is_terminal:
+            return task
+        if task.status == S.NEEDS_INFO:
+            return await self.provide_info(task_id, spec)
+        task.spec = spec
+        if spec.delegation.granted:
+            task.delegation = spec.delegation
+        task = await self._save(task)
+        await self._audit(task, "task.updated")
+        return task
+
+    async def handle_answer(self, answer: UserAnswer) -> bool:
+        return await self.answer_question(answer)
 
     async def provide_info(self, task_id: str, spec: TaskSpec | None = None) -> Task | None:
         """NEEDS_INFO -> PLANNING once the user filled the gap (or consent arrived)."""
@@ -403,10 +435,7 @@ class TaskEngine:
             task = await self.tasks.get(ref)
             if task is None or task.requester_user_id != user_id:
                 return False
-            if value == "yes":
-                await self.approve(ref, source=button_id)
-            else:
-                await self.reject(ref, source=button_id)
+            await self.approve(ref, value == "yes", source=button_id)
             return True
         return False
 
@@ -461,11 +490,14 @@ class TaskEngine:
     async def approve(
         self,
         task_id: str,
+        approve: bool = True,
         *,
         option_index: int | None = None,
         terms: str | None = None,
         source: str | None = None,
     ) -> Task | None:
+        if not approve:
+            return await self.reject(task_id, source=source)
         task = await self.tasks.get(task_id)
         if task is None:
             return None
@@ -579,7 +611,14 @@ class TaskEngine:
                 await self._plan(task, needs_approval=needs_approval)
             elif task.status == S.SCHEDULED:
                 if task.recurrence is not None and task.parent_task_id is None:
-                    await self._run_recurring(task)
+                    if task.recurrence.next_run_at is None:  # queued before planning
+                        task = await self._transition(task, S.PLANNING)
+                        await self._plan(task, needs_approval=needs_approval)
+                    else:
+                        await self._run_recurring(task)
+                elif task.target is None and not task.approved_terms:
+                    task = await self._transition(task, S.PLANNING)  # queued before planning
+                    await self._plan(task, needs_approval=needs_approval)
                 else:
                     await self._queue_dial(task)
             elif task.status in (S.CALLING, S.CONFIRMATION_CALLBACK):
@@ -976,28 +1015,35 @@ class TaskEngine:
         task = await self._save(task)
         key = (task.requester_user_id, to_ist(self.clock.now()).date().isoformat())
         self._calls_today[key] = self._calls_today.get(key, 0) + 1
-        self._bind_memory()
-        caller_id = (
-            await self.memory.caller_id_for(task.target.phone)
-            if task.target and task.target.kind == TargetKind.BUSINESS
-            else None
-        )
-        result = await self._run_call(task, brief, inbound_leg=inbound_leg)
+        caller_id = None
+        if task.target and task.target.kind == TargetKind.BUSINESS:  # sticky caller-ID (E.30)
+            caller_id = await call_opt(
+                self.calls, "choose_number", task.target.phone, self.caller_ids
+            )
+        result = await self._run_call(task, brief, inbound_leg=inbound_leg, from_number=caller_id)
         await self._process_result(task, result, is_confirm=is_confirm, caller_id=caller_id)
 
     async def _run_call(
-        self, task: Task, brief: CallBrief, *, inbound_leg: Any = None
+        self,
+        task: Task,
+        brief: CallBrief,
+        *,
+        inbound_leg: Any = None,
+        from_number: str | None = None,
+        context: str | None = None,
     ) -> CallResult:
         ask = self._ask_user_cb(task)
         notify = self._notify_cb(task)
         async with self._global_calls:
             try:
                 if inbound_leg is not None:
-                    job = asyncio.ensure_future(
-                        self.runner.run_inbound(inbound_leg, brief, ask, notify)
-                    )
+                    kw = {"context": context} if _accepts(self.runner.run_inbound, "context") else {}
+                    coro = self.runner.run_inbound(brief, inbound_leg, ask, notify, **kw)
+                elif from_number and _accepts(self.runner.run, "from_number"):
+                    coro = self.runner.run(brief, ask, notify, from_number=from_number)
                 else:
-                    job = asyncio.ensure_future(self.runner.run(brief, ask, notify))
+                    coro = self.runner.run(brief, ask, notify)
+                job = asyncio.ensure_future(coro)
                 self._calls[task.id] = job
                 return await job
             except asyncio.CancelledError:
@@ -1111,32 +1157,23 @@ class TaskEngine:
     async def _process_result(
         self, task: Task, result: CallResult, *, is_confirm: bool, caller_id: str | None = None
     ) -> None:
+        # save_call persists the call, quotes, questions, cost ledger and call memory
         await self.tasks.save_call(result)
         task.cost_inr_est += result.cost_inr_est
         task.last_outcome = result.outcome
-        await call_opt(
-            repo(self.repos, "costs"),
-            "record",
-            task.requester_user_id,
-            result.cost_inr_est,
-            kind="call",
-            task_id=task.id,
-            call_id=result.call_id,
-            at=self.clock.now(),
-        )
         if task.target and task.target.kind == TargetKind.BUSINESS:
-            await self.memory.record(
-                CallRecord(
-                    kind="inbound" if result.direction.value == "inbound" else "outbound",
-                    business_phone=task.target.phone,
-                    caller_id=caller_id,
-                    task_id=task.id,
-                    user_id=task.requester_user_id,
-                    business_id=task.target.business_id,
-                    call_id=result.call_id,
-                    outcome=result.outcome,
-                    at=self.clock.now(),
-                )
+            # call memory (E.30): make sure the caller-ID we chose is on record
+            await call_opt(
+                self.calls,
+                "record_outbound",
+                task_id=task.id,
+                user_id=task.requester_user_id,
+                business_phone=result.to_phone or task.target.phone,
+                friday_number=getattr(result, "from_number", None) or caller_id,
+                call_id=result.call_id,
+                business_id=task.target.business_id,
+                outcome=result.outcome,
+                at=result.started_at,
             )
         await self._handle_outcome(task, result, is_confirm=is_confirm)
 
@@ -2021,28 +2058,35 @@ class TaskEngine:
         self._spawn(instance.id, self._run(instance.id))
 
     # ================================================================== E.30-37 inbound
-    async def _match(self, phone: str, dialled: str | None = None) -> tuple[list[Task], bool]:
-        """Tasks (newest first) Friday contacted this number about; and whether the
-        number matches the business record (caller-ID check, E.34)."""
-        self._bind_memory()
-        since = self.clock.now() - timedelta(days=self.policy.inbound_lookback_days)
-        records = [r for r in await self.memory.for_phone(phone, since=since) if r.task_id]
-        if dialled:
-            pref = [
-                r for r in records if r.caller_id and phone_key(r.caller_id) == phone_key(dialled)
-            ]
-            records = pref or records
-        seen: list[str] = []
-        for r in records:
-            if r.task_id not in seen:
-                seen.append(r.task_id)
-        tasks = [t for t in [await self.tasks.get(tid) for tid in seen] if t is not None]
-        key = phone_key(phone)
-        businesses = repo(self.repos, "businesses")
-        biz = await call_opt(businesses, "get_by_phone", phone)
-        on_record = biz is not None or any(
+    # Matching lives in call memory (Backend A: ``repos.calls.match`` -> CallbackMatch with
+    # status matched|ambiguous|unmatched, task_id, candidates[CallMemory], from_phone,
+    # friday_number). The API's CallbackService records the contact and calls the
+    # ``handle_*`` methods below; ``on_inbound_call`` etc. are thin convenience wrappers.
+
+    async def _match_tasks(self, match: Any) -> tuple[list[Task], bool]:
+        """Matched tasks (newest first) and whether the caller is verified: caller ID ==
+        the business number we called for those tasks and not flagged (E.34)."""
+        status = str(getattr(match, "status", "unmatched"))
+        if status.endswith("unmatched"):
+            return [], False
+        ids: list[str] = []
+        if getattr(match, "task_id", None):
+            ids.append(match.task_id)
+        for m in getattr(match, "candidates", []) or []:
+            if m.task_id not in ids:
+                ids.append(m.task_id)
+        tasks = [t for t in [await self.tasks.get(tid) for tid in ids] if t is not None]
+        phone = getattr(match, "from_phone", "")
+        key = phone_key(phone) if phone else ""
+        called = {
+            phone_key(m.business_phone) for m in getattr(match, "candidates", []) or []
+        }
+        on_record = key in called or any(
             t.target is not None and phone_key(t.target.phone) == key for t in tasks
         )
+        biz = await call_opt(repo(self.repos, "businesses"), "get_by_phone", phone)
+        if biz is not None and phone_key(biz.phone) != key:
+            on_record = False
         flagged = biz is not None and biz.verification in (
             NumberVerdict.SCAM,
             NumberVerdict.SUSPICIOUS,
@@ -2052,9 +2096,7 @@ class TaskEngine:
             self._verified.pop(key, None)
             await self._verify(phone, name=tasks[0].target.name if tasks[0].target else None)
             await self._audit(tasks[0], "inbound.caller_mismatch", phone=mask_phone(phone))
-            log.warning(
-                "inbound caller-ID %s does not match the business record", mask_phone(phone)
-            )
+            log.warning("inbound caller-ID %s does not match the business record", mask_phone(phone))
         return tasks, verified
 
     async def _classify(self, tasks: list[Task]) -> tuple[str, list[Task]]:
@@ -2096,19 +2138,20 @@ class TaskEngine:
         return False
 
     async def _inbound_task(self, action: str, task: Task, phone: str) -> Task:
-        """The task an inbound contact will run under (resume or a new child)."""
-        if action == "resume":
+        """The task an inbound contact runs under: the task itself (resume) or a child."""
+        if action in ("resume", "choose_task"):
             return task
         role = ROLE_CLOSE_LOOP if action == "close_loop" else ROLE_CALLBACK
         goals = {
-            "about_booking": f"The business called back about the existing booking ({task.spec.goal}). "
-            "Find out what they need (reconfirm, reschedule, cancel, ready for pickup, directions); "
-            "any change needs the user's approval.",
+            "about_booking": f"The business called back about the existing booking "
+            f"({task.spec.goal}). Find out what they need (reconfirm, reschedule, cancel, "
+            "ready for pickup, directions); any change needs the user's approval.",
             "about_offer": f"The business called back about their offer for: {task.spec.goal}. "
             "Capture any updated price/slot; do not confirm anything.",
             "reopen": task.spec.goal,
-            "close_loop": "Thank them for calling back and politely close the loop: the requirement "
-            "has been taken care of, so it isn't needed this time. Note any better offer; commit nothing.",
+            "close_loop": "Thank them for calling back and politely close the loop: the "
+            "requirement has been taken care of, so it isn't needed this time. Note any better "
+            "offer; commit nothing.",
         }
         ttype = {
             "about_booking": TaskType.RECONFIRM,
@@ -2143,25 +2186,28 @@ class TaskEngine:
         return child
 
     async def _inbound_brief(
-        self, task: Task, *, verified: bool, context_line: str, candidates: list[Task] | None = None
+        self,
+        task: Task,
+        *,
+        verified: bool,
+        context_line: str,
+        candidates: list[Task] | None = None,
     ) -> CallBrief:
         ctx = await self._context(task.requester_user_id)
         brief = await self.brain.build_call_brief(ctx, task)
         brief = await self._finalize_brief(task, brief)
         constraints = [
-            "INBOUND CALL: the business called Friday back. Open with the disclosure and: "
+            "INBOUND CALL: the business called Friday back. After the disclosure say: "
             + context_line,
             "Never accept payment demands.",
         ]
         if candidates and len(candidates) > 1:
-            names = " or ".join(c.spec.goal for c in candidates)
+            opts = "; ".join(f"[{c.id}] {c.spec.goal}" for c in candidates)
             constraints.append(
-                f"Several open requests with this business: ask which one ({names})."
+                "Several open requests with this business - ask which one, and report the "
+                f"chosen id in collected['task_id']: {opts}"
             )
-        updates: dict[str, Any] = {
-            "constraints": [*constraints, *brief.constraints],
-            "goal": f"{context_line} {brief.goal}".strip(),
-        }
+        updates: dict[str, Any] = {"constraints": [*constraints, *brief.constraints]}
         if not verified:  # E.34: unverified caller -> share nothing personal
             updates |= {
                 "shareable_details": {},
@@ -2173,51 +2219,59 @@ class TaskEngine:
             }
         return brief.model_copy(update=updates)
 
-    async def on_inbound_call(
-        self, caller: str, dialled: str | None = None, *, leg: Any = None
-    ) -> InboundPlan:
-        """E.31/33/37: a business (or anyone) called a Friday number.
-
-        Returns the plan; when ``leg`` is given and the runner supports
-        ``run_inbound(leg, brief, ask_user, notify_user)``, also runs the call and
-        feeds the result through the normal outcome handling (approval rule intact)."""
-        tasks, verified = await self._match(caller, dialled)
-        await self.memory.record(
-            CallRecord(
-                kind="inbound",
-                business_phone=caller,
-                caller_id=dialled,
-                task_id=tasks[0].id if tasks else None,
-                at=self.clock.now(),
-            )
+    def _unknown_brief(self, phone: str) -> CallBrief:
+        return CallBrief(
+            task_id=f"inbound-{phone_key(phone)}",
+            requester_user_id="",
+            task_type=TaskType.ENQUIRY,
+            goal="Unknown caller: greet politely as Friday, an AI assistant; take a message "
+            "(name, purpose, call-back number). Do not reveal anything about any user.",
+            target=ContactTarget(kind=TargetKind.BUSINESS, name="Unknown caller", phone=phone),
+            on_behalf_of="Friday",
+            forbidden_disclosures=["any user's name, number, address, bookings or tasks"],
         )
+
+    def _take_leg(self, contact: Any) -> Any:
+        telephony = self._opt("telephony")
+        take = getattr(telephony, "take_inbound", None)
+        if not callable(take) or contact is None:
+            return None
+        for ref in (getattr(contact, "call_id", None), getattr(contact, "provider_ref", None)):
+            if ref:
+                leg = take(ref)
+                if leg is not None:
+                    return leg
+        return None
+
+    async def handle_unknown_caller(self, match: Any, contact: Any = None, *, leg: Any = None):
+        """E.33: no match -> polite AI greeting, take a message, notify nobody's details."""
+        phone = getattr(match, "from_phone", "")
+        brief = self._unknown_brief(phone)
+        plan = InboundPlan("take_message", brief=brief)
+        leg = leg or self._take_leg(contact)
+        if leg is not None and hasattr(self.runner, "run_inbound"):
+            plan.result = await self.runner.run_inbound(brief, leg, _no_answer, None)
+        log.info("ops: message taken from unmatched caller %s", mask_phone(phone))
+        await self.bus.publish(
+            BusinessContactLogged(phone=phone, kind="message_taken", at=self.clock.now())
+        )
+        return plan
+
+    async def handle_business_callback(
+        self, match: Any, contact: Any = None, *, leg: Any = None
+    ) -> InboundPlan:
+        """E.31/33/37: a business called a Friday number and we answered. Resumes the
+        task with the same brief (approval rule intact), asks which task when several
+        are open, or handles a late call-back by state."""
+        tasks, verified = await self._match_tasks(match)
+        phone = getattr(match, "from_phone", "")
         if not tasks:
-            brief = CallBrief(
-                task_id=f"inbound-{phone_key(caller)}",
-                requester_user_id="",
-                task_type=TaskType.ENQUIRY,
-                goal="Unknown caller: greet politely as Friday, an AI assistant; take a message "
-                "(name, purpose, call-back number). Do not reveal anything about any user.",
-                target=ContactTarget(kind=TargetKind.BUSINESS, name="Unknown caller", phone=caller),
-                on_behalf_of="Friday",
-                forbidden_disclosures=["any user's name, number, address, bookings or tasks"],
-            )
-            log.info("ops: unmatched inbound call from %s", mask_phone(caller))
-            plan = InboundPlan("take_message", brief=brief)
-            if leg is not None and hasattr(self.runner, "run_inbound"):
-                plan.result = await self.runner.run_inbound(leg, brief, _no_answer, None)
-                await self.bus.publish(
-                    BusinessContactLogged(phone=caller, kind="message_taken", at=self.clock.now())
-                )
-            return plan
+            return await self.handle_unknown_caller(match, contact, leg=leg)
         action, matched = await self._classify(tasks)
         primary = matched[0]
         who = await self._requester_name(primary)
         context_line = f"We called you earlier on behalf of {who} about {primary.spec.goal}."
-        if action == "choose_task":
-            run_task = primary
-        else:
-            run_task = await self._inbound_task(action, primary, caller)
+        run_task = await self._inbound_task(action, primary, phone)
         brief = await self._inbound_brief(
             run_task,
             verified=verified,
@@ -2226,146 +2280,128 @@ class TaskEngine:
         )
         plan = InboundPlan(action, task_ids=[t.id for t in matched], brief=brief, verified=verified)
         await self._audit(primary, "inbound.call", action=action, verified=verified)
+        leg = leg or self._take_leg(contact)
         if leg is not None and hasattr(self.runner, "run_inbound"):
-            plan.result = await self._run_inbound(run_task, leg, brief, matched, action)
+            plan.result = await self._run_inbound(run_task, leg, brief, matched, action, context_line)
         return plan
 
     async def _run_inbound(
-        self, task: Task, leg: Any, brief: CallBrief, matched: list[Task], action: str
-    ):
+        self,
+        task: Task,
+        leg: Any,
+        brief: CallBrief,
+        matched: list[Task],
+        action: str,
+        context_line: str,
+    ) -> CallResult:
         task = await self.tasks.get(task.id) or task
         if task.status in (S.SCHEDULED, S.AWAITING_APPROVAL, S.PLANNING):
-            target = S.CONFIRMATION_CALLBACK if task.approved_terms else S.CALLING
-            task = await self._transition(task, target, next_attempt_at=None)
+            new = S.CONFIRMATION_CALLBACK if task.approved_terms else S.CALLING
+            task = await self._transition(task, new, next_attempt_at=None)
         elif task.status not in (S.CALLING, S.CONFIRMATION_CALLBACK):
-            # busy elsewhere (live call / mid-question): just take a message for the user
-            result = await self.runner.run_inbound(leg, brief, _no_answer, None)
+            # mid-call elsewhere / waiting for info: take a message for the user
+            result = await self._run_call(task, brief, inbound_leg=leg, context=context_line)
+            name = task.target.name if task.target else "The business"
             await self.outbox.to_user(
                 task.requester_user_id,
-                f"{task.target.name if task.target else 'The business'} called back about: {task.spec.goal}.",
+                f"{name} called back about: {task.spec.goal}.",
                 task_id=task.id,
             )
             return result
+        is_confirm = task.status == S.CONFIRMATION_CALLBACK
         task.attempts += 1
-        await self._save(task)
-        result = await self._run_call(task, brief, inbound_leg=leg)
+        task = await self._save(task)
+        result = await self._run_call(task, brief, inbound_leg=leg, context=context_line)
         chosen = result.collected.get("task_id")
         if action == "choose_task" and chosen and chosen != task.id:
             other = next((t for t in matched if t.id == chosen), None)
-            if other is not None:  # the caller meant another open task
-                result = result.model_copy(update={"task_id": other.id})
-                task = await self._transition(
-                    task, S.SCHEDULED if task.status != S.SCHEDULED else task.status
+            other = await self.tasks.get(other.id) if other else None
+            if other is not None and other.status in (S.SCHEDULED, S.AWAITING_APPROVAL):
+                # the caller meant another open request: put this one back, run that one
+                await self._transition(task, S.SCHEDULED, next_attempt_at=self.clock.now())
+                other = await self._transition(
+                    other, S.CONFIRMATION_CALLBACK if other.approved_terms else S.CALLING
                 )
-                other = await self.tasks.get(other.id)
-                if other.status in (S.SCHEDULED, S.AWAITING_APPROVAL):
-                    other = await self._transition(
-                        other, S.CONFIRMATION_CALLBACK if other.approved_terms else S.CALLING
-                    )
-                task = other
-        await self._process_result(task, result, is_confirm=task.status == S.CONFIRMATION_CALLBACK)
+                result = result.model_copy(update={"task_id": other.id})
+                task, is_confirm = other, bool(other.approved_terms)
+        await self._process_result(task, result, is_confirm=is_confirm)
         return result
 
-    async def on_missed_call(self, caller: str, dialled: str | None = None) -> InboundPlan:
+    async def handle_missed_call(self, match: Any, contact: Any = None) -> InboundPlan:
         """E.32/37: log against the task and call back promptly (business hours/queue);
         tell the user after N missed calls. Resolved needs get ONE polite close-the-loop
-        call-back; resolved bookings with this business get a call-back about the booking."""
-        tasks, verified = await self._match(caller, dialled)
-        now = self.clock.now()
-        await self.memory.record(
-            CallRecord(
-                kind="missed",
-                business_phone=caller,
-                caller_id=dialled,
-                task_id=tasks[0].id if tasks else None,
-                at=now,
-            )
-        )
+        call-back; a booking with this business gets a call-back about that booking."""
+        tasks, verified = await self._match_tasks(match)
+        phone = getattr(match, "from_phone", "")
         if not tasks:
-            log.info("ops: unmatched missed call from %s", mask_phone(caller))
+            log.info("ops: unmatched missed call from %s", mask_phone(phone))
             await self.bus.publish(
-                BusinessContactLogged(phone=caller, kind="missed_unmatched", at=now)
+                BusinessContactLogged(phone=phone, kind="missed_unmatched", at=self.clock.now())
             )
             return InboundPlan("logged")
         action, matched = await self._classify(tasks)
         primary = matched[0]
         await self._audit(primary, "inbound.missed_call", action=action, verified=verified)
-        if not verified:  # E.34: don't call an unverified number back automatically
+        if not verified:  # E.34: never auto-call back an unverified number
             await self.outbox.to_user(
                 primary.requester_user_id,
-                f"Someone called from {caller} claiming to be about {primary.spec.goal}, but the "
-                "number doesn't match my records, so I haven't called back.",
+                f"Someone called from {phone} about {primary.spec.goal}, but the number "
+                "doesn't match my records, so I haven't called back.",
                 task_id=primary.id,
             )
             return InboundPlan("logged", task_ids=[primary.id], verified=False)
+        name = primary.target.name if primary.target else "The business"
         if action in ("resume", "choose_task"):
-            missed = await self.memory.count(primary.id, "missed")
+            contacts = await call_opt(self.calls, "inbound_for_task", primary.id, default=[]) or []
+            missed = sum(1 for x in contacts if str(getattr(x, "kind", "")).endswith("missed_call"))
             if missed >= self.policy.missed_call_notify_after:
                 await self.outbox.to_user(
                     primary.requester_user_id,
-                    f"{primary.target.name if primary.target else 'The business'} has tried to reach me "
-                    f"{missed} times about {primary.spec.goal}. I'm calling them back.",
+                    f"{name} has tried to reach me {missed} times about {primary.spec.goal}. "
+                    "I'm calling them back.",
                     task_id=primary.id,
                 )
             if primary.status in (S.SCHEDULED, S.AWAITING_APPROVAL):
                 if primary.status == S.AWAITING_APPROVAL:
-                    await self._transition(primary, S.SCHEDULED, next_attempt_at=now)
+                    await self._transition(primary, S.SCHEDULED, next_attempt_at=self.clock.now())
                 else:
-                    primary.next_attempt_at = now
+                    primary.next_attempt_at = self.clock.now()
                     await self._save(primary)
-                primary = await self.tasks.get(primary.id)
                 self._spawn(primary.id, self._run(primary.id))
-            return InboundPlan(
-                "callback_scheduled", task_ids=[t.id for t in matched], verified=True
-            )
-        # resolved: one call-back (close the loop / about the booking)
+            return InboundPlan("callback_scheduled", task_ids=[t.id for t in matched], verified=True)
         if action == "close_loop" and any(
-            role_of(c) == ROLE_CLOSE_LOOP for c in await self.tasks.list_children(primary.id)
-        ):
-            return InboundPlan(
-                "logged", task_ids=[primary.id], verified=True, note="loop already closed"
-            )
-        child = await self._inbound_task(action, primary, caller)
+            role_of(ch) == ROLE_CLOSE_LOOP for ch in await self.tasks.list_children(primary.id)
+        ):  # once only
+            await self._note_late_contact(primary, f"{name} called again after the loop was closed.")
+            return InboundPlan("logged", task_ids=[primary.id], verified=True)
+        child = await self._inbound_task(action, primary, phone)
         if action in ("reopen", "about_booking", "about_offer"):
             await self.outbox.to_user(
                 primary.requester_user_id,
-                f"{primary.target.name if primary.target else 'The business'} tried to reach me about "
-                f"{primary.spec.goal}. I'm calling them back.",
+                f"{name} tried to reach me about {primary.spec.goal}. I'm calling them back.",
                 task_id=child.id,
             )
         self._spawn(child.id, self._run(child.id))
         return InboundPlan(action, task_ids=[primary.id, child.id], verified=True)
 
-    async def on_business_message(
-        self,
-        from_phone: str,
-        text: str,
-        *,
-        channel: Channel = Channel.WHATSAPP,
-        media_url: str | None = None,
-    ) -> InboundPlan:
-        """E.35: WhatsApp/SMS reply from a business. Relays it to the user of the
-        matched task (verified senders only); resolved needs are just recorded."""
-        tasks, verified = await self._match(from_phone)
-        now = self.clock.now()
-        await self.memory.record(
-            CallRecord(
-                kind="message",
-                business_phone=from_phone,
-                task_id=tasks[0].id if tasks else None,
-                at=now,
-                note=channel.value,
-            )
-        )
+    async def handle_business_message(self, msg: Any, match: Any = None) -> InboundPlan:
+        """E.35: WhatsApp/SMS from a business. Verified + matched -> relay to the task's
+        user; resolved needs are only noted in the task summary; unmatched -> ops log."""
+        if match is None:
+            match = await call_opt(self.calls, "match", msg.from_phone)
+        tasks, verified = await self._match_tasks(match) if match is not None else ([], False)
         if not tasks:
             await self.bus.publish(
-                BusinessContactLogged(phone=from_phone, kind="message_unmatched", at=now)
+                BusinessContactLogged(
+                    phone=msg.from_phone, kind="message_unmatched", at=self.clock.now()
+                )
             )
             return InboundPlan("logged")
         action, matched = await self._classify(tasks)
         primary = matched[0]
+        channel = getattr(getattr(msg, "channel", None), "value", "whatsapp")
         await self._audit(
-            primary, "inbound.message", action=action, verified=verified, channel=channel.value
+            primary, "inbound.message", action=action, verified=verified, channel=channel
         )
         if not verified:
             return InboundPlan("logged", task_ids=[primary.id], verified=False)
@@ -2378,13 +2414,28 @@ class TaskEngine:
             if action != "choose_task"
             else f"{name} replied (you have {len(matched)} open requests with them)"
         )
+        text = (msg.text or "(media)")[:500]
         await self.outbox.to_user(
             primary.requester_user_id,
             f'{prefix}: "{text}"',
             task_id=primary.id,
-            media_url=media_url,
+            media_url=getattr(msg, "media_url", None),
         )
         return InboundPlan("relayed", task_ids=[t.id for t in matched], verified=True)
+
+    # convenience wrappers (voice router / tests): match via call memory, then dispatch
+    async def on_inbound_call(
+        self, caller: str, dialled: str | None = None, *, leg: Any = None
+    ) -> InboundPlan:
+        match = await call_opt(self.calls, "match", caller, friday_number=dialled)
+        if match is None or str(match.status).endswith("unmatched"):
+            match = match or _Unmatched(caller, dialled)
+            return await self.handle_unknown_caller(match, None, leg=leg)
+        return await self.handle_business_callback(match, None, leg=leg)
+
+    async def on_missed_call(self, caller: str, dialled: str | None = None) -> InboundPlan:
+        match = await call_opt(self.calls, "match", caller, friday_number=dialled)
+        return await self.handle_missed_call(match or _Unmatched(caller, dialled), None)
 
     async def _note_late_contact(self, task: Task, note: str) -> None:
         """E.37: mention it only in the task summary + vendor memory, don't ping the user."""
@@ -2493,6 +2544,23 @@ class TaskEngine:
 
 async def _no_answer(_q: MidCallQuestion) -> UserAnswer | None:
     return None
+
+
+class _Unmatched:
+    status = "unmatched"
+    task_id = None
+    candidates: list = []
+
+    def __init__(self, phone: str, dialled: str | None) -> None:
+        self.from_phone = phone
+        self.friday_number = dialled
+
+
+def _accepts(fn: Any, name: str) -> bool:
+    try:
+        return name in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
 
 
 def _cap_options(options: list[str]) -> list[str]:

@@ -39,7 +39,7 @@ change needed); other notes are facts the persona tells when asked:
 
 Inbound (BRIEF E30-37): outbound legs carry a sticky Friday caller ID (``from_number``);
 ``simulate_inbound_call`` / scheduled call-backs publish ``InboundCallReceived`` or
-``MissedCall`` on the bus and park the answered leg for ``take_inbound(call_id)``.
+``MissedCallReceived`` on the bus and park the answered leg for ``take_inbound(call_id)``.
 Scheduled call-backs are delivered by ``deliver_due_inbound()`` (deterministic: call it
 after advancing the clock) or by the optional ``run_inbound_loop()`` background task.
 
@@ -76,7 +76,7 @@ from friday.core.models import (
 )
 from friday.simworld import SimBusiness, SimIVRNode, SimWorld, load_world
 from friday.voice.callerid import SIM_FRIDAY_NUMBERS, CallerIdSelector, choose_from_number
-from friday.voice.events import InboundCallReceived, MissedCall
+from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.sim_data import phrases as P
 from friday.voice.text import contains_any, redact_secrets
 
@@ -1103,8 +1103,10 @@ class SimulatedTelephony:
         ring_s: float = 5.0,
     ) -> str | None:
         """A business/person calls a Friday number. ``answered=False`` -> missed call
-        (``MissedCall`` event, returns None). Else the answered leg is parked and
-        ``InboundCallReceived`` published; returns the call id."""
+        (``MissedCallReceived`` event, returns None). Else the answered leg is parked and
+        ``InboundCallReceived`` published; returns the call id (== provider_call_id).
+        The leg is parked BEFORE the event is published, so handlers can
+        ``take_inbound(event.provider_call_id)`` inside the handler."""
         to_phone = to_phone or self.friday_numbers[0]
         no = self.next_call_no()
         item = ScheduledInbound(
@@ -1121,11 +1123,11 @@ class SimulatedTelephony:
             await self.sleep(ring_s)
             if self.bus:
                 await self.bus.publish(
-                    MissedCall(
+                    MissedCallReceived(
                         provider=self.name,
                         provider_call_id=provider_id,
                         from_phone=from_phone,
-                        to_phone=to_phone,
+                        to_number=to_phone,
                         ring_seconds=ring_s,
                         reason="short_ring" if ring_s < 10 else "caller_hung_up",
                     )
@@ -1156,11 +1158,10 @@ class SimulatedTelephony:
         if self.bus:
             await self.bus.publish(
                 InboundCallReceived(
-                    call_id=call_id,
                     provider=self.name,
                     provider_call_id=provider_id,
                     from_phone=from_phone,
-                    to_phone=to_phone,
+                    to_number=to_phone,
                     business_id=biz.id if biz else None,
                 )
             )
