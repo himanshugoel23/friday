@@ -9,9 +9,35 @@ Owner: Engineering Manager (core, frozen).
 from __future__ import annotations
 
 import logging
+import re
 import sys
 
 _CONFIGURED = False
+
+# SECURITY-26: loggers that can echo SQL parameters / request bodies (PII) at DEBUG.
+QUIET_LOGGERS = (
+    "httpx", "httpcore", "anthropic", "sqlalchemy.engine", "sqlalchemy.pool",
+    "aiosqlite", "asyncpg", "websockets", "uvicorn.access",
+)  # fmt: skip
+PII_LOGGERS = ("sqlalchemy.engine", "aiosqlite", "asyncpg")
+_PHONE_LIKE = re.compile(r"(?<!\d)(?:\+\d{1,3}[ \-]?)?\d{5}[ \-]?\d{5}(?!\d)|\+?\d{11,15}(?!\d)")
+
+
+class RedactingFilter(logging.Filter):
+    """Masks phone-like digit runs in every record; drops ``args`` of PII-bearing
+    loggers entirely (SQL parameters)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name.startswith(PII_LOGGERS):
+            record.msg = str(record.msg)
+            record.args = None
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 - never break logging
+            return True
+        record.msg = _PHONE_LIKE.sub(lambda m: mask_phone(re.sub(r"[ \-]", "", m.group())), message)
+        record.args = None
+        return True
 
 
 def setup_logging(level: str = "INFO", json: bool = False) -> None:
@@ -27,8 +53,9 @@ def setup_logging(level: str = "INFO", json: bool = False) -> None:
     else:
         fmt = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
     handler.setFormatter(logging.Formatter(fmt))
+    handler.addFilter(RedactingFilter())
     root.addHandler(handler)
-    for noisy in ("httpx", "httpcore", "anthropic", "sqlalchemy.engine"):
+    for noisy in QUIET_LOGGERS:
         logging.getLogger(noisy).setLevel(logging.WARNING)
     _CONFIGURED = True
 
