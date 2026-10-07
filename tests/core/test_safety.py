@@ -44,3 +44,63 @@ def test_dtmf_rules():
     assert not check_keys("7012345678#", brief()).allowed
     assert check_keys("7012345678#", brief(approved_identifiers=[acct])).allowed
     assert check_keys("SR123", brief(reference="123")).allowed is False
+
+
+def test_postal_pin_code_is_not_a_secret():
+    assert check_speech("Address hai Indiranagar, pin code 560038", brief()).allowed
+    assert not check_speech("PIN code is 4821", brief()).allowed
+
+
+def test_number_words_and_luhn():
+    from friday.core.safety import luhn_valid, normalize_spoken_digits
+
+    assert normalize_spoken_digits("double four, nine") == "44, 9"
+    assert normalize_spoken_digits("char, aath, do") == "482"
+    assert luhn_valid("4111 1111 1111 1111") and not luhn_valid("4111 1111 1111 1112")
+    assert not check_speech(
+        "Number is nine eight seven six five four three two one zero", brief()
+    ).allowed
+    assert not check_keys("4111111111111111", brief()).allowed
+
+
+def test_key_buffer_resets_per_prompt():
+    from friday.core.safety import KeyBuffer
+
+    buf = KeyBuffer(brief())
+    assert buf.check("1").allowed and buf.check("2").allowed
+    assert not buf.check("3").allowed  # 1+2+3 -> "123" is an unapproved number
+    buf.reset()
+    assert buf.check("3").allowed
+
+
+def test_check_commit_delegation_limits():  # SECURITY-27 helper
+    from datetime import datetime
+
+    from friday.core.clock import IST
+    from friday.core.models import Delegation, UserAnswer
+    from friday.core.safety import check_commit
+
+    assert not check_commit(brief(), []).allowed
+    assert check_commit(brief(), [UserAnswer(question_id="q", text="yes", approves=True)]).allowed
+    assert check_commit(brief(approved_terms="Sat 6pm"), []).allowed
+    d = Delegation(
+        granted=True,
+        max_price_inr=800,
+        scope=["slot"],
+        window_start=datetime(2026, 1, 6, 17, tzinfo=IST),
+        window_end=datetime(2026, 1, 6, 19, tzinfo=IST),
+    )
+    b = brief(delegation=d)
+    ok = check_commit(b, [], amount_inr=700, slot_at=datetime(2026, 1, 6, 18, tzinfo=IST),
+                      decision="slot")  # fmt: skip
+    assert ok.allowed
+    assert not check_commit(
+        b, [], amount_inr=900, slot_at=datetime(2026, 1, 6, 18, tzinfo=IST)
+    ).allowed
+    assert not check_commit(
+        b, [], amount_inr=700, slot_at=datetime(2026, 1, 6, 20, tzinfo=IST)
+    ).allowed
+    assert not check_commit(b, [], amount_inr=700).allowed  # window set, slot unknown
+    assert not check_commit(
+        b, [], amount_inr=700, slot_at=datetime(2026, 1, 6, 18, tzinfo=IST), decision="venue"
+    ).allowed

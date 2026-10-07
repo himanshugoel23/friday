@@ -24,11 +24,20 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from friday.core.clock import Clock  # re-export
+from friday.core.crypto import KeyProvider  # re-export (SECURITY-12)
+from friday.core.scale import (  # re-export (scale-out contracts)
+    Cache,
+    DistributedLock,
+    IdempotencyStore,
+    JobQueue,
+    Outbox,
+    RateLimiter,
+)
 from friday.core.models import (
     AccountIdentifier,
     AudioClassification,
@@ -59,6 +68,11 @@ from friday.core.models import (
     MidCallQuestion,
     Nudge,
     NudgeCandidate,
+    NumberChoice,
+    NumberHealth,
+    NumberOutcome,
+    NumberStatus,
+    FridayNumber,
     NudgeDecision,
     NumberCheck,
     OfficialNumber,
@@ -70,6 +84,9 @@ from friday.core.models import (
     Place,
     Quote,
     QuoteComparison,
+    RelatedTask,
+    ReplyButton,
+    Urgency,
     ReferenceResolution,
     SendReceipt,
     ShortlistItem,
@@ -89,6 +106,21 @@ from friday.core.models import (
 )
 
 __all__ = [
+    "Cache",
+    "CancellableRunner",
+    "DistributedLock",
+    "IdempotencyStore",
+    "InboundCallRunner",
+    "InboundTelephony",
+    "JobQueue",
+    "KeyProvider",
+    "Notifier",
+    "NumberPool",
+    "Outbox",
+    "RateLimiter",
+    "TaskEngine",
+    "TELEPHONY_CAPABILITIES",
+    "telephony_capabilities",
     "AskUser",
     "AudioClassifier",
     "Brain",
@@ -257,6 +289,23 @@ class Brain(CallPolicy, Translator, Protocol):
         """One step of conversational onboarding. ``message`` None = open the step."""
         ...
 
+    def build_inbound_brief(
+        self,
+        ctx: ConversationContext,
+        *,
+        caller_phone: str,
+        tasks: Sequence[Task] = (),
+        related: Sequence[RelatedTask] = (),
+        kind: str = "answered",
+        friday_number: str | None = None,
+        caller_matches_business: bool = True,
+        business_name: str | None = None,
+    ) -> CallBrief:
+        """Business call-back / missed-call call-back brief (BRIEF E-31..37):
+        ``brief.direction`` / ``brief.inbound`` set; unknown or spoofed callers get a
+        brief that reveals nothing (SECURITY-8). Synchronous (no I/O)."""
+        ...
+
     async def build_call_brief(self, ctx: ConversationContext, task: Task) -> CallBrief:
         """Task + template + memory (people, places, vendor history, sibling quotes,
         approved identifiers, approved terms) -> CallBrief. Applies minimum-disclosure:
@@ -401,6 +450,36 @@ class TelephonyProvider(Protocol):
         ...
 
 
+TELEPHONY_CAPABILITIES: frozenset[str] = frozenset(
+    {
+        "outbound", "inbound", "missed_call", "media_stream", "dtmf", "recording", "amd",
+        "bridge_transfer", "bridge_conference",
+    }
+)  # fmt: skip
+
+
+@runtime_checkable
+class InboundTelephony(Protocol):
+    """Providers that accept inbound calls (BRIEF E30-37). Separate from
+    ``TelephonyProvider`` so providers without inbound still satisfy that Protocol."""
+
+    def capabilities(self) -> frozenset[str]:
+        """Subset of TELEPHONY_CAPABILITIES; used for per-call routing fallback."""
+        ...
+
+    def take_inbound(self, provider_call_id: str) -> CallLeg | None:
+        """Claim a parked inbound leg announced by ``InboundCallReceived``."""
+        ...
+
+
+def telephony_capabilities(provider: object) -> frozenset[str]:
+    """``provider.capabilities()`` if implemented, else the outbound basics."""
+    fn = getattr(provider, "capabilities", None)
+    if callable(fn):
+        return frozenset(fn())
+    return frozenset({"outbound", "dtmf", "recording"})
+
+
 AskUser = Callable[[MidCallQuestion], Awaitable[UserAnswer | None]]
 """Supplied by the task engine. Sends the question to the user (WhatsApp buttons)
 and resolves with their answer, or None after ``question.timeout_s``."""
@@ -433,7 +512,107 @@ class CallSessionRunner(Protocol):
     ) -> CallResult: ...
 
 
+@runtime_checkable
+class InboundCallRunner(Protocol):
+    """Runs an already-answered inbound leg (business call-back) with the same loop."""
+
+    async def run_inbound(
+        self,
+        leg: CallLeg,
+        brief: CallBrief,
+        ask_user: AskUser,
+        notify_user: NotifyUser | None = None,
+        *,
+        context: str | None = None,
+    ) -> CallResult: ...
+
+
+@runtime_checkable
+class CancellableRunner(Protocol):
+    def cancel(self, task_id: str) -> None:
+        """FIRST_MATCH sibling found: wrap up this task's live call politely (CANCELLED)."""
+        ...
+
+
 # =============================================================================== channels
+
+
+@runtime_checkable
+class Notifier(Protocol):
+    """Backend's single outbound path (impl: friday.channels.notifier). Picks channel,
+    enforces the 24h window (template fallback), circle-member consent, quiet hours,
+    logs every message. Brain/voice never send directly."""
+
+    async def send(
+        self, msg: OutboundMessage, *, urgency: Urgency | None = None
+    ) -> SendReceipt: ...
+
+    async def notify_user(
+        self,
+        user_id: str,
+        text: str | None = None,
+        *,
+        buttons: Sequence[ReplyButton] = (),
+        template: TemplateRef | None = None,
+        task_id: str | None = None,
+        nudge_id: str | None = None,
+        question_id: str | None = None,
+    ) -> SendReceipt: ...
+
+    async def ask_user(self, user_id: str, question: MidCallQuestion) -> SendReceipt: ...
+
+    async def message_person(
+        self, person_id: str, text: str | None = None, *, template: TemplateRef | None = None
+    ) -> SendReceipt:
+        """Consent-gated (Person.contact_consent == OPTED_IN)."""
+        ...
+
+    async def request_person_opt_in(
+        self, person: Person, *, requester_name: str, what: str
+    ) -> SendReceipt: ...
+
+    async def business_touch(
+        self,
+        business: Business,
+        template: TemplateRef,
+        *,
+        user_id: str | None = None,
+        task_id: str | None = None,
+    ) -> SendReceipt: ...
+
+
+@runtime_checkable
+class TaskEngine(Protocol):
+    """Backend B's engine as seen by the inbound pipeline / call-back service / API.
+    Return values are informational (implementations may return the updated Task).
+    ``match`` / ``contact`` = friday.db.repositories.CallbackMatch / InboundContact.
+    Optional extra: ``handle_unknown_caller(match, contact)``."""
+
+    async def submit(self, task: Task) -> Any:
+        """Task already persisted (CREATED)."""
+        ...
+
+    async def handle_answer(self, answer: UserAnswer) -> Any: ...
+
+    async def approve(self, task_id: str, approve: bool) -> Any: ...
+
+    async def choose(self, task_id: str, index: int) -> Any: ...
+
+    async def cancel(self, task_id: str) -> Any: ...
+
+    async def update_spec(self, task_id: str, spec: TaskSpec) -> Any: ...
+
+    async def handle_business_callback(self, match: Any, contact: Any) -> Any: ...
+
+    async def handle_missed_call(self, match: Any, contact: Any) -> Any: ...
+
+    async def handle_business_message(self, msg: InboundMessage, match: Any) -> Any: ...
+
+    async def start(self) -> None:
+        """Queue workers / schedulers for this process's roles."""
+        ...
+
+    async def stop(self) -> None: ...
 
 
 @runtime_checkable
@@ -552,6 +731,71 @@ class HotelProvider(Protocol):
     async def modify(self, booking: HotelBooking, stay: StayRequest) -> HotelBooking: ...
 
 
+@runtime_checkable
+class NumberPool(Protocol):
+    """Friday caller-ID pool (founder: caller-ID reputation & rotation). Impl: Backend B.
+
+    Rules the implementation MUST follow:
+      * sticky: a business keeps its number while that number can dial; moved only
+        when retired (then ``NumberChoice.changed`` -> brief.number_changed)
+      * new businesses: local city/circle first, then best health, then least load
+      * pacing per number: max/hour, max/day (warm-up ramp), max concurrent, min gap
+        -> ``NumberChoice.not_before``; never bursts
+      * COOLING / RETIRED numbers never dial out (still receive / forward call-backs)
+      * global DNC / blocks are honoured across the WHOLE pool - rotation is never
+        used to get around a business that blocked Friday (``is_blocked``)
+    """
+
+    async def choose_for(
+        self,
+        business_phone: str,
+        *,
+        city: str | None = None,
+        circle: str | None = None,
+        business_id: str | None = None,
+    ) -> NumberChoice | None:
+        """None = no number may dial now (all paced/cooling) or the business is blocked/DNC."""
+        ...
+
+    async def record_outcome(
+        self,
+        number_phone: str,
+        outcome: NumberOutcome,
+        *,
+        business_phone: str | None = None,
+        duration_s: float = 0.0,
+    ) -> None:
+        """Feeds health; DNC_REQUEST / BLOCKED also mark the business pool-wide."""
+        ...
+
+    async def release(self, number_phone: str) -> None:
+        """Call ended: frees the concurrency slot."""
+        ...
+
+    async def health(self, number_phone: str) -> NumberHealth: ...
+
+    async def rescore(self) -> list[FridayNumber]:
+        """Recompute health; move WARMING->ACTIVE, ACTIVE->COOLING, COOLING->ACTIVE or
+        RETIRED per Settings thresholds. Returns numbers whose status changed."""
+        ...
+
+    async def set_status(self, number_phone: str, status: NumberStatus, *, reason: str) -> None:
+        """Ops override: cooldown / retire / reactivate."""
+        ...
+
+    async def is_blocked(self, business_phone: str) -> bool:
+        """DNC request or block recorded on ANY pool number."""
+        ...
+
+    async def owner_of(self, number_phone: str) -> FridayNumber | None:
+        """For inbound routing: which pool number (incl. retired-forwarding) was dialled."""
+        ...
+
+    async def list_numbers(self) -> list[FridayNumber]:
+        """Ops dashboard: health, volume, status."""
+        ...
+
+
 # =============================================================================== repositories
 # Minimal persistence contracts shared across backend modules (tasks, proactive,
 # api). Backend Engineer implements them in friday/db/repositories/ and may add
@@ -570,6 +814,11 @@ class TaskRepository(Protocol):
         ...
 
     async def save_call(self, result: CallResult) -> None: ...
+    # extras used by the engines (implemented in friday.db.repositories)
+    async def add_question(self, question: MidCallQuestion) -> MidCallQuestion: ...
+    async def get_question(self, question_id: str) -> MidCallQuestion | None: ...
+    async def answer_question(self, answer: UserAnswer) -> Any: ...
+    async def save_hotel_booking(self, booking: HotelBooking, *, user_id: str) -> Any: ...
 
 
 class UserRepository(Protocol):
@@ -577,6 +826,7 @@ class UserRepository(Protocol):
     async def get_by_phone(self, phone: str) -> User | None: ...
     async def add(self, user: User) -> User: ...
     async def save(self, user: User) -> User: ...
+    async def list_active(self) -> list[User]: ...
 
 
 class PersonRepository(Protocol):
@@ -620,3 +870,8 @@ class NudgeRepository(Protocol):
     async def save(self, nudge: Nudge) -> Nudge: ...
     async def exists(self, user_id: str, dedupe_key: str) -> bool: ...
     async def count_sent_between(self, user_id: str, start: datetime, end: datetime) -> int: ...
+    async def get(self, nudge_id: str) -> Nudge | None: ...
+    async def list_for_user(self, user_id: str) -> list[Nudge]: ...
+    async def list_scheduled_due(self, now: datetime) -> list[Nudge]: ...
+    async def list_sent_unanswered_before(self, before: datetime) -> list[Nudge]: ...
+    async def add_feedback(self, feedback: Any) -> Any: ...

@@ -93,12 +93,11 @@ def test_approved_identifier_may_be_keyed() -> None:
     assert check_keys(ACCOUNT_NO + "#", booking_brief(approved_identifiers=[ident])).allowed
 
 
-# ------------------------------------------------------------------ known gaps (xfail)
+# ------------------------------------------------------------------ fixed gaps (regression)
+# SECURITY-1 (number words, keyword after / far / Hindi, comma-separated), SECURITY-2
+# (card as money), SECURITY-24 (DTMF chunking), SECURITY-31 (identifier value).
 
-SECURITY_1 = "SECURITY-1: check_speech only sees digit characters next to English keywords"
 
-
-@pytest.mark.xfail(strict=True, reason=SECURITY_1 + " (spoken number words)")
 @pytest.mark.parametrize(
     "text",
     [
@@ -110,50 +109,35 @@ def test_otp_as_number_words_blocked(text: str) -> None:
     assert not check_speech(text, booking_brief()).allowed
 
 
-@pytest.mark.xfail(strict=True, reason=SECURITY_1 + " (keyword after the digits)")
 def test_pin_keyword_after_digits_blocked() -> None:
     assert not check_speech("4821 is the PIN", booking_brief()).allowed
 
 
-@pytest.mark.xfail(strict=True, reason=SECURITY_1 + " (comma-separated digits)")
 def test_comma_separated_otp_blocked() -> None:
     assert not check_speech("O-T-P: 4, 8, 2, 9, 1, 3", booking_brief()).allowed
 
 
-@pytest.mark.xfail(strict=True, reason=SECURITY_1 + " (Hindi keyword)")
 def test_hindi_pin_keyword_blocked() -> None:
     assert not check_speech("पिन 4821 है", booking_brief()).allowed
 
 
-@pytest.mark.xfail(strict=True, reason=SECURITY_1 + " (keyword > 40 chars before digits)")
 def test_far_keyword_blocked() -> None:
     text = "The PIN that the bank sent to the registered phone yesterday was 4821"
     assert not check_speech(text, booking_brief()).allowed
 
 
-@pytest.mark.xfail(
-    strict=True, reason="SECURITY-2: money exception lets a card number through ('Rs 4111...')"
-)
 def test_card_number_disguised_as_money_blocked() -> None:
     assert not check_speech("Charge it to Rs 4111 1111 1111 1111", booking_brief()).allowed
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-24: DTMF check is stateless; a PIN keyed 2 digits at a time passes",
-)
 def test_pin_keyed_in_two_digit_chunks_blocked() -> None:
     # Needs a per-call cumulative check (friday.core.safety.KeyBuffer / check_key_sequence).
     from friday.core import safety
 
-    seq = safety.check_key_sequence(["48", "21"], booking_brief())  # type: ignore[attr-defined]
+    seq = safety.check_key_sequence(["48", "21"], booking_brief())
     assert not seq.allowed
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-31: AccountIdentifier validates only the label, not the value",
-)
 def test_identifier_value_cannot_hold_an_otp() -> None:
     with pytest.raises(ValueError):
         AccountIdentifier(user_id="u", label="Airtel account", value="OTP 482913")

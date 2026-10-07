@@ -47,6 +47,8 @@ FACTORIES: dict[str, dict[str, str]] = {
     # --- Voice Engineer (friday/voice/)
     "telephony": {
         "simulator": "friday.voice.simulator:build_simulated_telephony",
+        "routed": "friday.voice.telephony.routing:build_routed_telephony",
+        "sarvam": "friday.voice.telephony.sarvam:build_sarvam_telephony",
         "twilio": "friday.voice.telephony.twilio:build_twilio",
         "exotel": "friday.voice.telephony.exotel:build_exotel",
         "plivo": "friday.voice.telephony.plivo:build_plivo",
@@ -91,6 +93,70 @@ FACTORIES: dict[str, dict[str, str]] = {
     "notifier": {"*": "friday.channels.notifier:build_notifier"},
     "task_engine": {"*": "friday.tasks.engine:build_task_engine"},
     "proactive": {"*": "friday.proactive.engine:build_proactive_engine"},
+    # --- caller-ID reputation & rotation (Backend B)
+    "number_pool": {"*": "friday.tasks.number_pool:build_number_pool"},
+    # --- scale-out (core memory impls; durable impls by Backend A in friday/db/)
+    "job_queue": {
+        "memory": "friday.core.scale:build_memory_job_queue",
+        "postgres": "friday.db.queue:build_pg_job_queue",
+    },
+    "outbox": {"*": "friday.core.scale:build_queue_outbox"},
+    "lock": {
+        "memory": "friday.core.scale:build_memory_lock",
+        "postgres": "friday.db.locks:build_pg_lock",
+        "redis": "friday.db.redis_backends:build_redis_lock",
+    },
+    "cache": {
+        "memory": "friday.core.scale:build_memory_cache",
+        "redis": "friday.db.redis_backends:build_redis_cache",
+    },
+    "rate_limiter": {
+        "memory": "friday.core.scale:build_memory_rate_limiter",
+        "redis": "friday.db.redis_backends:build_redis_rate_limiter",
+    },
+    "idempotency": {
+        "memory": "friday.core.scale:build_memory_idempotency",
+        "postgres": "friday.db.idempotency:build_pg_idempotency",
+    },
+    # --- field encryption keys (SECURITY-12): local in dev, KMS envelope in live
+    "key_provider": {
+        "local": "friday.core.crypto:build_local_key_provider",
+        "kms": "friday.db.kms:build_kms_key_provider",
+    },
+}
+
+# Which components each process role needs (one codebase, several deployments).
+# ``Container.role_components()`` -> union for Settings.roles. Startup only wires these.
+ROLE_COMPONENTS: dict[str, tuple[str, ...]] = {
+    "api": (
+        "repos", "messaging", "sms", "notifier", "brain", "stt", "job_queue", "outbox",
+        "idempotency", "lock", "rate_limiter", "voice_router",
+    ),
+    "task": (
+        "repos", "brain", "task_engine", "notifier", "directory", "geocoder", "hotels",
+        "official_numbers", "number_verifier", "number_pool", "job_queue", "outbox", "lock",
+        "cache", "rate_limiter",
+    ),
+    "voice": (
+        "repos", "brain", "telephony", "stt", "tts", "audio_classifier", "call_runner",
+        "voice_router", "number_pool", "job_queue", "cache", "rate_limiter", "notifier",
+    ),
+    "proactive": ("repos", "brain", "proactive", "notifier", "job_queue", "outbox", "lock"),
+    "batch": ("repos", "brain", "llm", "document_extractor", "job_queue", "cache"),
+}  # fmt: skip
+
+# Durable job kinds and the role whose workers consume them (see ARCHITECTURE §10).
+JOB_ROUTES: dict[str, str] = {
+    "inbound.message": "task",  # webhook stored + acked by api, processed by task workers
+    "task.step": "task",
+    "task.scheduled": "task",  # retries, call-backs, recurring instances, reconfirms
+    "call.place": "voice",  # pinned to the voice worker that claims it
+    "call.inbound": "voice",
+    "message.send": "task",  # outbox -> notifier
+    "nudge.evaluate": "proactive",
+    "nudge.send": "proactive",
+    "batch.extract_facts": "batch",
+    "batch.vendor_memory": "batch",
 }
 
 
@@ -125,6 +191,12 @@ class Container:
             "directory": s.resolve_directory,
             "geocoder": s.resolve_geocoder,
             "hotels": s.resolve_hotels,
+            "job_queue": s.resolve_queue,
+            "idempotency": s.resolve_queue,
+            "lock": s.resolve_lock,
+            "cache": s.resolve_cache,
+            "rate_limiter": s.resolve_rate_limiter,
+            "key_provider": lambda: "kms" if (s.is_live and s.field_key_id) else "local",
         }
         return resolvers[component]() if component in resolvers else "*"
 
@@ -188,6 +260,14 @@ class Container:
     directory = property(lambda self: self.get("directory"))
     geocoder = property(lambda self: self.get("geocoder"))
     hotels = property(lambda self: self.get("hotels"))
+    number_pool = property(lambda self: self.get("number_pool"))
+    job_queue = property(lambda self: self.get("job_queue"))
+    outbox = property(lambda self: self.get("outbox"))
+    lock = property(lambda self: self.get("lock"))
+    cache = property(lambda self: self.get("cache"))
+    rate_limiter = property(lambda self: self.get("rate_limiter"))
+    idempotency = property(lambda self: self.get("idempotency"))
+    key_provider = property(lambda self: self.get("key_provider"))
     official_numbers = property(lambda self: self.get("official_numbers"))
     number_verifier = property(lambda self: self.get("number_verifier"))
     repos = property(lambda self: self.get("repos"))
@@ -200,8 +280,29 @@ class Container:
         if self.settings.is_live and (problems := self.settings.live_problems()):
             raise RuntimeError("live mode misconfigured: " + "; ".join(problems))
 
+    @property
+    def roles(self) -> list[str]:
+        return list(self.settings.roles)
+
+    def role_components(self, roles: list[str] | None = None) -> list[str]:
+        """Components this process needs for ``roles`` (default Settings.roles)."""
+        out: list[str] = []
+        for role in roles or self.roles:
+            for comp in ROLE_COMPONENTS.get(role, ()):
+                if comp not in out:
+                    out.append(comp)
+        return out
+
+    def install_field_cipher(self) -> None:
+        """Install the process-wide FieldCipher for EncryptedText/EncryptedJSON columns."""
+        from friday.core.crypto import FieldCipher, set_field_cipher
+
+        if self.is_available("key_provider"):
+            set_field_cipher(FieldCipher(self.key_provider))
+
     async def startup(self) -> None:
         self.check_live_config()
+        self.install_field_cipher()
         await self.db.create_all()
 
     async def aclose(self) -> None:

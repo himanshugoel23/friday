@@ -151,3 +151,42 @@ def test_delegation_rules():
     assert d.allows_time(datetime(2026, 1, 6, 18, 0, tzinfo=IST))
     assert not d.allows_time(datetime(2026, 1, 6, 20, 0, tzinfo=IST))
     assert not Delegation().allows_price(100)
+
+
+def test_merged_core_change_fields():
+    from friday.core.models import (
+        CallResult,
+        DialStatus,
+        FridayNumber,
+        InboundContext,
+        NumberHealth,
+        NumberStatus,
+        choice_button_id,
+        parse_any_button_id,
+        ref_button_id,
+    )
+
+    assert parse_button_id(choice_button_id("t1", 2)) is None  # brain-level: not ours
+    assert parse_any_button_id(choice_button_id("t1", None)) == ("c", "t1", "none")
+    assert parse_any_button_id(ref_button_id("place", "p9")) == ("r", "place", "p9")
+    r = CallResult(task_id="t", provider="sim", to_phone="+91", dial_status=DialStatus.ANSWERED,
+                   outcome=CallOutcome.SUCCESS, from_number="+918000000001")  # fmt: skip
+    assert r.from_number and r.policy_calls == 0
+    b = _brief(inbound=InboundContext(caller_phone="+918040000001"))
+    assert b.inbound.is_unknown and b.ivr_map == [] and b.from_number is None
+    n = FridayNumber(phone="+918045000001", provider="sim", city="Bengaluru")
+    assert n.status == NumberStatus.WARMING and n.can_dial
+    with pytest.raises(ValidationError):
+        FridayNumber(phone="+911401234567", provider="sim")  # 140-series
+    h = NumberHealth(calls=10, answered=4, short_calls=2)
+    assert h.answer_rate == 0.4 and h.short_call_rate == 0.5
+
+
+def test_events_reexported_from_old_modules():
+    from friday.core import events as core_events
+    from friday.tasks import events as task_events
+    from friday.voice import events as voice_events
+
+    assert voice_events.InboundCallReceived is core_events.InboundCallReceived
+    assert voice_events.CallCostReport is core_events.CallCostReport
+    assert task_events.WellbeingAlertRaised is core_events.WellbeingAlertRaised

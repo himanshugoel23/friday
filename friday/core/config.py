@@ -168,7 +168,9 @@ class Settings(BaseSettings):
     # Friday caller-ID pool (BRIEF E.30 + caller-ID reputation). Sticky per business.
     # FRIDAY_NUMBERS=+918000000001,+912200000002 (or JSON). Details per number live in
     # the NumberPool (FridayNumber rows); this is the bootstrap list.
-    friday_numbers: CsvList = Field(default_factory=list)
+    friday_numbers: CsvList = Field(
+        default_factory=list, validation_alias=_alias("FRIDAY_NUMBERS", "FRIDAY_FRIDAY_NUMBERS")
+    )
 
     # ---- caller-ID reputation & rotation (NumberPool defaults; ops-configurable)
     number_max_calls_per_hour: int = 15
@@ -367,7 +369,9 @@ class Settings(BaseSettings):
     lock_backend: BackendName = "auto"
     cache_backend: BackendName = "auto"  # auto: redis if redis_url, else memory
     rate_limit_backend: BackendName = "auto"
-    redis_url: str | None = Field(default=None, validation_alias=_alias("REDIS_URL", "FRIDAY_REDIS_URL"))
+    redis_url: str | None = Field(
+        default=None, validation_alias=_alias("REDIS_URL", "FRIDAY_REDIS_URL")
+    )
     db_pool_size: int = 10
     db_max_overflow: int = 10
     db_pool_timeout_s: float = 10.0
@@ -381,13 +385,22 @@ class Settings(BaseSettings):
     # Provider concurrency / rate limits (backpressure). key -> limit.
     provider_concurrency: dict[str, int] = Field(
         default_factory=lambda: {
-            "telephony": 200, "sarvam": 200, "exotel": 100, "twilio": 50,
-            "stt": 300, "tts": 300, "llm": 200,
+            "telephony": 200,
+            "sarvam": 200,
+            "exotel": 100,
+            "twilio": 50,
+            "stt": 300,
+            "tts": 300,
+            "llm": 200,
         }
     )
     provider_rate_per_s: dict[str, float] = Field(
         default_factory=lambda: {
-            "telephony": 20.0, "whatsapp": 70.0, "sms": 20.0, "llm": 50.0, "google_places": 20.0,
+            "telephony": 20.0,
+            "whatsapp": 70.0,
+            "sms": 20.0,
+            "llm": 50.0,
+            "google_places": 20.0,
         }
     )
     llm_tokens_per_min: int = 2_000_000
@@ -407,7 +420,11 @@ class Settings(BaseSettings):
         return None if isinstance(v, str) and v.strip() == "" else v
 
     @field_validator(
-        "telephony_route", "exotel_caller_ids", "sarvam_caller_ids", "friday_numbers", "roles",
+        "telephony_route",
+        "exotel_caller_ids",
+        "sarvam_caller_ids",
+        "friday_numbers",
+        "roles",
         mode="before",
     )
     @classmethod
@@ -430,7 +447,9 @@ class Settings(BaseSettings):
 
     def derived_key(self, label: str) -> bytes:
         """HKDF-style 32-byte key from ``secret_key`` for ``label`` (dev fallback only)."""
-        prk = hmac.new(b"friday-kdf-v1", self.secret_key.get_secret_value().encode(), hashlib.sha256)
+        prk = hmac.new(
+            b"friday-kdf-v1", self.secret_key.get_secret_value().encode(), hashlib.sha256
+        )
         return hmac.new(prk.digest(), label.encode() + b"\x01", hashlib.sha256).digest()
 
     def key_material(self, purpose: Literal["pin_pepper", "field_key", "index_key"]) -> bytes:

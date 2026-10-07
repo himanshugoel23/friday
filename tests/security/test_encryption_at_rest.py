@@ -142,11 +142,6 @@ async def test_identifier_key_rotation(repos, clock, db) -> None:
     assert rotated is not None and ident.id in raw
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-26: setup_logging leaves aiosqlite at DEBUG, which logs SQL parameters "
-    "(phones, message bodies) when FRIDAY_LOG_LEVEL=DEBUG",
-)
 def test_debug_logging_does_not_dump_sql_parameters(monkeypatch) -> None:
     import friday.core.logging as flog
 

@@ -447,6 +447,7 @@ class Intent(StrEnum):
     NEW_TASK = "new_task"  # "book a haircut at Looks tomorrow 6pm" / "find me an AC guy"
     CHOOSE = "choose"  # picks a business/quote from a comparison
     SAVE_IDENTIFIER = "save_identifier"  # "my Airtel account no is ..." (never OTP/PIN/CVV)
+    FORGET = "forget"  # "forget my rent date" -> Interpretation.forget_fact_ids
     TASK_UPDATE = "task_update"  # modifies / adds info to an open task
     ANSWER_QUESTION = "answer_question"  # answers an outstanding mid-call/clarifying q
     APPROVE = "approve"  # yes/go-ahead for a pending approval or nudge action
@@ -850,6 +851,28 @@ def nudge_button_id(nudge_id: str, action: str) -> str:
 
 def approval_button_id(task_id: str, approve: bool) -> str:
     return f"a:{task_id}:{'yes' if approve else 'no'}"
+
+
+def choice_button_id(parent_task_id: str, index: int | None) -> str:
+    """Comparison / shortlist choice; ``None`` = "none of these"."""
+    return f"c:{parent_task_id}:{'none' if index is None else index}"
+
+
+def ref_button_id(kind: Literal["person", "place"], target_id: str) -> str:
+    """Reference disambiguation ("Mom & Dad's Pune home or the Delhi flat?")."""
+    return f"r:{kind}:{target_id}"
+
+
+def parse_any_button_id(button_id: str) -> tuple[str, str, str] | None:
+    """Like ``parse_button_id`` but also accepts brain-level ``c:`` / ``r:`` / ``ob:``
+    payloads. ``parse_button_id`` keeps returning None for those so they still flow
+    to ``brain.interpret`` (backward compatible)."""
+    parts = button_id.split(":", 2)
+    if len(parts) == 3 and parts[0] in {"q", "n", "a", "c", "r"}:
+        return parts[0], parts[1], parts[2]
+    if len(parts) >= 2 and parts[0] == "ob":
+        return "ob", parts[1], parts[2] if len(parts) == 3 else ""
+    return None
 
 
 def parse_button_id(button_id: str) -> tuple[str, str, str] | None:
@@ -1449,6 +1472,53 @@ class CallAction(_Model):
     user_update: str | None = None  # progress note for the user ("on hold, ~8 min wait")
 
 
+# ------------------------------------------------------------------ inbound / call-back context
+# (merged from friday/brain/inbound.py; re-exported there)
+
+InboundKind = Literal["answered", "missed_call", "unknown"]
+# Resolution of the related task (BRIEF E-37): open -> resume; fulfilled_elsewhere /
+# cancelled / stock_found -> politely close the loop, reveal nothing; booked_here ->
+# the call is about that booking.
+Resolution = Literal["open", "fulfilled_elsewhere", "cancelled", "stock_found", "booked_here"]
+CLOSED_ELSEWHERE: frozenset[str] = frozenset({"fulfilled_elsewhere", "cancelled", "stock_found"})
+
+
+class RelatedTask(BaseModel):
+    """One earlier task/call with this business that the call-back may be about."""
+
+    task_id: str
+    task_type: TaskType
+    goal: str
+    label: str  # short spoken label: "haircut", "facial booking"
+    beneficiary_name: str | None = None
+    status: TaskStatus | None = None
+    last_outcome: CallOutcome | None = None
+    called_at: datetime | None = None
+    discussed: str | None = None  # prior transcript summary / what was agreed so far
+    last_quote: Quote | None = None
+    approved_terms: str | None = None
+    resolution: Resolution = "open"
+    booking_details: str | None = None  # booked_here: confirmed terms ("Sat 12:30, ₹600")
+
+
+class InboundContext(BaseModel):
+    kind: InboundKind = "answered"
+    caller_phone: str
+    friday_number: str | None = None  # which Friday caller-ID they rang / we dial from
+    caller_matches_business: bool = True  # caller ID equals the business record (item 34)
+    business_name: str | None = None
+    related: list[RelatedTask] = Field(default_factory=list)  # candidates, newest first
+    matched_task_id: str | None = None  # set when exactly one task matches
+
+    @property
+    def is_unknown(self) -> bool:
+        return self.kind == "unknown" or not self.related
+
+    @property
+    def needs_disambiguation(self) -> bool:
+        return self.matched_task_id is None and len(self.related) > 1
+
+
 class ApprovalPolicy(_Model):
     """Book only after asking the owner (founder rule #3). Not optional."""
 
@@ -1514,6 +1584,9 @@ class CallBrief(_Model):
     # Caller-ID (BRIEF E.30 + number rotation): sticky Friday number for this business.
     from_number: str | None = None
     number_changed: bool = False  # first line: "Friday here - calling from a new number"
+    # Inbound business call-back / missed-call call-back (BRIEF E-30..37).
+    direction: CallDirection = CallDirection.OUTBOUND
+    inbound: InboundContext | None = None
     max_hold_s: int = 1500
     prefer_human_agent: bool = True
     # Hotel direct call (D27): availability, room type, inclusions, direct rate, hold.
@@ -1644,6 +1717,7 @@ class ConversationContext(_Model):
     pending_question: MidCallQuestion | None = None  # outstanding mid-call question
     known_businesses: list[Business] = Field(default_factory=list)
     vendor_history: list[VendorInteraction] = Field(default_factory=list)  # B20
+    identifiers: list[AccountIdentifier] = Field(default_factory=list)  # user's saved ids (C24)
     people: list[Person] = Field(default_factory=list)  # owner's circle
     places: list[Place] = Field(default_factory=list)  # owner's saved places
     autonomy: list[AutonomySetting] = Field(default_factory=list)
@@ -1661,6 +1735,7 @@ class Interpretation(_Model):
     person_upsert: Person | None = None  # ADD_PERSON (or edits)
     place_upsert: Place | None = None  # ADD_PLACE (address still to geocode)
     identifier_upsert: AccountIdentifier | None = None  # SAVE_IDENTIFIER
+    forget_fact_ids: list[str] = Field(default_factory=list)  # FORGET
     vendor_interactions: list[VendorInteraction] = Field(default_factory=list)  # RATE_VENDOR
     answer: UserAnswer | None = None  # ANSWER_QUESTION
     facts: list[Fact] = Field(default_factory=list)  # REMEMBER or incidental extraction
@@ -1698,6 +1773,9 @@ class NudgeCandidate(_Model):
     task_id: str | None = None
     fact_id: str | None = None
     person_id: str | None = None  # nudge ABOUT a circle member ("Dad's BP check")
+    # Id the Nudge row will get, so n:<nudge_id>:<action> buttons written by
+    # judge_nudge (before the row exists) match. Backend: Nudge(id=candidate.nudge_id).
+    nudge_id: str = Field(default_factory=new_id)
     dedupe_key: str  # one nudge per key, e.g. "reminder:<task_id>"
     data: dict[str, Any] = Field(default_factory=dict)
 

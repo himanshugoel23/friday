@@ -39,12 +39,10 @@ _WB_R = rf"(?![\w{_DEV}])"
 
 # SECURITY-1: English + Hinglish + Devanagari secret wording.
 _SECRET_WORDS = re.compile(
-    _WB_L
-    + r"(o[-. ]?t[-. ]?p|one[- ]?time[- ]?(pass(word|code)?)|cvv|cvc|m?pin|"
+    _WB_L + r"(o[-. ]?t[-. ]?p|one[- ]?time[- ]?(pass(word|code)?)|cvv|cvc|m?pin|"
     r"pass(word|code)|card number|card no|"
     r"(verification|security|secret|auth(entication)?|otp|login|access)[- ]?code|"
-    r"ओटीपी|ओ\.?टी\.?पी|पिन|पासवर्ड|पासकोड|सीवीवी|गुप्त\s?कोड)"
-    + _WB_R,
+    r"ओटीपी|ओ\.?टी\.?पी|पिन|पासवर्ड|पासकोड|सीवीवी|गुप्त\s?कोड)" + _WB_R,
     re.I,
 )
 # Postal "PIN code 560038" is an address, not a secret.
@@ -57,6 +55,7 @@ _SEPARATED_SINGLES = re.compile(r"(?<!\d)\d(?:\s*[,/|]\s*\d(?!\d))+")
 _MONEY_BEFORE = re.compile(r"(₹|rs\.?|inr|rupees?)\s*$", re.I)
 _MONEY_AFTER = re.compile(r"^\s*(₹|rs\b|rupees?|/-|inr)", re.I)
 _SENTENCE = re.compile(r"[!?।\n;]+|\.(?=\s+[A-Z])")
+_POSTCODE_BEFORE = re.compile(r"postcode\W{0,5}$", re.I)
 _LONG_RUN = 6
 _MAX_MONEY_DIGITS = 9  # SECURITY-2: <= ₹99 crore
 
@@ -88,8 +87,7 @@ class SafetyCheck(BaseModel):
 def _ascii_digits(text: str) -> str:
     """Devanagari / other Unicode decimal digits -> ASCII."""
     return "".join(
-        str(unicodedata.decimal(ch)) if ch.isdecimal() and not ch.isascii() else ch
-        for ch in text
+        str(unicodedata.decimal(ch)) if ch.isdecimal() and not ch.isascii() else ch for ch in text
     )
 
 
@@ -164,11 +162,11 @@ def check_speech(text: str, brief: CallBrief) -> SafetyCheck:
                 continue
             if len(run) < _LONG_RUN:
                 continue
-            money = _MONEY_BEFORE.search(norm[: m.start()]) or _MONEY_AFTER.search(
-                norm[m.end() :]
-            )
+            money = _MONEY_BEFORE.search(norm[: m.start()]) or _MONEY_AFTER.search(norm[m.end() :])
             if money and len(run) <= _MAX_MONEY_DIGITS:
                 continue
+            if len(run) == 6 and _POSTCODE_BEFORE.search(norm[: m.start()]):
+                continue  # postal PIN code of an address
             if not _matches_allowed(run, allowed):
                 reasons.append(f"unapproved long number ending {run[-4:]}")
     return SafetyCheck(allowed=not reasons, reasons=reasons)

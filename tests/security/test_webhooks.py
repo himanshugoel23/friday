@@ -98,10 +98,6 @@ async def test_whatsapp_webhook_refuses_unsigned_in_live_mode(settings, clock, b
     assert resp.status_code == 401
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-17: live_problems() accepts the default WHATSAPP_VERIFY_TOKEN",
-)
 def test_live_mode_rejects_default_verify_token(settings) -> None:
     live = settings.model_copy(update={"mode": "live"})
     assert any("VERIFY_TOKEN" in p for p in live.live_problems())

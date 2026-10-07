@@ -90,3 +90,16 @@ def test_live_mode_refuses_to_start_without_keys(settings):
         assert "ANTHROPIC_API_KEY" in str(e)
     else:  # pragma: no cover
         raise AssertionError("expected RuntimeError")
+
+
+def test_role_components_and_scale_wiring(settings):
+    from friday.core.container import JOB_ROUTES, ROLE_COMPONENTS
+    from friday.core.scale import MemoryJobQueue
+
+    c = Container(settings.model_copy(update={"roles": ["voice"]}))
+    comps = c.role_components()
+    assert "call_runner" in comps and "proactive" not in comps
+    assert set(JOB_ROUTES.values()) <= set(ROLE_COMPONENTS)
+    assert isinstance(c.job_queue, MemoryJobQueue)
+    assert c.get("outbox").queue is c.job_queue
+    assert c.factory_path("number_pool").startswith("friday.tasks.number_pool")
