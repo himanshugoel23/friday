@@ -17,13 +17,13 @@ No app, no website: users reach Friday only via **WhatsApp, voice call, and SMS*
   ("Hi, I'm Friday, an AI assistant calling on behalf of <name>"); full action log; delete-my-data by chat.
 - **Identity:** phone number + 4-digit Friday PIN for sensitive actions.
 - **Compliance:** DPDP Act 2023 consent (record user's "I agree"), data stored in India, TRAI/DLT for SMS.
-- **Invite-only:** 5 invites per user; cap free calls (e.g. 10/month in beta).
+- **Invite-only:** 5 invites per user; no usage cap in beta (see founder decisions).
 
 ## Phase 1 scope (what we are building now)
 1. **Outbound calling agent** — user asks on WhatsApp (text or voice note); Friday places a real phone call
    to a business in Hindi/English/Hinglish; handles busy / no answer / call-back-later.
    Task types: **bookings** (clinic, salon, restaurant, service providers) and **enquiries** (open? price? stock?).
-2. **Mid-call question to user** on WhatsApp ("4pm or 6pm?") with reply buttons; call continues on answer.
+2. **Ask the user** on WhatsApp ("4pm or 6pm?") with reply buttons — default is call-back-after-confirmation (see founder decisions).
 3. **Result report**: summary, booking details, call recording (as voice note/link), next steps.
 4. **Memory**: name, city, language, tone, businesses called, facts/dates extracted from chats
    ("rent due on 5th", "insurance expires March").
@@ -36,7 +36,7 @@ No app, no website: users reach Friday only via **WhatsApp, voice call, and SMS*
    - **Guardrails**: max 3 unprompted msgs/day (except urgent), quiet hours 22:00–08:00 IST (except safety),
      learn from ignores, every nudge offers an action, proactive WA msgs outside 24h use templates.
 6. **Onboarding via chat**: name, city, language, consent, PIN, first task ("one call you've been avoiding").
-7. **Invite-only access** with invite codes and per-user call cap.
+7. **Invite-only access** with invite codes (no usage cap in beta; internal cost tracking only).
 8. **End-of-call business touch**: after each call, templated SMS/WA to the business
    ("Booking for X confirmed via Friday …") — groundwork for B2B.
 
@@ -167,6 +167,19 @@ government portals. (IVR customer care, regional-language mirroring on calls, an
 ## Founder decisions on PRD open questions
 Default: the PM recommendations in docs/PRD.md §10 are adopted unless overridden below.
 
+- **Voice (Q1):** Friday is **female** (F.R.I.D.A.Y.-style) — feminine Hindi verb forms ("karti hoon"), female TTS voices.
+- **Approval before booking (Q17, Q21) — founder rule:**
+  - **Default:** when the business offers a slot/price, Friday does NOT confirm on the call. She tells the business
+    she will **call back after confirming with the user** (the "owner"), ends the call, asks the user, and on
+    approval **calls back to confirm** (or relays a different choice).
+  - **Delegated decision:** only if the user **explicitly** gave Friday authority when giving the task
+    (e.g. "book any slot between 5–7pm under ₹800, you decide"), Friday may confirm on the call itself,
+    strictly within those limits. Anything outside the limits → call-back flow.
+  - Recurring bookings: the user's explicit delegation for the rule (time window + price ceiling) counts as
+    authority for each instance; deviations → call-back flow.
+- **Scam/fake-number check (B16) and warm transfer/three-way (B17): Priority 1.**
+- **Usage cap (Q3, Q16, Q22): no user-facing cap in the beta.** Keep internal per-user cost tracking, alerts and an
+  abuse rate-limit (ops-configurable, off by default for invited users); no cap messaging to users.
 ## Success metrics for Phase 1
 >80% call task success, ≥2 requests/user/week by week 3, cost per successful call < ₹15, business hang-up rate < 20%.
 
