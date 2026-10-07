@@ -108,7 +108,9 @@ DEFAULT_CALL_LANGUAGE = Language.HINGLISH
 _DISCLOSURE = {
     Language.EN: "Hi, I'm Friday, an AI assistant calling on behalf of {name}.",
     Language.HI: "नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट, {name} की ओर से कॉल कर रही हूँ।",
-    Language.HINGLISH: "Hi, main Friday hoon, ek AI assistant, {name} ki taraf se call kar rahi hoon.",
+    Language.HINGLISH: (
+        "Hi, main Friday hoon, ek AI assistant, {name} ki taraf se call kar rahi hoon."
+    ),
 }
 
 
@@ -717,8 +719,7 @@ class BusinessHours(_Model):
         local = to_ist(when)
         mins = local.hour * 60 + local.minute
         return any(
-            p.weekday == local.weekday()
-            and self._minutes(p.open) <= mins < self._minutes(p.close)
+            p.weekday == local.weekday() and self._minutes(p.open) <= mins < self._minutes(p.close)
             for p in self.periods
         )
 
@@ -1098,7 +1099,9 @@ class StayRequest(_Model):
     rooms: int = 1
     max_rate_per_night_inr: int | None = None
     property_types: list[str] = Field(default_factory=list)  # "hotel", "homestay", "guesthouse"
-    preferences: list[str] = Field(default_factory=list)  # "breakfast", "early check-in", "lake view"
+    preferences: list[str] = Field(
+        default_factory=list
+    )  # "breakfast", "early check-in", "lake view"
     guest_person_id: str | None = None  # booking for a circle member
 
     @property

@@ -281,7 +281,9 @@ class Brain(CallPolicy, Translator, Protocol):
         """Rank quotes/answers from a parent task's child calls and write the comparison."""
         ...
 
-    async def judge_nudge(self, ctx: ConversationContext, candidate: NudgeCandidate) -> NudgeDecision:
+    async def judge_nudge(
+        self, ctx: ConversationContext, candidate: NudgeCandidate
+    ) -> NudgeDecision:
         """Should this proactive nudge be sent, and with what copy/action?
         Guardrails (cap, quiet hours, consent) are enforced by the backend."""
         ...
@@ -561,6 +563,7 @@ class TaskRepository(Protocol):
     async def list_due(self, now: datetime) -> list[Task]:
         """SCHEDULED tasks / recurring parents with next run <= now."""
         ...
+
     async def save_call(self, result: CallResult) -> None: ...
 
 

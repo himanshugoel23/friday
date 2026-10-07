@@ -1,0 +1,109 @@
+{
+  "businesses": [
+    {
+      "id": "sim-looks-salon", "name": "Looks Unisex Salon", "phone": "+918040000001",
+      "whatsapp": true, "category": "salon", "city": "Bengaluru", "area": "Indiranagar",
+      "lat": 12.9719, "lng": 77.6412, "rating": 4.4, "review_count": 812,
+      "reviews": [{"rating": 5, "text": "Quick haircut, Ramesh is great"}, {"rating": 4, "text": "Bit crowded on Sundays"}],
+      "hours": {"mon": ["10:00-21:00"], "tue": ["10:00-21:00"], "wed": ["10:00-21:00"], "thu": ["10:00-21:00"], "fri": ["10:00-21:00"], "sat": ["09:00-21:00"], "sun": ["09:00-20:00"]},
+      "persona": {"language": "hinglish", "greeting": "Hello, Looks salon, boliye", "rep_name": "Ramesh",
+                  "prices": {"haircut men": 400, "haircut women": 700}, "slots": ["4pm", "6pm", "7:30pm"]}
+    },
+    {
+      "id": "sim-sharma-clinic", "name": "Dr. Sharma's Family Clinic", "phone": "+912040000002",
+      "category": "clinic", "city": "Pune", "area": "Kothrud", "lat": 18.5074, "lng": 73.8077,
+      "rating": 4.6, "review_count": 230,
+      "reviews": [{"rating": 5, "text": "Very patient with elderly patients"}],
+      "hours": {"mon": ["09:00-13:00", "17:00-21:00"], "tue": ["09:00-13:00", "17:00-21:00"], "wed": ["09:00-13:00", "17:00-21:00"], "thu": ["09:00-13:00", "17:00-21:00"], "fri": ["09:00-13:00", "17:00-21:00"], "sat": ["09:00-13:00"]},
+      "persona": {"language": "mr", "switches_to": "hi", "greeting": "Namaskar, Sharma clinic",
+                  "prices": {"consultation": 500}, "slots": ["10:30am", "11:15am", "6pm"], "asks_if_ai": true}
+    },
+    {
+      "id": "sim-cool-ac", "name": "CoolCare AC Services", "phone": "+918040000003",
+      "whatsapp": true, "category": "ac repair", "city": "Bengaluru", "area": "Indiranagar",
+      "lat": 12.9784, "lng": 77.6408, "rating": 4.7, "review_count": 320,
+      "reviews": [{"rating": 5, "text": "Technician came on time, fair price"}, {"rating": 4, "text": "Good service, slightly pricey"}],
+      "persona": {"language": "en", "prices": {"split ac service": 699, "gas refill": 2500}, "max_discount_pct": 10,
+                  "slots": ["Sat 11am", "Sat 3pm"]}
+    },
+    {
+      "id": "sim-frosty-ac", "name": "Frosty Air Solutions", "phone": "+918040000004",
+      "category": "ac repair", "city": "Bengaluru", "area": "HAL 2nd Stage",
+      "lat": 12.9698, "lng": 77.6499, "rating": 4.2, "review_count": 95,
+      "reviews": [{"rating": 3, "text": "Came late but fixed it"}],
+      "persona": {"answer": "busy", "prices": {"split ac service": 599}, "max_discount_pct": 15}
+    },
+    {
+      "id": "sim-chill-ac", "name": "Chill Point AC Repair", "phone": "+918040000005",
+      "category": "ac repair", "city": "Bengaluru", "area": "Domlur",
+      "lat": 12.9609, "lng": 77.6387, "rating": 3.9, "review_count": 41,
+      "persona": {"language": "kn", "switches_to": "hinglish", "prices": {"split ac service": 550}, "max_discount_pct": 5,
+                  "slots": ["Sun 10am"]}
+    },
+    {
+      "id": "sim-apollo-pharmacy", "name": "Wellness Pharmacy Kothrud", "phone": "+912040000006",
+      "category": "pharmacy", "city": "Pune", "area": "Kothrud", "lat": 18.5050, "lng": 73.8100,
+      "rating": 4.3, "review_count": 150,
+      "persona": {"language": "hi", "stock": {"dolo 650": false}, "notes": ["home delivery within 2km"]}
+    },
+    {
+      "id": "sim-city-chemist", "name": "City Chemist", "phone": "+912040000007",
+      "category": "pharmacy", "city": "Pune", "area": "Karve Nagar", "lat": 18.4900, "lng": 73.8200,
+      "rating": 4.0, "review_count": 60,
+      "persona": {"language": "mr", "stock": {"dolo 650": true}, "notes": ["home delivery ₹30"]}
+    },
+    {
+      "id": "sim-spice-route", "name": "Spice Route Restaurant", "phone": "+918040000008",
+      "whatsapp": true, "category": "restaurant", "city": "Bengaluru", "area": "Koramangala",
+      "lat": 12.9352, "lng": 77.6245, "rating": 4.5, "review_count": 1500,
+      "persona": {"answer": "callback_later", "greeting": "Spice Route, please call after 5pm, we are prepping"}
+    },
+    {
+      "id": "sim-airtel-care", "name": "Airtel Customer Care", "phone": "+911800000121",
+      "category": "telecom", "city": "India", "area": "National", "lat": 28.6, "lng": 77.2,
+      "is_customer_care": true, "company": "Airtel", "official": true,
+      "persona": {"language": "en", "hold_seconds": 420, "ticket_prefix": "SR", "rep_name": "Priya",
+        "ivr": {
+          "root": {"prompt": "Welcome to Airtel. For Hindi press 1. For English press 2.", "options": {"1": "main", "2": "main"}},
+          "main": {"prompt": "For prepaid press 1, for broadband press 3, to repeat press 9.", "options": {"1": "prepaid", "3": "broadband", "9": "main"}},
+          "prepaid": {"prompt": "For balance press 1. To return to the main menu press star.", "options": {"1": "hangup", "*": "main"}},
+          "broadband": {"prompt": "Please enter your registered mobile number followed by hash.", "asks_for": "registered mobile number", "options": {"#": "broadband_menu"}},
+          "broadband_menu": {"prompt": "To report a fault press 2. To speak to our executive press 9.", "options": {"2": "agent", "9": "agent"}}
+        }}
+    },
+    {
+      "id": "sim-fake-airtel", "name": "Airtel Helpline (unofficial)", "phone": "+919000011111",
+      "category": "telecom", "city": "India", "area": "Unknown", "lat": 0, "lng": 0,
+      "company": "Airtel", "scam": true, "rating": 1.2, "review_count": 4,
+      "reviews": [{"rating": 1, "text": "Asked for my OTP. SCAM."}]
+    },
+    {
+      "id": "sim-lakeview-homestay", "name": "Lakeview Homestay", "phone": "+912940000010",
+      "whatsapp": true, "category": "homestay", "city": "Udaipur", "area": "Lake Pichola",
+      "lat": 24.5764, "lng": 73.6800, "rating": 4.8, "review_count": 210,
+      "reviews": [{"rating": 5, "text": "Rooftop breakfast with a lake view!"}],
+      "hotel": {"rooms": {"deluxe lake view": 4200, "standard": 2800}, "pay_at_hotel": true, "online_markup_pct": 15},
+      "persona": {"language": "hi", "max_discount_pct": 12, "holds_room_hours": 24,
+                  "notes": ["breakfast included", "early check-in from 10am if available"]}
+    },
+    {
+      "id": "sim-haveli-inn", "name": "Old City Haveli Inn", "phone": "+912940000011",
+      "category": "hotel", "city": "Udaipur", "area": "Gangaur Ghat",
+      "lat": 24.5800, "lng": 73.6830, "rating": 4.3, "review_count": 540,
+      "hotel": {"rooms": {"heritage room": 3500}, "pay_at_hotel": false},
+      "persona": {"language": "en", "answer": "no_answer"}
+    },
+    {
+      "id": "sim-raju-plumber", "name": "Raju Plumbing Works", "phone": "+918040000012",
+      "category": "plumber", "city": "Bengaluru", "area": "Indiranagar",
+      "lat": 12.9700, "lng": 77.6400, "rating": 4.1, "review_count": 33,
+      "persona": {"language": "hinglish", "prices": {"visit": 300}, "slots": ["today 5pm", "tomorrow 10am"],
+                  "hangs_up_after_turns": 6}
+    }
+  ],
+  "places": [
+    {"query": "indiranagar bengaluru", "formatted_address": "Indiranagar, Bengaluru, Karnataka 560038", "city": "Bengaluru", "lat": 12.9719, "lng": 77.6412},
+    {"query": "kothrud pune", "formatted_address": "Kothrud, Pune, Maharashtra 411038", "city": "Pune", "lat": 18.5074, "lng": 73.8077},
+    {"query": "udaipur", "formatted_address": "Udaipur, Rajasthan", "city": "Udaipur", "lat": 24.5854, "lng": 73.7125}
+  ]
+}

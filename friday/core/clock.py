@@ -13,10 +13,10 @@ Owner: Engineering Manager (core, frozen). Others import only.
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta, timezone
 from typing import Protocol, runtime_checkable
 
-UTC = timezone.utc
+UTC = UTC
 IST = timezone(timedelta(hours=5, minutes=30), name="IST")
 
 

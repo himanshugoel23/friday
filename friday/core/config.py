@@ -28,7 +28,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Mode = Literal["simulator", "live"]
@@ -162,7 +162,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ WhatsApp (channels)
     whatsapp_provider: WhatsAppProviderName = "auto"
     whatsapp_access_token: SecretStr | None = Field(
-        default=None, validation_alias=_alias("WHATSAPP_ACCESS_TOKEN", "FRIDAY_WHATSAPP_ACCESS_TOKEN")
+        default=None,
+        validation_alias=_alias("WHATSAPP_ACCESS_TOKEN", "FRIDAY_WHATSAPP_ACCESS_TOKEN"),
     )
     whatsapp_phone_number_id: str | None = Field(
         default=None,
@@ -256,6 +257,12 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ simulator
     sim_seed: int = 7  # deterministic simulated businesses
     sim_business_answer_rate: float = 1.0  # 1.0 = always answers; <1 exercises retries
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _blank_is_none(cls, v: object) -> object:
+        # `KEY=` lines in .env mean "unset", not "empty secret".
+        return None if isinstance(v, str) and v.strip() == "" else v
 
     # ================================================================== resolution
     @property

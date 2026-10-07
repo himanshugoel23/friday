@@ -23,10 +23,7 @@ def setup_logging(level: str = "INFO", json: bool = False) -> None:
         return
     handler = logging.StreamHandler(sys.stderr)
     if json:
-        fmt = (
-            '{"ts":"%(asctime)s","level":"%(levelname)s",'
-            '"logger":"%(name)s","msg":"%(message)s"}'
-        )
+        fmt = '{"ts":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'
     else:
         fmt = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
     handler.setFormatter(logging.Formatter(fmt))

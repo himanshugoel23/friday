@@ -55,7 +55,8 @@ def _allowed_numbers(brief: CallBrief) -> set[str]:
 
 def _matches_allowed(run: str, allowed: set[str]) -> bool:
     return any(run == a or (len(run) >= _LONG_RUN and run in a) for a in allowed) or any(
-        a.endswith(run) and len(run) >= 10 for a in allowed  # phone without country code
+        a.endswith(run) and len(run) >= 10
+        for a in allowed  # phone without country code
     )
 
 
