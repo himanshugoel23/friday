@@ -219,3 +219,57 @@ llm_task_token_budget: int = 60000       # per task; over budget -> cheaper mode
 7. **Learned IVR maps.** `CallAction.collected["ivr_map"]` / `friday.brain.ivr.learn_ivr_map()` emit the
    voice runner's replay format (`"replay: 2@english | 3@broadband | {Registered mobile}# | 9"`, no
    personal data); store it on `Business.ivr_notes` (shared). +1 to Voice's `CallBrief.ivr_map`.
+
+---
+
+## 2026-10-07 — Stage 3 merge log (EM)
+Merged into `friday/core` additively; old import paths keep working. Workarounds above
+can now be removed (owners in docs/TASKS.md §Stage 3).
+
+**Backend Engineer A**
+| Request | Status |
+|---|---|
+| `Notifier` Protocol | **Merged** `interfaces.Notifier` (as proposed). |
+| `TaskEngine` Protocol | **Merged** `interfaces.TaskEngine`. Return types are `Any` (the engine returns `Task`/plans). `handle_unknown_caller` is documented as an optional extra and is not in the Protocol, so `isinstance` keeps working. |
+| `InboundCallReceived` / `MissedCallReceived` events | **Merged** into `core.events`. `friday.voice.events` re-exports them, so it is the same class. |
+| `CallResult.from_number`, `OutboundCallRequest.from_number` | **Merged.** |
+
+**Backend Engineer B**
+| Request | Status |
+|---|---|
+| `Task.role` | **Merged** as `str | None` with `TaskRole` constants. Drop the `[friday:role=…]` notes tag. |
+| `Business.alt_phones` | **Merged.** Also on `BusinessCandidate` for directory results. |
+| `BusinessCandidate.hours` | **Merged.** |
+| `CallBrief.from_number` | **Merged.** Also `number_changed` for the "calling from a new number" line. |
+| `Settings.friday_numbers` + `tasks_*` policy | **Merged.** Env `FRIDAY_NUMBERS` (CSV or JSON) and `FRIDAY_TASKS_*` (same names as `TaskPolicy`). |
+| CallSessionRunner `run_inbound` / `cancel` | **Merged** as separate Protocols `InboundCallRunner` / `CancellableRunner`. The runner doesn't implement `cancel` yet, so adding it to `CallSessionRunner` would break `isinstance`. |
+| Repository extras | **Merged** as typing-only methods on the repository Protocols. |
+| `WellbeingAlertRaised` | **Merged** into `core.events`. `friday.tasks.events` re-exports it. |
+
+**Voice Engineer**
+| Request | Status |
+|---|---|
+| Telephony routing settings / factories | **Merged.** `TelephonyProviderName` += `routed`, `sarvam`. Live + `auto` → `routed`. Adds `telephony_route` (CSV env `FRIDAY_TELEPHONY_ROUTE`), `exotel_subdomain`, `exotel_voicebot_app_id`, `exotel_caller_ids`, `sarvam_telephony_*`, `sarvam_caller_ids`, `inbound_claim_timeout_s`, `sim_time_scale`. `live_problems()` requires one fully configured route provider. FACTORIES adds `routed` and `sarvam`. |
+| `capabilities()` / `take_inbound()` on `TelephonyProvider` | **Merged as a separate Protocol** `InboundTelephony` plus helper `telephony_capabilities(provider)`. The simulator has no `capabilities()`, so putting them on `TelephonyProvider` would break `isinstance`. |
+| Events `CallCostReport`, `CallLatencyReport`, `CallLanguageSwitched` | **Merged** into `core.events` (re-exported by voice). |
+| `OutboundCallRequest.from_number`, `CallBrief.from_number`/`ivr_map`, `CallTurn.audio_class`, `CallResult` cost fields, `Transcription.duration_s` | **Merged.** `VoiceCallResult` can now drop its duplicate fields. |
+| `SimBusiness.alt_phones` | **Rejected for now.** The simworld schema is frozen for this wave. Keep the `sim:alt_phones=` persona directive (QA may propose it in wave 2). |
+
+**AI Engineer**
+| Request | Status |
+|---|---|
+| `CallBrief.direction` / `CallBrief.inbound`; `InboundContext`, `RelatedTask` | **Merged** into `core.models`. `friday.brain.inbound` re-exports them, so it is the same class. |
+| `Brain.build_inbound_brief` | **Merged** (sync, signature as implemented). |
+| `ConversationContext.identifiers` | **Merged.** |
+| Cost / routing settings | **Merged** as `llm_models` (per-purpose defaults: Haiku; `call_turn` → Sonnet), `llm_default_purpose_model`, `llm_escalation_model`, `llm_task_token_budget`, `llm_prompt_caching`, `llm_batch_enabled`, `Settings.model_for(purpose)`. **Not changed:** `llm_model` / `llm_fast_model` defaults stay as before (`tests/brain/test_llm.py` pins them). They are legacy fallbacks; brain routing should use `model_for`. |
+| Button helpers `c:` / `r:` | **Merged** as `choice_button_id`, `ref_button_id`, `parse_any_button_id`. `parse_button_id` is deliberately **unchanged** (still None for `c:`/`r:`/`ob:`) so the API keeps routing those to `brain.interpret`. |
+| `Intent.FORGET` + `Interpretation.forget_fact_ids` | **Merged.** |
+| `NudgeCandidate.nudge_id` | **Merged** (default `new_id()`). Backend: create `Nudge(id=candidate.nudge_id)`. |
+| Learned IVR maps | **Merged** via Voice's `CallBrief.ivr_map`. Keep storing the replay line on `Business.ivr_notes`. |
+
+**New in Stage 3 (EM)**
+- `core.safety`: SECURITY-1/2/24, `check_key_sequence`, `KeyBuffer`, `check_commit` (SECURITY-27).
+- `core.crypto`: SECURITY-12 primitives (`KeyProvider`, `LocalKeyProvider`, `KmsKeyProvider` skeleton, `FieldCipher`, `EncryptedText` / `EncryptedJSON`, blind index).
+- Security config: SECURITY-17/26/30. `AccountIdentifier` value check (SECURITY-31). Log redaction (SECURITY-26).
+- Caller-ID pool contracts: `FridayNumber`, `NumberStatus`, `NumberHealth`, `NumberLimits`, `NumberChoice`, `NumberOutcome`, the `NumberPool` Protocol and `number_*` settings.
+- Scale-out: `core.scale` (`JobQueue`, `Outbox`, `DistributedLock`, `Cache`, `RateLimiter`, `IdempotencyStore` plus in-memory impls), role settings, `ROLE_COMPONENTS` / `JOB_ROUTES` in the container.

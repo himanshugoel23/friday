@@ -30,14 +30,6 @@ from pydantic import BaseModel
 
 from friday.core.clock import Clock  # re-export
 from friday.core.crypto import KeyProvider  # re-export (SECURITY-12)
-from friday.core.scale import (  # re-export (scale-out contracts)
-    Cache,
-    DistributedLock,
-    IdempotencyStore,
-    JobQueue,
-    Outbox,
-    RateLimiter,
-)
 from friday.core.models import (
     AccountIdentifier,
     AudioClassification,
@@ -54,6 +46,7 @@ from friday.core.models import (
     ExtractedDocument,
     ExtractionKind,
     Fact,
+    FridayNumber,
     GeocodeResult,
     GeoPoint,
     GuestDetails,
@@ -68,13 +61,12 @@ from friday.core.models import (
     MidCallQuestion,
     Nudge,
     NudgeCandidate,
+    NudgeDecision,
+    NumberCheck,
     NumberChoice,
     NumberHealth,
     NumberOutcome,
     NumberStatus,
-    FridayNumber,
-    NudgeDecision,
-    NumberCheck,
     OfficialNumber,
     OnboardingStep,
     OnboardingTurn,
@@ -84,10 +76,9 @@ from friday.core.models import (
     Place,
     Quote,
     QuoteComparison,
+    ReferenceResolution,
     RelatedTask,
     ReplyButton,
-    Urgency,
-    ReferenceResolution,
     SendReceipt,
     ShortlistItem,
     StayRequest,
@@ -99,10 +90,19 @@ from friday.core.models import (
     TemplateRef,
     Transcript,
     Transcription,
+    Urgency,
     User,
     UserAnswer,
     VendorInteraction,
     VoiceProfile,
+)
+from friday.core.scale import (  # re-export (scale-out contracts)
+    Cache,
+    DistributedLock,
+    IdempotencyStore,
+    JobQueue,
+    Outbox,
+    RateLimiter,
 )
 
 __all__ = [

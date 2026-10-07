@@ -32,9 +32,9 @@ from friday.core.clock import utcnow
 from friday.core.logging import get_logger
 from friday.core.models import (
     CallOutcome,
-    Language,
     CallTurn,
     InboundMessage,
+    Language,
     MidCallQuestion,
     OutboundMessage,
     TaskStatus,
