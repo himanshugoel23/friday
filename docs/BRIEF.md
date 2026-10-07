@@ -40,6 +40,29 @@ No app, no website: users reach Friday only via **WhatsApp, voice call, and SMS*
 8. **End-of-call business touch**: after each call, templated SMS/WA to the business
    ("Booking for X confirmed via Friday …") — groundwork for B2B.
 
+## Founder requirements for the voice agent (added — these override anything above)
+1. **Language mirroring.** Default opening in **Hinglish**. Detect the language the business representative
+   actually speaks, turn by turn, and **switch to match it** (Hindi, English, Hinglish; other Indian languages
+   such as Tamil/Telugu/Kannada/Marathi/Bengali when the STT/TTS provider supports them). If the rep switches
+   mid-call, Friday switches too.
+2. **Price quotations & negotiation.** Friday can ask for a quote, clarify what's included, and **negotiate**
+   (ask for discounts, compare with other quotes it has gathered, ask for package deals) — strictly within the
+   user's stated budget/limits. It never agrees to pay or commits money; it brings the best offer back.
+3. **Book only after asking the user ("owner") first.** Before confirming any appointment/booking, Friday
+   checks with the user (mid-call question, or puts the business on a brief hold / calls back) and only
+   confirms after the user approves the slot/price.
+4. **Discovery → shortlist → call.** When the user doesn't name a business ("find me a good AC repair guy
+   near Indiranagar"), Friday searches businesses (places/maps provider), **reads ratings & reviews**,
+   **shortlists the best few** (with short reasons), gets their **phone numbers**, and **calls them** —
+   one after another or comparing quotes — then reports a comparison to the user and books the chosen one.
+5. **Clearly an AI — never pretends to be human.** Discloses it's an AI at the start of every call and
+   answers honestly if asked. Voice is **clean, calm, polished and confident — like JARVIS / F.R.I.D.A.Y.**:
+   no fake fillers ("umm", "uh", fake breaths, fake typing sounds), no pretend hesitations.
+6. **Goal-driven, not scripted.** No hand-written Q&A trees per business type. The call agent is given a
+   **goal + constraints + user context** (what to achieve, budget, preferred times, what it may/may not
+   disclose) and converses freely with an LLM to achieve it, handling whatever the rep says.
+   Only safety rules and the disclosure line are fixed.
+
 ## NOT in Phase 1
 Customer-care/IVR calls, payments/UPI, Gmail/Calendar, Lifeline/emergency, users calling Friday's number
 (inbound voice — Phase 2, but voice pipeline must be reusable for it), business accounts, regional languages
@@ -51,7 +74,8 @@ beyond Hindi/English/Hinglish, agent-to-agent.
 ## Engineering constraints
 - Python 3.11+ (3.13 available), FastAPI, SQLAlchemy (SQLite for dev, Postgres-ready), pytest. Use `uv`.
 - LLM: Anthropic Claude via the official `anthropic` SDK.
-- Every external provider (WhatsApp Cloud API, telephony e.g. Twilio/Exotel/Plivo, STT, TTS, SMS/DLT, LLM)
+- Every external provider (WhatsApp Cloud API, telephony e.g. Twilio/Exotel/Plivo, STT, TTS, SMS/DLT, LLM,
+  business discovery/places & reviews e.g. Google Places API)
   sits behind an interface with a real implementation **and** a local simulator/fake, so the whole product
   runs end-to-end locally and in tests **without any API keys**.
 - Secrets only via environment variables (`.env.example` documents them). Never commit secrets.
