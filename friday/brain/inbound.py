@@ -31,6 +31,17 @@ from friday.core.models import (
 
 InboundKind = Literal["answered", "missed_call", "unknown"]
 
+# Resolution state of the related task (BRIEF E-37) - decides how a late call-back
+# is handled:
+#   open                -> resume the task normally (E-31)
+#   fulfilled_elsewhere -> need met with ANOTHER business / user cancelled / stock found:
+#   cancelled              politely close the loop, reveal nothing about where, hang up
+#   stock_found
+#   booked_here         -> booked with THIS business: the call is about that booking
+#                          (reconfirm / reschedule / cancel / ready for pickup)
+Resolution = Literal["open", "fulfilled_elsewhere", "cancelled", "stock_found", "booked_here"]
+CLOSED_ELSEWHERE: frozenset[str] = frozenset({"fulfilled_elsewhere", "cancelled", "stock_found"})
+
 
 class RelatedTask(BaseModel):
     """One earlier task/call with this business that the call-back may be about."""
@@ -46,6 +57,8 @@ class RelatedTask(BaseModel):
     discussed: str | None = None  # prior transcript summary / what was agreed so far
     last_quote: Quote | None = None
     approved_terms: str | None = None
+    resolution: Resolution = "open"
+    booking_details: str | None = None  # booked_here: the confirmed terms ("Sat 12:30, ₹600")
 
 
 class InboundContext(BaseModel):
