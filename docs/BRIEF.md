@@ -250,3 +250,25 @@ Default: the PM recommendations in docs/PRD.md §10 are adopted unless overridde
 8. **Budgets & visibility:** per-call token/cost logging by purpose; per-task token budgets with alert + cheaper
    fallback; ₹ per successful task as a tracked metric.
 Guardrails: never degrade live-call quality, safety checks, or responsiveness (p95 turn < 1.5 s).
+
+## Founder requirement: caller-ID reputation & number rotation (Phase 1)
+Goal: Friday's numbers must never get labelled spam, because pickup rate is the product.
+1. **Number pool per city/telecom circle:** multiple Indian 10-digit numbers (never 140-series), local to the
+   business's city where possible ("local presence" raises pickup).
+2. **Sticky + rotation together:** a business keeps getting the same Friday number (so call-backs work), but NEW
+   businesses are spread across the pool by health and load. A business is moved to another number only when its
+   number is retired; the first line then says "Friday here — calling from a new number".
+3. **Per-number limits & pacing:** max calls per number per hour/day (ops-configurable, conservative defaults),
+   spread calls over time (no bursts), limited concurrency per number, respect calling hours.
+4. **Warm-up:** new numbers start with low daily volume and ramp up gradually.
+5. **Health scoring per number:** answer rate, very-short-call/hang-up rate (<10 s), "don't call" requests, blocks,
+   spam-label checks where available. Below threshold → **cool-down** (no outbound, still answers inbound), then
+   recover or **retire**. Retired numbers keep receiving/forwarding call-backs for 30 days.
+6. **Verified identity:** register Friday as a verified business caller (e.g. Truecaller for Business verified
+   name/badge) and use the telecom operator's registered caller-name display (CNAP) where available, so phones show
+   "Friday (AI Assistant)" rather than an unknown number.
+7. **Behaviour that prevents reports:** AI disclosure up front, short purposeful calls, strict retry caps, business
+   hours only, global do-not-call honoured on **every** number in the pool.
+8. **Compliance rule:** rotation is for load-spreading and reputation health — NEVER to get around a business that
+   blocked Friday or asked not to be called. Blocks/DNC are honoured across the entire pool.
+9. Ops dashboard data: per-number health, volume, status (active / warming / cooling / retired).
