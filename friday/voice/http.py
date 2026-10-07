@@ -1,6 +1,11 @@
 """Voice HTTP/WS endpoints (mounted by friday/api at ``/voice``).
 
-Twilio (live):
+Exotel (live, primary for India) - URLs carry ``token=`` (see telephony/exotel.py):
+  POST /voice/exotel/status      StatusCallback (JSON or form), ?key=&token=
+  GET|POST /voice/exotel/passthru inbound ExoPhone flow Passthru applet, ?token=
+  WS   /voice/exotel/media       Voicebot applet stream, ?token=
+
+Twilio (live, fallback / international):
   POST /voice/twilio/status      call status callbacks (outbound + inbound)
   POST /voice/twilio/recording   recording status callbacks
   POST /voice/twilio/inbound     a call to a Friday number -> TwiML (media stream)
@@ -26,6 +31,7 @@ from pydantic import BaseModel
 
 from friday.core.container import Container
 from friday.core.logging import get_logger
+from friday.voice.telephony.exotel import ExotelTelephony, validate_exotel_token
 from friday.voice.telephony.twilio import TwilioTelephony, validate_twilio_signature
 
 log = get_logger(__name__)
@@ -102,6 +108,64 @@ def build_router(c: Container) -> APIRouter:
                 if msg.get("event") == "stop":
                     break
         except WebSocketDisconnect:
+            leg = state.get("leg")
+            if leg is not None:
+                leg.on_stream_stop()
+
+    # ---------------------------------------------------------------- exotel
+    def exotel() -> ExotelTelephony:
+        tel = telephony()
+        if not isinstance(tel, ExotelTelephony):
+            raise HTTPException(404, "exotel is not the active telephony provider")
+        return tel
+
+    def check_token(tel: ExotelTelephony, scope: str, token: str | None) -> None:
+        if not validate_exotel_token(tel.secret, scope, token):
+            log.warning("rejected exotel webhook with bad token")
+            raise HTTPException(403, "invalid token")
+
+    @router.post("/exotel/status")
+    async def exotel_status(request: Request) -> Response:
+        tel = exotel()
+        key = request.query_params.get("key") or ""
+        check_token(tel, key, request.query_params.get("token"))
+        if "json" in request.headers.get("content-type", ""):
+            payload = await request.json()
+        else:
+            payload = {k: str(v) for k, v in (await request.form()).items()}
+        await tel.handle_status(payload, key)
+        return Response(status_code=204)
+
+    @router.api_route("/exotel/passthru", methods=["GET", "POST"])
+    async def exotel_passthru(request: Request) -> Response:
+        tel = exotel()
+        check_token(tel, "exotel", request.query_params.get("token"))
+        params = dict(request.query_params)
+        if request.method == "POST":
+            params.update({k: str(v) for k, v in (await request.form()).items()})
+        params.pop("token", None)
+        await tel.handle_passthru(params)
+        return Response(content="OK", media_type="text/plain")  # 200 -> flow continues
+
+    @router.websocket("/exotel/media")
+    async def exotel_media(ws: WebSocket) -> None:
+        tel = exotel()
+        if not validate_exotel_token(tel.secret, "exotel", ws.query_params.get("token")):
+            await ws.close(code=1008)
+            return
+        await ws.accept()
+        state: dict[str, Any] = {}
+        try:
+            while True:
+                raw = await ws.receive_text()
+                try:
+                    msg = json.loads(raw)
+                except ValueError:
+                    continue
+                await tel.handle_stream_message(msg, ws.send_text, state, close=ws.close)
+                if msg.get("event") == "stop":
+                    break
+        except (WebSocketDisconnect, RuntimeError):
             leg = state.get("leg")
             if leg is not None:
                 leg.on_stream_stop()

@@ -42,7 +42,9 @@ def make_brief(phone: str = LOOKS, name: str = "Looks Unisex Salon", **kw) -> Ca
         requester_user_id="user-1",
         task_type=kw.pop("task_type", TaskType.BOOKING),
         goal=kw.pop("goal", "Book a men's haircut tomorrow evening"),
-        target=ContactTarget(kind=kw.pop("target_kind", TargetKind.BUSINESS), name=name, phone=phone),
+        target=ContactTarget(
+            kind=kw.pop("target_kind", TargetKind.BUSINESS), name=name, phone=phone
+        ),
         on_behalf_of="Rahul",
         user_phone=kw.pop("user_phone", USER_PHONE),
     )
@@ -117,8 +119,12 @@ def sim(vsettings, fclock, vbus) -> SimulatedTelephony:
 def make_runner(sim, vsettings, fclock, vbus):
     def _make(policy, translator=None, telephony=None) -> CallRunner:
         return CallRunner(
-            telephony=telephony or sim, policy=policy, translator=translator,
-            settings=vsettings, clock=fclock, bus=vbus,
+            telephony=telephony or sim,
+            policy=policy,
+            translator=translator,
+            settings=vsettings,
+            clock=fclock,
+            bus=vbus,
         )
 
     return _make

@@ -18,12 +18,20 @@ from friday.voice.langs import SARVAM_LANGUAGES, from_vendor_code, refine_hindi,
 from friday.voice.text import detect_language
 
 SARVAM_BASE_URL = "https://api.sarvam.ai"
+_EXT = {
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp4": "m4a",
+    "audio/webm": "webm",
+    "audio/flac": "flac",
+}
 
 
 def _filename(audio: AudioClip) -> tuple[str, str]:
     mime = (audio.mime or "audio/wav").split(";")[0]
-    ext = {"audio/wav": "wav", "audio/x-wav": "wav", "audio/ogg": "ogg", "audio/mpeg": "mp3",
-           "audio/mp4": "m4a", "audio/webm": "webm", "audio/flac": "flac"}.get(mime, "wav")  # fmt: skip
+    ext = _EXT.get(mime, "wav")
     return f"audio.{ext}", mime
 
 

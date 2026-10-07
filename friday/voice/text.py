@@ -46,7 +46,7 @@ def strip_fillers(text: str) -> str:
     out = _SPACE_BEFORE_PUNCT.sub(r"\1", out)
     out = re.sub(r"([,.])\s*\.", ".", out)
     out = _LEADING_PUNCT.sub("", out)
-    return out.strip()
+    return re.sub(r"[,;:]\s*$", "", out.strip())
 
 
 # --------------------------------------------------------------------------- secrets
@@ -191,6 +191,10 @@ _HINDI_ROMAN = {
     "dawai",
     "khana",
 }
+_HINDI_ROMAN |= {
+    "liye", "karo", "karna", "karni", "papa", "mummy", "aur", "ko", "yeh", "woh", "wo",
+    "hoga", "chahte", "gaya", "gayi", "kijiye", "batana", "matlab",
+}  # fmt: skip
 _WORD = re.compile(r"[a-zA-Z']+")
 
 

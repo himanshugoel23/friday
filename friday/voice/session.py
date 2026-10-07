@@ -33,6 +33,7 @@ docs/CORE_CHANGES.md): non-human CALLEE chunks are prefixed ``[ivr_prompt]``,
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -98,7 +99,9 @@ _SECRET_IN_USER = re.compile(r"\b(otp|pin|cvv|password|passcode)\b|ओटीप�
 
 _HOLD_LINES = {
     Language.EN: "Thank you for holding. I'm still waiting for {name}'s reply.",
-    Language.HINGLISH: "Hold karne ke liye dhanyavaad. Main abhi {name} ke jawab ka intezaar kar rahi hoon.",
+    Language.HINGLISH: (
+        "Hold karne ke liye dhanyavaad. Main abhi {name} ke jawab ka intezaar kar rahi hoon."
+    ),
     Language.HI: "होल्ड करने के लिए धन्यवाद। मैं अभी {name} के जवाब का इंतज़ार कर रही हूँ।",
 }
 _INBOUND_GREETING = {
@@ -115,7 +118,9 @@ _SAFE_EXIT = {
 }
 _CANCEL_LINE = {
     Language.EN: "Sorry, I need to end this call now. Thank you for your time.",
-    Language.HINGLISH: "Sorry, mujhe abhi yeh call khatam karni hogi. Aapke time ke liye dhanyavaad.",
+    Language.HINGLISH: (
+        "Sorry, mujhe abhi yeh call khatam karni hogi. Aapke time ke liye dhanyavaad."
+    ),
     Language.HI: "माफ़ कीजिए, मुझे अभी यह कॉल खत्म करनी होगी। आपके समय के लिए धन्यवाद।",
 }
 _TRANSLATOR_INTRO = {
@@ -125,7 +130,9 @@ _TRANSLATOR_INTRO = {
 }
 _TRANSLATOR_SECRET_WARNING = {
     Language.EN: "I can't pass on OTPs, PINs or passwords. Please don't share them on this call.",
-    Language.HINGLISH: "Main OTP, PIN ya password aage nahi bata sakti. Please inhe call pe share mat kijiye.",
+    Language.HINGLISH: (
+        "Main OTP, PIN ya password aage nahi bata sakti. Please inhe call pe share mat kijiye."
+    ),
 }
 
 
@@ -273,7 +280,11 @@ class CallRunner:
             leg, brief = leg_or_brief, brief_or_leg
         assert isinstance(brief, CallBrief)
         session = _Session(
-            self, brief, ask_user, notify_user, inbound_leg=leg,  # type: ignore[arg-type]
+            self,
+            brief,
+            ask_user,
+            notify_user,
+            inbound_leg=leg,  # type: ignore[arg-type]
             context=context,
         )
         return await session.execute()
@@ -551,10 +562,8 @@ class _Session:
 
     async def _end_with(self, table: dict[Language, str], outcome: CallOutcome) -> CallOutcome:
         text, lang = _line(table, self._lang(), name=self.name)
-        try:
+        with contextlib.suppress(CallEnded):
             await self._say(text, lang)
-        except CallEnded:
-            pass
         await self._safe_hangup()
         return outcome
 
@@ -690,10 +699,8 @@ class _Session:
             await self._hear()
         elif t == CallActionType.HANGUP:
             if action.text:
-                try:
+                with contextlib.suppress(CallEnded):
                     await self._say(action.text, action.language)
-                except CallEnded:
-                    pass
             await self._safe_hangup()
             return action.outcome or CallOutcome.PARTIAL
         elif t == CallActionType.PRESS_KEYS:
@@ -762,9 +769,9 @@ class _Session:
         self.disclosed_current = True
         self.disclosures += 1
 
-    async def _hear(self, timeout: float | None = None) -> Transcription | None:
+    async def _hear(self, wait_s: float | None = None) -> Transcription | None:
         assert self.leg is not None
-        t = await self.leg.listen(timeout or self.settings.call_silence_timeout_s)
+        t = await self.leg.listen(wait_s or self.settings.call_silence_timeout_s)
         self.latency.stt(getattr(self.leg, "last_stt_ms", None))
         if t is None:
             self.silences += 1
@@ -790,21 +797,20 @@ class _Session:
         text = redact_secrets(t.text or "")
         if cls != AudioClass.HUMAN:
             text = f"[{cls.value}] {text}".strip()
-        elif t.language is not None:
-            if t.language != self.last_callee_lang:
-                old = self.last_callee_lang
-                self.last_callee_lang = t.language
-                if t.language not in self.result.languages_heard:
-                    self.result.languages_heard.append(t.language)
-                if old is not None:
-                    await self.r.bus.publish(
-                        CallLanguageSwitched(
-                            task_id=self.brief.task_id,
-                            call_id=self.result.call_id,
-                            old=old,
-                            new=t.language,
-                        )
+        elif t.language is not None and t.language != self.last_callee_lang:
+            old = self.last_callee_lang
+            self.last_callee_lang = t.language
+            if t.language not in self.result.languages_heard:
+                self.result.languages_heard.append(t.language)
+            if old is not None:
+                await self.r.bus.publish(
+                    CallLanguageSwitched(
+                        task_id=self.brief.task_id,
+                        call_id=self.result.call_id,
+                        old=old,
+                        new=t.language,
                     )
+                )
         await self._record(
             Speaker.CALLEE, f"{speaker_label}{text}", t.language, confidence=t.confidence
         )
@@ -852,11 +858,11 @@ class _Session:
             await self._system(f"USER DID NOT ANSWER WITHIN {timeout}s")
 
     async def _await_answer(
-        self, q: MidCallQuestion, timeout: int, lang: Language
+        self, q: MidCallQuestion, limit_s: int, lang: Language
     ) -> UserAnswer | None:
         ask_task: asyncio.Task = asyncio.ensure_future(self.ask_user(q))
         interval = max(5, self.settings.call_hold_reminder_interval_s)
-        max_lines = max(0, int(timeout // interval))
+        max_lines = max(0, int(limit_s // interval))
         try:
             for _ in range(max_lines):
                 tick = asyncio.ensure_future(self.clock.sleep(interval))
@@ -872,7 +878,7 @@ class _Session:
                 if check_speech(line, self.brief).allowed:
                     await self._say(line, line_lang)
             # backstop in real seconds - ask_user itself resolves None after timeout_s
-            return await asyncio.wait_for(asyncio.shield(ask_task), timeout=timeout + 60)
+            return await asyncio.wait_for(asyncio.shield(ask_task), timeout=limit_s + 60)
         except TimeoutError:
             ask_task.cancel()
             return None
@@ -920,14 +926,18 @@ class _Session:
                 if chunk.audio_class == AudioClass.HUMAN:
                     await self._disclose(chunk.language)
                 return None
-            if chunk is not None and chunk.audio_class == AudioClass.QUEUE_ANNOUNCEMENT:
-                if chunk.text and chunk.text != last_queue_text:
-                    last_queue_text = chunk.text
-                    if not announced and (m := _WAIT_MIN.search(chunk.text)):
-                        announced = True
-                        await self._notify(
-                            f"On hold with {target}. Expected wait is about {m.group(1)} min."
-                        )
+            if (
+                chunk is not None
+                and chunk.audio_class == AudioClass.QUEUE_ANNOUNCEMENT
+                and chunk.text
+                and chunk.text != last_queue_text
+            ):
+                last_queue_text = chunk.text
+                if not announced and (m := _WAIT_MIN.search(chunk.text)):
+                    announced = True
+                    await self._notify(
+                        f"On hold with {target}. Expected wait is about {m.group(1)} min."
+                    )
             if waited >= next_update:
                 next_update += self.settings.hold_user_update_interval_s
                 await self._notify(f"Still on hold with {target}, {_fmt(waited)} so far.")
@@ -966,10 +976,8 @@ class _Session:
         status = await user_leg.wait_for_answer(USER_JOIN_TIMEOUT_S)
         if status != DialStatus.ANSWERED:
             await self._system(f"USER DID NOT JOIN ({status.value})")
-            try:
+            with contextlib.suppress(Exception):  # noqa: BLE001
                 await user_leg.hangup()
-            except Exception:  # noqa: BLE001
-                pass
             return None
         await self._system("USER JOINED THE CALL")
         if action.leave_after_bridge:
@@ -1046,10 +1054,8 @@ class _Session:
             for task in pending.values():
                 task.cancel()
             for task in pending.values():
-                try:
+                with contextlib.suppress(asyncio.CancelledError, CallEnded, Exception):  # noqa: BLE001
                     await task
-                except (asyncio.CancelledError, CallEnded, Exception):  # noqa: BLE001
-                    pass
         return ended
 
     # ================================================================== translator (V-8)
@@ -1113,10 +1119,8 @@ class _Session:
         try:
             await self._duplex({"callee": self.leg, "user": user_leg}, on_chunk)
         finally:
-            try:
+            with contextlib.suppress(Exception):  # noqa: BLE001
                 await user_leg.hangup()
-            except Exception:  # noqa: BLE001
-                pass
             await self._safe_hangup()
         self.result.collected["translated_to_user"] = str(directions["to_user"])
         self.result.collected["translated_to_callee"] = str(directions["to_callee"])

@@ -97,7 +97,10 @@ PHRASES: dict[Language, dict[str, str]] = {
             "48 ghante mein, {date} tak resolve ho jayega."
         ),
         "otp_ask": "Verification ke liye registered mobile pe aaya OTP bataiye.",
-        "otp_insist": "Sorry, account holder verify kiye bina aage nahi badh sakte. Kya woh call pe aa sakte hain?",
+        "otp_insist": (
+            "Sorry, account holder verify kiye bina aage nahi badh sakte. "
+            "Kya woh call pe aa sakte hain?"
+        ),
         "verified": "Thank you, account holder verify ho gaye.",
         "escalate": "Main aapko supervisor ko transfer kar rahi hoon, please hold kijiye.",
         "hold_ack": "Haan ji, koi baat nahi.",

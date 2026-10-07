@@ -72,7 +72,6 @@ async def test_primary_never_answers_alternate_works(sim, make_runner):
     policy = ScriptedPolicy([say("Blouse ready hai kya?"), hangup(CallOutcome.SUCCESS)])
     result = await make_runner(policy).run(make_brief(TAILOR_ALT, "Perfect Fit"), no_answer_user)
     assert result.outcome == CallOutcome.SUCCESS
-    assert any("Friday" in t.text for t in result.transcript.turns if t.speaker == Speaker.CALLEE) or True
 
 
 async def test_late_callback_after_outbound(sim, fclock, vbus, make_runner):
@@ -80,7 +79,9 @@ async def test_late_callback_after_outbound(sim, fclock, vbus, make_runner):
     # Friday reaches Urban Trim via its alternate route? No: primary rings out, but the
     # business notices the missed call and calls back 30 min later (E31/E37).
     sim.world.by_phone(URBAN_TRIM).persona.answer = "answers"  # first call answered
-    policy = ScriptedPolicy([say("Kal 5pm haircut ka slot hai?"), hangup(CallOutcome.PENDING_APPROVAL)])
+    policy = ScriptedPolicy(
+        [say("Kal 5pm haircut ka slot hai?"), hangup(CallOutcome.PENDING_APPROVAL)]
+    )
     first = await make_runner(policy).run(make_brief(URBAN_TRIM, "Urban Trim"), no_answer_user)
     sim.world.by_phone(URBAN_TRIM).persona.answer = "no_answer"
     assert await sim.deliver_due_inbound() == []  # not due yet
@@ -94,12 +95,20 @@ async def test_late_callback_after_outbound(sim, fclock, vbus, make_runner):
     assert leg is not None and sim.take_inbound(ev.provider_call_id) is None
 
     # Backend B call order: run_inbound(leg, brief, ask_user, notify_user)
-    policy = ScriptedPolicy([
-        say("Rahul ki requirement ab poori ho gayi hai, isliye is baar zaroorat nahi hai. Dhanyavaad!"),
-        hangup(CallOutcome.DECLINED, None),
-    ])
+    policy = ScriptedPolicy(
+        [
+            say(
+                "Rahul ki requirement ab poori ho gayi hai, isliye is baar zaroorat nahi hai. "
+                "Dhanyavaad!"
+            ),
+            hangup(CallOutcome.DECLINED, None),
+        ]
+    )
     result = await make_runner(policy).run_inbound(
-        leg, make_brief(URBAN_TRIM, "Urban Trim"), no_answer_user, None,
+        leg,
+        make_brief(URBAN_TRIM, "Urban Trim"),
+        no_answer_user,
+        None,
         context="Aapne humein call kiya tha haircut ke baare mein.",
     )
     assert result.direction == CallDirection.INBOUND

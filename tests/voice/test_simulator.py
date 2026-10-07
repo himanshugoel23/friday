@@ -23,7 +23,9 @@ DISCLOSURE = "Hi, main Friday hoon, ek AI assistant, Rahul ki taraf se call kar 
 
 
 async def dial(sim, phone, **meta):
-    leg = await sim.place_call(OutboundCallRequest(to_phone=phone, task_id="task-sim", metadata=meta))
+    leg = await sim.place_call(
+        OutboundCallRequest(to_phone=phone, task_id="task-sim", metadata=meta)
+    )
     status = await leg.wait_for_answer(30)
     return leg, status
 
@@ -54,7 +56,9 @@ async def test_salon_quote_slots_and_confirmation(sim):
     assert greeting.audio_class == AudioClass.HUMAN and "Looks" in greeting.text
     await leg.speak(DISCLOSURE, Language.HINGLISH)
     assert (await leg.listen(5)).text  # "Haan ji, boliye."
-    await leg.speak("Men's haircut ka rate kitna hai aur kal shaam ka slot milega?", Language.HINGLISH)
+    await leg.speak(
+        "Men's haircut ka rate kitna hai aur kal shaam ka slot milega?", Language.HINGLISH
+    )
     reply = (await leg.listen(5)).text
     assert "₹400" in reply and "6pm" in reply
     await leg.speak("6pm ke liye book kar dijiye please.", Language.HINGLISH)
@@ -67,7 +71,9 @@ async def test_callback_flow_is_polite(sim):
     await leg.listen(5)
     await leg.speak(DISCLOSURE, Language.HINGLISH)
     await leg.listen(5)
-    await leg.speak("Main Rahul se confirm karke aapko call back karti hoon. Dhanyavaad!", Language.HINGLISH)
+    await leg.speak(
+        "Main Rahul se confirm karke aapko call back karti hoon. Dhanyavaad!", Language.HINGLISH
+    )
     reply = (await leg.listen(5)).text
     assert "call" in reply.lower()
     with pytest.raises(CallEnded):
@@ -98,7 +104,9 @@ async def test_language_switch_and_ai_question(sim):
     await leg.speak(DISCLOSURE, Language.HINGLISH)
     q = await leg.listen(5)
     assert q.language == Language.MR and "रोबोट" in q.text  # asks if AI, in Marathi
-    await leg.speak("Haan, main ek AI assistant hoon. Consultation ka slot chahiye.", Language.HINGLISH)
+    await leg.speak(
+        "Haan, main ek AI assistant hoon. Consultation ka slot chahiye.", Language.HINGLISH
+    )
     after = await leg.listen(5)
     assert after.language == Language.HI  # switched mid-call (switches_to=hi)
 
@@ -107,7 +115,9 @@ async def test_callback_later_persona(sim):
     leg, _ = await dial(sim, SPICE)
     g = await leg.listen(5)
     assert "5pm" in g.text
-    await leg.speak("Theek hai, main 5 baje ke baad call karti hoon. Dhanyavaad.", Language.HINGLISH)
+    await leg.speak(
+        "Theek hai, main 5 baje ke baad call karti hoon. Dhanyavaad.", Language.HINGLISH
+    )
     await leg.listen(5)
     with pytest.raises(CallEnded):
         await leg.listen(5)
@@ -145,7 +155,10 @@ async def test_ivr_dtmf_hold_queue_then_agent(sim, fclock):
     assert "Priya" in chunk.text
     agent = leg.agent
     assert agent.entered == ["9812345678"]
-    await leg.speak("Hi, I'm Friday, an AI assistant. I'd like to raise a complaint: broadband is down.", Language.EN)
+    await leg.speak(
+        "Hi, I'm Friday, an AI assistant. I'd like to raise a complaint: broadband is down.",
+        Language.EN,
+    )
     ticket = (await leg.listen(5)).text
     assert "SR" in ticket and "ticket" in ticket.lower()
 
@@ -217,7 +230,7 @@ async def test_recording_written_to_local_file(sim):
     from pathlib import Path
     from urllib.parse import urlparse
 
-    content = Path(urlparse(url).path).read_text()
+    content = Path(urlparse(url).path).read_text()  # noqa: ASYNC240 - tiny local file
     assert "FRIDAY[hinglish]" in content
 
 
@@ -226,7 +239,9 @@ async def test_deterministic_given_seed(vsettings, fclock):
     from friday.voice.simulator import SimulatedTelephony
 
     async def run_once():
-        s = SimulatedTelephony(world=load_world(), clock=fclock, seed=3, media_dir=vsettings.media_dir)
+        s = SimulatedTelephony(
+            world=load_world(), clock=fclock, seed=3, media_dir=vsettings.media_dir
+        )
         leg, _ = await dial(s, AIRTEL)
         await leg.send_dtmf("2")
         await leg.send_dtmf("3")
@@ -245,8 +260,13 @@ async def test_answer_rate_is_seeded(vsettings, fclock):
     from friday.voice.simulator import SimulatedTelephony
 
     async def statuses(seed):
-        s = SimulatedTelephony(world=load_world(), clock=fclock, seed=seed, answer_rate=0.5,
-                               media_dir=vsettings.media_dir)
+        s = SimulatedTelephony(
+            world=load_world(),
+            clock=fclock,
+            seed=seed,
+            answer_rate=0.5,
+            media_dir=vsettings.media_dir,
+        )
         return [(await dial(s, LOOKS))[1] for _ in range(8)]
 
     a, b = await statuses(11), await statuses(11)

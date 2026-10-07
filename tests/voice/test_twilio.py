@@ -60,7 +60,9 @@ class StubTTS:
         return VoiceProfile(provider="stub", voice_id="v", language=language)
 
     async def synthesize(self, text, language, *, voice=None):
-        return AudioClip(data=pcm16_to_wav(tone(440, 0.1, 16000), 16000), mime="audio/wav", sample_rate=16000)
+        return AudioClip(
+            data=pcm16_to_wav(tone(440, 0.1, 16000), 16000), mime="audio/wav", sample_rate=16000
+        )
 
 
 class Recorder:
@@ -90,10 +92,16 @@ def tbus():
 @pytest.fixture
 def tel(rec, tbus):
     return TwilioTelephony(
-        account_sid="ACtest", auth_token=TOKEN, from_number="+918069110001",
-        public_base_url=BASE, stt=StubSTT(), tts=StubTTS(), bus=tbus,
+        account_sid="ACtest",
+        auth_token=TOKEN,
+        from_number="+918069110001",
+        public_base_url=BASE,
+        stt=StubSTT(),
+        tts=StubTTS(),
+        bus=tbus,
         friday_numbers=["+918069110001", "+918069110002"],
-        transport=httpx.MockTransport(rec), inbound_claim_timeout_s=0.05,
+        transport=httpx.MockTransport(rec),
+        inbound_claim_timeout_s=0.05,
     )
 
 
@@ -103,7 +111,9 @@ def speech_frames(seconds=1.0):
     for i in range(int(8000 * seconds)):
         t = i / 8000
         env = max(0.0, math.sin(2 * math.pi * 4 * t)) ** 2
-        out.append(int(9000 * env * (rnd.random() * 2 - 1) + 6000 * env * math.sin(2 * math.pi * 180 * t)))
+        out.append(
+            int(9000 * env * (rnd.random() * 2 - 1) + 6000 * env * math.sin(2 * math.pi * 180 * t))
+        )
     ulaw = pcm16_to_ulaw(out.tobytes() + silence(1.0))
     return [ulaw[i : i + 160] for i in range(0, len(ulaw), 160)]
 
@@ -119,8 +129,13 @@ async def start_stream(tel, leg, sent, state, role=None):
     if role:
         params["role"] = role
     await tel.handle_stream_message(
-        {"event": "start", "streamSid": "MZ1", "start": {"callSid": leg.provider_call_id, "customParameters": params}},
-        send, state,
+        {
+            "event": "start",
+            "streamSid": "MZ1",
+            "start": {"callSid": leg.provider_call_id, "customParameters": params},
+        },
+        send,
+        state,
     )
     return send
 
@@ -137,7 +152,9 @@ def test_signature_validation():
 
 async def test_place_call_rest_payload_and_sticky_caller_id(tel, rec):
     assert isinstance(tel, TelephonyProvider)
-    leg = await tel.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t1", ring_timeout_s=25))
+    leg = await tel.place_call(
+        OutboundCallRequest(to_phone="+918040000001", task_id="t1", ring_timeout_s=25)
+    )
     assert isinstance(leg, CallLeg)
     form = rec.form()
     assert rec.requests[-1].url.path == "/2010-04-01/Accounts/ACtest/Calls.json"
@@ -149,15 +166,21 @@ async def test_place_call_rest_payload_and_sticky_caller_id(tel, rec):
     assert rec.requests[-1].headers["Authorization"].startswith("Basic ")
     leg2 = await tel.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t2"))
     assert leg2.from_number == leg.from_number  # sticky
-    leg3 = await tel.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t3",
-                                                    metadata={"from_number": "+918069110002"}))
+    leg3 = await tel.place_call(
+        OutboundCallRequest(
+            to_phone="+918040000001", task_id="t3", metadata={"from_number": "+918069110002"}
+        )
+    )
     assert rec.form()["From"] == ["+918069110002"] and leg3.from_number == "+918069110002"
 
 
 async def test_answer_speak_listen_dtmf_hangup(tel, rec):
     leg = await tel.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t1"))
     await tel.handle_status({"CallSid": leg.provider_call_id, "CallStatus": "ringing"}, leg.key)
-    await tel.handle_status({"CallSid": leg.provider_call_id, "CallStatus": "in-progress", "AnsweredBy": "human"}, leg.key)
+    await tel.handle_status(
+        {"CallSid": leg.provider_call_id, "CallStatus": "in-progress", "AnsweredBy": "human"},
+        leg.key,
+    )
     sent, state = [], {}
     send = await start_stream(tel, leg, sent, state)
     assert await leg.wait_for_answer(5) == DialStatus.ANSWERED
@@ -171,7 +194,9 @@ async def test_answer_speak_listen_dtmf_hangup(tel, rec):
     for frame in speech_frames():
         import base64
 
-        await tel.handle_stream_message({"event": "media", "media": {"payload": base64.b64encode(frame).decode()}}, send, state)
+        await tel.handle_stream_message(
+            {"event": "media", "media": {"payload": base64.b64encode(frame).decode()}}, send, state
+        )
     t = await leg.listen(5)
     assert t is not None and t.text.startswith("Hello") and t.audio_class == AudioClass.HUMAN
     assert leg.last_stt_ms is not None
@@ -203,9 +228,18 @@ async def test_dial_outcomes_from_status_callbacks(tel, params, expected):
 
 async def test_recording_callback(tel):
     leg = await tel.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t1"))
-    await tel.handle_recording({"CallSid": leg.provider_call_id, "RecordingStatus": "completed",
-                                "RecordingUrl": "https://api.twilio.com/2010-04-01/Accounts/AC/Recordings/RE1"}, leg.key)
-    assert await leg.recording_url() == "https://api.twilio.com/2010-04-01/Accounts/AC/Recordings/RE1.mp3"
+    await tel.handle_recording(
+        {
+            "CallSid": leg.provider_call_id,
+            "RecordingStatus": "completed",
+            "RecordingUrl": "https://api.twilio.com/2010-04-01/Accounts/AC/Recordings/RE1",
+        },
+        leg.key,
+    )
+    assert (
+        await leg.recording_url()
+        == "https://api.twilio.com/2010-04-01/Accounts/AC/Recordings/RE1.mp3"
+    )
 
 
 async def test_add_participant_conference_and_leave(tel, rec):
@@ -213,15 +247,23 @@ async def test_add_participant_conference_and_leave(tel, rec):
     await tel.handle_status({"CallSid": leg.provider_call_id, "CallStatus": "in-progress"}, leg.key)
     await start_stream(tel, leg, [], {})
     await leg.wait_for_answer(5)
-    user = await leg.add_participant("+919812345678", announce="Connecting you to Airtel. They need OTP verification.")
+    user = await leg.add_participant(
+        "+919812345678", announce="Connecting you to Airtel. They need OTP verification."
+    )
     update = parse_qs(rec.requests[-2].content.decode())
     assert "<Conference" in update["Twiml"][0] and 'track="inbound_track"' in update["Twiml"][0]
     dial = rec.form()
-    assert dial["To"] == ["+919812345678"] and "<Say" in dial["Twiml"][0] and "OTP verification" in dial["Twiml"][0]
+    assert (
+        dial["To"] == ["+919812345678"]
+        and "<Say" in dial["Twiml"][0]
+        and "OTP verification" in dial["Twiml"][0]
+    )
     assert "MachineDetection" not in dial
     with pytest.raises(ProviderError):
         await leg.speak("hello", Language.EN)  # Friday is muted once bridged
-    await tel.handle_status({"CallSid": user.provider_call_id, "CallStatus": "in-progress"}, user.key)
+    await tel.handle_status(
+        {"CallSid": user.provider_call_id, "CallStatus": "in-progress"}, user.key
+    )
     await start_stream(tel, user, [], {}, role="monitor")
     assert await user.wait_for_answer(5) == DialStatus.ANSWERED
     n = len(rec.requests)
@@ -265,8 +307,16 @@ async def test_inbound_missed_call(tel, tbus):
 
     tbus.subscribe(Event, on)
     tel.inbound_twiml({"CallSid": "CAin3", "From": "+918040000001", "To": "+918069110002"})
-    await tel.handle_status({"CallSid": "CAin3", "CallStatus": "completed", "From": "+918040000001",
-                             "To": "+918069110002", "CallDuration": "0"}, None)
+    await tel.handle_status(
+        {
+            "CallSid": "CAin3",
+            "CallStatus": "completed",
+            "From": "+918040000001",
+            "To": "+918069110002",
+            "CallDuration": "0",
+        },
+        None,
+    )
     missed = [e for e in seen if type(e).__name__ == "MissedCallReceived"]
     assert missed and missed[0].to_number == "+918069110002"
     assert not [e for e in seen if type(e).__name__ == "InboundCallReceived"]
@@ -284,16 +334,25 @@ def _app(tel) -> tuple[TestClient, Container]:
 def test_router_rejects_bad_signature_and_accepts_good(tel):
     client, _ = _app(tel)
     params = {"CallSid": "CAx", "CallStatus": "ringing"}
-    r = client.post("/voice/twilio/status?key=nope", data=params, headers={"X-Twilio-Signature": "bad"})
+    r = client.post(
+        "/voice/twilio/status?key=nope", data=params, headers={"X-Twilio-Signature": "bad"}
+    )
     assert r.status_code == 403
     sig = sign_twilio(TOKEN, f"{BASE}/voice/twilio/status?key=nope", params)
-    r = client.post("/voice/twilio/status?key=nope", data=params, headers={"X-Twilio-Signature": sig})
+    r = client.post(
+        "/voice/twilio/status?key=nope", data=params, headers={"X-Twilio-Signature": sig}
+    )
     assert r.status_code == 204
 
 
 def test_router_inbound_twiml(tel):
     client, _ = _app(tel)
-    params = {"CallSid": "CAr1", "From": "+918040000001", "To": "+918069110001", "CallStatus": "ringing"}
+    params = {
+        "CallSid": "CAr1",
+        "From": "+918040000001",
+        "To": "+918069110001",
+        "CallStatus": "ringing",
+    }
     sig = sign_twilio(TOKEN, f"{BASE}/voice/twilio/inbound", params)
     r = client.post("/voice/twilio/inbound", data=params, headers={"X-Twilio-Signature": sig})
     assert r.status_code == 200 and r.headers["content-type"].startswith("application/xml")
@@ -307,8 +366,15 @@ def test_router_media_websocket_start_and_stop(tel):
     leg.claimed = True  # don't start the claim guard
     with client.websocket_connect("/voice/twilio/media") as ws:
         ws.send_text(json.dumps({"event": "connected"}))
-        ws.send_text(json.dumps({"event": "start", "streamSid": "MZws",
-                                 "start": {"callSid": "CAws", "customParameters": {"key": leg.key}}}))
+        ws.send_text(
+            json.dumps(
+                {
+                    "event": "start",
+                    "streamSid": "MZws",
+                    "start": {"callSid": "CAws", "customParameters": {"key": leg.key}},
+                }
+            )
+        )
         ws.send_text(json.dumps({"event": "stop"}))
     assert leg.stream_sid == "MZws" and leg.ended
 
@@ -328,13 +394,13 @@ def test_twilio_routes_404_in_simulator_mode(vsettings):
     assert client.get("/voice/recordings/..%2Fsecret").status_code == 404
 
 
-async def test_exotel_plivo_stubs_raise():
-    from friday.voice.telephony.exotel import ExotelTelephony
+async def test_plivo_stub_raises():
     from friday.voice.telephony.plivo import PlivoTelephony
 
-    for p in (ExotelTelephony(), PlivoTelephony()):
-        with pytest.raises(ProviderError):
-            await p.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t"))
+    with pytest.raises(ProviderError):
+        await PlivoTelephony().place_call(
+            OutboundCallRequest(to_phone="+918040000001", task_id="t")
+        )
 
 
 @pytest.mark.live
@@ -348,6 +414,8 @@ async def test_live_twilio_call():  # pragma: no cover - needs real credentials 
     from friday.voice.telephony.twilio import build_twilio
 
     tel = build_twilio(c)
-    leg = await tel.place_call(OutboundCallRequest(to_phone=os.environ["FRIDAY_LIVE_TEST_TO"], task_id="live"))
+    leg = await tel.place_call(
+        OutboundCallRequest(to_phone=os.environ["FRIDAY_LIVE_TEST_TO"], task_id="live")
+    )
     assert leg.provider_call_id
     await leg.hangup()

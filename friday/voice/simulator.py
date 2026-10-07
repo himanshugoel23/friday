@@ -83,6 +83,9 @@ from friday.voice.text import contains_any, redact_secrets
 log = get_logger(__name__)
 
 HOLD_CHUNK_S = 30
+_VOICEMAIL_GREETING = (
+    "The person you are calling is not available. Please leave a message after the beep."
+)
 RING_S = 4
 
 
@@ -255,9 +258,7 @@ class BusinessAgent(_Agent):
     def start(self) -> None:
         if "voicemail_greeting" in self.directives:
             self.emit(
-                self.p.greeting
-                if self.p.greeting != "Hello?"
-                else "The person you are calling is not available. Please leave a message after the beep.",
+                self.p.greeting if self.p.greeting != "Hello?" else _VOICEMAIL_GREETING,
                 Language.EN,
                 AudioClass.VOICEMAIL,
             )
@@ -449,8 +450,11 @@ class BusinessAgent(_Agent):
         if contains_any(low, P.KW_CONNECT):
             return parts  # "connecting the account holder now" - just wait
         if self.biz.is_customer_care:
-            if from_friday and self.heard_friday == 1 and contains_any(low, P.KW_HOSTILE_TRIGGER) and not (
-                contains_any(low, P.KW_COMPLAINT)
+            if (
+                from_friday
+                and self.heard_friday == 1
+                and contains_any(low, P.KW_HOSTILE_TRIGGER)
+                and not (contains_any(low, P.KW_COMPLAINT))
             ):
                 return parts + [("ok", {})]  # just the disclosure
             return parts + self._care(low, text, is_bye)
@@ -465,7 +469,7 @@ class BusinessAgent(_Agent):
             return parts
         if contains_any(low, P.KW_HOLD_REQ):
             hours = self.p.holds_room_hours
-            if self.biz.hotel is not None:
+            if self.biz.hotel is not None or hours:
                 parts.append(("room_hold", {"hours": hours}) if hours else ("room_no_hold", {}))
             else:
                 parts.append(("hold_ok", {}))

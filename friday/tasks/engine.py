@@ -673,6 +673,13 @@ class TaskEngine:
         return task
 
     async def _save(self, task: Task) -> Task:
+        """Persist non-status changes. Never resurrects a task that was cancelled /
+        resolved concurrently, and never rolls back a concurrent status change."""
+        current = await self.tasks.get(task.id)
+        if current is not None and current.status != task.status:
+            if current.status.is_terminal:
+                raise TaskAborted(task.id)
+            task.status = current.status
         task.updated_at = self.clock.now()
         return await self.tasks.save(task)
 
@@ -717,6 +724,8 @@ class TaskEngine:
                 return
         if task.target is None and not await self._business_target(task):
             return
+        if task.target.kind == TargetKind.BUSINESS and not task.target.business_id:
+            await self._attach_business(task)  # vendor memory for children / timed tasks
         if task.target.kind == TargetKind.BUSINESS and not await self._vet_number(task):
             return
         if needs_approval and not task.approved_terms:
@@ -899,6 +908,8 @@ class TaskEngine:
         biz = await call_opt(businesses, "get_by_phone", task.target.phone)
         if biz is not None and biz.verification == NumberVerdict.TRUSTED:
             return True
+        if biz is not None and biz.verification in (NumberVerdict.SCAM, NumberVerdict.SUSPICIOUS):
+            self._verified.pop(phone_key(task.target.phone), None)  # re-check, never trust cache
         check = await self._verify(
             task.target.phone, name=task.target.name, company=task.spec.company
         )
@@ -2287,7 +2298,7 @@ class TaskEngine:
             candidates=matched if action == "choose_task" else None,
         )
         plan = InboundPlan(action, task_ids=[t.id for t in matched], brief=brief, verified=verified)
-        await self._audit(primary, "inbound.call", action=action, verified=verified)
+        await self._audit(primary, "inbound.call", decision=action, verified=verified)
         leg = leg or self._take_leg(contact)
         if leg is not None and hasattr(self.runner, "run_inbound"):
             plan.result = await self._run_inbound(run_task, leg, brief, matched, action, context_line)
@@ -2303,6 +2314,7 @@ class TaskEngine:
         context_line: str,
     ) -> CallResult:
         task = await self.tasks.get(task.id) or task
+        prev_status, prev_next = task.status, task.next_attempt_at
         if task.status in (S.SCHEDULED, S.AWAITING_APPROVAL, S.PLANNING):
             new = S.CONFIRMATION_CALLBACK if task.approved_terms else S.CALLING
             task = await self._transition(task, new, next_attempt_at=None)
@@ -2325,8 +2337,11 @@ class TaskEngine:
             other = next((t for t in matched if t.id == chosen), None)
             other = await self.tasks.get(other.id) if other else None
             if other is not None and other.status in (S.SCHEDULED, S.AWAITING_APPROVAL):
-                # the caller meant another open request: put this one back, run that one
-                await self._transition(task, S.SCHEDULED, next_attempt_at=self.clock.now())
+                # the caller meant another open request: restore this one, run that one
+                back = prev_status if prev_status == S.AWAITING_APPROVAL else S.SCHEDULED
+                await self._transition(
+                    task, back, next_attempt_at=prev_next or self.clock.now()
+                )
                 other = await self._transition(
                     other, S.CONFIRMATION_CALLBACK if other.approved_terms else S.CALLING
                 )
@@ -2349,7 +2364,7 @@ class TaskEngine:
             return InboundPlan("logged")
         action, matched = await self._classify(tasks)
         primary = matched[0]
-        await self._audit(primary, "inbound.missed_call", action=action, verified=verified)
+        await self._audit(primary, "inbound.missed_call", decision=action, verified=verified)
         if not verified:  # E.34: never auto-call back an unverified number
             await self.outbox.to_user(
                 primary.requester_user_id,
@@ -2377,8 +2392,12 @@ class TaskEngine:
                     await self._save(primary)
                 self._spawn(primary.id, self._run(primary.id))
             return InboundPlan("callback_scheduled", task_ids=[t.id for t in matched], verified=True)
-        if action == "close_loop" and any(
-            role_of(ch) == ROLE_CLOSE_LOOP for ch in await self.tasks.list_children(primary.id)
+        if action == "close_loop" and (
+            role_of(primary) == ROLE_CLOSE_LOOP
+            or any(
+                role_of(ch) == ROLE_CLOSE_LOOP
+                for ch in await self.tasks.list_children(primary.id)
+            )
         ):  # once only
             await self._note_late_contact(primary, f"{name} called again after the loop was closed.")
             return InboundPlan("logged", task_ids=[primary.id], verified=True)
@@ -2409,7 +2428,7 @@ class TaskEngine:
         primary = matched[0]
         channel = getattr(getattr(msg, "channel", None), "value", "whatsapp")
         await self._audit(
-            primary, "inbound.message", action=action, verified=verified, channel=channel
+            primary, "inbound.message", decision=action, verified=verified, channel=channel
         )
         if not verified:
             return InboundPlan("logged", task_ids=[primary.id], verified=False)

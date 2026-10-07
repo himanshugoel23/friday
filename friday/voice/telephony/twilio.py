@@ -59,7 +59,13 @@ from friday.core.models import (
     new_id,
 )
 from friday.voice._http import VendorHTTP
-from friday.voice.audio import clip_to_pcm16, dtmf_pcm16, pcm16_to_ulaw, pcm16_to_wav, resample_pcm16
+from friday.voice.audio import (
+    clip_to_pcm16,
+    dtmf_pcm16,
+    pcm16_to_ulaw,
+    pcm16_to_wav,
+    resample_pcm16,
+)
 from friday.voice.callerid import CallerIdSelector, choose_from_number, number_pool
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
@@ -110,7 +116,9 @@ def validate_twilio_signature(
 def sign_twilio(auth_token: str, url: str, params: Mapping[str, Any]) -> str:
     """Compute the signature Twilio would send (tests, local tooling)."""
     payload = url + "".join(f"{k}{params[k]}" for k in sorted(params))
-    return base64.b64encode(hmac.new(auth_token.encode(), payload.encode(), hashlib.sha1).digest()).decode()
+    return base64.b64encode(
+        hmac.new(auth_token.encode(), payload.encode(), hashlib.sha1).digest()
+    ).decode()
 
 
 def _ws_url(base: str) -> str:
@@ -124,25 +132,38 @@ def _ws_url(base: str) -> str:
 def stream_twiml(ws_url: str, params: dict[str, str], *, pause_s: int = 0) -> str:
     p = "".join(f"<Parameter name={quoteattr(k)} value={quoteattr(v)}/>" for k, v in params.items())
     pause = f'<Pause length="{pause_s}"/>' if pause_s else ""
-    return f"<Response>{pause}<Connect><Stream url={quoteattr(ws_url)}>{p}</Stream></Connect></Response>"
+    stream = f"<Stream url={quoteattr(ws_url)}>{p}</Stream>"
+    return f"<Response>{pause}<Connect>{stream}</Connect></Response>"
 
 
-def conference_twiml(room: str, *, monitor_ws: str | None = None, monitor_params: dict[str, str] | None = None,
-                     say: str | None = None, end_on_exit: bool = False) -> str:
+def conference_twiml(
+    room: str,
+    *,
+    monitor_ws: str | None = None,
+    monitor_params: dict[str, str] | None = None,
+    say: str | None = None,
+    end_on_exit: bool = False,
+) -> str:
     start = ""
     if monitor_ws:
-        p = "".join(f"<Parameter name={quoteattr(k)} value={quoteattr(v)}/>" for k, v in (monitor_params or {}).items())
-        start = f'<Start><Stream url={quoteattr(monitor_ws)} track="inbound_track">{p}</Stream></Start>'
+        p = "".join(
+            f"<Parameter name={quoteattr(k)} value={quoteattr(v)}/>"
+            for k, v in (monitor_params or {}).items()
+        )
+        start = (
+            f'<Start><Stream url={quoteattr(monitor_ws)} track="inbound_track">{p}</Stream></Start>'
+        )
     whisper = f'<Say voice="Polly.Kajal-Neural" language="en-IN">{escape(say)}</Say>' if say else ""
     end = "true" if end_on_exit else "false"
     return (
-        f"<Response>{start}{whisper}<Dial><Conference beep=\"false\" startConferenceOnEnter=\"true\" "
-        f"endConferenceOnExit=\"{end}\">{escape(room)}</Conference></Dial></Response>"
+        f'<Response>{start}{whisper}<Dial><Conference beep="false" startConferenceOnEnter="true" '
+        f'endConferenceOnExit="{end}">{escape(room)}</Conference></Dial></Response>'
     )
 
 
 def say_hangup_twiml(text: str) -> str:
-    return f'<Response><Say voice="Polly.Kajal-Neural" language="en-IN">{escape(text)}</Say><Hangup/></Response>'
+    say = f'<Say voice="Polly.Kajal-Neural" language="en-IN">{escape(text)}</Say>'
+    return f"<Response>{say}<Hangup/></Response>"
 
 
 # =============================================================================== leg
@@ -204,7 +225,9 @@ class TwilioCallLeg:
             self._status_event.set()
         elif status in _FINAL:
             if self.status is None:
-                self.status = _DIAL.get(status, DialStatus.NO_ANSWER if status == "completed" else DialStatus.FAILED)
+                self.status = _DIAL.get(
+                    status, DialStatus.NO_ANSWER if status == "completed" else DialStatus.FAILED
+                )
             self._end()
             self._status_event.set()
 
@@ -267,12 +290,18 @@ class TwilioCallLeg:
                 self._utterances.put_nowait(t)
 
     async def _transcribe(self, seg: Segment) -> Transcription | None:
-        clip = AudioClip(data=pcm16_to_wav(seg.pcm16, seg.sample_rate), mime="audio/wav", sample_rate=seg.sample_rate)
+        clip = AudioClip(
+            data=pcm16_to_wav(seg.pcm16, seg.sample_rate),
+            mime="audio/wav",
+            sample_rate=seg.sample_rate,
+        )
         t0 = time.perf_counter()
         if seg.forced_cut:  # continuous audio: classify first, skip STT for music
             cls = await self.tel.classifier.classify(clip)
             if cls.audio_class == AudioClass.HOLD_MUSIC:
-                return _SegTranscription(text="", audio_class=AudioClass.HOLD_MUSIC, duration_s=seg.duration_s)
+                return _SegTranscription(
+                    text="", audio_class=AudioClass.HOLD_MUSIC, duration_s=seg.duration_s
+                )
         stt = await self.tel.stt.transcribe(clip, language_hint=self.language)
         self.last_stt_ms = (time.perf_counter() - t0) * 1000
         combine = getattr(self.tel.classifier, "combine", None)
@@ -283,8 +312,11 @@ class TwilioCallLeg:
         if not stt.text and cls.audio_class in (AudioClass.SILENCE, AudioClass.UNKNOWN):
             return None
         return _SegTranscription(
-            text=stt.text, language=stt.language, confidence=stt.confidence,
-            audio_class=cls.audio_class, duration_s=seg.duration_s,
+            text=stt.text,
+            language=stt.language,
+            confidence=stt.confidence,
+            audio_class=cls.audio_class,
+            duration_s=seg.duration_s,
         )
 
     # ------------------------------------------------------------------ CallLeg
@@ -329,11 +361,17 @@ class TwilioCallLeg:
         assert self._send is not None
         for i in range(0, len(ulaw), FRAME_BYTES):
             payload = base64.b64encode(ulaw[i : i + FRAME_BYTES]).decode()
-            await self._send(json.dumps({"event": "media", "streamSid": self.stream_sid, "media": {"payload": payload}}))
+            await self._send(
+                json.dumps(
+                    {"event": "media", "streamSid": self.stream_sid, "media": {"payload": payload}}
+                )
+            )
         name = f"m{new_id()[:10]}"
         ev = asyncio.Event()
         self._marks[name] = ev
-        await self._send(json.dumps({"event": "mark", "streamSid": self.stream_sid, "mark": {"name": name}}))
+        await self._send(
+            json.dumps({"event": "mark", "streamSid": self.stream_sid, "mark": {"name": name}})
+        )
         try:
             await asyncio.wait_for(ev.wait(), timeout=len(ulaw) / 8000 + 5)
         except TimeoutError:
@@ -370,18 +408,33 @@ class TwilioCallLeg:
         self._send = None
         await self.tel.update_call(
             self.provider_call_id,
-            conference_twiml(room, monitor_ws=ws, monitor_params={"key": self.key, "role": "monitor"}),
+            conference_twiml(
+                room, monitor_ws=ws, monitor_params={"key": self.key, "role": "monitor"}
+            ),
         )
         # 2) dial the user into the same room (whisper first, US-26.2)
         user_key = new_id()
-        user = TwilioCallLeg(self.tel, key=user_key, to_phone=phone, from_number=self.from_number, listen_only=True)
+        user = TwilioCallLeg(
+            self.tel, key=user_key, to_phone=phone, from_number=self.from_number, listen_only=True
+        )
         self.tel.legs[user_key] = user
         self.children.append(user)
         twiml = conference_twiml(
-            room, monitor_ws=ws, monitor_params={"key": user_key, "role": "monitor"}, say=announce, end_on_exit=True
+            room,
+            monitor_ws=ws,
+            monitor_params={"key": user_key, "role": "monitor"},
+            say=announce,
+            end_on_exit=True,
         )
-        sid = await self.tel.create_call(to=phone, from_=self.from_number, twiml=twiml, key=user_key,
-                                         timeout=25, record=False, amd=False)
+        sid = await self.tel.create_call(
+            to=phone,
+            from_=self.from_number,
+            twiml=twiml,
+            key=user_key,
+            ring_s=25,
+            record=False,
+            amd=False,
+        )
         user.provider_call_id = sid
         self.tel.by_sid[sid] = user
         return user
@@ -463,8 +516,12 @@ class TwilioTelephony:
         self.by_sid: dict[str, TwilioCallLeg] = {}
         self.inbound_legs: dict[str, TwilioCallLeg] = {}
         auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
-        self._http = VendorHTTP("twilio", base_url=TWILIO_API, headers={"Authorization": f"Basic {auth}"},
-                                transport=transport)
+        self._http = VendorHTTP(
+            "twilio",
+            base_url=TWILIO_API,
+            headers={"Authorization": f"Basic {auth}"},
+            transport=transport,
+        )
 
     # ------------------------------------------------------------------ urls
     @property
@@ -475,56 +532,94 @@ class TwilioTelephony:
         return f"{self.public_base_url}/voice/twilio/{path}?key={key}"
 
     # ------------------------------------------------------------------ REST
-    async def create_call(self, *, to: str, from_: str | None, twiml: str, key: str, timeout: int = 30,
-                          record: bool = True, amd: bool = True) -> str:
+    async def create_call(
+        self,
+        *,
+        to: str,
+        from_: str | None,
+        twiml: str,
+        key: str,
+        ring_s: int = 30,
+        record: bool = True,
+        amd: bool = True,
+    ) -> str:
         if not from_:
             raise ProviderError("twilio", "no Friday caller ID configured (TWILIO_FROM_NUMBER)")
         data: list[tuple[str, str]] = [
-            ("To", to), ("From", from_), ("Twiml", twiml), ("Timeout", str(timeout)),
-            ("StatusCallback", self._cb("status", key)), ("StatusCallbackMethod", "POST"),
+            ("To", to),
+            ("From", from_),
+            ("Twiml", twiml),
+            ("Timeout", str(ring_s)),
+            ("StatusCallback", self._cb("status", key)),
+            ("StatusCallbackMethod", "POST"),
         ]
-        data += [("StatusCallbackEvent", e) for e in ("initiated", "ringing", "answered", "completed")]
+        data += [
+            ("StatusCallbackEvent", e) for e in ("initiated", "ringing", "answered", "completed")
+        ]
         if record:
-            data += [("Record", "true"), ("RecordingStatusCallback", self._cb("recording", key)),
-                     ("RecordingStatusCallbackMethod", "POST")]
+            data += [
+                ("Record", "true"),
+                ("RecordingStatusCallback", self._cb("recording", key)),
+                ("RecordingStatusCallbackMethod", "POST"),
+            ]
         if amd:
             data += [("MachineDetection", "Enable")]
         resp = await self._http.request(
-            "POST", f"/2010-04-01/Accounts/{self.account_sid}/Calls.json",
-            content=urlencode(data), headers=_FORM,
+            "POST",
+            f"/2010-04-01/Accounts/{self.account_sid}/Calls.json",
+            content=urlencode(data),
+            headers=_FORM,
         )
         sid = resp.json().get("sid")
         if not sid:
             raise ProviderError("twilio", "no call sid in response")
         return sid
 
-    async def update_call(self, sid: str, twiml: str | None = None, *, status: str | None = None) -> None:
+    async def update_call(
+        self, sid: str, twiml: str | None = None, *, status: str | None = None
+    ) -> None:
         data: dict[str, str] = {}
         if twiml:
             data["Twiml"] = twiml
         if status:
             data["Status"] = status
         await self._http.request(
-            "POST", f"/2010-04-01/Accounts/{self.account_sid}/Calls/{sid}.json",
-            content=urlencode(data), headers=_FORM,
+            "POST",
+            f"/2010-04-01/Accounts/{self.account_sid}/Calls/{sid}.json",
+            content=urlencode(data),
+            headers=_FORM,
         )
 
     # ------------------------------------------------------------------ TelephonyProvider
     async def place_call(self, request: OutboundCallRequest) -> TwilioCallLeg:
         from_number = choose_from_number(request, self.friday_numbers, self.caller_id_selector)
         key = new_id()
-        leg = TwilioCallLeg(self, key=key, to_phone=request.to_phone, from_number=from_number,
-                            language=request.language)
+        leg = TwilioCallLeg(
+            self,
+            key=key,
+            to_phone=request.to_phone,
+            from_number=from_number,
+            language=request.language,
+        )
         self.legs[key] = leg
         twiml = stream_twiml(self.media_ws_url, {"key": key, "direction": "outbound"})
         sid = await self.create_call(
-            to=request.to_phone, from_=from_number, twiml=twiml, key=key,
-            timeout=request.ring_timeout_s, record=request.record and self.record,
+            to=request.to_phone,
+            from_=from_number,
+            twiml=twiml,
+            key=key,
+            ring_s=request.ring_timeout_s,
+            record=request.record and self.record,
             amd=request.metadata.get("role") != "user",
         )
         leg.provider_call_id = sid
         self.by_sid[sid] = leg
-        log.info("twilio call %s -> %s from %s", sid, mask_phone(request.to_phone), mask_phone(from_number))
+        log.info(
+            "twilio call %s -> %s from %s",
+            sid,
+            mask_phone(request.to_phone),
+            mask_phone(from_number),
+        )
         return leg
 
     def take_inbound(self, provider_call_id: str) -> TwilioCallLeg | None:
@@ -548,12 +643,18 @@ class TwilioTelephony:
         leg.on_status(params)
         if leg.inbound and params.get("CallStatus") in _FINAL and not was_streaming:
             self.inbound_legs.pop(leg.provider_call_id or "", None)
-            await self._publish(MissedCallReceived(
-                provider=self.name, provider_call_id=params.get("CallSid"),
-                from_phone=params.get("From", leg.to_phone), to_number=params.get("To"),
-                ring_seconds=float(params.get("CallDuration") or 0),
-                reason="no_answer" if params.get("CallStatus") == "no-answer" else "caller_hung_up",
-            ))
+            await self._publish(
+                MissedCallReceived(
+                    provider=self.name,
+                    provider_call_id=params.get("CallSid"),
+                    from_phone=params.get("From", leg.to_phone),
+                    to_number=params.get("To"),
+                    ring_seconds=float(params.get("CallDuration") or 0),
+                    reason="no_answer"
+                    if params.get("CallStatus") == "no-answer"
+                    else "caller_hung_up",
+                )
+            )
 
     async def handle_recording(self, params: Mapping[str, str], key: str | None = None) -> None:
         leg = self._leg_for(params, key)
@@ -565,8 +666,13 @@ class TwilioTelephony:
         """Answer an inbound call on a Friday number: connect the media stream."""
         sid = params.get("CallSid", new_id())
         key = new_id()
-        leg = TwilioCallLeg(self, key=key, to_phone=params.get("From", "anonymous"),
-                            from_number=params.get("To"), inbound=True)
+        leg = TwilioCallLeg(
+            self,
+            key=key,
+            to_phone=params.get("From", "anonymous"),
+            from_number=params.get("To"),
+            inbound=True,
+        )
         leg.provider_call_id = sid
         self.legs[key] = leg
         self.by_sid[sid] = leg
@@ -591,10 +697,14 @@ class TwilioTelephony:
             if leg.inbound and not leg.claimed and leg.provider_call_id:
                 self.inbound_legs[leg.provider_call_id] = leg
                 asyncio.ensure_future(self._claim_guard(leg))
-                await self._publish(InboundCallReceived(
-                    provider=self.name, provider_call_id=leg.provider_call_id,
-                    from_phone=leg.to_phone, to_number=leg.from_number,
-                ))
+                await self._publish(
+                    InboundCallReceived(
+                        provider=self.name,
+                        provider_call_id=leg.provider_call_id,
+                        from_phone=leg.to_phone,
+                        to_number=leg.from_number,
+                    )
+                )
             return
         leg = state.get("leg")
         if leg is None:
@@ -610,7 +720,9 @@ class TwilioTelephony:
         await asyncio.sleep(self.inbound_claim_timeout_s)
         if not leg.claimed and not leg.ended:
             self.inbound_legs.pop(leg.provider_call_id or "", None)
-            log.info("unclaimed inbound call from %s: playing fixed message", mask_phone(leg.to_phone))
+            log.info(
+                "unclaimed inbound call from %s: playing fixed message", mask_phone(leg.to_phone)
+            )
             try:
                 await leg.play_fixed_message_and_hangup()
             except ProviderError as e:
