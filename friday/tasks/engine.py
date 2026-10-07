@@ -120,7 +120,11 @@ BOOKING_TYPES = {
     TaskType.HOTEL_BOOKING,
     TaskType.RESCHEDULE,
 }
-DECLINE_WORDS = re.compile(r"^\s*(none|neither|no|nahi|nahin|cancel|don'?t)\b", re.I)
+# a pure decline ("None", "neither", "nahi"); "neither, ask for Sunday" is a new choice
+DECLINE_WORDS = re.compile(
+    r"^\s*(none( of (these|them))?|neither|no( thanks)?|nahi+n?|cancel|don'?t book( it)?)[\s.!]*$",
+    re.I,
+)
 
 
 def role_of(task: Task) -> str | None:

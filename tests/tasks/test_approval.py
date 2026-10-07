@@ -142,7 +142,7 @@ async def test_mid_call_question_timeout(env):
     seen = {}
 
     async def asks(brief, ask_user, notify):
-        q = MidCallQuestion(task_id=brief.task_id, text="?", options=["a"], timeout_s=0.01)
+        q = MidCallQuestion(task_id=brief.task_id, text="?", options=["a"], timeout_s=0)
         seen["answer"] = await ask_user(q)
         await notify("still holding")
         return result(brief, CallOutcome.USER_TIMEOUT)
