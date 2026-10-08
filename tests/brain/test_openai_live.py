@@ -85,7 +85,9 @@ def _turn_cases():
     q = business_brief(task_type=TaskType.BOOKING)
     care = care_brief()
     otp_user = care_brief(user_phone="+919800000001")
-    approved = business_brief(approved_terms="Sat 12:30 PM, ₹600")
+    approved = business_brief(
+        approved_terms="Sat 12:30 PM, ₹600",
+        goal="Call back Looks Salon and confirm what the user approved: Sat 12:30 PM, ₹600")
     quote = business_brief(task_type=TaskType.QUOTE, goal="Quote for split AC service")
     return [
         ("negotiation", quote, [("callee", "Service ka 699 lagega.")],

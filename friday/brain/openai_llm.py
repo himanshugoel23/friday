@@ -69,8 +69,9 @@ _NOTES_FORMAT = (
     "apply. Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
 )
 _NOTES_CALL_TURN = (
-    "When the last callee turn carries a `language` tag, set your `language` to that tag and "
-    "write `text` in it (hi = Hindi, en = English; hinglish only for a Roman-script mix).\n"
+    "Language mirroring: if the last callee turn carries a `language` tag, your `language` MUST "
+    "equal that tag and `text` must be in it (tag hi -> Hindi in Devanagari, en -> English, "
+    "hinglish -> Roman-script Hindi-English mix).\n"
     "type=ask_user pauses the call to ask YOUR USER something. To ask the business a question "
     "(price, inclusions, slots) use type=say.\n"
 )
