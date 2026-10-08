@@ -123,11 +123,6 @@ def test_twilio_signature_validation() -> None:
     assert not tw.validate_twilio_signature("token", url, params, sig[:-2] + "==")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-18: Twilio Media Streams WebSocket is unauthenticated and attaches a "
-    "stream to a live call by callSid alone (no per-call secret)",
-)
 async def test_media_stream_needs_per_call_secret() -> None:
     tw = _twilio()
     from friday.voice.stt.fake import FakeSTT
@@ -175,3 +170,55 @@ async def test_inbound_flood_is_throttled(repos, clock, pipeline, fake_brain) ->
             )
         )
     assert len(fake_brain.seen) <= 30
+
+
+def test_recordings_route_absent_in_live(settings) -> None:
+    """SECURITY-19: /recordings and /sim/* exist only with the simulator telephony."""
+    http = pytest.importorskip("friday.voice.http")
+    from friday.core.container import Container
+
+    def paths(cfg) -> set[str]:
+        return {getattr(r, "path", "") for r in http.build_router(Container(cfg)).routes}
+
+    assert "/recordings/{name}" in paths(settings)
+    live = settings.model_copy(update={"mode": "live"})
+    p = paths(live)
+    assert "/recordings/{name}" not in p
+    assert not any(x.startswith("/sim") for x in p)
+
+
+async def test_media_stream_rejects_wrong_token_and_second_start() -> None:
+    tw = _twilio()
+    from friday.voice.stt.fake import FakeSTT
+
+    tel = tw.TwilioTelephony(
+        account_sid="AC1",
+        auth_token="t",
+        from_number="+918000000000",
+        public_base_url="https://friday.example.in",
+        stt=FakeSTT(),
+        tts=None,
+    )  # type: ignore[arg-type]
+    leg = tw.TwilioCallLeg(tel, key="k-1", to_phone="+918040001", from_number="+918000000000")
+    tel.legs[leg.key] = leg
+
+    async def send(_t: str) -> None:
+        return None
+
+    def start(token: str) -> dict:
+        return {
+            "event": "start",
+            "streamSid": "MZ1",
+            "start": {"callSid": "CA1", "customParameters": {"key": leg.key, "token": token}},
+        }
+
+    bad: dict = {}
+    await tel.handle_stream_message(start("0" * 64), send, bad)
+    assert "leg" not in bad
+    good: dict = {}
+    await tel.handle_stream_message(start(tel.stream_token(leg.key)), send, good)
+    assert good["leg"] is leg
+    again: dict = {}
+    await tel.handle_stream_message(start(tel.stream_token(leg.key)), send, again)
+    assert "leg" not in again  # a second start for an attached leg is refused
+    leg.on_stream_stop()

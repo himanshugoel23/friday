@@ -8,9 +8,12 @@ The runner puts what a call needs in ``OutboundCallRequest.metadata["needs"]``
 provider (in priority order) whose ``capabilities()`` cover the needs; providers
 without ``capabilities()`` use the table below.
 
-Live mode with ``telephony_provider=auto`` (or ``routed``) builds this from
-``Settings.telephony_route`` (default sarvam,exotel,twilio); providers whose credentials
-are missing are skipped.
+FOUNDER DECISION (2026-10-08): live calling uses SARVAM ONLY for now. Exotel and Twilio
+stay in the repo but are OFF by default and NOT part of the default route:
+  * ``telephony_provider=auto`` (the live default) -> Sarvam only;
+  * ``telephony_provider=exotel|twilio`` -> that provider alone (explicit opt-in);
+  * ``telephony_provider=routed`` -> every provider in ``Settings.telephony_route`` that
+    has credentials (explicit opt-in to multi-provider routing, Twilio = international).
 """
 
 from __future__ import annotations
@@ -145,6 +148,13 @@ class RoutedTelephony:
                 await closer()
 
 
+def default_route(settings: Any) -> list[str]:
+    """Sarvam only unless routing was explicitly enabled (see module docstring)."""
+    if getattr(settings, "telephony_provider", "auto") == "routed":
+        return list(settings.telephony_route or ["sarvam"])
+    return ["sarvam"]
+
+
 def build_routed_telephony(c: Container, order: list[str] | None = None) -> RoutedTelephony:
     from friday.voice.telephony.exotel import build_exotel
     from friday.voice.telephony.sarvam import build_sarvam_telephony
@@ -156,7 +166,7 @@ def build_routed_telephony(c: Container, order: list[str] | None = None) -> Rout
         "twilio": build_twilio,
     }
     built: dict[str, Any] = {}
-    for name in order or c.settings.telephony_route or ["sarvam", "exotel", "twilio"]:
+    for name in order or default_route(c.settings):
         if name not in builders:
             continue
         try:

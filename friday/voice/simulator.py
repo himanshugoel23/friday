@@ -1197,6 +1197,9 @@ class SimulatedTelephony:
 
     async def delete_recording(self, url: str) -> None:
         """SECURITY-14: erase a simulator recording (only inside <media_dir>/recordings)."""
+        await asyncio.to_thread(self._delete_recording_sync, url)
+
+    def _delete_recording_sync(self, url: str) -> None:
         from urllib.parse import unquote, urlparse
 
         u = urlparse(url)

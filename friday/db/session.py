@@ -10,6 +10,7 @@ Owner: EM scaffold -> Backend Engineer after hand-off.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,8 +27,33 @@ from sqlalchemy.pool import StaticPool
 from friday.db.base import Base
 
 
+def async_url(url: str) -> str:
+    """Accept plain ``postgresql://`` / ``postgres://`` and select the asyncpg driver."""
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            return "postgresql+asyncpg://" + url[len(prefix) :]
+    return url
+
+
 class Database:
-    def __init__(self, url: str, *, echo: bool = False) -> None:
+    """Engine + session factory.
+
+    Postgres (S-5): pooled (``db_pool_size`` / ``db_max_overflow`` / ``db_pool_timeout_s``
+    from Settings unless passed), ``pool_pre_ping`` for failovers, and **PgBouncer
+    transaction-pooling safe**: no prepared-statement cache and unique statement names,
+    and nothing in this codebase relies on session state (advisory locks are the
+    transaction-scoped ``pg_advisory_xact_lock`` variants)."""
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        echo: bool = False,
+        pool_size: int | None = None,
+        max_overflow: int | None = None,
+        pool_timeout_s: float | None = None,
+    ) -> None:
+        url = async_url(url)
         self.url = url
         kwargs: dict = {"echo": echo}
         is_sqlite = url.startswith("sqlite")
@@ -36,6 +62,21 @@ class Database:
             kwargs |= {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
         elif is_sqlite:
             _ensure_sqlite_dir(url)
+        elif url.startswith("postgresql"):
+            from friday.core.config import Settings
+
+            cfg = Settings()
+            kwargs |= {
+                "pool_size": cfg.db_pool_size if pool_size is None else pool_size,
+                "max_overflow": cfg.db_max_overflow if max_overflow is None else max_overflow,
+                "pool_timeout": cfg.db_pool_timeout_s if pool_timeout_s is None else pool_timeout_s,
+                "pool_pre_ping": True,
+                "connect_args": {
+                    "statement_cache_size": 0,
+                    "prepared_statement_cache_size": 0,
+                    "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
+                },
+            }
         self.engine: AsyncEngine = create_async_engine(url, **kwargs)
         if is_sqlite:
             event.listen(self.engine.sync_engine, "connect", _sqlite_pragmas)

@@ -67,6 +67,15 @@ def build_router(c: Container) -> APIRouter:
         finder = getattr(tel, "find", None)
         return finder(cls) if callable(finder) else None
 
+    async def pinned_elsewhere(tel: Any, ws: WebSocket) -> bool:
+        """S-9: the media socket must land on the worker that owns the call (``w=<id>``)."""
+        want = ws.query_params.get("w")
+        mine = getattr(tel, "worker_id", None)
+        if want and mine and want != mine:
+            await ws.close(code=1013)  # try again later: the LB should route by ``w``
+            return True
+        return False
+
     def twilio() -> TwilioTelephony:
         tel = find(TwilioTelephony)
         if tel is None:
@@ -109,6 +118,8 @@ def build_router(c: Container) -> APIRouter:
     @router.websocket("/twilio/media")
     async def twilio_media(ws: WebSocket) -> None:
         tel = twilio()
+        if await pinned_elsewhere(tel, ws):
+            return
         # SECURITY-18: Twilio signs the WebSocket handshake too; refuse before accept().
         # (Per-call key + token in the start message is the second, stronger check.)
         # TODO(twilio-docs: "Media Streams - Validate Twilio signature on WebSocket"): the
@@ -175,6 +186,8 @@ def build_router(c: Container) -> APIRouter:
     @router.websocket("/exotel/media")
     async def exotel_media(ws: WebSocket) -> None:
         tel = exotel()
+        if await pinned_elsewhere(tel, ws):
+            return
         if not validate_exotel_token(tel.secret, "exotel", ws.query_params.get("token")):
             await ws.close(code=1008)
             return
@@ -253,6 +266,8 @@ def build_router(c: Container) -> APIRouter:
     @router.websocket("/sarvam/media")
     async def sarvam_media(ws: WebSocket) -> None:
         tel = sarvam()
+        if await pinned_elsewhere(tel, ws):
+            return
 
         key = ws.query_params.get("key") or ""
         if not key or not hmac.compare_digest(

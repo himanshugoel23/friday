@@ -125,7 +125,7 @@ async def start_stream(tel, leg, sent, state, role=None):
         if msg["event"] == "mark":  # Twilio echoes marks when playback finishes
             await tel.handle_stream_message({"event": "mark", "mark": msg["mark"]}, send, state)
 
-    params = {"key": leg.key}
+    params = tel.stream_params(leg.key)
     if role:
         params["role"] = role
     await tel.handle_stream_message(
@@ -364,14 +364,23 @@ def test_router_media_websocket_start_and_stop(tel):
     tel.inbound_twiml({"CallSid": "CAws", "From": "+918040000001", "To": "+918069110001"})
     leg = tel.by_sid["CAws"]
     leg.claimed = True  # don't start the claim guard
-    with client.websocket_connect("/voice/twilio/media") as ws:
+    sig = sign_twilio(TOKEN, tel.media_ws_url, {})
+    from starlette.websockets import WebSocketDisconnect
+
+    # SECURITY-18: an unsigned upgrade is refused before accept()
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect("/voice/twilio/media") as bad:
+        bad.receive_text()
+    with client.websocket_connect("/voice/twilio/media", headers={"X-Twilio-Signature": sig}) as ws:
         ws.send_text(json.dumps({"event": "connected"}))
         ws.send_text(
             json.dumps(
                 {
                     "event": "start",
                     "streamSid": "MZws",
-                    "start": {"callSid": "CAws", "customParameters": {"key": leg.key}},
+                    "start": {
+                        "callSid": "CAws",
+                        "customParameters": tel.stream_params(leg.key),
+                    },
                 }
             )
         )

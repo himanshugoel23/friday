@@ -99,11 +99,6 @@ async def test_flagged_commit_without_approval_never_spoken(runner_parts) -> Non
     assert result.outcome != CallOutcome.SUCCESS
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-4: runner accepts HANGUP outcome=SUCCESS for a booking with no approval "
-    "and no commits_booking turn (hallucinated confirmation)",
-)
 async def test_runner_downgrades_unapproved_success(runner_parts) -> None:
     _sim, make = runner_parts
     policy = HostilePolicy(
@@ -116,3 +111,70 @@ async def test_runner_downgrades_unapproved_success(runner_parts) -> None:
     )
     result = await make(policy).run(booking_brief(), _no_user)
     assert result.outcome != CallOutcome.SUCCESS
+
+
+async def test_commit_outside_delegation_window_blocked(runner_parts) -> None:
+    """SECURITY-27: a delegation with a time window needs a slot inside it; an unknown or
+    outside slot goes the call-back way, whatever price the model quotes."""
+    from datetime import UTC, datetime, timedelta
+
+    from friday.core.models import Delegation, Quote
+
+    sim, make = runner_parts
+    start = datetime(2026, 1, 6, 17, 0, tzinfo=UTC)
+    deleg = Delegation(
+        granted=True, window_start=start, window_end=start + timedelta(hours=2), max_price_inr=800
+    )
+    quote = Quote(business_name="Looks", amount_inr=500, price_text="Rs 500")
+    outside = _say(
+        "Please confirm the 9pm slot.",
+        commits_booking=True,
+        quote=quote,
+        collected={"slot_at": (start + timedelta(hours=5)).isoformat()},
+    )
+    unknown = _say("Please confirm the slot.", commits_booking=True, quote=quote)
+    policy = HostilePolicy([outside, unknown, unknown])
+    result = await make(policy).run(booking_brief(delegation=deleg), _no_user)
+    spoken = [t for t, _ in sim.legs[-1].spoken]
+    assert "Please confirm the 9pm slot." not in spoken
+    assert "Please confirm the slot." not in spoken
+    assert result.outcome != CallOutcome.SUCCESS
+
+    inside = _say(
+        "Please confirm the 5:30pm slot.",
+        commits_booking=True,
+        quote=quote,
+        collected={"slot_at": (start + timedelta(minutes=30)).isoformat()},
+    )
+    done = CallAction(type=CallActionType.HANGUP, text="Thank you.", outcome=CallOutcome.SUCCESS)
+    result = await make(HostilePolicy([inside, done])).run(
+        booking_brief(delegation=deleg), _no_user
+    )
+    assert "Please confirm the 5:30pm slot." in [t for t, _ in sim.legs[-1].spoken]
+    assert result.outcome == CallOutcome.SUCCESS and result.collected.get("committed") == "true"
+
+
+async def test_model_cannot_forge_committed_flag(runner_parts) -> None:
+    _sim, make = runner_parts
+    forged = CallAction(
+        type=CallActionType.HANGUP,
+        text="Thank you, bye.",
+        outcome=CallOutcome.SUCCESS,
+        collected={"committed": "true"},
+    )
+    result = await make(HostilePolicy([forged])).run(booking_brief(), _no_user)
+    assert result.outcome != CallOutcome.SUCCESS
+    assert "committed" not in result.collected
+
+
+async def test_dtmf_chunks_are_concatenated_per_prompt(runner_parts) -> None:
+    """SECURITY-24 in the runner: a PIN keyed as 2+2 digits inside one IVR prompt."""
+    sim, make = runner_parts
+    chunks = [
+        CallAction(type=CallActionType.PRESS_KEYS, digits="48"),
+        CallAction(type=CallActionType.PRESS_KEYS, digits="21"),
+    ]
+    result = await make(HostilePolicy(chunks)).run(booking_brief(), _no_user)
+    assert sim.legs[-1].dtmf == ["48"] and any(
+        t.text.startswith("BLOCKED") for t in result.transcript.turns if t.speaker == Speaker.SYSTEM
+    )

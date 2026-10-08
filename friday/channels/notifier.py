@@ -31,7 +31,6 @@ from friday.core.clock import Clock
 from friday.core.config import Settings
 from friday.core.events import EventBus, MessageSent
 from friday.core.interfaces import MessagingChannel, SMSProvider
-from friday.core.scale import Outbox, OutboxEntry
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
     Business,
@@ -48,6 +47,7 @@ from friday.core.models import (
     new_id,
     question_button_id,
 )
+from friday.core.scale import Outbox, OutboxEntry
 
 if TYPE_CHECKING:
     from friday.core.container import Container

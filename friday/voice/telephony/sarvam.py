@@ -1,40 +1,59 @@
-"""Sarvam telephony - PRIMARY for India (founder update 2026-10-07), Exotel = fallback,
-Twilio = international.
+"""Sarvam telephony - THE live provider (founder decision 2026-10-08: Sarvam only for
+now; Exotel / Twilio code stays in the repo but is disabled by default and not in the
+default route - see telephony/routing.py).
 
 Integration mode: (a) RAW MEDIA STREAMING. A Sarvam-rented number or a BYO carrier
-(Vobiz) streams call audio over a WebSocket to ``/voice/sarvam/media``; our
+(Vobiz) streams call audio over a WebSocket to ``/voice/sarvam/media``; OUR
 CallSessionRunner + CallPolicy decide EVERY turn, ``friday.core.safety`` checks every
-utterance / key press, and Sarvam is used for STT (Saarika) and TTS (Bulbul) through
-``c.stt`` / ``c.tts``. Sarvam's hosted Conversations agent is NOT used to decide what
-Friday says.
+utterance / key press / commitment, and Sarvam is used for STT (Saarika) and TTS (Bulbul)
+through ``c.stt`` / ``c.tts``. Sarvam's hosted Conversations agent never decides what
+Friday says. Mode (b) (Sarvam custom-LLM / per-turn webhook) is NOT implemented: it
+inverts control of the turn loop and is only worth building if media streaming turns
+out to be unavailable on our number type (open question 1 in docs/SARVAM_QUESTIONS.md).
 
 Wire protocol: Vobiz exposes a Plivo-compatible Voice API + XML (<Stream
-bidirectional="true">) - implemented here. Mode (b) (Sarvam custom-LLM / per-turn
-webhook) is NOT implemented: it inverts control of the turn loop and is only needed if
-media streaming is unavailable on the chosen number.
-  TODO(docs.sarvam.ai/conversations/deploy/telephony/vobiz): confirm Vobiz API base
-       URL, auth headers, XML <Stream> attributes and WS event names used below.
+bidirectional="true">), implemented here.
+  TODO(docs.sarvam.ai/conversations/deploy/telephony/vobiz): confirm API base URL, auth,
+       XML <Stream> attributes, WS event names, hangup causes, Record / DTMF / Transfer.
   TODO(docs.sarvam.ai/conversations/deploy/deploy-with-code): confirm whether a
-       Sarvam-rented number can stream raw audio to a custom WS (else use Vobiz BYO).
+       Sarvam-rented number can stream raw audio to a custom WS (else BYO via Vobiz).
 
-Capability matrix (``capabilities()``; the RoutedTelephony falls back to Exotel per call
-when a brief needs something missing here):
+CAPABILITY MATRIX (S = supported, D = degraded, U = unsupported, ? = unverified API)
+Because there is no fallback provider, anything D/U/? has a defined graceful path; the
+runner reads ``capabilities()`` per call and never pretends.
 
-  capability          | Sarvam/Vobiz (this) | Exotel            | Twilio
-  --------------------|---------------------|-------------------|------------------
-  outbound            | yes (Call API)      | yes               | yes
-  inbound + missed    | yes (answer/hangup) | yes (passthru)    | yes
-  media_stream        | yes (bidir WS)      | yes (Voicebot)    | yes (Media Streams)
-  dtmf                | yes (REST DTMF)     | in-band tones     | in-band tones
-  recording           | yes (REST Record)   | yes (callback)    | yes (callback)
-  amd (voicemail)     | yes (machine_det.)  | no (classifier)   | yes
-  bridge_transfer     | yes (transfer XML)  | yes (connect 2)   | yes
-  bridge_conference   | no  (TODO)          | no                | yes (monitoring)
-  custom_llm_turns    | no  (mode b: gap)   | -                 | -
+  capability                 | status | what we do / degrade to
+  ---------------------------|--------|-------------------------------------------------
+  brain decides every turn   | S (?)  | mode (a): we terminate the audio stream. Transport
+                             |        | details unverified (WS events); safety + commit
+                             |        | gates run in OUR runner whatever the transport.
+  DTMF for IVR               | D (?)  | REST DTMF first; on any error in-band tones over
+                             |        | the same stream. If neither works the IVR task
+                             |        | declines BEFORE dialling (NEEDS_USER_VERIFICATION,
+                             |        | collected["unsupported_capability"]="dtmf").
+  inbound call-backs         | S (?)  | answer_url -> <Stream>; InboundCallReceived.
+  missed calls               | S (?)  | hangup_url without a stream -> MissedCallReceived.
+  inbound on retired numbers | S      | any dialled number is accepted and reported.
+  many numbers + per-call    | S (?)  | ``from`` per call from request.from_number (the
+  caller ID (number pool)    |        | NumberPool choice); BYO carrier numbers. Rented
+                             |        | numbers may be limited (question 4).
+  recording                  | D (?)  | REST Record; a failure leaves recording_url=None
+                             |        | (the call still succeeds; no local audio kept).
+  amd / voicemail            | S (?)  | machine_detection callback + our classifier.
+  bridge_transfer (patch-in) | ? OFF  | transfer XML (<Dial>) is unverified so it is NOT
+                             |        | advertised by default: BRIDGE_USER is refused and
+                             |        | the call ends NEEDS_USER_VERIFICATION with a
+                             |        | call-back pack ("call them yourself with ticket
+                             |        | X"). Enable with ``enable={"bridge_transfer"}``
+                             |        | (Settings.sarvam_verified_capabilities) once tested.
+  bridge_conference / 3-way  | U      | no monitoring after a transfer; same degrade path.
+  concurrency                | ?      | our limiters: slot("telephony") + slot("sarvam")
+                             |        | (Settings.provider_concurrency); real account limit
+                             |        | unknown (question 6).
+  custom_llm_turns (mode b)  | U      | not built (see above).
 
 Config (core Settings): sarvam_telephony_auth_id / _auth_token / _base_url (default
-https://api.vobiz.ai/api/v1, TODO verify), sarvam_caller_ids (sticky per business),
-telephony_route (default sarvam,exotel,twilio; see telephony/routing.py).
+https://api.vobiz.ai/api/v1, TODO verify), sarvam_caller_ids (sticky per business).
 """
 
 from __future__ import annotations
@@ -58,6 +77,7 @@ from friday.core.interfaces import AudioClassifier, ProviderError, STTProvider, 
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import DialStatus, OutboundCallRequest, new_id
 from friday.voice._http import VendorHTTP
+from friday.voice.audio import dtmf_pcm16, pcm16_to_ulaw
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
@@ -70,8 +90,8 @@ log = get_logger(__name__)
 
 CAPABILITIES = frozenset({
     "outbound", "inbound", "missed_call", "media_stream", "dtmf", "recording", "amd",
-    "bridge_transfer",
 })  # fmt: skip
+UNVERIFIED_CAPABILITIES = frozenset({"bridge_transfer"})  # off until tested against Vobiz
 DEFAULT_BASE_URL = "https://api.vobiz.ai/api/v1"  # TODO(.../deploy/telephony/vobiz)
 INBOUND_MESSAGE = (
     "This is Friday, an AI assistant. I called you on behalf of a customer. "
@@ -142,7 +162,16 @@ class SarvamCallLeg(TwilioCallLeg):
         self._check_live()
         if not self.provider_call_id:
             raise ProviderError("sarvam", "no call id for DTMF")
-        await self.tel_s.rest("POST", f"/Call/{self.provider_call_id}/DTMF/", {"digits": digits})
+        try:
+            await self.tel_s.rest(
+                "POST", f"/Call/{self.provider_call_id}/DTMF/", {"digits": digits}
+            )
+        except ProviderError as e:
+            # Degrade: in-band DTMF tones over the bidirectional stream.
+            if self._send is None:
+                raise
+            log.info("sarvam REST DTMF failed (%s); sending in-band tones", type(e).__name__)
+            await self._play(pcm16_to_ulaw(dtmf_pcm16(digits, 8000)))
 
     async def add_participant(self, phone: str, *, announce: str | None = None) -> SarvamCallLeg:
         """Transfer (no conference): the business leg is redirected to XML that dials
@@ -219,7 +248,9 @@ class SarvamTelephony:
         record: bool = True,
         inbound_claim_timeout_s: float = 10.0,
         transport: httpx.AsyncBaseTransport | None = None,
+        enable: frozenset[str] | set[str] = frozenset(),
     ) -> None:
+        self.enabled = frozenset(enable) & UNVERIFIED_CAPABILITIES
         self.auth_id = auth_id
         self.caller_ids = caller_ids
         self.public_base_url = public_base_url.rstrip("/")
@@ -232,6 +263,7 @@ class SarvamTelephony:
         self.record = record
         self.inbound_claim_timeout_s = inbound_claim_timeout_s
         self.caller_id_selector: CallerIdSelector | None = None
+        self.worker_id: str | None = None  # S-9 call pinning
         self.legs: dict[str, SarvamCallLeg] = {}
         self.by_sid: dict[str, SarvamCallLeg] = {}
         self.inbound_legs: dict[str, SarvamCallLeg] = {}
@@ -267,7 +299,7 @@ class SarvamTelephony:
                 raise
 
     def capabilities(self) -> frozenset[str]:
-        return CAPABILITIES
+        return CAPABILITIES | self.enabled
 
     # ------------------------------------------------------------------ urls / REST
     def token(self, scope: str) -> str:
@@ -282,7 +314,8 @@ class SarvamTelephony:
     def media_ws_url_for(self, key: str) -> str:
         """SECURITY-18: per-call stream URL; the token only authorises THIS call key."""
         base = self.public_base_url.replace("https://", "wss://").replace("http://", "ws://")
-        return f"{base}/voice/sarvam/media?key={key}&token={self.token(f'media:{key}')}"
+        pin = f"&w={self.worker_id}" if self.worker_id else ""
+        return f"{base}/voice/sarvam/media?key={key}&token={self.token(f'media:{key}')}{pin}"
 
     async def rest(self, method: str, path: str, data: dict | None) -> dict:
         resp = await self._http.request(
@@ -523,4 +556,5 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
         base_url=s.sarvam_telephony_base_url or DEFAULT_BASE_URL,
         record=s.call_record,
         inbound_claim_timeout_s=s.inbound_claim_timeout_s,
+        enable=frozenset(getattr(s, "sarvam_verified_capabilities", None) or ()),
     )

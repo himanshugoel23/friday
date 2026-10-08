@@ -53,6 +53,7 @@ from friday.core.interfaces import (
     ProviderError,
     TelephonyProvider,
     Translator,
+    telephony_capabilities,
 )
 from friday.core.logging import get_logger, mask_phone, truncate
 from friday.core.models import (
@@ -221,6 +222,7 @@ class CallRunner:
         self.cache = cache
         self.recording_store = recording_store
         self.draining = False
+        self.slot_timeout_s = 10.0  # wait for a provider concurrency slot, then FAILED
         self.active: dict[str, asyncio.Task | None] = {}  # call_id -> task (live calls)
         self._sessions: dict[str, _Session] = {}
         self._idle = asyncio.Event()
@@ -375,6 +377,7 @@ class _Session:
         self.human_reached = False
         self.pressed: list[str] = []  # menu keys (for learned IVR maps)
         self.block_signal: str | None = None
+        self.bridge_refused = False
         self.result = VoiceCallResult(
             task_id=brief.task_id,
             provider=getattr(inbound_leg, "provider", None) or "unknown",
@@ -484,6 +487,8 @@ class _Session:
             r.collected.pop("committed", None)
         if self.block_signal:
             r.collected["provider_signal"] = self.block_signal
+        if self.bridge_refused:
+            r.collected["bridge_unavailable"] = "1"  # engine/brain: send the call-back pack
         if self.leg is not None:
             await self._store_recording()
         await self._learn_ivr_map()
@@ -665,6 +670,9 @@ class _Session:
             meta["needs"] = ",".join(sorted(needs))
         if self.from_number:
             meta["from_number"] = self.from_number
+        missing = self._missing_capabilities()
+        if missing:
+            return self._decline_unsupported(missing)
         if not await self._reserve_capacity("telephony"):
             self.result.error = "telephony rate-limited; retry later"
             self.result.dial_status = DialStatus.FAILED
@@ -827,6 +835,36 @@ class _Session:
 
         self._prerender = asyncio.ensure_future(warm())
 
+    def _caps(self) -> frozenset[str]:
+        return telephony_capabilities(self.r.telephony)
+
+    def _can_bridge(self) -> bool:
+        return bool(self._caps() & {"bridge_transfer", "bridge_conference"})
+
+    def _missing_capabilities(self) -> list[str]:
+        """Hard requirements the active provider cannot meet (no fallback provider)."""
+        b = self.brief
+        caps = self._caps()
+        missing: list[str] = []
+        if (self.care is not None or b.ivr_notes or b.ivr_map) and "dtmf" not in caps:
+            missing.append("dtmf")
+        if b.mode == CallMode.TRANSLATOR and "media_stream" not in caps:
+            missing.append("media_stream")
+        if b.mode == CallMode.WARM_TRANSFER and not self._can_bridge():
+            missing.append("bridge")
+        return missing
+
+    def _decline_unsupported(self, missing: list[str]) -> CallOutcome:
+        """Honest decline BEFORE dialling: NEEDS_USER_VERIFICATION is final (not retried);
+        the engine reports it and the user does it themselves with the context we have."""
+        self.hung_up = True
+        self.result.error = (
+            "the telephony provider cannot do this on a call yet (" + ", ".join(missing) + ")"
+        )
+        self.result.collected["unsupported_capability"] = ",".join(missing)
+        log.warning("declining call %s: provider lacks %s", self.result.call_id, missing)
+        return CallOutcome.NEEDS_USER_VERIFICATION
+
     async def _reserve_capacity(self, key: str) -> bool:
         """Provider limiters (S-9): token for dialling + a concurrency slot held for the
         whole call. False = rate-limited / no slot -> FAILED (retryable), never raises."""
@@ -836,7 +874,9 @@ class _Session:
         try:
             if key == "telephony" and not await lim.acquire("telephony", timeout_s=5.0):
                 return False
-            await self._stack.enter_async_context(lim.slot(key, timeout_s=10.0))
+            await self._stack.enter_async_context(
+                lim.slot(key, timeout_s=self.r.slot_timeout_s)
+            )
         except (LockTimeout, TimeoutError):
             return False
         return True
@@ -1035,6 +1075,13 @@ class _Session:
                 )
         if t == CallActionType.BRIDGE_USER and not b.user_phone:
             reasons.append("no user phone to bridge")
+        if t == CallActionType.BRIDGE_USER and not self._can_bridge():
+            self.bridge_refused = True
+            reasons.append(
+                "this telephony provider cannot connect the user into the call - end with "
+                "HANGUP outcome NEEDS_USER_VERIFICATION and say the user will call back "
+                "with the context"
+            )
         return reasons
 
     async def _execute(self, action: CallAction) -> CallOutcome | None:
@@ -1049,7 +1096,7 @@ class _Session:
             if self.blocked_streak >= MAX_BLOCKED_IN_A_ROW:
                 outcome = (
                     CallOutcome.NEEDS_USER_VERIFICATION
-                    if self.care is not None
+                    if (self.care is not None or self.bridge_refused)
                     else CallOutcome.PARTIAL
                 )
                 return await self._end_with(_SAFE_EXIT, outcome)

@@ -300,7 +300,11 @@ class MessageRow(IdMixin, Base):
     """Every inbound/outbound message on any channel (action log + 24h window)."""
 
     __tablename__ = "messages"
-    __table_args__ = (Index("ix_messages_user_at", "user_id", "at"),)
+    __table_args__ = (
+        Index("ix_messages_user_at", "user_id", "at"),
+        # hot path: 24h window / last inbound by sender
+        Index("ix_messages_phone_dir_at", "phone_hmac", "direction", "at"),
+    )
 
     user_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey(_USER_FK, ondelete="CASCADE")

@@ -9,10 +9,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-
-from pydantic import BaseModel
 from typing import Any
 
+from pydantic import BaseModel
 from sqlalchemy import func, select, update
 
 from friday.core.models import (

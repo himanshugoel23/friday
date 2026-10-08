@@ -577,6 +577,7 @@ class TwilioTelephony:
         self.record = record
         self.inbound_claim_timeout_s = inbound_claim_timeout_s
         self.caller_id_selector: CallerIdSelector | None = None
+        self.worker_id: str | None = None  # S-9: stamped into stream URLs (call pinning)
         self.legs: dict[str, TwilioCallLeg] = {}
         self.by_sid: dict[str, TwilioCallLeg] = {}
         self.inbound_legs: dict[str, TwilioCallLeg] = {}
@@ -591,7 +592,8 @@ class TwilioTelephony:
     # ------------------------------------------------------------------ urls
     @property
     def media_ws_url(self) -> str:
-        return _ws_url(self.public_base_url) + "/voice/twilio/media"
+        url = _ws_url(self.public_base_url) + "/voice/twilio/media"
+        return f"{url}?w={self.worker_id}" if self.worker_id else url
 
     def _cb(self, path: str, key: str) -> str:
         return f"{self.public_base_url}/voice/twilio/{path}?key={key}"

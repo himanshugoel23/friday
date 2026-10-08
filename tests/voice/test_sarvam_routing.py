@@ -111,9 +111,11 @@ async def start(sar, leg, sent, state, *, call_id=None):
 
 
 def test_capability_matrix():
-    assert {"dtmf", "bridge_transfer", "media_stream"} <= CAPABILITIES
+    assert {"dtmf", "media_stream", "inbound", "missed_call", "recording"} <= CAPABILITIES
+    assert "bridge_transfer" not in CAPABILITIES  # unverified: off until tested
     assert "bridge_conference" not in CAPABILITIES and "custom_llm_turns" not in CAPABILITIES
-    assert satisfies(CAPABILITIES, {"dtmf", "bridge"})
+    assert not satisfies(CAPABILITIES, {"dtmf", "bridge"})
+    assert satisfies(CAPABILITIES | {"bridge_transfer"}, {"dtmf", "bridge"})
     assert not satisfies(frozenset({"outbound"}), {"bridge"})
 
 
@@ -207,7 +209,7 @@ async def test_inbound_and_missed(sar, sbus):
 
     sbus.subscribe(Event, on)
     await sar.answer_xml({"CallUUID": "in-1", "From": "+918040000001", "To": "+918031110001"}, None)
-    await start(sar, None, [], {}, call_id="in-1")
+    await start(sar, sar.by_sid["in-1"], [], {}, call_id="in-1")
     ev = [e for e in seen if type(e).__name__ == "InboundCallReceived"][0]
     assert ev.from_phone == "+918040000001" and ev.to_number == "+918031110001"
     assert sar.take_inbound("in-1") is not None
@@ -291,6 +293,9 @@ async def test_runner_sets_needs_and_reports_leg_provider(make_runner, sim):
     class Spy:
         name = "routed"
 
+        def capabilities(self):
+            return sim.capabilities()
+
         async def place_call(self, request):
             seen.append(request.metadata.get("needs"))
             return await sim.place_call(request)
@@ -306,27 +311,38 @@ async def test_runner_sets_needs_and_reports_leg_provider(make_runner, sim):
     assert seen == ["media_stream"]
 
 
-def test_routed_factory_from_env(monkeypatch):
+def _route_container(**kw):
     from pydantic import SecretStr
 
-    from friday.voice.telephony.twilio import build_twilio
-
-    monkeypatch.setenv("FRIDAY_TELEPHONY_ROUTE", "sarvam,exotel,twilio")
-    monkeypatch.setenv("SARVAM_TELEPHONY_AUTH_ID", "MA1")
-    monkeypatch.setenv("SARVAM_TELEPHONY_AUTH_TOKEN", "t")
-    monkeypatch.setenv("SARVAM_CALLER_IDS", "+918031110001")
     s = Settings(
         _env_file=None,
+        sarvam_telephony_auth_id="MA1",
+        sarvam_telephony_auth_token=SecretStr("t"),
+        sarvam_caller_ids=["+918031110001"],
         twilio_account_sid="AC",
         twilio_auth_token=SecretStr("t"),
         twilio_from_number="+14155550100",
-    )  # no Exotel creds -> skipped
+        **kw,
+    )
     c = Container(s)
     c.override("stt", StubSTT())
     c.override("tts", StubTTS())
-    routed = build_twilio(c)
-    assert isinstance(routed, RoutedTelephony)
-    assert [p.name for p in routed.providers] == ["sarvam", "twilio"]
+    return c
+
+
+def test_default_live_route_is_sarvam_only():
+    """Founder decision: no Exotel/Twilio unless explicitly enabled."""
+    routed = build_routed_telephony(_route_container(telephony_provider="auto"))
+    assert [p.name for p in routed.providers] == ["sarvam"]
+    assert routed.international is None
+
+
+def test_explicit_routed_enables_other_providers():
+    c = _route_container(
+        telephony_provider="routed", telephony_route=["sarvam", "exotel", "twilio"]
+    )
+    routed = build_routed_telephony(c)
+    assert [p.name for p in routed.providers] == ["sarvam", "twilio"]  # no Exotel creds -> skipped
     assert routed.international is routed.providers[1]
     with pytest.raises(ProviderError):  # route with no configured provider
         build_routed_telephony(c, ["exotel"])

@@ -260,6 +260,7 @@ class ExotelTelephony:
         self.inbound_claim_timeout_s = inbound_claim_timeout_s
         self.inbound_stream_wait_s = inbound_stream_wait_s
         self.caller_id_selector: CallerIdSelector | None = None
+        self.worker_id: str | None = None  # S-9 call pinning
         self.legs: dict[str, ExotelCallLeg] = {}
         self.by_sid: dict[str, ExotelCallLeg] = {}
         self.inbound_legs: dict[str, ExotelCallLeg] = {}
@@ -287,7 +288,8 @@ class ExotelTelephony:
     def media_ws_url(self) -> str:
         """Configure this in the Voicebot applet of the ExoPhone / outbound flow."""
         base = self.public_base_url.replace("https://", "wss://").replace("http://", "ws://")
-        return f"{base}/voice/exotel/media?token={self.token('exotel')}"
+        pin = f"&w={self.worker_id}" if self.worker_id else ""
+        return f"{base}/voice/exotel/media?token={self.token('exotel')}{pin}"
 
     @property
     def passthru_url(self) -> str:

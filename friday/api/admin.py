@@ -10,6 +10,7 @@ work; in live mode with no explicit token the admin routes answer 404 (disabled)
 
 from __future__ import annotations
 
+import contextlib
 import hmac
 import os
 from datetime import timedelta
@@ -63,10 +64,8 @@ def admin_router(c: Container) -> APIRouter:
     async def numbers() -> dict[str, Any]:
         now = c.clock.now()
         pool = None
-        try:
+        with contextlib.suppress(ComponentNotAvailable):
             pool = c.get("number_pool")
-        except ComponentNotAvailable:
-            pass
         listed: list[FridayNumber]
         if pool is not None:
             listed = await pool.list_numbers()
