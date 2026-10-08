@@ -141,9 +141,12 @@ class Settings(BaseSettings):
     plivo_from_number: str | None = Field(
         default=None, validation_alias=_alias("PLIVO_FROM_NUMBER")
     )
-    # Routing (founder: Sarvam > Exotel > Twilio; Twilio for non-+91). Used when
-    # resolve_telephony() == "routed" (live + auto). FRIDAY_TELEPHONY_ROUTE=sarvam,exotel,twilio
-    telephony_route: CsvList = Field(default_factory=lambda: ["sarvam", "exotel", "twilio"])
+    # Founder decision (2026-10-08): Sarvam-only live telephony for now. ``auto`` resolves
+    # to "sarvam". Exotel/Twilio stay available explicitly (FRIDAY_TELEPHONY_PROVIDER=exotel)
+    # or via the failover router (FRIDAY_TELEPHONY_PROVIDER=routed + FRIDAY_TELEPHONY_ROUTE).
+    telephony_route: CsvList = Field(default_factory=lambda: ["sarvam"])
+    # Capabilities confirmed against Sarvam's account (e.g. "bridge_transfer"), CSV.
+    sarvam_verified_capabilities: CsvList = Field(default_factory=list)
     exotel_subdomain: str = Field(
         default="api.in.exotel.com", validation_alias=_alias("EXOTEL_SUBDOMAIN")
     )
@@ -425,6 +428,7 @@ class Settings(BaseSettings):
         "sarvam_caller_ids",
         "friday_numbers",
         "roles",
+        "sarvam_verified_capabilities",
         mode="before",
     )
     @classmethod
@@ -532,8 +536,8 @@ class Settings(BaseSettings):
     ) -> Literal["simulator", "routed", "sarvam", "twilio", "exotel", "plivo"]:
         if not self.is_live:
             return "simulator"
-        # auto -> RoutedTelephony over telephony_route (skips unconfigured providers)
-        return "routed" if self.telephony_provider == "auto" else self.telephony_provider
+        # auto -> Sarvam only (founder decision). "routed" must be chosen explicitly.
+        return "sarvam" if self.telephony_provider == "auto" else self.telephony_provider
 
     def _telephony_needs(self, name: str) -> dict[str, object]:
         if name == "twilio":
@@ -586,6 +590,11 @@ class Settings(BaseSettings):
                 problems += [f"missing {k}" for k in missing]
         elif tel != "simulator":
             need |= self._telephony_needs(tel)
+        if tel in ("sarvam", "routed") and not (self.sarvam_caller_ids or self.friday_numbers):
+            if tel == "sarvam" or "sarvam" in self.telephony_route:
+                problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
+        if not self.object_store_url:  # S-6: recordings never on local disk in live
+            problems.append("missing FRIDAY_OBJECT_STORE_URL (s3://bucket/prefix) for recordings")
         if self.resolve_stt() == "sarvam" or self.resolve_tts() == "sarvam":
             need["SARVAM_API_KEY"] = self.sarvam_api_key
         if self.resolve_stt() == "deepgram":
