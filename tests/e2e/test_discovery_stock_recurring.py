@@ -3,8 +3,6 @@ recurring booking."""
 
 from __future__ import annotations
 
-import pytest
-
 from friday.core.models import CallOutcome, TaskStatus, TaskType
 from tests.e2e.harness import friday_lines
 
@@ -84,16 +82,17 @@ async def test_stock_hunt_stops_at_first_match_and_cancels_the_siblings(friday, 
     assert len(reports) == 1  # one answer, not one per shop
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-8: 'Sorry, phir se boliye?' (the shop did not understand the question) is "
-    "recorded as in_stock=yes, so the hunt reports a shop that has no Dolo 650",
-)
 async def test_stock_hunt_reports_a_shop_that_really_has_it(friday, priya):
     await priya.say("Kothrud mein kis chemist ke paas Dolo 650 stock hai? sab ko call karo")
     tasks = await priya.tasks()
-    winners = [t for t in tasks if t.parent_task_id and t.status == TaskStatus.COMPLETED]
-    assert [w.target.phone for w in winners][:1] == [CITY_CHEMIST]
+    winners = []
+    for t in tasks:
+        if t.parent_task_id and t.status == TaskStatus.COMPLETED:
+            calls = await priya.calls(t)
+            if any(c.outcome == CallOutcome.SUCCESS for c in calls):
+                winners.append(t)
+    # BUG-8: only the shop that answered "haan, hai" wins - not "phir se boliye?"
+    assert [w.target.phone for w in winners] == [CITY_CHEMIST]
     assert "City Chemist" in priya.all_text()
 
 

@@ -84,5 +84,6 @@ async def test_optional_circle_and_places_are_saved(fresh_friday):
     assert any(p.name == "Suresh" and p.phone == "+919811111111" for p in people), people
     places = await fresh_friday.c.repos.places.list_for_owner(row.id)
     assert {p.label.lower() for p in places} >= {"home", "office"}, places
-    # circle members are NOT messaged without their own opt-in
-    assert fresh_friday.channel.messages_to("+919811111111") == []
+    # circle members get ONE opt-in template and nothing else until they agree (BUG-13)
+    (ask,) = fresh_friday.channel.messages_to("+919811111111")
+    assert ask.template is not None and ask.text is None

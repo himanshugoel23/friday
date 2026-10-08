@@ -82,12 +82,6 @@ async def test_late_callback_after_the_user_cancelled_is_closed_politely(friday,
     assert not [x for x in rahul.texts() if "Ho gaya" in x]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-7: a late call-back after cancel/resolution is run as a fresh enquiry "
-    "(asks opening hours and price) because the engine builds the inbound brief from the "
-    "new child task instead of the resolved task",
-)
 async def test_late_callback_close_loop_script_is_used(friday, rahul):
     await rahul.say(ASK)
     await rahul.say("cancel")

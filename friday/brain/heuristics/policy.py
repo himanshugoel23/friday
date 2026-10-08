@@ -7,6 +7,7 @@ rules the LLM prompt states. Output passes through ``friday.brain.guards`` after
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from friday.core.models import (
     ApprovalMode,
@@ -252,8 +253,18 @@ def _system_turn(tn: Turn) -> CallActionOut | None:
     if s.startswith("blocked"):
         if has_any(s, ("otp", "pin", "cvv", "password", "unapproved", "number", "identifier")):
             return _verification(tn)
-        if has_any(s, ("commit", "approval", "can_commit", "confirm")):
+        if "commit" in s or has_any(
+            s, ("approval", "can_commit", "confirm", "delegated", "delegation", "outside")
+        ):
             return tn.callback()
+        # BUG-17: rephrase at most once; a second block switches strategy (call-back / end)
+        blocked_before = sum(
+            1
+            for t in tn.st.transcript.turns
+            if t.speaker.value == "system" and norm(t.text).startswith("blocked")
+        )
+        if blocked_before >= 2:
+            return tn.callback({"blocked": "repeated"})
         return tn.say(
             tn.t(en="Sorry, let me rephrase that.", hinglish="Maaf kijiye, main dobara bolti hoon.")
         )
@@ -678,6 +689,14 @@ def _delegated_slot(tn: Turn) -> str | None:
     return None
 
 
+def _slot_at(tn: Turn, slot: str | None) -> datetime | None:
+    """Resolved start of the slot being confirmed, so the runner can verify the window."""
+    if not slot:
+        return None
+    d = tn.b.delegation
+    return slot_to_datetime(slot, d.window_start or tn.b.window_start or tn.st.started)
+
+
 def _confirm_text(tn: Turn, terms: str) -> str:
     who = tn.who
     return tn.t(
@@ -713,8 +732,7 @@ def _booking(tn: Turn) -> CallActionOut:
         if b.approved_terms:
             return tn.say(
                 tn.t(
-                    en=f"We spoke a little while ago about {b.goal[:1].lower() + b.goal[1:]}. "
-                    f"{tn.name} has approved {b.approved_terms}. "
+                    en=f"We spoke a little while ago. {tn.name} has approved {b.approved_terms}. "
                     + _confirm_text(tn, b.approved_terms),
                     hinglish=f"Abhi thodi der pehle baat hui thi. {tn.name} ji ne "
                     f"{b.approved_terms} confirm kiya hai. " + _confirm_text(tn, b.approved_terms),
@@ -728,7 +746,12 @@ def _booking(tn: Turn) -> CallActionOut:
         terms = b.approved_terms or (approved.text if approved else "")
         if not asked_confirm:
             return tn.say(_confirm_text(tn, terms), commits_booking=True)
-        if reply and is_yes(reply) and not has_any(reply, ("full", "not available", "nahi")):
+        if (
+            reply
+            and is_yes(reply)
+            and not has_any(reply, ("full", "not available", "nahi"))
+            and not has_any(norm(reply), _DEFER)  # BUG-4: an explicit confirmation only
+        ):
             return tn.hangup(
                 tn.t(
                     en="Thank you! You'll get a confirmation message.",
@@ -752,6 +775,15 @@ def _booking(tn: Turn) -> CallActionOut:
             )
         if not reply:
             return tn.act(CallActionType.WAIT)
+        if has_any(norm(reply), _DEFER):
+            return tn.hangup(
+                tn.t(
+                    en="Okay, no problem. Thank you.",
+                    hinglish="Theek hai ji, koi baat nahi. Shukriya.",
+                ),
+                CallOutcome.PARTIAL,
+                collected=[KV(key="not_confirmed", value=reply[:120])],
+            )
         return tn.say(_confirm_text(tn, terms), commits_booking=True)
 
     # -- nothing on offer yet
@@ -802,12 +834,14 @@ def _booking(tn: Turn) -> CallActionOut:
                 return tn.say(
                     _confirm_text(tn, terms),
                     commits_booking=True,
+                    slot_at=_slot_at(tn, slot),
                     collected=[KV(key="delegated_choice", value=terms)],
                 )
             if reply and is_yes(reply):
                 return tn.hangup(
                     tn.t(en="Thank you! Have a good day.", hinglish="Bahut shukriya ji!"),
                     CallOutcome.SUCCESS,
+                    slot_at=_slot_at(tn, slot),
                     collected=[
                         KV(key="confirmed_terms", value=terms),
                         KV(key="delegated", value="true"),
@@ -859,6 +893,10 @@ def _booking(tn: Turn) -> CallActionOut:
     return tn.callback(pre="")
 
 
+_DEFER = (
+    "call me back", "call back", "callback", "keep it", "baad mein", "later", "wapas call",
+    "phir call", "not now", "abhi nahi",
+)  # fmt: skip
 _ASK_MARKERS = ("slots", "slot", "available", "chahiye", "calling to", "call kar rahi")
 
 
@@ -992,23 +1030,7 @@ def _enquiry(tn: Turn) -> CallActionOut:
     reply = st.reply_text()
     if b.task_type == TaskType.STOCK_HUNT and asked and reply:
         first = st.after_friday_has(*_q_forms(qs[0]))
-        if first and (
-            has_any(
-                first,
-                (
-                    "out of stock",
-                    "nahi hai",
-                    "not available",
-                    "khatam",
-                    "nahi",
-                    "no",
-                    "illa",
-                    "don't have",
-                    "dont have",
-                ),
-            )
-            and not has_any(first, ("hai ji", "yes", "available hai", "haan"))
-        ):
+        if first and _stock_answer(first) == "no":
             return tn.hangup(
                 tn.t(
                     en="Okay, thank you for checking.",
@@ -1035,6 +1057,23 @@ def _enquiry(tn: Turn) -> CallActionOut:
     if remaining:
         return tn.say(_local_q(tn, remaining[0]), collected=collected)
     if b.task_type == TaskType.STOCK_HUNT:
+        # BUG-8: only an affirmative answer to the stock question counts as "in stock".
+        first = st.after_friday_has(*_q_forms(qs[0])) or ""
+        if _stock_answer(first) != "yes":
+            if st.friday_count("phir se", "once more", "again") < 1:
+                return tn.say(
+                    tn.t(en="Sorry, once more: ", hinglish="Ji, phir se poochti hoon: ")
+                    + _local_q(tn, qs[0]),
+                    collected=collected,
+                )
+            return tn.hangup(
+                tn.t(
+                    en="Okay, thank you for your time.",
+                    hinglish="Theek hai ji, shukriya.",
+                ),
+                CallOutcome.PARTIAL,
+                collected=collected + [KV(key="in_stock", value="unknown")],
+            )
         collected.append(KV(key="in_stock", value="yes"))
     answered = sum(
         1
@@ -1050,6 +1089,37 @@ def _enquiry(tn: Turn) -> CallActionOut:
         CallOutcome.SUCCESS if answered else CallOutcome.PARTIAL,
         collected=collected,
     )
+
+
+_STOCK_NO = (
+    "out of stock", "nahi hai", "not available", "khatam", "nahi", "nahin", "no", "illa",
+    "don't have", "dont have", "unavailable", "नहीं", "नही", "खत्म", "खतम", "नाही", "संपले",
+    "ಇಲ್ಲ", "இல்லை", "లేదు",
+)  # fmt: skip
+_STOCK_YES = (
+    "yes", "haan", "han", "available", "hai ji", "available hai", "in stock", "have it",
+    "we have", "stock mein hai", "stock hai", "mil jayega", "mil jaayega", "हाँ", "हां",
+    "उपलब्ध", "आहे", "ಹೌದು", "ಇದೆ", "ஆமாம்", "ఉంది",
+)  # fmt: skip
+
+
+def _stock_answer(text: str) -> str:
+    """BUG-8: "yes" only on an affirmative parse of the answer to the stock question;
+    "no" on a negative; "unknown" for repeat-requests / anything unclear."""
+    t = norm(text)
+    if not t or has_any(t, _REPEAT) or any(w in t for w in ("सुनाई", "समझ नहीं")):
+        return "unknown"
+    pos = any(w in t for w in _STOCK_YES if not w.isascii()) or has_any(
+        t, [w for w in _STOCK_YES if w.isascii()]
+    )
+    neg = any(w in t for w in _STOCK_NO if not w.isascii()) or has_any(
+        t, [w for w in _STOCK_NO if w.isascii()]
+    )
+    if neg and not has_any(t, ("haan", "yes", "हाँ", "हां")):
+        return "no"
+    if pos and not neg:
+        return "yes"
+    return "unknown"
 
 
 _REPEAT = (

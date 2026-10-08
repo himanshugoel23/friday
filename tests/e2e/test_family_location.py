@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from sqlalchemy import update
 
 from friday.core.models import PersonConsent, TaskStatus, TaskType
@@ -22,22 +21,21 @@ async def _papa(friday, rahul):
 
 async def test_circle_member_is_not_messaged_until_they_opt_in(friday, rahul):
     person = await _papa(friday, rahul)
-    assert person.contact_consent != PersonConsent.OPTED_IN
-    assert friday.channel.messages_to(PAPA) == []
+    assert person.contact_consent == PersonConsent.PENDING
+    # exactly one message so far: the opt-in template (BUG-13), nothing else
+    (ask,) = friday.channel.messages_to(PAPA)
+    assert ask.template is not None
     # a booking for papa runs, but papa gets no confirmation without consent
     await rahul.say("papa ke liye Dr. Sharma's Family Clinic mein appointment book karo kal subah")
     await rahul.say("1")
-    assert friday.channel.messages_to(PAPA) == []
+    assert friday.channel.messages_to(PAPA) == [ask]
 
 
 async def test_booking_for_a_parent_confirms_to_them_in_their_language_after_opt_in(
     friday, rahul
 ):
     person = await _papa(friday, rahul)
-    await friday.c.notifier.request_person_opt_in(
-        person, requester_name="Rahul", what="booking confirmations"
-    )
-    ask = friday.channel.messages_to(PAPA)
+    ask = friday.channel.messages_to(PAPA)  # sent when papa was added (BUG-13)
     assert len(ask) == 1 and ask[0].template is not None  # one opt-in template, nothing else
     await friday.person(PAPA).say("haan")
     person = await friday.c.repos.people.get(person.id)
@@ -55,15 +53,16 @@ async def test_booking_for_a_parent_confirms_to_them_in_their_language_after_opt
     assert "₹" not in (confirm.text or "")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-13: nothing ever calls Notifier.request_person_opt_in, so circle members are "
-    "never asked; and checkin_consent is never set to OPTED_IN anywhere",
-)
 async def test_wellbeing_checkin_asks_the_parent_for_consent_first(friday, rahul):
-    await _papa(friday, rahul)
+    person = await _papa(friday, rahul)
     await rahul.say("papa ko roz subah call karke haal chaal poocho")
-    assert friday.channel.messages_to(PAPA), "papa must be asked before any check-in call"
+    first = friday.channel.messages_to(PAPA)
+    assert first, "papa must be asked before any check-in call"
+    await friday.person(PAPA).say("haan")
+    person = await friday.c.repos.people.get(person.id)
+    assert person.checkin_consent == PersonConsent.OPTED_IN
+    t = await rahul.task()
+    assert t.status != TaskStatus.NEEDS_INFO  # resumed once papa agreed
 
 
 async def test_wellbeing_checkin_runs_only_after_consent_and_raises_an_alert(friday, rahul):
@@ -115,13 +114,18 @@ async def test_typed_landmark_resolves_to_a_city_area(friday, rahul):
     assert t.status == TaskStatus.AWAITING_APPROVAL and "CoolCare" in rahul.last()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-15: after sharing a location pin, 'yahan ke paas ...' is geocoded as the text "
-    "'yahan' and finds nobody; the pin is not used as the search origin",
-)
 async def test_near_me_uses_the_shared_pin(friday, rahul):
     await rahul.say("/pin 12.97,77.64")
     await rahul.say("yahan ke paas AC repair karne wala dhundo")
     t = await rahul.task()
     assert t.status == TaskStatus.AWAITING_APPROVAL
+
+
+async def test_circle_member_saying_no_is_never_messaged_again(friday, rahul):
+    person = await _papa(friday, rahul)
+    await friday.person(PAPA).say("nahi")
+    person = await friday.c.repos.people.get(person.id)
+    assert person.contact_consent == PersonConsent.OPTED_OUT
+    before = len(friday.channel.messages_to(PAPA))
+    await rahul.say("papa ko roz subah call karke haal chaal poocho")
+    assert len(friday.channel.messages_to(PAPA)) == before  # no second ask, no calls

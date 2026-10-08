@@ -259,6 +259,7 @@ class TaskRepo(Repo):
                     answered_at=result.answered_at,
                     ended_at=result.ended_at,
                     error=result.error,
+                    from_number=result.from_number,
                 )
             )
             await s.flush()
@@ -409,6 +410,7 @@ class TaskRepo(Repo):
             answered_at=row.answered_at,
             ended_at=row.ended_at,
             error=row.error,
+            from_number=row.from_number,
         )
 
     # ------------------------------------------------------------------ quotes

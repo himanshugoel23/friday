@@ -82,6 +82,7 @@ from friday.voice.commit import (
     COMMIT_TYPES,
     commit_reasons,
     is_commit_action,
+    slot_of,
 )
 from friday.voice.events import CallCostReport, CallLanguageSwitched, CallLatencyReport
 from friday.voice.latency import LatencyRecorder
@@ -91,7 +92,7 @@ log = get_logger(__name__)
 
 MAX_MID_CALL_QUESTIONS = 2  # US-5.6
 P95_BUDGET_MS = 1500  # founder guardrail: p95 turn latency < 1.5 s
-MAX_BLOCKED_IN_A_ROW = 3
+MAX_BLOCKED_IN_A_ROW = 2
 RECORDING_WAIT_S = 5.0  # provider recording callbacks usually land within seconds
 MAX_SILENCES = 3
 HOLD_LISTEN_S = 30.0
@@ -483,6 +484,9 @@ class _Session:
         r.collected = dict(r.collected)
         if self.committed:
             r.collected["committed"] = "true"  # engine: COMPLETED needs this (SECURITY-4)
+            slot = slot_of(self.last_action) if self.last_action is not None else None
+            if slot is not None:  # BUG-1: lets the engine re-verify a delegation WINDOW
+                r.collected["slot_at"] = slot.isoformat()
         else:
             r.collected.pop("committed", None)
         if self.block_signal:

@@ -97,7 +97,8 @@ async def test_user_or_brain_cannot_grant_consent_for_a_person(
         )
     )
     (stored,) = await repos.people.list_for_owner(user.id)
-    assert stored.contact_consent == PersonConsent.NOT_ASKED
+    # only the one-time opt-in request went out (PENDING); consent is never granted here
+    assert stored.contact_consent == PersonConsent.PENDING
     assert stored.checkin_consent == PersonConsent.NOT_ASKED
 
 

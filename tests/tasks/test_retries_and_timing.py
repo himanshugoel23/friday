@@ -151,6 +151,21 @@ async def test_name_only_resolved_via_directory(env):
     assert biz.hours is not None and biz.directory_place_id == "sim-looks-salon"
 
 
+async def test_name_close_enough_is_dialled_without_asking(env):
+    t = await env.task(booking(phone=None, name="Looks Salon", location_text="Indiranagar"))
+    assert t.target.phone == LOOKS and "Did you mean" not in env.texts()[-1]
+
+
+async def test_wrong_business_name_asks_before_dialling(env):
+    """BUG-5: 'Urban Trim Salon' must not silently dial the first directory hit."""
+    t = await env.task(booking(phone=None, name="Zzyzx Barber", location_text="Indiranagar"))
+    assert t.status == S.AWAITING_APPROVAL and env.runner.briefs == []
+    assert "Did you mean" in env.texts()[-1] and "Zzyzx" in env.texts()[-1]
+    await env.engine.approve(t.id, True)
+    await env.engine.drain()
+    assert len(env.runner.briefs) == 1  # dialled only after the user's OK
+
+
 async def test_unknown_business_needs_info(env):
     t = await env.task(booking(phone=None, name=None))
     assert t.status == S.NEEDS_INFO and "number" in env.texts()[-1]

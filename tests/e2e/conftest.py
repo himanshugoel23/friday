@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.e2e.harness import Friday, shim_task_role
+from tests.e2e.harness import Friday
 
 RAHUL = "+919811100001"
 PRIYA = "+919811100002"
@@ -48,7 +48,6 @@ def onboarded_template(tmp_path_factory) -> Path:
 @pytest.fixture
 async def fresh_friday(tmp_path, monkeypatch):
     """An empty app (no users) - for the onboarding flow itself."""
-    shim_task_role(monkeypatch)
     f = await _start(tmp_path)
     yield f
     await f.close()
@@ -56,10 +55,7 @@ async def fresh_friday(tmp_path, monkeypatch):
 
 @pytest.fixture
 async def friday(tmp_path, monkeypatch, onboarded_template):
-    """A running app with Rahul and Priya onboarded. ``Task.role`` persistence is shimmed
-    (BUG-2) so downstream behaviour of fan-out / recurring / call-back flows can still be
-    verified; see harness.shim_task_role."""
-    shim_task_role(monkeypatch)
+    """A running app with Rahul and Priya onboarded."""
     f = await _start(tmp_path, onboarded_template)
     yield f
     await f.close()
@@ -67,7 +63,7 @@ async def friday(tmp_path, monkeypatch, onboarded_template):
 
 @pytest.fixture
 async def raw_friday(tmp_path, onboarded_template):
-    """Same app WITHOUT the BUG-2 shim (used only by tests/e2e/test_bugs.py)."""
+    """Same app as `friday` (kept for the BUG-2 real-repository regression)."""
     f = await _start(tmp_path, onboarded_template)
     yield f
     await f.close()

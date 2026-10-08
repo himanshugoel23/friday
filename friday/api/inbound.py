@@ -126,6 +126,26 @@ CANCELLED = "Okay, cancelled. Nothing changed."
 RATE_LIMITED = "I'm handling a lot right now. I'll pick this up at {when}."
 
 
+_SECRET_WORDS_RE = re.compile(
+    r"\b(otp|cvv|cvc|m?pin|password|passcode|passwd)\b|ओटीपी|पिन|पासवर्ड|सीवीवी", re.I
+)
+
+
+def _offers_a_secret(msg: InboundMessage, interp: Interpretation) -> bool:
+    """An OTP/PIN/CVV/password/card number offered for saving (text, label or value)."""
+    parts = [msg.text or ""]
+    ident = interp.identifier_upsert
+    if ident is not None:
+        parts += [ident.label or "", ident.value or ""]
+    for part in parts:
+        if _SECRET_WORDS_RE.search(part):
+            return True
+        if CARD_RE.match(re.sub(r"[\s-]", "", part)):
+            return True
+    compact = re.sub(r"(?<=\d)[ \-](?=\d)", "", msg.text or "")
+    return bool(re.search(r"(?<!\d)\d{13,19}(?!\d)", compact))
+
+
 class InboundPipeline:
     NO_BRAIN = "I'm still waking up (my brain module isn't connected yet). Try again soon."
     PENDING_TTL = timedelta(minutes=10)
@@ -250,7 +270,40 @@ class InboundPipeline:
                 data["notes"] = existing.notes
         saved = await self.repos.people.upsert(Person.model_validate(data))
         await self.audit("person.upserted", user, subject_id=saved.id)
+        await self._ask_person_opt_in(user, saved)
         return saved
+
+    async def _resume_checkins(self, person: Person) -> None:
+        """Check-in tasks parked on ``checkin_consent`` continue once the person agrees."""
+        for t in await self.repos.tasks.list_for_user(person.owner_user_id, open_only=True):
+            if (
+                t.beneficiary.person_id == person.id
+                and t.status == TaskStatus.NEEDS_INFO
+                and "checkin_consent" in t.spec.missing
+            ):
+                await self._engine_call(
+                    ("provide_info",), t.id, t.spec.model_copy(update={"missing": []})
+                )
+
+    async def _ask_person_opt_in(self, user: User, person: Person) -> None:
+        """BUG-13 / founder rule: a circle member hears from Friday only after ONE explicit
+        opt-in. Send the one-time template when a person with a phone is added (never to
+        the user's own number; the notifier de-dups and honours STOP suppression)."""
+        if (
+            not person.phone
+            or person.phone == user.phone
+            or person.contact_consent != PersonConsent.NOT_ASKED
+        ):
+            return
+        try:
+            profile = await self.repos.profiles.get_or_default(user.id)
+            await self.notifier.request_person_opt_in(
+                person,
+                requester_name=profile.name or "A family member",
+                what="task confirmations and reminders",
+            )
+        except Exception:  # noqa: BLE001 - never fail the user's turn over an opt-in send
+            log.warning("opt-in request failed for person %s", person.id, exc_info=True)
 
     async def save_place(
         self, user: User, place: Place, msg: InboundMessage | None = None
@@ -431,11 +484,16 @@ class InboundPipeline:
             owner = await self.repos.users.get(person.owner_user_id)
             if owner is None:
                 continue
-            if person.contact_consent == PersonConsent.PENDING and (is_yes or is_stop):
+            if PersonConsent.PENDING in (person.contact_consent, person.checkin_consent) and (
+                is_yes or is_stop
+            ):
                 granted = is_yes
-                person.contact_consent = (
-                    PersonConsent.OPTED_IN if granted else PersonConsent.OPTED_OUT
-                )
+                new = PersonConsent.OPTED_IN if granted else PersonConsent.OPTED_OUT
+                asked_checkin = person.checkin_consent == PersonConsent.PENDING
+                if person.contact_consent == PersonConsent.PENDING:
+                    person.contact_consent = new
+                if asked_checkin:
+                    person.checkin_consent = new
                 person.consent_at = self.clock.now()
                 await self.repos.people.upsert(person)
                 await self.repos.consents.add(
@@ -454,12 +512,15 @@ class InboundPipeline:
                     owner,
                     subject_id=person.id,
                 )
-                note = (
-                    f"{person.name} said yes. I can now send them confirmations and reminders."
-                    if granted
-                    else f"{person.name} said no, so I won't message them."
-                )
+                if granted:
+                    note = f"{person.name} said yes. I can now send them confirmations and reminders."
+                    if asked_checkin:
+                        note = f"{person.name} said yes to the check-in calls too."
+                else:
+                    note = f"{person.name} said no, so I won't message or call them."
                 await self.reply(owner, note)
+                if granted and asked_checkin:
+                    await self._resume_checkins(person)
                 continue
             if (
                 person.contact_consent == PersonConsent.OPTED_IN
@@ -508,8 +569,7 @@ class InboundPipeline:
     # ------------------------------------------------------------------ active users
     async def _active(self, user: User, msg: InboundMessage) -> None:
         pending = await self.state.get_pending(user.id, self.clock.now())
-        if pending is not None:
-            await self._continue_pending(user, msg, pending)
+        if pending is not None and await self._continue_pending(user, msg, pending):
             return
 
         if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):
@@ -536,17 +596,18 @@ class InboundPipeline:
 
     async def _continue_pending(
         self, user: User, msg: InboundMessage, pending: PendingAction
-    ) -> None:
+    ) -> bool:
+        """True when the message was consumed by the pending action; False when the
+        pending state was dropped and the message should be handled as a fresh one."""
         text = (msg.text or "").strip()
         if pending.kind == "pin":
             pin = extract_pin(text)
             if pin is None:
+                await self.state.clear_pending(user.id)  # BUG-18: never swallow other messages
                 if CANCEL_RE.match(text):
-                    await self.state.clear_pending(user.id)
                     await self.reply(user, CANCELLED)
-                else:
-                    await self.reply(user, PIN_NEEDED)
-                return
+                    return True
+                return False
             result = await self.pins.verify(user, pin)
             if result.status == PinCheck.OK:
                 await self.state.clear_pending(user.id)
@@ -563,15 +624,16 @@ class InboundPipeline:
             else:
                 await self.state.clear_pending(user.id)
                 await self.reply(user, PIN_NOT_SET)
-            return
+            return True
         if pending.kind == "delete_confirm":
             await self.state.clear_pending(user.id)
             if text.upper() == "DELETE":
                 await self.delete_everything(user)
             else:
                 await self.reply(user, CANCELLED)
-            return
+            return True
         await self.state.clear_pending(user.id)  # unknown kind: drop
+        return True
 
     # ------------------------------------------------------------------ buttons
     async def _button(self, user: User, msg: InboundMessage) -> bool:
@@ -680,6 +742,16 @@ class InboundPipeline:
         self, user: User, msg: InboundMessage, interp: Interpretation, *, pin_verified: bool = False
     ) -> None:
         intent = interp.intent
+        if intent == Intent.SAVE_IDENTIFIER and _offers_a_secret(msg, interp):
+            # BUG-18: refuse BEFORE the PIN gate - no PIN prompt, no pending state, nothing
+            # stored, and the secret is never echoed back
+            await self.audit("identifier.secret_refused", user)
+            await self.reply(
+                user,
+                "I can't save OTPs, PINs, CVVs, passwords or card numbers. "
+                "Please delete that message.",
+            )
+            return
         needs_pin = (
             interp.requires_pin
             or intent in (Intent.DELETE_DATA, Intent.SAVE_IDENTIFIER)

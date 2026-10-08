@@ -31,6 +31,7 @@ import inspect
 import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 from typing import Any
 
 from friday.core.clock import at_ist, format_ist, ist_day_bounds, to_ist
@@ -42,6 +43,7 @@ from friday.core.events import (
 )
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
+    AccountIdentifier,
     AuditEntry,
     Beneficiary,
     Business,
@@ -890,11 +892,13 @@ class TaskEngine:
             await self._needs_info(task, ["beneficiary"], "Whom should I call for the check-in?")
             return False
         if person.checkin_consent != PersonConsent.OPTED_IN:
-            await self._needs_info(
-                task,
-                ["checkin_consent"],
-                f"{person.name} hasn't agreed to check-in calls yet. I'll start once they opt in.",
+            asked = await self._request_checkin_opt_in(task, person)
+            msg = (
+                f"{person.name} hasn't agreed to check-in calls yet. I'll start once they opt in."
             )
+            if asked:
+                msg = f"I've asked {person.name} for their OK. I'll start the check-ins once they say yes."
+            await self._needs_info(task, ["checkin_consent"], msg)
             return False
         task.target = ContactTarget(
             kind=TargetKind.PERSON,
@@ -904,6 +908,25 @@ class TaskEngine:
             language_hint=person.language,
         )
         return True
+
+    async def _request_checkin_opt_in(self, task: Task, person: Any) -> bool:
+        """BUG-13: send the one-time opt-in (founder rule) before any wellbeing call.
+        True if a request went out now."""
+        notifier = self._opt("notifier")
+        if notifier is None or person.checkin_consent != PersonConsent.NOT_ASKED:
+            return False
+        prof = await call_opt(repo(self.repos, "profiles"), "get", task.requester_user_id)
+        try:
+            receipt = await notifier.request_person_opt_in(
+                person,
+                requester_name=(getattr(prof, "name", None) or "A family member"),
+                what="regular wellbeing check-in calls",
+                checkin=True,
+            )
+        except Exception:  # noqa: BLE001 - never break the task over an opt-in send
+            log.warning("check-in opt-in failed for task %s", task.id, exc_info=True)
+            return False
+        return bool(getattr(receipt, "ok", False))
 
     async def _care_target(self, task: Task) -> bool:
         """Official numbers only (C26 / US-35)."""
@@ -965,19 +988,45 @@ class TaskEngine:
         if not phone and name:  # US-3.2: memory, then a directory lookup by name
             businesses = repo(self.repos, "businesses")
             known = await call_opt(businesses, "known_for_user", task.requester_user_id, default=[])
-            hit = next((b for b in known or [] if b.name.lower() == name.lower()), None)
+            hit = next((b for b in known or [] if name_similarity(b.name, name) >= NAME_MATCH), None)
             if hit:
                 phone = hit.phone
             else:
                 directory = self._opt("directory")
                 found = await call_opt(directory, "search", name, spec.location_text or "", limit=3)
+                best: BusinessCandidate | None = None
+                best_score = -1.0
                 for cand in found or []:
                     if cand.phone is None:
                         cand = await call_opt(directory, "details", cand.place_id) or cand
-                    if cand.phone:
-                        phone, name = cand.phone, cand.name
-                        task.candidate = cand
-                        break
+                    if not cand.phone:
+                        continue
+                    score = name_similarity(cand.name, name)
+                    if score > best_score:
+                        best, best_score = cand, score
+                if best is not None:
+                    asked = name
+                    phone, name = best.phone, best.name
+                    task.candidate = best
+                    if best_score < NAME_MATCH:
+                        # BUG-5 / US-3.2: no confident match - never dial a different
+                        # business than the one the user named without their OK.
+                        task.target = ContactTarget(
+                            kind=TargetKind.BUSINESS,
+                            name=best.name,
+                            phone=best.phone,
+                            business_id=spec.business_id,
+                        )
+                        await self._attach_business(task)
+                        bits = [best.name, best.address, f"{best.rating}★" if best.rating else None]
+                        await self._ask_call_approval(
+                            task,
+                            f"I couldn't find \"{asked}\". Did you mean "
+                            + ", ".join(b for b in bits if b)
+                            + "?",
+                            yes="Yes, call them",
+                        )
+                        return False
         if not phone:
             await self._needs_info(
                 task, ["business_phone"], "What's their number? You can share the contact too."
@@ -1378,6 +1427,8 @@ class TaskEngine:
         finally:
             if pooled and self.pool is not None:
                 await self.pool.release(from_number)
+        if caller_id and not getattr(result, "from_number", None):
+            result = result.model_copy(update={"from_number": caller_id})  # BUG-16
         if pooled and self.pool is not None and task.target is not None:
             await self.pool.record_outcome(
                 getattr(result, "from_number", None) or from_number,
@@ -1445,6 +1496,17 @@ class TaskEngine:
         if role_of(task) == ROLE_CLOSE_LOOP:  # need already met: never commit anything
             updates["delegation"] = Delegation()
             updates["approved_terms"] = None
+        if role_of(task) == ROLE_RECONFIRM and task.spec.reference:
+            # BUG-12: the booking reference is the business's own number; approve it so the
+            # reconfirm can quote it without the unapproved-number guard bridging the user
+            with contextlib.suppress(ValueError):
+                ident = AccountIdentifier(
+                    user_id=task.requester_user_id,
+                    label="Booking reference",
+                    value=task.spec.reference,
+                )
+                updates["approved_identifiers"] = [*brief.approved_identifiers, ident]
+                updates["reference"] = task.spec.reference
         if task.type == TaskType.WELLBEING_CHECKIN:
             updates["max_duration_s"] = min(
                 brief.max_duration_s, self.settings.checkin_max_duration_s
@@ -1773,7 +1835,7 @@ class TaskEngine:
         await call_opt(self.tasks, "add_question", q)
         await self.outbox.to_user(
             task.requester_user_id,
-            f"{summary.summary}\n{q.text}".strip(),
+            _offer_text(summary.summary, q.text),
             buttons=[
                 ReplyButton(id=question_button_id(q.id, i), title=o[:20])
                 for i, o in enumerate(q.options)
@@ -1873,7 +1935,9 @@ class TaskEngine:
         if (
             care
             and care.promised_date
-            and not care.resolved
+            # BUG-11: "will be resolved within 48 hours" is a promise, not a resolution;
+            # a promise dated in the future always gets its follow-up
+            and (not care.resolved or care.promised_date >= to_ist(self.clock.now()).date())
             and task.type == TaskType.CUSTOMER_CARE
         ):
             when = at_ist(care.promised_date, 10) + timedelta(
@@ -1909,8 +1973,9 @@ class TaskEngine:
                 ROLE_RECONFIRM,
                 TaskType.RECONFIRM,
                 when,
+                # BUG-12: dates as words ("12 Feb"), never ISO digit runs the number guard blocks
                 goal=f"Reconfirm stay at {booking.property.name} "
-                f"{booking.check_in} to {booking.check_out}",
+                f"{booking.check_in:%d %b} to {booking.check_out:%d %b}",
                 reference=booking.confirmation_ref,
                 stay=task.spec.stay,
             )
@@ -2661,7 +2726,11 @@ class TaskEngine:
         context_line: str,
         candidates: list[Task] | None = None,
         match: Any = None,
+        related_tasks: list[Task] | None = None,
+        action: str | None = None,
     ) -> CallBrief:
+        """``related_tasks`` are the matched (possibly resolved/cancelled) tasks the brain
+        sees with their REAL status (BUG-7); ``task`` is the one the call runs under."""
         ctx = await self._context(task.requester_user_id)
         if match is not None and _accepts(self.brain.build_call_brief, "inbound"):
             related = [
@@ -2673,8 +2742,10 @@ class TaskEngine:
                     status=t.status,
                     last_outcome=t.last_outcome,
                     approved_terms=t.approved_terms,
+                    resolution=_resolution_of(action, t),
+                    booking_details=t.approved_terms if action == "about_booking" else None,
                 )
-                for t in (candidates or [task])
+                for t in (candidates or related_tasks or [task])
             ]
             inbound = InboundContext(
                 caller_phone=getattr(match, "from_phone", ""),
@@ -2682,7 +2753,7 @@ class TaskEngine:
                 caller_matches_business=verified,
                 business_name=task.target.name if task.target else None,
                 related=related,
-                matched_task_id=task.id if len(related) == 1 else None,
+                matched_task_id=related[0].task_id if len(related) == 1 else None,
             )
             brief = await _maybe_await(self.brain.build_call_brief(ctx, task, inbound=inbound))
         else:
@@ -2783,6 +2854,8 @@ class TaskEngine:
             context_line=context_line,
             candidates=matched if action == "choose_task" else None,
             match=match,
+            related_tasks=matched,
+            action=action,
         )
         plan = InboundPlan(action, task_ids=[t.id for t in matched], brief=brief, verified=verified)
         await self._audit(primary, "inbound.call", decision=action, verified=verified)
@@ -3173,6 +3246,59 @@ def _offer_for(offers: list[HotelOffer], target: ContactTarget | None) -> HotelO
         if o.property.phone and phone_key(o.property.phone) == phone_key(target.phone)
     ]
     return min(mine, key=lambda o: o.rate_per_night_inr or 10**9) if mine else None
+
+
+def _offer_text(summary: str | None, question: str | None) -> str:
+    """BUG-14: summary + question, each line once (the summary often already ends with
+    the question)."""
+    out: list[str] = []
+    for line in f"{summary or ''}\n{question or ''}".splitlines():
+        line = line.strip()
+        if line and line not in out:
+            out.append(line)
+    text = "\n".join(out)
+    q = (question or "").strip()
+    if q and (summary or "").strip().endswith(q):
+        return (summary or "").strip()
+    return text
+
+
+def _resolution_of(action: str | None, task: Task) -> str:
+    """BUG-7: tell the brain the real resolution of the task a late call-back is about,
+    so the close-loop / booking script fires instead of a fresh enquiry."""
+    if action == "close_loop":
+        return "cancelled" if task.status == S.CANCELLED else "fulfilled_elsewhere"
+    if action == "about_booking":
+        return "booked_here"
+    return "open"
+
+
+NAME_MATCH = 0.8
+_GENERIC_NAME_TOKENS = frozenset(
+    "the and a of salon shop store clinic services service centre center hospital studio "
+    "unisex family".split()
+)
+
+
+def _name_tokens(name: str) -> set[str]:
+    return {t for t in re.sub(r"[^\w\s]", " ", name.lower()).split() if t}
+
+
+def name_similarity(a: str, b: str) -> float:
+    """0..1 fuzzy match of two business names (ratio, or token containment ignoring
+    generic words like 'salon'/'clinic'). Used to avoid dialling the wrong business."""
+    ta, tb = _name_tokens(a), _name_tokens(b)
+    ratio = SequenceMatcher(None, " ".join(sorted(ta)), " ".join(sorted(tb))).ratio()
+    ka, kb = ta - _GENERIC_NAME_TOKENS, tb - _GENERIC_NAME_TOKENS
+    if not ka or not kb:
+        return ratio
+    # tolerate small typos per token
+    def hit(x: str, ys: set[str]) -> bool:
+        return any(x == y or SequenceMatcher(None, x, y).ratio() >= 0.85 for y in ys)
+
+    overlap = sum(hit(x, kb) for x in ka)
+    contain = overlap / min(len(ka), len(kb))
+    return max(ratio, min(1.0, contain))
 
 
 def _hotel_candidate(p: HotelProperty, provider: str) -> BusinessCandidate:

@@ -21,8 +21,10 @@ DELEGATED = (
 
 @pytest.mark.xfail(
     strict=True,
-    reason="BUG-1: the call policy never sets CallAction.slot_at, so check_commit can never "
-    "verify a delegation WINDOW; a delegated booking always degrades to PENDING_APPROVAL",
+    reason="BUG-1 (engine half): the brain/runner now commit within limits and record "
+    "collected['slot_at'], but friday/tasks/engine.py:_guard_commit calls check_commit without "
+    "slot_at, so it downgrades SUCCESS to PENDING_APPROVAL. Fix there: "
+    "slot_at=datetime.fromisoformat(result.collected['slot_at']) when present",
 )
 async def test_delegated_booking_is_confirmed_on_the_call_within_limits(friday, rahul):
     await rahul.say(DELEGATED.format(cap="₹800"))

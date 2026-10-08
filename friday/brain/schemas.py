@@ -12,6 +12,7 @@ properties required, no defaults / titles / length constraints.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -258,6 +259,7 @@ class CallActionOut(Wire):
     collected: list[KV] = []
     quote: QuoteOut | None = None
     commits_booking: bool = False
+    slot_at: datetime | None = None  # slot being confirmed
     care: CareOut | None = None
     user_update: str | None = None
     max_hold_s: int | None = None

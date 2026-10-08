@@ -836,6 +836,9 @@ class SimCallLeg:
         self.events.append(f"DIAL {self.status.value}")
         if self.status != DialStatus.ANSWERED:
             self.ended = True
+            if self.status in (DialStatus.NO_ANSWER, DialStatus.BUSY, DialStatus.VOICEMAIL):
+                # BUG-6: a persona that "rings back after seeing the missed call"
+                self.sim.after_outbound(self, only=("calls_back_after",))
         return self.status
 
     def _carrier_signal(self, agent: _Agent | None) -> str | None:
@@ -1075,7 +1078,7 @@ class SimulatedTelephony:
         return n <= limit
 
     # ------------------------------------------------------------------ inbound
-    def after_outbound(self, leg: SimCallLeg) -> None:
+    def after_outbound(self, leg: SimCallLeg, only: tuple[str, ...] | None = None) -> None:
         """Schedule a scripted call-back / missed call after an outbound call ends."""
         biz = self.business_for(leg.request.to_phone)
         if biz is None:
@@ -1083,7 +1086,13 @@ class SimulatedTelephony:
         d, _ = _directives(biz.persona.notes)
         to = leg.from_number or self.friday_numbers[0]
         for key, kind in (("calls_back_after", "answered"), ("missed_call_after", "missed")):
+            if only is not None and key not in only:
+                continue
             if d.get(key):
+                if only is not None and any(
+                    p.business_id == biz.id and p.kind == kind for p in self.pending_inbound
+                ):
+                    continue  # one ring-back per missed-call streak
                 self.pending_inbound.append(
                     ScheduledInbound(
                         at_s=self.clock.now().timestamp() + float(d[key]),

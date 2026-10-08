@@ -134,7 +134,8 @@ async def test_full_onboarding_consent_pin_never_echoed(pipeline, channel, brain
     await say(pipeline, channel, ADMIN, "my dad, 98111 11111")
     people = await pipeline.repos.people.list_for_owner(user.id)
     assert people[0].phone == "+919811111111" and people[0].relation == "father"
-    assert people[0].contact_consent == PersonConsent.NOT_ASKED
+    # never granted by the user/brain; only the one-time opt-in request went out (BUG-13)
+    assert people[0].contact_consent == PersonConsent.PENDING
     await say(pipeline, channel, ADMIN, "Kothrud")
     places = await pipeline.repos.places.list_for_owner(user.id)
     assert places[0].formatted_address == "Kothrud, Pune" and places[0].location is not None
@@ -414,7 +415,7 @@ async def test_settings_and_add_person_never_trusts_consent(pipeline, channel, b
     )
     await say(pipeline, channel, ADMIN, "add mom 9822222222")
     mom = [p for p in await pipeline.repos.people.list_for_owner(user.id) if p.name == "Mom"][0]
-    assert mom.contact_consent == PersonConsent.NOT_ASKED and mom.phone == "+919822222222"
+    assert mom.contact_consent == PersonConsent.PENDING and mom.phone == "+919822222222"
 
 
 # ---------------------------------------------------------------------- circle member replies

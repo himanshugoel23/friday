@@ -44,7 +44,7 @@ async def test_care_ivr_hold_ticket_when_the_identifier_is_approved(friday, rahu
         t.id, t.spec.model_copy(update={"approved_identifier_ids": [i.id for i in ids]})
     )
     await rahul.say("1")
-    t = await rahul.task()
+    t = await rahul.task(0)  # (the promised-date follow-up child is the newest task: BUG-11)
     assert t.status == TaskStatus.COMPLETED
     (call,) = await rahul.calls(t)
     assert call.outcome == CallOutcome.SUCCESS and call.hold_seconds == 420
@@ -57,11 +57,6 @@ async def test_care_ivr_hold_ticket_when_the_identifier_is_approved(friday, rahu
     assert any(call.care.ticket_number in x for x in texts)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-11: a ticket promised 'within 48 hours' is summarised as resolved=True, so the "
-    "automatic follow-up (C25) is never scheduled although the user is told it will be",
-)
 async def test_care_follow_up_is_scheduled_for_the_promised_date(friday, rahul):
     await _save_airtel_number(rahul)
     await rahul.say(CARE_ASK)
@@ -104,11 +99,6 @@ async def test_hotel_hybrid_shortlist_booking_and_day_before_reconfirm(friday, r
     assert "Ho gaya" in rahul.last()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-12: the day-before reconfirm call quotes dates/reference as long digit strings, "
-    "the unapproved-number guard blocks it and the user is bridged into every reconfirm",
-)
 async def test_hotel_reconfirm_completes_without_pulling_the_user_in(friday, rahul):
     await rahul.say(HOTEL_ASK)
     await rahul.say("1")

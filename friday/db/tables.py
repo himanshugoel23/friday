@@ -359,6 +359,7 @@ class TaskRow(IdMixin, TimestampMixin, Base):
     )
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="created")
+    role: Mapped[str | None] = mapped_column(String(24))  # TaskRole (fan-out family role)
     spec: Mapped[dict[str, Any]] = mapped_column(_enc_json("tasks", "spec"), nullable=False)
     target: Mapped[dict[str, Any] | None] = mapped_column(_enc_json("tasks", "target"))
     recurrence: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # RecurrenceRule
@@ -406,6 +407,7 @@ class CallRow(IdMixin, Base):
     answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     error: Mapped[str | None] = mapped_column(Text)
+    from_number: Mapped[str | None] = mapped_column(String(20))  # Friday caller-ID used
 
 
 class CallTurnRow(Base):

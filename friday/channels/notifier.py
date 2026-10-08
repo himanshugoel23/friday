@@ -429,8 +429,10 @@ class Notifier:  # implements core.interfaces.Notifier
         what: str,
         template_key: str = "beneficiary_optin",
         reminder: bool = False,
+        checkin: bool = False,
     ) -> SendReceipt:
         """One-time opt-in request (template) to a circle member; marks consent PENDING.
+        ``checkin=True`` asks for the wellbeing-check-in consent (``checkin_consent``).
         Template params: name, requester, relation, what (PRD §8.1).
 
         SECURITY-16: at most one request per person; ``reminder=True`` allows ONE more,
@@ -439,17 +441,17 @@ class Notifier:  # implements core.interfaces.Notifier
         person = await self.repos.people.get(person.id) or person
         if not person.phone:
             return SendReceipt(message_id=new_id(), ok=False, error=UNKNOWN_RECIPIENT)
-        if person.contact_consent in (PersonConsent.OPTED_IN, PersonConsent.OPTED_OUT):
-            return SendReceipt(
-                message_id=new_id(), ok=False, error=f"already {person.contact_consent.value}"
-            )
+        state = person.checkin_consent if checkin else person.contact_consent
+        action = "consent.checkin_optin_requested" if checkin else "consent.optin_requested"
+        if state in (PersonConsent.OPTED_IN, PersonConsent.OPTED_OUT):
+            return SendReceipt(message_id=new_id(), ok=False, error=f"already {state.value}")
         if await self.repos.suppressions.is_suppressed(person.phone):
             return SendReceipt(message_id=new_id(), ok=False, error="suppressed")
-        if person.contact_consent == PersonConsent.PENDING:
+        if state == PersonConsent.PENDING:
             sent = [
                 e
                 for e in await self.repos.audit.list_for_user(person.owner_user_id, limit=500)
-                if e.action == "consent.optin_requested" and e.subject_id == person.id
+                if e.action == action and e.subject_id == person.id
             ]
             too_soon = (
                 bool(sent) and self.clock.now() - min(e.at for e in sent) < OPT_IN_REMINDER_AFTER
@@ -470,10 +472,13 @@ class Notifier:  # implements core.interfaces.Notifier
         )
         receipt = await self.send(msg, opt_in_request=True, sms_fallback=False)
         if receipt.ok:
-            person.contact_consent = PersonConsent.PENDING
+            if checkin:
+                person.checkin_consent = PersonConsent.PENDING
+            else:
+                person.contact_consent = PersonConsent.PENDING
             await self.repos.people.upsert(person)
             await self.repos.audit.log(
-                "consent.optin_requested", user_id=person.owner_user_id, subject_id=person.id
+                action, user_id=person.owner_user_id, subject_id=person.id
             )
         return receipt
 

@@ -213,6 +213,26 @@ _STOP_LOCATIONS = {
 }
 
 
+_NEAR_ME = re.compile(
+    r"\b(?:yahan|yaha|yahin|idhar|here)\s+(?:ke|k)?\s*(?:paas|pass|nazdeek|aas paas)\b"
+    r"|\b(?:near|around|close to)\s+(?:me|here)\b|\bnear\s*by\b|\bnearby\b"
+    r"|\bmere\s+(?:paas|nazdeek|aas paas)\b|\bmere\s+aas\s*paas\b|\bpaas\s+mein\b",
+    re.I,
+)
+_NEAR_ME_WORDS = {"yahan", "yaha", "yahin", "idhar", "here", "me", "mere", "nearby"}
+
+
+def near_me_origin(ctx: ConversationContext, t: str) -> Place | None:
+    """BUG-15: "yahan ke paas ..." / "near me" -> the latest shared pin, else home."""
+    if not _NEAR_ME.search(t):
+        return None
+    pins = [pl for pl in ctx.places if pl.ephemeral and pl.location is not None]
+    if pins:
+        return max(pins, key=lambda pl: pl.updated_at)
+    homes = [pl for pl in ctx.places if _is_home(pl) and pl.person_id is None and not pl.ephemeral]
+    return homes[0] if len(homes) == 1 else None
+
+
 def location_text_of(text: str) -> str | None:
     t = norm(text)
     for m in _NEAR.finditer(t):
@@ -221,6 +241,7 @@ def location_text_of(text: str) -> str | None:
         if (
             not loc
             or loc in _STOP_LOCATIONS
+            or loc in _NEAR_ME_WORDS
             or (words and words[0] in _STOP_LOCATIONS)
             or (words and words[0] in {"kis", "kaun", "kaunse", "which", "any", "koi"})
         ):
@@ -300,6 +321,10 @@ def resolve(ctx: ConversationContext, text: str) -> ResolutionOut:
     if place_hits and len(candidates) > 1:
         narrowed = [pl for pl in candidates if pl in place_hits]
         candidates = narrowed or candidates
+    if not candidates and person is None:
+        origin = near_me_origin(ctx, t)
+        if origin is not None:
+            candidates = [origin]
     if len(candidates) == 1:
         out.place_id = candidates[0].id
     elif len(candidates) > 1:

@@ -369,6 +369,7 @@ def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswe
         collected=collected,
         quote=quote,
         commits_booking=bool(commits),
+        slot_at=out.slot_at,
         leave_after_bridge=out.leave_after_bridge,
         max_hold_s=out.max_hold_s
         or (brief.max_hold_s if out.type == CallActionType.WAIT_ON_HOLD else None),

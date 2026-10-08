@@ -57,12 +57,6 @@ async def test_otp_and_card_secrets_are_never_stored(friday, rahul):
     assert all("482913" not in t and "4111" not in t for t in rahul.texts())  # never echoed
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-18: a message that offers an OTP/CVV/card number is answered 'This needs your "
-    "Friday PIN' instead of being refused, and the pending-PIN state then swallows the user's "
-    "next messages",
-)
 async def test_otp_offer_is_refused_and_chat_is_not_wedged(friday, rahul):
     await rahul.say("my OTP is 482913 save it")
     assert "can't save" in rahul.last() or "save nahi karti" in rahul.last(), rahul.last()
@@ -99,9 +93,10 @@ async def test_circle_member_cannot_command_friday_or_get_unrequested_messages(f
     await rahul.say("add my papa Suresh Verma +911140001016 Hindi, rehte hain Delhi")
     papa = friday.person(PAPA)
     before = len(await rahul.tasks())
+    sent = len(papa.msgs())  # the one-time opt-in template (BUG-13)
     await papa.say("Looks Unisex Salon mein haircut book karo")  # a stranger tries to command
     assert len(await rahul.tasks()) == before
-    assert papa.msgs() == []  # nothing is sent back, nothing is started
+    assert len(papa.msgs()) == sent  # nothing is sent back, nothing is started
 
 
 async def test_unknown_whatsapp_sender_learns_nothing_and_creates_no_task(friday, rahul):
@@ -139,3 +134,10 @@ async def test_no_outbound_call_at_night(friday, rahul):
     t = await rahul.task()
     assert not await rahul.calls(t)  # held until the call window opens
     assert friday.c.telephony.legs == []
+
+
+async def test_pending_pin_does_not_swallow_a_non_pin_message(friday, rahul):
+    """BUG-18: a PIN prompt that the user ignores must not eat their next request."""
+    await rahul.say("save my Airtel number 9876543210")  # needs the PIN -> pending
+    await rahul.say("Looks Unisex Salon mein haircut book karo kal shaam")
+    assert (await rahul.task()).status.value == "awaiting_approval"

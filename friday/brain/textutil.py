@@ -262,6 +262,17 @@ def extract_amounts(text: str, *, require_marker: bool = False) -> list[int]:
         digits = re.sub(r"\D", "", num)
         if len(digits) >= 9:  # phone / account number
             continue
+        if not has_marker:
+            # BUG-9: a reference like "LO196353" / "ref 196353" is not a price; a bare
+            # long number needs a currency cue
+            if m.start() > 0 and t[m.start() - 1].isalpha():
+                continue
+            if re.search(
+                r"(ref\w*|booking|confirmation|order|token|reservation|pnr)\s*\w*\s*$", head
+            ):
+                continue
+            if len(digits) >= 6:
+                continue
         v = _to_int(num, bool(m.group("kb")))
         if v is None:
             continue
