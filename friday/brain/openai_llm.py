@@ -59,6 +59,21 @@ _REASONING_PREFIXES = ("gpt-5", "o1", "o3", "o4")
 _REASONING_HEADROOM = {"none": 0, "minimal": 128, "low": 256, "medium": 1024, "high": 2048}
 _BACKOFF_BASE_S = 0.3
 _MAX_RETRY_AFTER_S = 2.0
+# Additive, GPT-only clarifications appended to the system prompt (the Claude prompts are
+# unchanged). They restate output format and two points GPT got wrong in the live sample
+# (language mirroring of Devanagari Hindi; ask_user is for the USER, not the business). They never
+# relax a rule: the untrusted-data rule, approval rule and persona stay exactly as written.
+_NOTES_FORMAT = (
+    "\nProvider notes (output format only; the rules above still decide everything):\n"
+    "Reply with ONLY the JSON object for the schema. Use null (or []) for fields that do not "
+    "apply. Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
+)
+_NOTES_CALL_TURN = (
+    "When the last callee turn carries a `language` tag, set your `language` to that tag and "
+    "write `text` in it (hi = Hindi, en = English; hinglish only for a Roman-script mix).\n"
+    "type=ask_user pauses the call to ask YOUR USER something. To ask the business a question "
+    "(price, inclusions, slots) use type=say.\n"
+)
 # Fallback when a model has no row in the price table (a mini-class guess; ESTIMATE).
 _DEFAULT_PRICE = (0.75, 0.075, 4.50)
 
@@ -227,13 +242,19 @@ class OpenAILLM:
 
     @staticmethod
     def _messages(
-        system: str, messages: Sequence[LLMMessage], attachments: Sequence[MediaBlob]
+        system: str,
+        messages: Sequence[LLMMessage],
+        attachments: Sequence[MediaBlob],
+        notes: str = "",
     ) -> list[dict[str, Any]]:
         from .prompts import CACHE_BREAK
 
-        out: list[dict[str, Any]] = [
-            {"role": "system", "content": system.replace(CACHE_BREAK, "\n")}
-        ]
+        # notes go after the static rules but BEFORE the per-call data so the prefix stays cacheable
+        head, _, tail = system.partition(CACHE_BREAK)
+        text = head.rstrip() + "\n" + notes if notes else head
+        if tail:
+            text += ("" if notes else "\n") + tail.replace(CACHE_BREAK, "\n")
+        out: list[dict[str, Any]] = [{"role": "system", "content": text}]
         out += [{"role": m.role, "content": m.content} for m in messages]
         if attachments:
             idx = next((i for i in range(1, len(out)) if out[i]["role"] == "user"), None)
@@ -345,7 +366,10 @@ class OpenAILLM:
         attachments: Sequence[MediaBlob] = (),
     ) -> LLMResponse:
         model = model or self.default_model
-        api_messages = self._messages(system, messages, attachments)
+        notes = ""
+        if json_schema:
+            notes = _NOTES_FORMAT + (_NOTES_CALL_TURN if purpose == "call_turn" else "")
+        api_messages = self._messages(system, messages, attachments, notes)
         reasoning = self._effort_for(purpose, model, effort)
         cap = max_tokens + (_REASONING_HEADROOM.get(reasoning or "none", 0) if reasoning else 0)
         kwargs: dict[str, Any] = {

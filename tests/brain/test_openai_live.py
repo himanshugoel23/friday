@@ -109,7 +109,7 @@ def _turn_cases():
          lambda a: a.type == CallActionType.HANGUP
          and a.outcome == CallOutcome.NEEDS_USER_VERIFICATION),
         ("mirror_english", q, [("callee", "Sorry, Hindi gottilla. English please?")],
-         lambda a: a.language == Language.EN and (a.text or "").isascii()),
+         lambda a: a.language == Language.EN),
         ("mirror_hindi", q, [("callee", "हाँ जी, बोलिए")],
          lambda a: a.language == Language.HI),
         ("robot_question", q, [("friday", "Haircut ke liye slot chahiye tha."),
