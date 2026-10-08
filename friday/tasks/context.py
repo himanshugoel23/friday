@@ -43,4 +43,10 @@ async def build_context(
         places=await call_opt(repo(repos, "places"), "list_for_owner", user_id, default=[]) or [],
         autonomy=await call_opt(repo(repos, "autonomy"), "list_for_user", user_id, default=[])
         or [],
+        # QA BUG-10(a): saved identifiers never reached build_call_brief, so a care call
+        # could not share an approved account number at the IVR.
+        identifiers=await call_opt(
+            repo(repos, "identifiers"), "list_for_user", user_id, default=[]
+        )
+        or [],
     )

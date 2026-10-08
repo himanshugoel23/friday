@@ -874,9 +874,7 @@ class _Session:
         try:
             if key == "telephony" and not await lim.acquire("telephony", timeout_s=5.0):
                 return False
-            await self._stack.enter_async_context(
-                lim.slot(key, timeout_s=self.r.slot_timeout_s)
-            )
+            await self._stack.enter_async_context(lim.slot(key, timeout_s=self.r.slot_timeout_s))
         except (LockTimeout, TimeoutError):
             return False
         return True
@@ -1075,7 +1073,7 @@ class _Session:
                 )
         if t == CallActionType.BRIDGE_USER and not b.user_phone:
             reasons.append("no user phone to bridge")
-        if t == CallActionType.BRIDGE_USER and not self._can_bridge():
+        if t == CallActionType.BRIDGE_USER and (not self._can_bridge() or self.bridge_refused):
             self.bridge_refused = True
             reasons.append(
                 "this telephony provider cannot connect the user into the call - end with "
@@ -1418,7 +1416,16 @@ class _Session:
         assert self.leg is not None and self.brief.user_phone
         if action.text:
             await self._say(action.text, action.language)
-        user_leg = await self.leg.add_participant(self.brief.user_phone, announce=self._whisper())
+        try:
+            user_leg = await self.leg.add_participant(
+                self.brief.user_phone, announce=self._whisper()
+            )
+        except ProviderError as e:  # transfer request rejected: stay on the call
+            await self._system(
+                f"BRIDGE FAILED ({type(e).__name__}): the provider refused the transfer"
+            )
+            self.bridge_refused = True
+            return None
         self._extra_legs.append(user_leg)
         status = await user_leg.wait_for_answer(USER_JOIN_TIMEOUT_S)
         if status != DialStatus.ANSWERED:

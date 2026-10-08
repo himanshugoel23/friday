@@ -32,6 +32,7 @@ COMMIT_TYPES = frozenset(
     }
 )
 
+
 def is_commit_action(action: CallAction) -> bool:
     return bool(action.commits_booking or looks_like_commitment(action.text))
 

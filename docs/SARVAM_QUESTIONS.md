@@ -1,4 +1,4 @@
-# Questions for Sarvam (Conversations / Voice Agents + telephony)
+# Sarvam / Vobiz telephony: status, questions, first live call
 
 Friday's brain must decide every turn and `friday.core.safety` must gate every utterance and
 key press, so we integrate in **raw media streaming** mode: the call audio goes to our
@@ -70,3 +70,39 @@ DECISION PENDING (do not build blind): we need to learn whether a Sarvam agent s
 webhook so OUR brain and safety guard decide every turn, or (2) raw audio streaming to our server on this number, or
 (3) credentials to the underlying Vobiz connection. Until one of these is confirmed, live calls must not be placed
 for booking/commitment tasks, because a hosted agent's speech cannot be gated by friday.core.safety.
+
+## Status after checking the docs (2026-10-08, via search summaries; direct fetch is blocked)
+Confirmed: the direct-Vobiz raw-stream route (Sarvam guide "Build a Voice Agent using Vobiz");
+base URL `https://api.vobiz.ai/api/v1`, `X-Auth-ID` / `X-Auth-Token`, `POST /Account/{id}/Call/`
+(from, to, answer_url, answer_method -> `call_uuid`), `<Stream bidirectional="true">`, stream events
+`start` / `media` / `playedStream` / `clearedAudio` / `stop` and commands `playAudio` / `checkpoint` /
+`clearAudio`; transfer to PSTN or SIP is supported. Answers to questions 1, 3 (mostly), 7 (transfer,
+not 3-way) are therefore "yes". **Still open:** the DTMF and Record request bodies (5, 8), the live
+transfer request shape (7), hangup causes and where the hangup URL is set (3, 13), L16 byte order,
+concurrency limits (6), delete-recording API (8). Each is a `TODO` in `sarvam.py`.
+
+## First live call: your own phone (+91 80 7158 2175 is the Vobiz number)
+Set before starting (secrets only in the environment): `FRIDAY_MODE=live`,
+`FRIDAY_PUBLIC_BASE_URL=https://<public https host>` (a tunnel is fine),
+`SARVAM_TELEPHONY_AUTH_ID` / `SARVAM_TELEPHONY_AUTH_TOKEN` (Vobiz console, Voice -> Voice
+Applications -> Overview), `FRIDAY_SARVAM_CALLER_IDS=+918071582175` (comma list), `SARVAM_API_KEY`,
+`FRIDAY_SECRET_KEY`, `FRIDAY_OBJECT_STORE_URL` (or run with the simulator store for a dry run).
+1. **Vobiz account:** turn call queuing OFF (queued outbound calls are held and can be marked
+   failed). In the Vobiz Application for the number, set the answer URL to
+   `https://<host>/voice/sarvam/inbound?token=<sarvam_token(secret, "inbound")>` (and the hangup URL
+   to `/voice/sarvam/hangup` with the same token); print the token with
+   `python -c "from friday.voice.telephony.sarvam import sarvam_token as t; print(t('<FRIDAY_SECRET_KEY>','inbound'))"`.
+2. `uv run friday check` must pass; start `FRIDAY_ROLES=api,task,voice` and watch the logs
+   (phone numbers are masked).
+3. **Outbound to you:** ask Friday on the chat channel to "call me and ask what time it is" with your
+   own mobile as the target. Expect: it rings, the FIRST words are the AI disclosure, she mirrors your
+   language, answers honestly if you ask "are you a bot?", never speaks a digit run you did not approve.
+4. **Hold / DTMF:** ask for a call to a toll-free IVR you own or a friend's test line; press-test one
+   menu key (the call log shows `DTMF:` turns). If the IVR ignores it, note whether the in-band
+   fallback logged "sending in-band tones".
+5. **Inbound / call-back:** hang up, then call +91 80 7158 2175 from your mobile: you should hear the
+   Friday inbound greeting; let a second call ring out to verify the missed-call event.
+6. **Transfer:** run a care-style task and say "connect me": the call should hand over to your
+   phone; if Vobiz refuses, the log shows `BRIDGE FAILED` and the user gets a call-back pack.
+7. **Recording and erasure:** the report has a recording link; "delete everything" must delete it.
+Stop on any failure: `FRIDAY_MODE=simulator` restores the safe default.

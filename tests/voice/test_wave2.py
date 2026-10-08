@@ -219,7 +219,7 @@ async def test_from_number_reaches_every_provider(sim, vsettings):
                           public_base_url="https://f.example.in", secret="x", stt=StubSTT(),
                           tts=StubTTS(), transport=httpx.MockTransport(sar_handler))  # fmt: skip
     await sar.place_call(req)
-    assert json.loads(sar_handler.last.content)["from"] == "918069110003"
+    assert json.loads(sar_handler.last.content)["from"] == "+918069110003"
 
 
 async def test_runner_passes_brief_from_number_to_the_provider(make_runner, sim):
@@ -751,20 +751,98 @@ async def test_sarvam_dtmf_falls_back_to_in_band_tones():
                                             {"leg": leg})  # fmt: skip
     await task
     assert any(p.endswith("/DTMF/") for p in calls) and any(m["event"] == "playAudio" for m in sent)
-    assert "bridge_transfer" not in sar.capabilities()
-    assert (
-        "bridge_transfer"
-        in SarvamTelephony(
-            auth_id="MA",
-            auth_token="t",
-            caller_ids=[],
-            public_base_url="https://f",
-            secret="x",
-            stt=StubSTT(),
-            tts=StubTTS(),
-            enable={"bridge_transfer"},
-        ).capabilities()
-    )
+    assert "bridge_transfer" in sar.capabilities()  # transfer confirmed supported by Vobiz
+    off = SarvamTelephony(
+        auth_id="MA", auth_token="t", caller_ids=[], public_base_url="https://f", secret="x",
+        stt=StubSTT(), tts=StubTTS(), disable={"bridge_transfer"},
+    )  # fmt: skip
+    assert "bridge_transfer" not in off.capabilities()  # ops kill switch -> call-back pack
+
+
+async def test_vobiz_auth_headers_and_inbound_l16_stream():
+    """VERIFIED shapes: X-Auth-ID/X-Auth-Token, start.mediaFormat L16, playAudio.streamId,
+    clearAudio."""
+    seen: list[httpx.Request] = []
+
+    def handler(r: httpx.Request):
+        seen.append(r)
+        return httpx.Response(201, json={"call_uuid": "cu-1"})
+
+    sar = SarvamTelephony(auth_id="MA9", auth_token="tok9", caller_ids=["+918031110001"],
+                          public_base_url="https://f.example.in", secret="x", stt=StubSTT(),
+                          tts=StubTTS(), transport=httpx.MockTransport(handler))  # fmt: skip
+    leg = await sar.place_call(OutboundCallRequest(to_phone=LOOKS, task_id="t"))
+    assert leg.provider_call_id == "cu-1"
+    req = seen[0]
+    assert req.headers["X-Auth-ID"] == "MA9" and req.headers["X-Auth-Token"] == "tok9"
+    assert "authorization" not in req.headers
+    assert str(req.url) == "https://api.vobiz.ai/api/v1/Account/MA9/Call/"
+    xml = await sar.answer_xml({"CallUUID": "cu-1"}, leg.key)
+    assert 'bidirectional="true"' in xml and "audio/x-l16;rate=8000" in xml
+    sent: list[dict] = []
+
+    async def send(text):
+        sent.append(json.loads(text))
+
+    state: dict = {}
+    start = {"event": "start", "start": {"callId": "cu-1", "streamId": "st-9",
+             "tracks": ["inbound"], "mediaFormat": {"encoding": "audio/x-l16", "sampleRate": 16000}}}  # fmt: skip
+    await sar.handle_stream_message(start, send, state, key=leg.key)
+    assert leg.in_encoding == "audio/x-l16" and leg.in_rate == 16000
+    # 16 kHz L16 speech is resampled to the 8 kHz VAD path and transcribed
+    import math
+    import random
+    from array import array
+
+    rnd = random.Random(2)
+    pcm = array("h")
+    for i in range(16000 * 2):
+        t = i / 16000
+        env = max(0.0, math.sin(2 * math.pi * 4 * t)) ** 2
+        pcm.append(
+            int(9000 * env * (rnd.random() * 2 - 1) + 6000 * env * math.sin(2 * math.pi * 180 * t))
+        )
+    raw = pcm.tobytes() + bytes(2 * 16000)
+    import base64 as b64
+
+    for i in range(0, len(raw), 640):
+        await sar.handle_stream_message(
+            {"event": "media", "media": {"payload": b64.b64encode(raw[i : i + 640]).decode()}},
+            send,
+            state,
+            key=leg.key,
+        )
+    heard = await leg.listen(5)
+    assert heard is not None and heard.text
+    await leg.speak("Namaste", Language.HINGLISH)
+    play = next(m for m in sent if m["event"] == "playAudio")
+    assert play["streamId"] == "st-9" and play["media"]["contentType"] == "audio/x-mulaw"
+    await leg.clear_audio()
+    assert sent[-1] == {"event": "clearAudio", "streamId": "st-9"}
+    await sar.handle_stream_message({"event": "clearedAudio"}, send, state, key=leg.key)  # ignored
+
+
+async def test_failed_transfer_keeps_the_call_and_reports_a_callback_pack(make_runner, sim):
+    from friday.core.interfaces import ProviderError
+
+    async def refuse(phone, *, announce=None):
+        raise ProviderError("sarvam", "transfer rejected")
+
+    orig = sim.place_call
+
+    async def place(req):
+        leg = await orig(req)
+        leg.add_participant = refuse
+        return leg
+
+    sim.place_call = place
+    bridge = CallAction(type=CallActionType.BRIDGE_USER, text="Connecting Rahul now.")
+    exit_ = hangup(CallOutcome.NEEDS_USER_VERIFICATION, "Rahul aapko khud call karenge.")
+    brief = make_brief(AIRTEL, "Airtel", task_type=TaskType.CUSTOMER_CARE, company="Airtel")
+    result = await make_runner(ScriptedPolicy([bridge, bridge, exit_])).run(brief, no_answer_user)
+    assert result.outcome == CallOutcome.NEEDS_USER_VERIFICATION  # not FAILED: never re-dialled
+    assert result.collected["bridge_unavailable"] == "1"
+    assert any(s.startswith("BRIDGE FAILED") for s in sys_lines(result))
 
 
 def test_default_live_telephony_secret_settings_present():

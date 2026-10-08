@@ -169,7 +169,7 @@ class Friday:
         return ids
 
     def person(self, phone: str) -> Party:
-        return Person(self, phone)
+        return Party(self, phone)
 
     async def user(self, phone: str, name: str = "Rahul", *, language: str = "hinglish") -> Party:
         """Create an ACTIVE, consented user quickly (use onboard() to test the flow itself)."""

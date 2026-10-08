@@ -112,10 +112,10 @@ async def start(sar, leg, sent, state, *, call_id=None):
 
 def test_capability_matrix():
     assert {"dtmf", "media_stream", "inbound", "missed_call", "recording"} <= CAPABILITIES
-    assert "bridge_transfer" not in CAPABILITIES  # unverified: off until tested
+    assert "bridge_transfer" in CAPABILITIES  # Vobiz transfer confirmed by Sarvam's docs
     assert "bridge_conference" not in CAPABILITIES and "custom_llm_turns" not in CAPABILITIES
-    assert not satisfies(CAPABILITIES, {"dtmf", "bridge"})
-    assert satisfies(CAPABILITIES | {"bridge_transfer"}, {"dtmf", "bridge"})
+    assert satisfies(CAPABILITIES, {"dtmf", "bridge"})
+    assert not satisfies(CAPABILITIES - {"bridge_transfer"}, {"dtmf", "bridge"})
     assert not satisfies(frozenset({"outbound"}), {"bridge"})
 
 
@@ -128,9 +128,7 @@ async def test_place_call_payload_sticky_and_answer_xml(sar, rec):
     req = rec.requests[-1]
     assert req.url.path == "/api/v1/Account/MA123/Call/"
     b = rec.body()
-    assert (
-        b["to"] == "918040000001" and "+" + b["from"] in sar.caller_ids and b["ring_timeout"] == 25
-    )
+    assert b["to"] == "+918040000001" and b["from"] in sar.caller_ids and b["ring_timeout"] == 25
     assert "token=" in b["answer_url"] and "/voice/sarvam/hangup" in b["hangup_url"]
     xml = await sar.answer_xml({"CallUUID": "call-1"}, leg.key)
     assert 'bidirectional="true"' in xml and "wss://friday.example.in/voice/sarvam/media" in xml
