@@ -325,3 +325,13 @@ brand on WhatsApp) and start onboarding; repeat callers are recognised and serve
 7. Reuses the existing CallSessionRunner inbound path (run_inbound), user repositories, onboarding state machine,
    PIN module and task engine. New work: caller classification (user / business / unknown), a voice
    onboarding flow, keypad PIN capture with masking, SMS/WhatsApp hand-off, front-door abuse controls.
+
+## Founder decision: Sarvam-only telephony for now (supersedes the Sarvam → Exotel → Twilio routing)
+- Live calling uses **Sarvam only** (Sarvam telephony / its BYO-carrier route, plus Sarvam STT/TTS). **No Exotel for now.**
+  Set `FRIDAY_TELEPHONY_PROVIDER=sarvam`. Exotel and Twilio code stays in the repo, unconfigured and disabled by default,
+  so a provider can be added back later without rework.
+- With no fallback, the Sarvam adapter must be explicit about capability gaps: each feature the product needs from
+  telephony is either confirmed supported, degraded gracefully, or reported to the user honestly.
+  Features to verify with Sarvam: per-turn control by our own brain / raw audio stream, DTMF sending (IVR), inbound and
+  missed-call events, multiple numbers with per-call caller-ID selection (number pool + rotation), call recording,
+  transfer/conference (join the user in), concurrency limits, Indian number rental, call-back to a caller.
