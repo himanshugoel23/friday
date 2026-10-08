@@ -12,6 +12,7 @@ on in-memory SQLite and a FakeClock. No network, no keys.
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -139,12 +140,22 @@ class Friday:
         self.engine = c.task_engine
 
     @classmethod
-    async def start(cls, *, now: datetime = START, **settings: Any) -> Friday:
+    async def start(
+        cls,
+        *,
+        now: datetime = START,
+        create_tables: bool = True,
+        first_message_id: int = 1,
+        **settings: Any,
+    ) -> Friday:
         clock = FakeClock(now)
         c = Container(make_settings(**settings), clock=clock)
-        await c.db.create_all()
+        if create_tables:
+            await c.db.create_all()
         rt = Runtime(c, fast_pin_hash=True)
         await rt.start(background=False)
+        # provider message ids must not collide with the ones already stored in a copied DB
+        c.messaging._ids = itertools.count(first_message_id)
         return cls(c, rt, clock)
 
     async def close(self) -> None:

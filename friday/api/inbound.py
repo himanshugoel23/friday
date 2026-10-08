@@ -89,6 +89,7 @@ ANSWERABLE_STATUSES = frozenset(
         TaskStatus.AWAITING_USER,
         TaskStatus.AWAITING_APPROVAL,
         TaskStatus.AWAITING_CHOICE,  # QA BUG-3: comparison choice taps were swallowed
+        TaskStatus.FAILED,  # QA BUG-3: the final retry options (later/tomorrow/another)
         TaskStatus.CALLING,
     }
 )

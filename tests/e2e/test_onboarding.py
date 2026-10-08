@@ -7,8 +7,8 @@ from tests.e2e.conftest import RAHUL
 from tests.e2e.harness import PIN
 
 
-async def test_full_onboarding_consent_pin_language(friday):
-    u = friday.person(RAHUL)
+async def test_full_onboarding_consent_pin_language(fresh_friday):
+    u = fresh_friday.person(RAHUL)
     await u.say("hi")
     await u.say("Rahul")
     await u.say("Bengaluru")
@@ -18,10 +18,10 @@ async def test_full_onboarding_consent_pin_language(friday):
     assert row.status == UserStatus.ONBOARDING  # nothing is stored/consented yet
     consent_ask = u.last()
     assert "AI" in consent_ask and "delete everything" in consent_ask.lower()
-    assert not await friday.c.repos.consents.has(row.id, ConsentKind.TERMS_PRIVACY)
+    assert not await fresh_friday.c.repos.consents.has(row.id, ConsentKind.TERMS_PRIVACY)
 
     await u.say("I agree")
-    assert await friday.c.repos.consents.has(row.id, ConsentKind.TERMS_PRIVACY)
+    assert await fresh_friday.c.repos.consents.has(row.id, ConsentKind.TERMS_PRIVACY)
     assert "PIN" in u.last()
 
     await u.say(PIN)
@@ -32,7 +32,7 @@ async def test_full_onboarding_consent_pin_language(friday):
     await u.say("later")  # first task
     row = await u.user_row()
     assert row.status == UserStatus.ACTIVE
-    profile = await friday.c.repos.profiles.get(row.id)
+    profile = await fresh_friday.c.repos.profiles.get(row.id)
     assert profile.name == "Rahul" and profile.city == "Bengaluru"
     assert profile.language == Language.HINGLISH
     # the PIN is never echoed back and never stored in clear
@@ -40,14 +40,14 @@ async def test_full_onboarding_consent_pin_language(friday):
     assert PIN not in (row.pin_hash or "")
 
 
-async def test_consent_refusal_blocks_everything(friday):
-    u = friday.person(RAHUL)
+async def test_consent_refusal_blocks_everything(fresh_friday):
+    u = fresh_friday.person(RAHUL)
     for line in ["hi", "Rahul", "Bengaluru", "Hinglish", "casual"]:
         await u.say(line)
     await u.say("Not now")
     row = await u.user_row()
     assert row.status == UserStatus.ONBOARDING
-    assert not await friday.c.repos.consents.has(row.id, ConsentKind.TERMS_PRIVACY)
+    assert not await fresh_friday.c.repos.consents.has(row.id, ConsentKind.TERMS_PRIVACY)
     assert "PIN" not in u.last()
     # still no way around it: a task request does not create a task before consent
     await u.say("Looks Unisex Salon mein haircut book karo")
@@ -55,8 +55,8 @@ async def test_consent_refusal_blocks_everything(friday):
     assert (await u.user_row()).status == UserStatus.ONBOARDING
 
 
-async def test_pin_mismatch_and_weak_pin_are_rejected(friday):
-    u = friday.person(RAHUL)
+async def test_pin_mismatch_and_weak_pin_are_rejected(fresh_friday):
+    u = fresh_friday.person(RAHUL)
     for line in ["hi", "Rahul", "Bengaluru", "Hinglish", "casual", "I agree"]:
         await u.say(line)
     await u.say("1234")  # trivially weak
@@ -71,8 +71,8 @@ async def test_pin_mismatch_and_weak_pin_are_rejected(friday):
     assert (await u.user_row()).pin_hash
 
 
-async def test_optional_circle_and_places_are_saved(friday):
-    u = friday.person(RAHUL)
+async def test_optional_circle_and_places_are_saved(fresh_friday):
+    u = fresh_friday.person(RAHUL)
     for line in ["hi", "Rahul", "Bengaluru", "Hinglish", "casual", "I agree", PIN, PIN]:
         await u.say(line)
     await u.say("mere papa Suresh, +91 98111 11111, Hindi, Delhi")
@@ -80,9 +80,9 @@ async def test_optional_circle_and_places_are_saved(friday):
     await u.say("later")
     row = await u.user_row()
     assert row.status == UserStatus.ACTIVE
-    people = await friday.c.repos.people.list_for_owner(row.id)
+    people = await fresh_friday.c.repos.people.list_for_owner(row.id)
     assert any(p.name == "Suresh" and p.phone == "+919811111111" for p in people), people
-    places = await friday.c.repos.places.list_for_owner(row.id)
+    places = await fresh_friday.c.repos.places.list_for_owner(row.id)
     assert {p.label.lower() for p in places} >= {"home", "office"}, places
     # circle members are NOT messaged without their own opt-in
-    assert friday.channel.messages_to("+919811111111") == []
+    assert fresh_friday.channel.messages_to("+919811111111") == []
