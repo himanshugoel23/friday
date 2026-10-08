@@ -77,24 +77,45 @@ under `en` with the suffix `_hinglish` (PRD Q9) only if you want them. Footer on
 Category UTILITY unless noted. Meta rejects a body that is only a variable or that starts or ends with one:
 add fixed words around it. The code fills the variables with the text in the right-hand column.
 
-Names below are the **exact names Friday sends**. They come from `Settings.whatsapp_templates`
-(`FRIDAY_WHATSAPP_TEMPLATES` in `deploy/env.production.example`). If you rename one in Meta, change the JSON, too.
 
-### 4.1 Needed for the beta (the code sends these)
+### 4.1 Needed for the beta (the code sends these): copy-paste table for Meta
 
-| Logical key | Meta template name | Variables the code sends | Suggested body (`{{n}}` = variable) | Quick-reply buttons |
+One source of truth: `friday/core/templates.py` (name, variable count, body). `Settings.whatsapp_templates` and every
+sender use it, and `tests/channels/test_templates.py` fails if code, registry and this table disagree. Submit **both
+language rows** of every template (`en` and `hi`) under the same name. Category UTILITY. Sample values for Meta's
+review: use realistic text (for example `{{1}}` = Rahul). Footer on every template: `Reply STOP to stop these.`
+
+| Template name | Language | Body (paste as is) | Variables | Quick-reply buttons |
 |---|---|---|---|---|
-| `task_update` | `friday_task_update_v1` | `{{1}}` = the update text (max 900 chars) | "Update from Friday: {{1}}" | `See details` |
-| `question` | `friday_question_v1` | `{{1}}` = the question text | "Friday has a question for you: {{1}} Tap to answer." | `Answer now` |
-| `nudge` | `friday_nudge_v1` | `{{1}}` = first name, `{{2}}` = nudge text (max 900) | "Hi {{1}}, a quick heads-up from Friday: {{2}}" (see open item O-13) | `Yes, do it` , `Not now`, `Stop these` |
-| `reengage` | `friday_reengage_v1` | `{{1}}` = text | "Friday here. {{1}} Reply any time to continue." | none (registered because it is configured; no sender exists in the code yet) |
-| `friday_biz_request` (messages **to businesses**, PRD US-24.2) | `friday_biz_request` | `{{1}}` = on whose behalf (the user), `{{2}}` = the ask | "Hello, this is Friday, an AI assistant contacting you on behalf of a customer, {{1}}. {{2}}" | `Reply`, `Stop messages` |
-| `beneficiary_optin` (asks a family member for permission; circle feature) | `friday_beneficiary_optin` | `{{1}}` = their name, `{{2}}` = who added them, `{{3}}` = relation, `{{4}}` = what | "Namaste {{1}}, I'm Friday, an AI assistant. {{2}} ({{3}}) has booked {{4}} for you. May I send you confirmations and reminders for it?" | `Yes`, `No` |
-| `business_booking_declined` (note to a business when the user declines) | `friday_business_declined_v1` | `{{1}}` = business name | "Hello {{1}}, the customer who contacted you through Friday (an AI assistant) will not be going ahead with the booking. Thank you for your time." | `OK`, `Stop messages` |
-| `business_booking_confirmed` (end-of-call touch to a business) | `friday_business_touch` | `{{1}}` = customer name, `{{2}}` = confirmed terms, `{{3}}` = "Friday" | "Booking confirmed via {{3}} for {{1}}: {{2}}. Friday is an AI assistant that books on behalf of customers." (PRD `friday_business_touch`) | `OK`, `Stop messages` |
-| `business_enquiry_thanks` | `friday_business_thanks_v1` | `{{1}}` = customer name, `{{2}}` = "Friday" | "Thank you for speaking with {{2}}, an AI assistant, on behalf of {{1}} today." | `Stop messages` |
+| `friday_task_update_v1` | `en` | Update from Friday: {{1}} | {{1}} = update text (max 900 chars) | See details |
+| `friday_task_update_v1` | `hi` | Friday की तरफ से अपडेट: {{1}} | same as `en` | See details |
+| `friday_question_v1` | `en` | Friday has a question for you: {{1}} Tap to answer. | {{1}} = the question text | Answer now |
+| `friday_question_v1` | `hi` | Friday का एक सवाल है: {{1}} जवाब देने के लिए टैप करें। | same as `en` | Answer now |
+| `friday_nudge_v1` | `en` | Hi {{1}}, a quick heads-up from Friday: {{2}} | {{1}} = user's first name; {{2}} = nudge text (max 900 chars) | Yes, do it, Not now, Stop these |
+| `friday_nudge_v1` | `hi` | नमस्ते {{1}}, Friday की तरफ से एक छोटी सूचना: {{2}} | same as `en` | Yes, do it, Not now, Stop these |
+| `friday_reengage_v1` | `en` | Friday here. {{1}} Reply any time to continue. | {{1}} = text | none |
+| `friday_reengage_v1` | `hi` | Friday यहाँ है। {{1}} आगे बढ़ने के लिए कभी भी जवाब दें। | same as `en` | none |
+| `friday_biz_request` | `en` | Hello, this is Friday, an AI assistant contacting you on behalf of a customer, {{1}}. {{2}} | {{1}} = on whose behalf (the user's name); {{2}} = the ask | Reply, Stop messages |
+| `friday_biz_request` | `hi` | नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट, और एक ग्राहक, {{1}}, की ओर से संपर्क कर रही हूँ। {{2}} | same as `en` | Reply, Stop messages |
+| `friday_beneficiary_optin` | `en` | Namaste {{1}}, I'm Friday, an AI assistant. {{2}} ({{3}}) has booked {{4}} for you. May I send you confirmations and reminders for it? | {{1}} = their name; {{2}} = who added them; {{3}} = relation; {{4}} = what was booked or asked | Yes, No |
+| `friday_beneficiary_optin` | `hi` | नमस्ते {{1}}, मैं Friday हूँ, एक AI असिस्टेंट। {{2}} ({{3}}) ने आपके लिए {{4}} बुक किया है। क्या मैं इसकी पुष्टि और रिमाइंडर आपको भेज सकती हूँ? | same as `en` | Yes, No |
+| `friday_business_declined_v1` | `en` | Hello {{1}}, the customer who contacted you through Friday (an AI assistant) will not be going ahead with the booking. Thank you for your time. | {{1}} = business name | OK, Stop messages |
+| `friday_business_declined_v1` | `hi` | नमस्ते {{1}}, Friday (एक AI असिस्टेंट) के ज़रिए आपसे संपर्क करने वाले ग्राहक अब यह बुकिंग नहीं करेंगे। आपके समय के लिए धन्यवाद। | same as `en` | OK, Stop messages |
+| `friday_business_touch` | `en` | Booking confirmed via {{3}} for {{1}}: {{2}}. Friday is an AI assistant that books on behalf of customers. | {{1}} = customer name; {{2}} = confirmed terms; {{3}} = "Friday" | OK, Stop messages |
+| `friday_business_touch` | `hi` | {{3}} के ज़रिए {{1}} की बुकिंग पक्की हुई: {{2}}। Friday एक AI असिस्टेंट है जो ग्राहकों की ओर से बुकिंग करती है। | same as `en` | OK, Stop messages |
+| `friday_business_thanks_v1` | `en` | Thank you for speaking with {{2}}, an AI assistant, on behalf of {{1}} today. | {{1}} = customer name; {{2}} = "Friday" | Stop messages |
+| `friday_business_thanks_v1` | `hi` | आज {{1}} की ओर से {{2}}, एक AI असिस्टेंट, से बात करने के लिए धन्यवाद। | same as `en` | Stop messages |
 
-(The key `friday_biz_request` has no entry in the JSON, so Friday uses it as the name directly.)
+Which code path sends which template (logical key -> name above):
+
+- `task_update`, `question`: any user message outside the 24-hour window (task results, approval and mid-call questions).
+- `nudge`: proactive nudges AND the notifier's generic fallback; both send exactly 2 variables (first name, text).
+- `reengage`: configured, but no sender exists in the code yet.
+- `friday_biz_request`: message to a business that did not answer (name is used as-is; set `FRIDAY_TASKS_BUSINESS_REQUEST_TEMPLATE` only if you rename it in Meta).
+- `beneficiary_optin`: circle-member permission request. `business_booking_declined`, `business_booking_confirmed`, `business_enquiry_thanks`: notes to businesses.
+- The same three business keys also exist as DLT SMS templates with the same variable counts (SMS is off in the beta unless MSG91/DLT is configured).
+
+If you rename a template in Meta, change `FRIDAY_WHATSAPP_TEMPLATES` (JSON, logical key -> name) to match; never change a variable count without changing `friday/core/templates.py` and the code.
 
 ### 4.2 In the product requirements (PRD section 8.1) but not wired to the beta defaults
 The PRD lists these additional templates; the code today routes nudges, updates and questions through the generic
