@@ -631,7 +631,8 @@ class Settings(BaseSettings):
         uses_sarvam = tel == "sarvam" or (tel == "routed" and "sarvam" in self.telephony_route)
         if uses_sarvam and not (self.sarvam_caller_ids or self.friday_numbers):
             problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
-        if self.is_live and not self.is_pilot and not self.object_store_url:  # S-6: no local-disk recordings in live
+        # S-6: no local-disk recordings in live (the pilot never records)
+        if self.is_live and not self.is_pilot and not self.object_store_url:
             problems.append("missing FRIDAY_OBJECT_STORE_URL (s3://bucket/prefix) for recordings")
         if self.resolve_stt() == "sarvam" or self.resolve_tts() == "sarvam":
             need["SARVAM_API_KEY"] = self.sarvam_api_key

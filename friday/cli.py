@@ -4,6 +4,7 @@
     uv run friday initdb    # create tables in FRIDAY_DATABASE_URL
     uv run friday serve     # run the API (needs friday.api.app:create_app)
     uv run friday worker --roles voice,task   # background roles without the HTTP server
+    uv run friday init-env | doctor | livecall --to +91... [--simulate]   # laptop live test
     uv run friday chat      # local WhatsApp simulator chat (needs friday.channels.cli:main)
     uv run friday loadtest --users 1000 --calls 200   # S-11 load test on the simulator
 
@@ -354,6 +355,15 @@ def main(argv: list[str] | None = None) -> int:
     worker = sub.add_parser("worker", help="run background roles without the HTTP server")
     worker.add_argument("--roles", default=None, help="api,task,voice,proactive,batch (CSV)")
     sub.add_parser("chat")
+    sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
+    sub.add_parser("doctor", help="read-only, free checks for the laptop live test")
+    live = sub.add_parser("livecall", help="place ONE real test call to an allow-listed number")
+    live.add_argument("--to", required=True, help="your own phone, E.164 e.g. +919812345678")
+    live.add_argument("--goal", default=None)
+    live.add_argument("--max-seconds", type=int, default=180)
+    live.add_argument("--yes", action="store_true", help="skip the typed confirmation")
+    live.add_argument("--simulate", action="store_true", help="no network: simulated business")
+    live.add_argument("--on-behalf-of", default="the Friday founder")
     load = sub.add_parser("loadtest", help="S-11: N users, M concurrent simulated calls")
     load.add_argument("--users", type=int, default=100)
     load.add_argument("--calls", type=int, default=20, help="max concurrent calls in flight")
@@ -363,6 +373,10 @@ def main(argv: list[str] | None = None) -> int:
     load.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
+    if args.cmd == "init-env":
+        from friday.pilot import init_env
+
+        return init_env()
     settings = Settings()
     setup_logging(settings.log_level, settings.log_json)
 
@@ -373,6 +387,23 @@ def main(argv: list[str] | None = None) -> int:
 
             rc = run_live_check(settings) or rc
         return rc
+    if args.cmd == "doctor":
+        from friday.pilot import doctor
+
+        return asyncio.run(doctor(settings))
+    if args.cmd == "livecall":
+        from friday.pilot import run_livecall
+
+        try:
+            return asyncio.run(
+                run_livecall(
+                    settings, args.to, goal=args.goal, max_seconds=args.max_seconds,
+                    yes=args.yes, simulate=args.simulate, on_behalf_of=args.on_behalf_of,
+                )
+            )
+        except KeyboardInterrupt:
+            print("\nStopped by you (Ctrl+C).")
+            return 130
     if args.cmd == "initdb":
         asyncio.run(_initdb(settings))
         return 0
