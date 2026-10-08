@@ -1,0 +1,32 @@
+# Secrets and local state: never in an image
+.env
+.env.*
+!.env.example
+**/*.pem
+**/*.key
+*.db
+*.sqlite*
+var/
+# Git + tooling
+.git
+.gitignore
+.github
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+dist
+build
+*.egg-info
+# Not needed at runtime
+tests/
+docs/
+deploy/
+Dockerfile
+.dockerignore

@@ -91,8 +91,11 @@ def install_pause_guard(c: Any) -> list[str]:
     """Wrap the outbound paths of the components this process has. Returns what was guarded."""
     settings: Settings = c.settings
     guarded: list[str] = []
+    wanted = set(c.role_components())  # only what this process' roles actually run
 
     def component(name: str) -> Any:
+        if name not in wanted:
+            return None
         try:
             return c.get(name)
         except Exception:  # noqa: BLE001 - a role that lacks a component simply has no guard
