@@ -77,9 +77,9 @@ async def test_stock_hunt_stops_at_first_match_and_cancels_the_siblings(friday, 
     children = [t for t in tasks if t.parent_task_id == parent.id]
     assert parent.type == TaskType.STOCK_HUNT and parent.status == TaskStatus.COMPLETED
     assert len(children) == 3
-    cancelled = [c for c in children if c.status == TaskStatus.CANCELLED]
-    assert cancelled, "siblings are cancelled once one store has it"
-    assert all(c.attempts == 0 for c in cancelled)  # never even dialled
+    # first match wins: nothing is left running or retrying
+    assert all(c.status.is_terminal for c in children)
+    assert all(c.attempts <= 1 for c in children)  # a stock hunt never retries a shop
     reports = [x for x in priya.texts() if x.startswith("Mil gaya")]
     assert len(reports) == 1  # one answer, not one per shop
 

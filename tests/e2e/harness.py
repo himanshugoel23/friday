@@ -54,7 +54,6 @@ def shim_task_role(monkeypatch: Any) -> None:
     monkeypatch.setattr(repo, "_task_values", values)
     monkeypatch.setattr(repo, "_task", build)
 START = datetime(2026, 1, 5, 11, 0, tzinfo=IST)  # Mon 11:00 IST: in the call window
-ONBOARDING_LINES = ["hi", "Rahul", "Pune", "Hinglish", "casual", "I agree", PIN, PIN, "skip", "skip"]
 
 
 def make_settings(**over: Any) -> Settings:

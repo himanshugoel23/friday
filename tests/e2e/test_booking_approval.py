@@ -4,7 +4,6 @@ approves -> a CONFIRMATION call-back with the approved terms. Decline -> polite 
 from __future__ import annotations
 
 from friday.core.models import CallOutcome, TaskStatus, TaskType
-from tests.e2e.conftest import RAHUL
 from tests.e2e.harness import friday_lines
 
 LOOKS = "+918040000001"
@@ -37,7 +36,9 @@ async def test_offer_waits_for_user_then_confirmation_callback(friday, rahul):
     assert confirm.collected.get("committed") == "true"
     assert "6 PM" in " ".join(friday_lines(confirm))  # the approved terms, not a new choice
     # sticky caller-ID: the same Friday number rings the same business back
-    assert calls[0].from_number == calls[1].from_number
+    since = friday.clock.now().replace(year=2025)
+    mem = await friday.c.repos.calls.recent_for_phone(LOOKS, since=since, limit=10)
+    assert len(mem) == 2 and len({m.friday_number for m in mem}) == 1
     assert "Looks Unisex Salon" in rahul.last()
 
 

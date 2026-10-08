@@ -13,7 +13,10 @@ from tests.e2e.harness import callee_lines, friday_lines
 
 LOOKS = "+918040000001"
 FROSTY = "+918040000004"
-DELEGATED = "Looks Unisex Salon mein haircut book karo kal shaam 4-7 ke beech koi bhi slot, {cap} tak, aap decide karo"
+DELEGATED = (
+    "Looks Unisex Salon mein haircut book karo kal shaam 4-7 ke beech koi bhi slot, "
+    "{cap} tak, aap decide karo"
+)
 
 
 @pytest.mark.xfail(
