@@ -69,8 +69,12 @@ class SqlJobQueue:
     async def enqueue(self, job: Job, *, session: Any = None) -> Job:
         if session is not None:
             return await self._enqueue(session, job)
-        async with self.db.session() as s:
-            result = await self._enqueue(s, job)
+        try:
+            async with self.db.session() as s:
+                result = await self._enqueue(s, job)
+        except IntegrityError:  # lost a dedupe race: the winner's job is the answer
+            async with self.db.session() as s:
+                result = await self._enqueue(s, job)  # pre-select now finds it
         self._wake.set()
         return result
 
@@ -89,21 +93,8 @@ class SqlJobQueue:
         values = job.model_dump(mode="python")
         values["status"] = JobStatus.QUEUED.value
         row = JobRow(**values)
-        try:
-            async with s.begin_nested():
-                s.add(row)
-                await s.flush()
-        except IntegrityError:  # lost a dedupe race: return the winner
-            live = (
-                await s.execute(
-                    select(JobRow).where(
-                        JobRow.dedupe_key == job.dedupe_key, JobRow.status.in_(LIVE)
-                    )
-                )
-            ).scalar_one_or_none()
-            if live is None:
-                raise
-            return _job(live)
+        s.add(row)
+        await s.flush()  # a dedupe race surfaces here as IntegrityError (see enqueue)
         if self.is_postgres:
             await s.execute(select(func.pg_notify(NOTIFY_CHANNEL, job.kind)))
         return _job(row)
@@ -134,13 +125,30 @@ class SqlJobQueue:
             )
             if kinds:
                 q = q.where(JobRow.kind.in_(list(kinds)))
-            rows = (await s.execute(q)).scalars().all()
-            for r in rows:
-                r.status = JobStatus.CLAIMED.value
-                r.claimed_by = worker_id
-                r.lease_until = now + timedelta(seconds=lease_s)
-            await s.flush()
-            return [_job(r) for r in rows]
+            candidates = (await s.execute(q)).scalars().all()
+            claimed: list[Job] = []
+            for r in candidates:
+                # Conditional update: whoever flips the row first wins, on any database.
+                res = await s.execute(
+                    update(JobRow)
+                    .where(
+                        JobRow.id == r.id,
+                        or_(
+                            JobRow.status == JobStatus.QUEUED.value,
+                            (JobRow.status == JobStatus.CLAIMED.value)
+                            & (JobRow.lease_until < now),
+                        ),
+                    )
+                    .values(
+                        status=JobStatus.CLAIMED.value,
+                        claimed_by=worker_id,
+                        lease_until=now + timedelta(seconds=lease_s),
+                    )
+                )
+                if res.rowcount == 1:
+                    await s.refresh(r)
+                    claimed.append(_job(r))
+            return claimed
 
     # ------------------------------------------------------------------ lifecycle
     async def ack(self, job_id: str) -> None:

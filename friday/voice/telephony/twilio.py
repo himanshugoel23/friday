@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import hmac
 import json
@@ -68,6 +69,7 @@ from friday.voice.audio import (
 )
 from friday.voice.callerid import CallerIdSelector, choose_from_number, number_pool
 from friday.voice.classifier import HeuristicAudioClassifier
+from friday.voice.signals import block_signal
 from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.telephony.media import Segment, UtteranceSegmenter
 from friday.voice.tts.cache import cached
@@ -214,6 +216,9 @@ class TwilioCallLeg:
         self._worker: asyncio.Task | None = None
         self._stream_started_at: float | None = None
         self.hold_mode = False
+        self.block_signal: str | None = None
+        self.record_expected = False
+        self._recording_event = asyncio.Event()
         self._announcements: dict[str, _SegTranscription] = {}
         self.stt_seconds = 0.0  # audio actually sent to STT (cost ledger)
         self.tts_billed_chars = 0  # TTS characters not served from the cache
@@ -230,9 +235,14 @@ class TwilioCallLeg:
             self._status_event.set()
         elif status in _FINAL:
             if self.status is None:
+                self.block_signal = block_signal(
+                    params.get("SipResponseCode"), params.get("ErrorMessage")
+                )
                 self.status = _DIAL.get(
                     status, DialStatus.NO_ANSWER if status == "completed" else DialStatus.FAILED
                 )
+                if self.block_signal:
+                    self.status = DialStatus.FAILED
             self._end()
             self._status_event.set()
 
@@ -500,6 +510,15 @@ class TwilioCallLeg:
 
     async def recording_url(self) -> str | None:
         return self.recording
+
+    async def wait_recording(self, timeout_s: float) -> None:
+        """The recording callback usually arrives a few seconds after hang-up."""
+        if self.record_expected and self.recording is None:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._recording_event.wait(), timeout=timeout_s)
+
+    async def fetch_recording(self, url: str) -> bytes | None:
+        return await self.tel.fetch_recording(url)
 
     # inbound helpers
     async def play_fixed_message_and_hangup(self, text: str = INBOUND_MESSAGE) -> None:

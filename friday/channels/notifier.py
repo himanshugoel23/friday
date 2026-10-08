@@ -31,6 +31,7 @@ from friday.core.clock import Clock
 from friday.core.config import Settings
 from friday.core.events import EventBus, MessageSent
 from friday.core.interfaces import MessagingChannel, SMSProvider
+from friday.core.scale import Outbox, OutboxEntry
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
     Business,
@@ -92,7 +93,13 @@ class Notifier:  # implements core.interfaces.Notifier
         repos: Repositories,
         messaging: MessagingChannel | None,
         sms: SMSProvider | None,
+        outbox: Outbox | None = None,
+        durable: bool = False,
     ) -> None:
+        # S-4: with ``durable`` (a Postgres queue) every outbound message/SMS goes
+        # through the transactional outbox and is delivered by a ``message.send`` worker.
+        self.outbox = outbox
+        self.durable = durable and outbox is not None
         self.settings = settings
         self.clock = clock
         self.bus = bus
@@ -130,6 +137,8 @@ class Notifier:  # implements core.interfaces.Notifier
         opt_in_request: bool = False,
         sms_fallback: bool = True,
         urgency: Urgency | None = None,
+        session: Any = None,
+        from_job: bool = False,
     ) -> SendReceipt:
         """Send ``msg`` applying consent, 24h window/template fallback and logging.
         ``urgency`` is accepted for the proactive engine's call shape; quiet hours and
@@ -162,6 +171,12 @@ class Notifier:  # implements core.interfaces.Notifier
             else:
                 return await self._refuse(msg, TEMPLATE_REQUIRED)
 
+        if self.durable and not from_job:
+            return await self._enqueue(
+                {"msg": msg.model_dump(mode="json"), "sms_fallback": sms_fallback},
+                msg.id,
+                session=session,
+            )
         receipt = await self._deliver(msg)
         if (
             not receipt.ok
@@ -227,10 +242,13 @@ class Notifier:  # implements core.interfaces.Notifier
         business_id: str | None = None,
         person_id: str | None = None,
         opt_in_request: bool = False,
+        from_job: bool = False,
+        message_id: str | None = None,
     ) -> SendReceipt:
         """DLT template SMS. SECURITY-15: circle members (by ``person_id`` or by phone)
         only when OPTED_IN, except an explicit one-time ``opt_in_request``."""
         record = OutboundMessage(
+            id=message_id or new_id(),
             channel=Channel.SMS,
             to_phone=to_phone,
             user_id=user_id,
@@ -251,6 +269,10 @@ class Notifier:  # implements core.interfaces.Notifier
             return await self._refuse(record, CONSENT_REQUIRED)
         if self.sms is None:
             return await self._refuse(record, NO_CHANNEL)
+        if self.durable and not from_job:
+            return await self._enqueue(
+                {"sms": record.model_dump(mode="json"), "to": to_phone}, record.id
+            )
         try:
             receipt = await self.sms.send_template(to_phone, template)
         except Exception as e:  # noqa: BLE001
@@ -258,6 +280,61 @@ class Notifier:  # implements core.interfaces.Notifier
         receipt = receipt.model_copy(update={"message_id": record.id})
         await self._log(record, receipt)
         return receipt
+
+    # ------------------------------------------------------------------ outbox (S-4)
+    async def _enqueue(
+        self, payload: dict[str, Any], msg_id: str, *, session: Any = None
+    ) -> SendReceipt:
+        assert self.outbox is not None
+        await self.outbox.add(
+            OutboxEntry(kind="message.send", payload=payload, dedupe_key=f"msg:{msg_id}"),
+            session=session,
+        )
+        return SendReceipt(message_id=msg_id, ok=True, sent_at=self.clock.now())
+
+    async def handle_job(self, job: Any) -> None:
+        """``message.send`` consumer. Idempotent: a message already delivered (logged
+        ``ok``) is skipped, so a retry after a crash never double-sends. Raises on a
+        delivery failure so the queue retries; the last attempt falls back to SMS."""
+        payload = job.payload
+        if "sms" in payload:
+            record = OutboundMessage.model_validate(payload["sms"])
+            stored = await self.repos.messages.get(record.id)
+            if stored is not None and stored.ok:
+                return
+            receipt = await self.send_sms(
+                payload["to"],
+                record.template,  # type: ignore[arg-type]
+                user_id=record.user_id,
+                task_id=record.task_id,
+                business_id=record.business_id,
+                person_id=record.person_id,
+                opt_in_request=True,  # gated when enqueued
+                from_job=True,
+                message_id=record.id,
+            )
+            if not receipt.ok:
+                raise RuntimeError(f"sms delivery failed: {receipt.error}")
+            return
+        msg = OutboundMessage.model_validate(payload["msg"])
+        stored = await self.repos.messages.get(msg.id)
+        if stored is not None and stored.ok:
+            return
+        if self.messaging is None:
+            raise RuntimeError("no messaging channel")
+        receipt = await self._deliver(msg)
+        if receipt.ok:
+            return
+        last = job.attempts + 1 >= job.max_attempts
+        if (
+            last
+            and payload.get("sms_fallback")
+            and msg.person_id is None
+            and msg.business_id is None
+            and msg.user_id
+        ):
+            await self._sms_fallback(msg)
+        raise RuntimeError(f"delivery failed: {receipt.error}")
 
     async def _refuse(self, msg: OutboundMessage, reason: str) -> SendReceipt:
         log.info("refused message %s to %s: %s", msg.id, mask_phone(msg.to_phone), reason)
@@ -483,4 +560,6 @@ def build_notifier(c: Container) -> Notifier:
         repos=c.repos,
         messaging=_maybe("messaging"),
         sms=_maybe("sms"),
+        outbox=_maybe("outbox"),
+        durable=c.settings.resolve_queue() == "postgres",
     )

@@ -143,7 +143,8 @@ async def test_voicemail_greeting_detected_after_answer(make_runner, sim):
 )
 async def test_policy_driven_outcomes(make_runner, outcome):
     policy = ScriptedPolicy([say("Rate kya hai?"), hangup(outcome)])
-    result = await make_runner(policy).run(make_brief(), no_answer_user)
+    brief = make_brief(task_type=TaskType.ENQUIRY)  # SUCCESS on a booking needs a gated commit
+    result = await make_runner(policy).run(brief, no_answer_user)
     assert result.outcome == outcome
 
 
@@ -230,7 +231,7 @@ async def test_commit_blocked_without_approval(make_runner, sim):
     policy = ScriptedPolicy([commit, hangup(CallOutcome.PENDING_APPROVAL)])
     result = await make_runner(policy).run(make_brief(), no_answer_user)
     assert "6pm book kar dijiye please." not in [t for t, _ in sim.legs[-1].spoken]
-    assert any("commits_booking" in s for s in system_lines(result))
+    assert any("commitment not allowed" in s for s in system_lines(result))
     assert result.outcome == CallOutcome.PENDING_APPROVAL
 
 
@@ -254,7 +255,7 @@ async def test_delegation_price_ceiling(make_runner, sim):
     )
     policy = ScriptedPolicy([over, hangup(CallOutcome.PENDING_APPROVAL)])
     result = await make_runner(policy).run(make_brief(delegation=deleg), no_answer_user)
-    assert any("delegation" in s for s in system_lines(result))
+    assert any("delegated ceiling" in s for s in system_lines(result))
     within = say(
         "6pm book kar dijiye.",
         commits_booking=True,

@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from friday.core.events import Event
-from friday.core.models import CallDirection, CallOutcome, DialStatus, OutboundCallRequest, Speaker
+from friday.core.models import (
+    CallDirection,
+    CallOutcome,
+    DialStatus,
+    OutboundCallRequest,
+    Speaker,
+    TaskType,
+)
 
 from .conftest import FROSTY, LOOKS, ScriptedPolicy, hangup, make_brief, no_answer_user, say
 
@@ -70,7 +77,8 @@ async def test_primary_never_answers_alternate_works(sim, make_runner):
     assert "Perfect Fit" in greeting.text
     # through the runner too: target the alternate number directly
     policy = ScriptedPolicy([say("Blouse ready hai kya?"), hangup(CallOutcome.SUCCESS)])
-    result = await make_runner(policy).run(make_brief(TAILOR_ALT, "Perfect Fit"), no_answer_user)
+    brief = make_brief(TAILOR_ALT, "Perfect Fit", task_type=TaskType.STATUS_CHASE)
+    result = await make_runner(policy).run(brief, no_answer_user)
     assert result.outcome == CallOutcome.SUCCESS
 
 

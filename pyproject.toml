@@ -46,6 +46,8 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 markers = [
     "live: hits real external providers; needs API keys (skipped by default)",
+    "postgres: needs FRIDAY_TEST_PG_URL (a throwaway Postgres); skipped without it",
+    "redis: needs FRIDAY_TEST_REDIS_URL; skipped without it",
 ]
 addopts = "-m 'not live'"
 

@@ -91,6 +91,7 @@ log = get_logger(__name__)
 MAX_MID_CALL_QUESTIONS = 2  # US-5.6
 P95_BUDGET_MS = 1500  # founder guardrail: p95 turn latency < 1.5 s
 MAX_BLOCKED_IN_A_ROW = 3
+RECORDING_WAIT_S = 5.0  # provider recording callbacks usually land within seconds
 MAX_SILENCES = 3
 HOLD_LISTEN_S = 30.0
 USER_JOIN_TIMEOUT_S = 25  # US-26.3
@@ -400,6 +401,7 @@ class _Session:
         self.translations = 0
         self.voicemail_detected = False
         self._stack: AsyncExitStack | None = None
+        self._cached_ivr: list[str] = []
         self._prerender: asyncio.Future | None = None
         self._extra_legs: list[CallLeg] = []
         self.care: CareOutcome | None = None
@@ -456,6 +458,7 @@ class _Session:
         if (
             outcome == CallOutcome.SUCCESS
             and self.brief.task_type in COMMIT_TYPES
+            and self.brief.mode != CallMode.TRANSLATOR  # translating commits nothing
             and not self.committed
         ):
             self.transcript.add(
@@ -539,6 +542,79 @@ class _Session:
         await self.r.bus.publish(
             CallFinished(task_id=r.task_id, call_id=r.call_id, outcome=r.outcome)
         )
+
+    async def _store_recording(self) -> None:
+        """S-6: move the provider recording into the object store (India region, private,
+        lifecycle = retention) and persist ONLY the store URL; never keep a local file in
+        live. Without a store (simulator / dev) the leg's own URL is kept."""
+        r = self.result
+        assert self.leg is not None
+        url: str | None = None
+        try:
+            wait = getattr(self.leg, "wait_recording", None)
+            if wait is not None:
+                await wait(RECORDING_WAIT_S)
+            url = await self.leg.recording_url()
+        except Exception:  # noqa: BLE001
+            log.warning("recording unavailable for %s", r.call_id)
+        store = self.r.recording_store
+        if not url or store is None:
+            r.recording_url = url
+            return
+        owns = getattr(store, "owns", None)
+        if callable(owns) and owns(url):
+            r.recording_url = url
+            return
+        fetch = getattr(self.leg, "fetch_recording", None)
+        data: bytes | None = None
+        try:
+            if url.startswith("file://"):
+                from pathlib import Path
+                from urllib.parse import unquote, urlparse
+
+                data = await asyncio.to_thread(Path(unquote(urlparse(url).path)).read_bytes)
+            elif fetch is not None:
+                data = await fetch(url)
+        except Exception as e:  # noqa: BLE001
+            log.warning("could not fetch recording for %s: %s", r.call_id, type(e).__name__)
+        if not data:
+            r.recording_url = None if url.startswith("file://") else url
+            return
+        ext = ".txt" if url.startswith("file://") else (".mp3" if url.endswith(".mp3") else ".wav")
+        ctype = "text/plain" if ext == ".txt" else ("audio/mpeg" if ext == ".mp3" else "audio/wav")
+        try:
+            r.recording_url = await store.put(
+                f"{r.task_id}/{r.call_id}{ext}", data, content_type=ctype
+            )
+        except Exception as e:  # noqa: BLE001 - keep the provider URL; retention still applies
+            log.warning("recording upload failed for %s: %s", r.call_id, type(e).__name__)
+            r.recording_url = None if url.startswith("file://") else url
+
+    async def _learn_ivr_map(self) -> None:
+        """S-10: remember the key path that reached a human, per company number, in the
+        shared Cache (non-personal: menu keys only; identifiers become ``{label}``)."""
+        cache = self.r.cache
+        if cache is None or self.inbound or self.care is None:
+            return
+        if not (self.human_reached and self.pressed) or self.brief.ivr_map or self._cached_ivr:
+            return
+        steps: list[str] = []
+        for keys in self.pressed:
+            if "{" in keys or len(re.sub(r"\D", "", keys)) <= 2:
+                steps.append(keys)
+                continue
+            label = next(
+                (
+                    f"{{{i.label}}}"
+                    for i in self.brief.approved_identifiers
+                    if re.sub(r"\D", "", i.value) and re.sub(r"\D", "", i.value) in keys
+                ),
+                None,
+            )
+            if label is None:
+                return  # unknown long entry: never store raw digits
+            steps.append(label + ("#" if keys.endswith("#") else ""))
+        await cache.set(_ivr_key(self.brief.target.phone), steps, ttl_s=30 * 86400)
 
     def _collect_costs(self) -> None:
         r = self.result
@@ -643,6 +719,10 @@ class _Session:
         try:
             if b.mode == CallMode.TRANSLATOR:
                 return await self._translator_loop()
+            if not self.brief.ivr_map and self.r.cache is not None:
+                cached = await self.r.cache.get(_ivr_key(b.target.phone))
+                if isinstance(cached, list):
+                    self._cached_ivr = [str(x) for x in cached]
             first = await self._hear()
             if first is not None and first.audio_class == AudioClass.IVR_PROMPT:
                 outcome = await self._replay_ivr(first)
@@ -656,11 +736,12 @@ class _Session:
     def _ivr_steps(self) -> list[tuple[str, str | None]]:
         """Learned menu path for this company number (cost rule 4).
 
-        Source: ``CallBrief.ivr_map`` (proposed core field: list of steps) or an
-        ``ivr_notes`` entry ``"replay: 2 | 3@broadband | {Registered mobile}# | 9"``.
+        Source: ``CallBrief.ivr_map``, else the shared Cache entry learned from earlier
+        calls to this number (S-10), else an ``ivr_notes`` entry
+        ``"replay: 2 | 3@broadband | {Registered mobile}# | 9"``.
         A step is DTMF keys, optionally ``@keyword`` the current prompt must contain;
         ``{label or id}`` is replaced by that APPROVED identifier's value."""
-        raw: list[str] = list(getattr(self.brief, "ivr_map", None) or [])
+        raw: list[str] = list(self.brief.ivr_map or self._cached_ivr or [])
         if not raw:
             for note in self.brief.ivr_notes:
                 if note.lower().startswith("replay:"):
@@ -698,10 +779,11 @@ class _Session:
                 await self._system(f"IVR REPLAY STOPPED: menu changed (expected '{expect}')")
                 return None
             digits = self._resolve_keys(keys)
-            if digits is None or not check_keys(digits, self.brief).allowed:
+            if digits is None or not self.keybuf.check(digits).allowed:
                 await self._system("IVR REPLAY STOPPED: step needs an unapproved identifier")
                 return None
             await self.leg.send_dtmf(digits)
+            self.pressed.append(keys)  # the template step, never the identifier digits
             masked = mask_digits(digits)
             await self._system(f"DTMF: {masked} (learned IVR map)")
             if self.care is not None:
@@ -723,6 +805,9 @@ class _Session:
         b = self.brief
         lang = b.opening_language
         lines = {lang: [b.disclosure(lang)]}
+        if b.number_changed:
+            text, nl = _line(_NEW_NUMBER, lang)
+            lines.setdefault(nl, []).append(text)
         for table in (_HOLD_LINES, _SAFE_EXIT, _CANCEL_LINE):
             text, tl = _line(table, lang, name=self.name)
             lines.setdefault(tl, []).append(text)
@@ -927,19 +1012,20 @@ class _Session:
             if not action.digits:
                 reasons.append("PRESS_KEYS without digits")
             else:
-                reasons += check_keys(action.digits, b).reasons
-        if action.commits_booking:
-            if not b.can_commit(list(self.answers)):
+                # SECURITY-24: the concatenation of keys since the last IVR prompt
+                reasons += self.keybuf.check(action.digits).reasons
+        # SECURITY-3/27: ANY utterance that sounds like a confirmation is a commitment,
+        # flagged by the model or not, and must pass check_commit (approval / delegation
+        # price + slot window + scope).
+        gated = action.commits_booking or b.task_type in COMMIT_TYPES
+        if t in (CallActionType.SAY, CallActionType.HANGUP) and is_commit_action(action) and gated:
+            why = commit_reasons(b, list(self.answers), action)
+            if why:
                 reasons.append(
-                    "commits_booking without approval - tell the business you'll call back "
-                    "after checking with the user (PENDING_APPROVAL)"
+                    "commitment not allowed on this call ("
+                    + "; ".join(why)
+                    + ") - tell the business you'll call back after checking with the user"
                 )
-            elif not b.approved_terms and not any(a.approves for a in self.answers):
-                amount = action.quote.amount_inr if action.quote else None
-                if b.delegation.max_price_inr is not None and not b.delegation.allows_price(amount):
-                    reasons.append(
-                        "price outside the user's delegation limit - use the call-back flow"
-                    )
         if t == CallActionType.ASK_USER:
             if action.question is None:
                 reasons.append("ASK_USER without a question")
@@ -973,6 +1059,8 @@ class _Session:
         t = action.type
         if t == CallActionType.SAY:
             await self._say(action.text or "", action.language)
+            if is_commit_action(action):
+                self.committed = True
             await self._hear()
         elif t == CallActionType.WAIT:
             await self._hear()
@@ -980,11 +1068,14 @@ class _Session:
             if action.text:
                 with contextlib.suppress(CallEnded):
                     await self._say(action.text, action.language)
+                    if is_commit_action(action):
+                        self.committed = True
             await self._safe_hangup()
             return action.outcome or CallOutcome.PARTIAL
         elif t == CallActionType.PRESS_KEYS:
             assert self.leg is not None and action.digits
             await self.leg.send_dtmf(action.digits)
+            self.pressed.append(action.digits)
             masked = mask_digits(action.digits)
             await self._system(f"DTMF: {masked}")
             if self.care is not None:
@@ -1047,6 +1138,9 @@ class _Session:
         await self._say(b.disclosure(lang), lang, disclosure=True)
         self.disclosed_current = True
         self.disclosures += 1
+        if b.number_changed and not self.inbound and self.disclosures == 1:
+            line, nl = _line(_NEW_NUMBER, lang)  # pre-rendered, no digits
+            await self._say(line, nl, disclosure=True)
 
     async def _hear(self, wait_s: float | None = None) -> Transcription | None:
         assert self.leg is not None
@@ -1073,10 +1167,16 @@ class _Session:
         if cls in (AudioClass.IVR_PROMPT, AudioClass.HOLD_MUSIC, AudioClass.QUEUE_ANNOUNCEMENT):
             self.after_machine = True
             self.disclosed_current = False
+        if cls == AudioClass.IVR_PROMPT:
+            self.keybuf.reset()  # SECURITY-24: a new prompt starts a new key buffer
+        if cls == AudioClass.HUMAN and t.text:
+            self.human_reached = True
         text = redact_secrets(t.text or "")
-        if cls != AudioClass.HUMAN:
-            text = f"[{cls.value}] {text}".strip()
-        elif t.language is not None and t.language != self.last_callee_lang:
+        if (
+            cls == AudioClass.HUMAN
+            and t.language is not None
+            and (t.language != self.last_callee_lang)
+        ):
             old = self.last_callee_lang
             self.last_callee_lang = t.language
             if t.language not in self.result.languages_heard:
@@ -1091,7 +1191,11 @@ class _Session:
                     )
                 )
         await self._record(
-            Speaker.CALLEE, f"{speaker_label}{text}", t.language, confidence=t.confidence
+            Speaker.CALLEE,
+            f"{speaker_label}{text}",
+            t.language,
+            confidence=t.confidence,
+            audio_class=cls,
         )
 
     async def _record(
@@ -1100,9 +1204,15 @@ class _Session:
         text: str,
         language: Language | None,
         confidence: float | None = None,
+        audio_class: AudioClass | None = None,
     ) -> None:
         turn = self.transcript.add(
-            speaker, text, at=self.clock.now(), language=language, confidence=confidence
+            speaker,
+            text,
+            at=self.clock.now(),
+            language=language,
+            confidence=confidence,
+            audio_class=audio_class,
         )
         await self.r.bus.publish(
             CallTurnRecorded(task_id=self.brief.task_id, call_id=self.result.call_id, turn=turn)
@@ -1431,13 +1541,30 @@ class _Session:
         return out
 
 
+def _ivr_key(phone: str) -> str:
+    return f"ivr_map:{phone}"
+
+
 def _fmt(seconds: float) -> str:
     m, s = divmod(int(round(seconds)), 60)
     return f"{m}m {s}s" if m else f"{s}s"
 
 
+def _optional(c: Container, name: str) -> Any:
+    try:
+        return c.get(name)
+    except Exception:  # noqa: BLE001 - component not wired in this process role
+        return None
+
+
 def build_call_runner(c: Container) -> CallRunner:
-    return CallRunner(c)
+    """Wires the shared limiter / cache / object store when the container has them."""
+    return CallRunner(
+        c,
+        rate_limiter=_optional(c, "rate_limiter"),
+        cache=_optional(c, "cache"),
+        recording_store=_optional(c, "object_store"),
+    )
 
 
 __all__ = ["CallRunner", "VoiceCallResult", "build_call_runner"]
