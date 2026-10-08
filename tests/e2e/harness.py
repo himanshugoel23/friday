@@ -49,6 +49,15 @@ def make_settings(**over: Any) -> Settings:
     return Settings(**base)
 
 
+def plain(m: OutboundMessage) -> str:
+    """What the user reads: the free-text body (the template is only the out-of-window
+    fallback), plus numbered button titles."""
+    body = m.text or (" ".join(m.template.params) if m.template else "")
+    if m.buttons:
+        body += "\n" + "\n".join(f"{i}) {b.title}" for i, b in enumerate(m.buttons, 1))
+    return body
+
+
 @dataclass
 class Party:
     f: Friday
@@ -62,11 +71,14 @@ class Party:
         return self.ch.messages_to(self.phone)
 
     def texts(self) -> list[str]:
-        return [self.ch.render(m) for m in self.msgs()]
+        return [plain(m) for m in self.msgs()]
 
     def last(self) -> str:
         m = self.ch.last_to(self.phone)
-        return self.ch.render(m) if m else ""
+        return plain(m) if m else ""
+
+    def last_msg(self) -> OutboundMessage | None:
+        return self.ch.last_to(self.phone)
 
     def all_text(self) -> str:
         return "\n".join(self.texts())
@@ -75,12 +87,15 @@ class Party:
         n = len(self.msgs())
         await self.f.rt.handle(self.ch.make_inbound(self.phone, text), raise_errors=True)
         await self.f.settle()
-        return [self.ch.render(m) for m in self.msgs()[n:]]
+        return [plain(m) for m in self.msgs()[n:]]
 
     async def user_row(self) -> User:
         u = await self.f.c.repos.users.get_by_phone(self.phone)
         assert u is not None
         return u
+
+    async def calls(self, task: Task):
+        return await self.f.c.repos.tasks.list_calls(task.id)
 
     async def tasks(self) -> list[Task]:
         u = await self.user_row()
