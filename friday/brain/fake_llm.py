@@ -63,10 +63,19 @@ def minimal_instance(schema: dict[str, Any], root: dict[str, Any] | None = None)
     if isinstance(t, list):
         t = "null" if "null" in t else t[0]
     if t == "object":
-        return {k: minimal_instance(v, root) for k, v in schema.get("properties", {}).items()
-                if k in schema.get("required", [])}
-    return {"string": "", "integer": 0, "number": 0, "boolean": False, "array": [],
-            "null": None}.get(t)
+        return {
+            k: minimal_instance(v, root)
+            for k, v in schema.get("properties", {}).items()
+            if k in schema.get("required", [])
+        }
+    return {
+        "string": "",
+        "integer": 0,
+        "number": 0,
+        "boolean": False,
+        "array": [],
+        "null": None,
+    }.get(t)
 
 
 def merge_payload(stable: dict[str, Any], volatile: dict[str, Any]) -> dict[str, Any]:
@@ -85,8 +94,7 @@ class FakeLLM:
 
     provider = "fake"
 
-    def __init__(self, handlers: dict[str, Callable[[dict[str, Any]], Any]] | None = None
-                 ) -> None:
+    def __init__(self, handlers: dict[str, Callable[[dict[str, Any]], Any]] | None = None) -> None:
         if handlers is None:
             from .handlers import HANDLERS
 
@@ -110,10 +118,14 @@ class FakeLLM:
         """Fake Batches API: answers immediately and deterministically."""
         results: dict[str, str] = {}
         for r in requests:
-            resp = await self.complete(system=r.get("system", ""), messages=r["messages"],
-                                       purpose=r.get("purpose", "batch"), model=r.get("model"),
-                                       json_schema=r.get("json_schema"),
-                                       attachments=r.get("attachments", ()))
+            resp = await self.complete(
+                system=r.get("system", ""),
+                messages=r["messages"],
+                purpose=r.get("purpose", "batch"),
+                model=r.get("model"),
+                json_schema=r.get("json_schema"),
+                attachments=r.get("attachments", ()),
+            )
             results[r["custom_id"]] = resp.text
         batch_id = f"fakebatch_{len(self._batches) + 1}"
         self._batches[batch_id] = results
@@ -137,8 +149,14 @@ class FakeLLM:
         json_schema: dict | None = None,
         attachments: Sequence[MediaBlob] = (),
     ) -> LLMResponse:
-        call = FakeCall(purpose=purpose, system=system, messages=list(messages), model=model,
-                        json_schema=json_schema, attachments=list(attachments))
+        call = FakeCall(
+            purpose=purpose,
+            system=system,
+            messages=list(messages),
+            model=model,
+            json_schema=json_schema,
+            attachments=list(attachments),
+        )
         self.calls.append(call)
         if purpose in self.fail_purposes:
             raise ProviderError("fake", f"scripted failure for {purpose}", retryable=True)
@@ -148,12 +166,17 @@ class FakeLLM:
             text = self._answer(purpose, system, messages, json_schema)
         call.response = text
         prompt_chars = len(system) + sum(len(m.content) for m in messages)
-        return LLMResponse(text=text, model=f"fake-{model or 'default'}",
-                           input_tokens=prompt_chars // 4, output_tokens=len(text) // 4,
-                           stop_reason="end_turn")
+        return LLMResponse(
+            text=text,
+            model=f"fake-{model or 'default'}",
+            input_tokens=prompt_chars // 4,
+            output_tokens=len(text) // 4,
+            stop_reason="end_turn",
+        )
 
-    def _answer(self, purpose: str, system: str, messages: Sequence[LLMMessage],
-                json_schema: dict | None) -> str:
+    def _answer(
+        self, purpose: str, system: str, messages: Sequence[LLMMessage], json_schema: dict | None
+    ) -> str:
         payload = None
         for m in reversed(messages):
             if m.role == "user":

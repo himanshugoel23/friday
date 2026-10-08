@@ -28,23 +28,36 @@ def _payload(media_blob: MediaBlob, kind: ExtractionKind, hint: str) -> dict:
     text = None
     if mime.startswith("text/") or mime in ("application/json", "text/csv"):
         text = media_blob.data.decode("utf-8", errors="replace")[:20000]
-    return {"filename": media_blob.filename or "", "mime": mime, "size": len(media_blob.data),
-            "hint": hint, "kind": kind.value, "text": text}
+    return {
+        "filename": media_blob.filename or "",
+        "mime": mime,
+        "size": len(media_blob.data),
+        "hint": hint,
+        "kind": kind.value,
+        "text": text,
+    }
 
 
 def to_document(out: ExtractOut) -> ExtractedDocument:
     quote = None
     if out.kind == ExtractionKind.QUOTE and (out.quote_amount_inr or out.quote_text):
-        quote = Quote(business_name=out.business_name or "Unknown",
-                      amount_inr=out.quote_amount_inr,
-                      price_text=out.quote_text or f"₹{out.quote_amount_inr}",
-                      inclusions=out.inclusions)
+        quote = Quote(
+            business_name=out.business_name or "Unknown",
+            amount_inr=out.quote_amount_inr,
+            price_text=out.quote_text or f"₹{out.quote_amount_inr}",
+            inclusions=out.inclusions,
+        )
     return ExtractedDocument(
-        kind=out.kind, text=out.text,
-        items=[PriceItem(name=i.name, amount_inr=i.amount_inr, price_text=i.price_text,
-                         unit=i.unit) for i in out.items],
-        quote=quote, business_name=out.business_name,
-        confidence=min(max(out.confidence, 0.0), 1.0))
+        kind=out.kind,
+        text=out.text,
+        items=[
+            PriceItem(name=i.name, amount_inr=i.amount_inr, price_text=i.price_text, unit=i.unit)
+            for i in out.items
+        ],
+        quote=quote,
+        business_name=out.business_name,
+        confidence=min(max(out.confidence, 0.0), 1.0),
+    )
 
 
 class LLMDocumentExtractor:
@@ -53,23 +66,34 @@ class LLMDocumentExtractor:
         self.model = model  # Haiku by default (cost rule 1)
         self._pending: dict[str, dict] = {}
 
-    async def extract(self, media_blob: MediaBlob, *, kind: ExtractionKind =
-                      ExtractionKind.GENERIC, hint: str = "") -> ExtractedDocument:
+    async def extract(
+        self,
+        media_blob: MediaBlob,
+        *,
+        kind: ExtractionKind = ExtractionKind.GENERIC,
+        hint: str = "",
+    ) -> ExtractedDocument:
         payload = _payload(media_blob, kind, hint)
         attachments = [media_blob] if payload["mime"] in _VISION else []
         try:
             resp = await self.llm.complete(
                 system=system_prompt("extract"),
-                messages=[LLMMessage(role="user", content=render_input(
-                    payload, "Extract the attached document."))],
-                purpose="extract", model=self.model, max_tokens=4000,
-                json_schema=strict_schema(ExtractOut), attachments=attachments)
+                messages=[
+                    LLMMessage(
+                        role="user", content=render_input(payload, "Extract the attached document.")
+                    )
+                ],
+                purpose="extract",
+                model=self.model,
+                max_tokens=4000,
+                json_schema=strict_schema(ExtractOut),
+                attachments=attachments,
+            )
             out = ExtractOut.model_validate_json(resp.text)
         except (ProviderError, ValidationError, ValueError) as e:
             log.warning("extract: LLM unusable (%s); metadata fallback", type(e).__name__)
             out = media.extract(payload)
         return to_document(out)
-
 
     # ------------------------------------------------------------------ batch (cost rule 6)
     async def submit_batch(self, items: dict[str, tuple[MediaBlob, ExtractionKind, str]]) -> str:
@@ -81,14 +105,23 @@ class LLMDocumentExtractor:
         requests = []
         for cid, (blob, kind, hint) in items.items():
             payload = _payload(blob, kind, hint)
-            requests.append({
-                "custom_id": cid, "purpose": "extract", "model": self.model,
-                "system": system_prompt("extract"),
-                "messages": [LLMMessage(role="user", content=render_input(
-                    payload, "Extract the attached document."))],
-                "json_schema": strict_schema(ExtractOut), "max_tokens": 2500,
-                "attachments": [blob] if payload["mime"] in _VISION else [],
-            })
+            requests.append(
+                {
+                    "custom_id": cid,
+                    "purpose": "extract",
+                    "model": self.model,
+                    "system": system_prompt("extract"),
+                    "messages": [
+                        LLMMessage(
+                            role="user",
+                            content=render_input(payload, "Extract the attached document."),
+                        )
+                    ],
+                    "json_schema": strict_schema(ExtractOut),
+                    "max_tokens": 2500,
+                    "attachments": [blob] if payload["mime"] in _VISION else [],
+                }
+            )
         self._pending.update({cid: _payload(b, k, h) for cid, (b, k, h) in items.items()})
         return await submit(requests)
 

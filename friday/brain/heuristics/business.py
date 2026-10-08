@@ -53,23 +53,30 @@ def reply(business: dict[str, Any], transcript: list[dict[str, Any]]) -> Busines
             return r(f"Okay, {new} final.", f"Theek hai, {new} final.")
         return r("Sorry, price is fixed.", "Nahi, price fixed hai.")
     if has_any(last, ("confirm kar dijiye", "please confirm", "confirm it", "sahi hai")):
-        return r("Yes, done. Please come 10 minutes early.",
-                 "Haan, done. 10 minute pehle aa jaana.")
+        return r(
+            "Yes, done. Please come 10 minutes early.", "Haan, done. 10 minute pehle aa jaana."
+        )
     if has_any(last, ("call back", "hold kar sakte", "hold it", "rakh sakte")):
         hours = persona.get("holds_room_hours")
-        return r(f"Okay, I'll hold it{' for ' + str(hours) + ' hours' if hours else ''}.",
-                 f"Theek hai, rakh deta hoon{' ' + str(hours) + ' ghante' if hours else ''}.")
+        return r(
+            f"Okay, I'll hold it{' for ' + str(hours) + ' hours' if hours else ''}.",
+            f"Theek hai, rakh deta hoon{' ' + str(hours) + ' ghante' if hours else ''}.",
+        )
     for item, ok in stock.items():
         if item in last:
-            return r("Yes, we have it in stock." if ok else "Sorry, out of stock.",
-                     "Haan, hai." if ok else "Nahi, khatam hai.")
+            return r(
+                "Yes, we have it in stock." if ok else "Sorry, out of stock.",
+                "Haan, hai." if ok else "Nahi, khatam hai.",
+            )
     if has_any(last, ("price", "kitna", "cost", "charge", "rate", "fees")) and prices:
         name, amount = min(prices.items(), key=lambda kv: (norm(kv[0]) not in said, kv[1]))
         return r(f"{name} is {amount} rupees.", f"{name} ka {amount} lagega.")
     if has_any(last, ("slot", "available", "time", "kab", "when", "room")) and slots:
         price = f" {base} rupees." if base else ""
-        return r(f"We have {' or '.join(slots[:2])}.{price}",
-                 f"{' ya '.join(slots[:2])} hai.{(' ' + str(base) + ' lagega.') if base else ''}")
+        return r(
+            f"We have {' or '.join(slots[:2])}.{price}",
+            f"{' ya '.join(slots[:2])} hai.{(' ' + str(base) + ' lagega.') if base else ''}",
+        )
     if has_any(last, ("include", "shaamil")):
         notes = persona.get("notes") or ["basic service"]
         return r(f"That includes {notes[0]}.", f"Usme {notes[0]} included hai.")

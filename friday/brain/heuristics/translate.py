@@ -52,13 +52,33 @@ PHRASES: list[tuple[str, str, str]] = [
 ]
 # Marathi -> Hinglish
 MARATHI: list[tuple[str, str]] = [
-    ("namaskar", "namaste"), ("kiti", "kitna"), ("kiti paise", "kitne paise"),
-    ("aahe", "hai"), ("ahe", "hai"), ("nahi", "nahi"), ("udya", "kal"), ("aaj", "aaj"),
-    ("hoy", "haan"), ("dhanyavaad", "shukriya"), ("kay", "kya"), ("pahije", "chahiye"),
-    ("sakali", "subah"), ("sandhyakali", "shaam ko"), ("khup", "bahut"), ("thamba", "rukiye"),
-    ("room aahe", "room hai"), ("rikama aahe", "khaali hai"), ("tumhi", "aap"), ("amhi", "hum"),
-    ("aaplya", "aapke"), ("vajta", "baje"), ("vajata", "baje"),
-    ("नमस्कार", "namaste"), ("आहे", "hai"), ("उद्या", "kal"), ("किती", "kitna"),
+    ("namaskar", "namaste"),
+    ("kiti", "kitna"),
+    ("kiti paise", "kitne paise"),
+    ("aahe", "hai"),
+    ("ahe", "hai"),
+    ("nahi", "nahi"),
+    ("udya", "kal"),
+    ("aaj", "aaj"),
+    ("hoy", "haan"),
+    ("dhanyavaad", "shukriya"),
+    ("kay", "kya"),
+    ("pahije", "chahiye"),
+    ("sakali", "subah"),
+    ("sandhyakali", "shaam ko"),
+    ("khup", "bahut"),
+    ("thamba", "rukiye"),
+    ("room aahe", "room hai"),
+    ("rikama aahe", "khaali hai"),
+    ("tumhi", "aap"),
+    ("amhi", "hum"),
+    ("aaplya", "aapke"),
+    ("vajta", "baje"),
+    ("vajata", "baje"),
+    ("नमस्कार", "namaste"),
+    ("आहे", "hai"),
+    ("उद्या", "kal"),
+    ("किती", "kitna"),
 ]
 _TOKEN_KEEP = re.compile(r"(\d[\d,:.]*\s*(?:am|pm|₹|rs)?|₹\s*\d[\d,]*|[A-Z][a-z]+)")
 
@@ -66,8 +86,7 @@ _TOKEN_KEEP = re.compile(r"(\d[\d,:.]*\s*(?:am|pm|₹|rs)?|₹\s*\d[\d,]*|[A-Z][
 def _replace_all(text: str, pairs: list[tuple[str, str]]) -> str:
     out = text
     for src, dst in sorted(pairs, key=lambda p: len(p[0]), reverse=True):
-        out = re.sub(rf"(?<![\wऀ-ॿ]){re.escape(src)}(?![\wऀ-ॿ])", dst, out,
-                     flags=re.I)
+        out = re.sub(rf"(?<![\wऀ-ॿ]){re.escape(src)}(?![\wऀ-ॿ])", dst, out, flags=re.I)
     return out
 
 
@@ -78,8 +97,11 @@ def translate(text: str, target: Language, source: Language | None = None) -> st
     if src == Language.MR:
         hinglish = _replace_all(text, MARATHI)
         if target in (Language.HINGLISH, Language.HI):
-            return hinglish if target == Language.HINGLISH else _replace_all(
-                hinglish, [(h, d) for h, _e, d in PHRASES])
+            return (
+                hinglish
+                if target == Language.HINGLISH
+                else _replace_all(hinglish, [(h, d) for h, _e, d in PHRASES])
+            )
         return _replace_all(hinglish, [(h, e) for h, e, _d in PHRASES])
     if src in (Language.HINGLISH, Language.HI):
         if target == Language.EN:

@@ -32,20 +32,84 @@ from .references import relation_word_in
 
 S = OnboardingStep
 INVITE_RE = re.compile(r"\bfri[\s-]*([a-z0-9]{6})\b", re.I)
-WEAK_PINS = {"1234", "4321", "1212", "2580", "0852", "0000", "1111", "2222", "3333", "4444",
-             "5555", "6666", "7777", "8888", "9999", "1122", "6969", "1004", "2000"}
-SKIP = ("skip", "later", "not now", "baad mein", "baad me", "no", "nahi", "na", "none",
-        "nobody", "koi nahi", "no one", "abhi nahi")
-CITY_MAP = {
-    "bengaluru": "Bengaluru", "bangalore": "Bengaluru", "blr": "Bengaluru", "bengalooru":
-    "Bengaluru", "delhi": "Delhi NCR", "new delhi": "Delhi NCR", "ncr": "Delhi NCR",
-    "gurgaon": "Delhi NCR", "gurugram": "Delhi NCR", "noida": "Delhi NCR", "mumbai": "Mumbai",
-    "bombay": "Mumbai", "bom": "Mumbai", "navi mumbai": "Mumbai", "thane": "Mumbai",
+WEAK_PINS = {
+    "1234",
+    "4321",
+    "1212",
+    "2580",
+    "0852",
+    "0000",
+    "1111",
+    "2222",
+    "3333",
+    "4444",
+    "5555",
+    "6666",
+    "7777",
+    "8888",
+    "9999",
+    "1122",
+    "6969",
+    "1004",
+    "2000",
 }
-CONSENT_YES = ("i agree", "agree", "i accept", "मैं सहमत हूँ", "सहमत", "haan agree",
-               "haan, agree", "agreed", "main agree karta hoon", "main agree karti hoon")
-_STEP_ORDER = [S.INVITE_CODE, S.NAME, S.CITY, S.LANGUAGE, S.TONE, S.CONSENT, S.PIN, S.CIRCLE,
-               S.PLACES, S.FIRST_TASK, S.DONE]
+SKIP = (
+    "skip",
+    "later",
+    "not now",
+    "baad mein",
+    "baad me",
+    "no",
+    "nahi",
+    "na",
+    "none",
+    "nobody",
+    "koi nahi",
+    "no one",
+    "abhi nahi",
+)
+CITY_MAP = {
+    "bengaluru": "Bengaluru",
+    "bangalore": "Bengaluru",
+    "blr": "Bengaluru",
+    "bengalooru": "Bengaluru",
+    "delhi": "Delhi NCR",
+    "new delhi": "Delhi NCR",
+    "ncr": "Delhi NCR",
+    "gurgaon": "Delhi NCR",
+    "gurugram": "Delhi NCR",
+    "noida": "Delhi NCR",
+    "mumbai": "Mumbai",
+    "bombay": "Mumbai",
+    "bom": "Mumbai",
+    "navi mumbai": "Mumbai",
+    "thane": "Mumbai",
+}
+CONSENT_YES = (
+    "i agree",
+    "agree",
+    "i accept",
+    "मैं सहमत हूँ",
+    "सहमत",
+    "haan agree",
+    "haan, agree",
+    "agreed",
+    "main agree karta hoon",
+    "main agree karti hoon",
+)
+_STEP_ORDER = [
+    S.INVITE_CODE,
+    S.NAME,
+    S.CITY,
+    S.LANGUAGE,
+    S.TONE,
+    S.CONSENT,
+    S.PIN,
+    S.CIRCLE,
+    S.PLACES,
+    S.FIRST_TASK,
+    S.DONE,
+]
 
 
 def _next(step: OnboardingStep) -> OnboardingStep:
@@ -60,79 +124,104 @@ def _b(id_: str, title: str) -> ReplyButton:
 def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
     name = c.name
     if step == S.INVITE_CODE:
-        return (c.say(en="Hey! I'm Friday, your assistant who makes calls so you don't have to. "
-                         "I'm invite-only right now. Got an invite code?",
-                      hinglish="Hi! Main Friday hoon - aapke liye calls karti hoon taaki aapko na "
-                               "karni pade. Abhi invite-only hoon. Invite code hai?"), [])
+        return (
+            c.say(
+                en="Hey! I'm Friday, your assistant who makes calls so you don't have to. "
+                "I'm invite-only right now. Got an invite code?",
+                hinglish="Hi! Main Friday hoon - aapke liye calls karti hoon taaki aapko na "
+                "karni pade. Abhi invite-only hoon. Invite code hai?",
+            ),
+            [],
+        )
     if step == S.NAME:
         return c.say(en="What should I call you?", hinglish="Aapko kya bulaun?"), []
     if step == S.CITY:
-        return c.say(en=f"Nice to meet you{', ' + name if name else ''}! Which city are you in?",
-                     hinglish=f"Milke achha laga{', ' + name if name else ''}! Kaunse city mein "
-                              f"ho?"), [_b("ob:skip", "Skip")]
+        return c.say(
+            en=f"Nice to meet you{', ' + name if name else ''}! Which city are you in?",
+            hinglish=f"Milke achha laga{', ' + name if name else ''}! Kaunse city mein ho?",
+        ), [_b("ob:skip", "Skip")]
     if step == S.LANGUAGE:
-        return c.say(en="Which language do you prefer?",
-                     hinglish="Kaunsi language prefer karoge?"), [
-            _b("ob:lang:en", "English"), _b("ob:lang:hi", "हिंदी"), _b("ob:lang:hinglish",
-                                                                     "Hinglish")]
+        return c.say(
+            en="Which language do you prefer?", hinglish="Kaunsi language prefer karoge?"
+        ), [
+            _b("ob:lang:en", "English"),
+            _b("ob:lang:hi", "हिंदी"),
+            _b("ob:lang:hinglish", "Hinglish"),
+        ]
     if step == S.TONE:
-        return c.say(en="How should I sound? Playful: \"Done! Sat 11 baje.\" Formal: \"Your "
-                        "appointment is confirmed for Saturday, 11 AM.\"",
-                     hinglish="Mera style kaisa chahiye? Playful: \"Ho gaya! Saturday 11 baje.\" "
-                              "Formal: \"Your appointment is confirmed for Saturday, 11 AM.\""), [
-            _b("ob:tone:playful", "Playful"), _b("ob:tone:formal", "Formal")]
+        return c.say(
+            en='How should I sound? Playful: "Done! Sat 11 baje." Formal: "Your '
+            'appointment is confirmed for Saturday, 11 AM."',
+            hinglish='Mera style kaisa chahiye? Playful: "Ho gaya! Saturday 11 baje." '
+            'Formal: "Your appointment is confirmed for Saturday, 11 AM."',
+        ), [_b("ob:tone:playful", "Playful"), _b("ob:tone:formal", "Formal")]
     if step == S.CONSENT:
         return c.say(
             en="One important thing. I store your details (name, city, tasks, call recordings) "
-               "in India, only to do your tasks. Say \"delete everything\" anytime to erase it "
-               "all. I always tell people on calls that I'm an AI. Full terms: "
-               "https://friday.example/terms\nAre you 18+ and do you agree?",
+            'in India, only to do your tasks. Say "delete everything" anytime to erase it '
+            "all. I always tell people on calls that I'm an AI. Full terms: "
+            "https://friday.example/terms\nAre you 18+ and do you agree?",
             hinglish="Ek zaroori cheez. Main aapki details (naam, city, tasks, call recordings) "
-                     "India mein store karti hoon, sirf aapke kaam ke liye. Kabhi bhi \"delete "
-                     "everything\" bolke sab mita sakte ho. Main har call pe batati hoon ki main "
-                     "AI hoon. Full terms: https://friday.example/terms\nKya aap 18+ ho aur "
-                     "agree karte ho?"), [_b("ob:consent:yes", "I agree"),
-                                         _b("ob:consent:no", "Not now")]
+            'India mein store karti hoon, sirf aapke kaam ke liye. Kabhi bhi "delete '
+            'everything" bolke sab mita sakte ho. Main har call pe batati hoon ki main '
+            "AI hoon. Full terms: https://friday.example/terms\nKya aap 18+ ho aur "
+            "agree karte ho?",
+        ), [_b("ob:consent:yes", "I agree"), _b("ob:consent:no", "Not now")]
     if step == S.PIN:
-        return c.say(en="Now set a 4-digit Friday PIN. I'll ask for it before sensitive things "
-                        "like deleting your data.",
-                     hinglish="Ab ek 4-digit Friday PIN set karo, sensitive kaam ke liye (jaise "
-                              "data delete karna)."), []
+        return c.say(
+            en="Now set a 4-digit Friday PIN. I'll ask for it before sensitive things "
+            "like deleting your data.",
+            hinglish="Ab ek 4-digit Friday PIN set karo, sensitive kaam ke liye (jaise "
+            "data delete karna).",
+        ), []
     if step == S.CIRCLE:
         nri = not c.ctx.user.phone.startswith("+91")
-        lead = ("Since you're abroad: " if nri else "")
-        return c.say(en=f"{lead}Do you look after anyone else - parents, spouse, kids? I can book "
-                        f"for them too. e.g. \"my dad Ramesh, +91 98…, Hindi, Jaipur\"",
-                     hinglish=f"{lead}Kya aap kisi aur ka bhi dhyan rakhte ho - parents, spouse, "
-                              f"bachche? Unke liye bhi book kar sakti hoon. e.g. \"mere papa "
-                              f"Ramesh, +91 98…, Hindi, Jaipur\""), [
-            _b("ob:circle:add", "Add someone"), _b("ob:skip", "Skip")]
+        lead = "Since you're abroad: " if nri else ""
+        return c.say(
+            en=f"{lead}Do you look after anyone else - parents, spouse, kids? I can book "
+            f'for them too. e.g. "my dad Ramesh, +91 98…, Hindi, Jaipur"',
+            hinglish=f"{lead}Kya aap kisi aur ka bhi dhyan rakhte ho - parents, spouse, "
+            f'bachche? Unke liye bhi book kar sakti hoon. e.g. "mere papa '
+            f'Ramesh, +91 98…, Hindi, Jaipur"',
+        ), [_b("ob:circle:add", "Add someone"), _b("ob:skip", "Skip")]
     if step == S.PLACES:
-        return c.say(en="Save your home and office? Share a location pin or type the area "
-                        "(\"home: Indiranagar, office: Bellandur\").",
-                     hinglish="Ghar aur office save karun? Location pin bhejo ya area type karo "
-                              "(\"home: Indiranagar, office: Bellandur\")."), [
-            _b("ob:skip", "Skip")]
+        return c.say(
+            en="Save your home and office? Share a location pin or type the area "
+            '("home: Indiranagar, office: Bellandur").',
+            hinglish="Ghar aur office save karun? Location pin bhejo ya area type karo "
+            '("home: Indiranagar, office: Bellandur").',
+        ), [_b("ob:skip", "Skip")]
     if step == S.FIRST_TASK:
-        return c.say(en="Last thing: what's one call you've been avoiding? I'll make it now. "
-                        "e.g. \"Dentist appointment Saturday\", \"ask the AC guy for a price\"",
-                     hinglish="Last cheez: koi ek call jo aap kab se taal rahe ho? Main abhi kar "
-                              "deti hoon. e.g. \"Dentist appointment Saturday\", \"AC service ka "
-                              "price poocho\""), [_b("ob:skip", "Later")]
-    return (c.say(en="You're all set! I make calls for you - bookings, enquiries, orders, "
-                     "customer care, hotels, family check-ins. To let me decide on the call, say "
-                     "e.g. \"any slot 5-7pm under ₹800, you decide\". Say 'help' anytime.",
-                  hinglish="Sab set hai! Main aapke liye calls karti hoon - bookings, enquiries, "
-                           "orders, customer care, hotels, family check-ins. Mujhe call pe decide "
-                           "karne dena ho toh bolo \"5-7 ke beech koi bhi slot, ₹800 tak, aap "
-                           "decide karo\". Kabhi bhi 'help' bolo."), [])
+        return c.say(
+            en="Last thing: what's one call you've been avoiding? I'll make it now. "
+            'e.g. "Dentist appointment Saturday", "ask the AC guy for a price"',
+            hinglish="Last cheez: koi ek call jo aap kab se taal rahe ho? Main abhi kar "
+            'deti hoon. e.g. "Dentist appointment Saturday", "AC service ka '
+            'price poocho"',
+        ), [_b("ob:skip", "Later")]
+    return (
+        c.say(
+            en="You're all set! I make calls for you - bookings, enquiries, orders, "
+            "customer care, hotels, family check-ins. To let me decide on the call, say "
+            "e.g. \"any slot 5-7pm under ₹800, you decide\". Say 'help' anytime.",
+            hinglish="Sab set hai! Main aapke liye calls karti hoon - bookings, enquiries, "
+            "orders, customer care, hotels, family check-ins. Mujhe call pe decide "
+            'karne dena ho toh bolo "5-7 ke beech koi bhi slot, ₹800 tak, aap '
+            "decide karo\". Kabhi bhi 'help' bolo.",
+        ),
+        [],
+    )
 
 
 def _extract_name(text: str) -> str | None:
     t = text.strip()
-    m = re.search(r"(?:my name is|i am|i'm|im|this is|call me|mera naam|main|naam)\s+"
-                  r"([A-Za-zऀ-ॿ][\wऀ-ॿ.' ]{0,40}?)(?:\s+(?:hai|hoon|hu|here))?"
-                  r"[.!]*$", t, re.I)
+    m = re.search(
+        r"(?:my name is|i am|i'm|im|this is|call me|mera naam|main|naam)\s+"
+        r"([A-Za-zऀ-ॿ][\wऀ-ॿ.' ]{0,40}?)(?:\s+(?:hai|hoon|hu|here))?"
+        r"[.!]*$",
+        t,
+        re.I,
+    )
     name = m.group(1) if m else t
     name = re.sub(r"[^\wऀ-ॿ .'-]", "", name).strip()
     words = name.split()
@@ -195,35 +284,65 @@ def _people(ctx: ConversationContext, text: str) -> list[Person]:
         if not rel and not name:
             continue
         lang = None
-        for word, value in (("marathi", Language.MR), ("hindi", Language.HI),
-                            ("english", Language.EN), ("tamil", Language.TA),
-                            ("telugu", Language.TE), ("kannada", Language.KN),
-                            ("bengali", Language.BN), ("gujarati", Language.GU)):
+        for word, value in (
+            ("marathi", Language.MR),
+            ("hindi", Language.HI),
+            ("english", Language.EN),
+            ("tamil", Language.TA),
+            ("telugu", Language.TE),
+            ("kannada", Language.KN),
+            ("bengali", Language.BN),
+            ("gujarati", Language.GU),
+        ):
             if word in chunk.lower():
                 lang = value
-        out.append(Person(owner_user_id=ctx.user.id, name=name or rel[1].title(),
-                          relation=rel[0] if rel else None, aliases=[rel[1]] if rel else [],
-                          phone=phones[0] if phones else None, language=lang))
+        out.append(
+            Person(
+                owner_user_id=ctx.user.id,
+                name=name or rel[1].title(),
+                relation=rel[0] if rel else None,
+                aliases=[rel[1]] if rel else [],
+                phone=phones[0] if phones else None,
+                language=lang,
+            )
+        )
     return out
 
 
 def _places(ctx: ConversationContext, msg: InboundMessage) -> list[Place]:
     if msg.location is not None:
-        return [Place(owner_user_id=ctx.user.id, label="Home", address_text=msg.location.address,
-                      source=PlaceSource.WA_LOCATION)]
+        return [
+            Place(
+                owner_user_id=ctx.user.id,
+                label="Home",
+                address_text=msg.location.address,
+                source=PlaceSource.WA_LOCATION,
+            )
+        ]
     out: list[Place] = []
-    for m in re.finditer(r"(home|ghar|office|work|pg)\s*(?:is|:|-|=)?\s*(?:at|in)?\s*"
-                         r"([^,;\n]+?)(?=$|[,;\n]|\s+(?:and|aur)\s+(?:home|ghar|office|work))",
-                         msg.text or "", re.I):
-        label = {"ghar": "Home", "work": "Office", "pg": "PG"}.get(m.group(1).lower(),
-                                                                    m.group(1).title())
-        out.append(Place(owner_user_id=ctx.user.id, label=label, address_text=m.group(2).strip(),
-                         city=ctx.profile.city))
+    for m in re.finditer(
+        r"(home|ghar|office|work|pg)\s*(?:is|:|-|=)?\s*(?:at|in)?\s*"
+        r"([^,;\n]+?)(?=$|[,;\n]|\s+(?:and|aur)\s+(?:home|ghar|office|work))",
+        msg.text or "",
+        re.I,
+    ):
+        label = {"ghar": "Home", "work": "Office", "pg": "PG"}.get(
+            m.group(1).lower(), m.group(1).title()
+        )
+        out.append(
+            Place(
+                owner_user_id=ctx.user.id,
+                label=label,
+                address_text=m.group(2).strip(),
+                city=ctx.profile.city,
+            )
+        )
     return out
 
 
-def onboarding_turn(ctx: ConversationContext, step: OnboardingStep,
-                    message: InboundMessage | None) -> tuple[OnboardingTurn, TaskDraft | None]:
+def onboarding_turn(
+    ctx: ConversationContext, step: OnboardingStep, message: InboundMessage | None
+) -> tuple[OnboardingTurn, TaskDraft | None]:
     c = _Ctx(ctx)
     if message is None:
         reply, buttons = prompt_for(c, step)
@@ -235,8 +354,9 @@ def onboarding_turn(ctx: ConversationContext, step: OnboardingStep,
 
     def advance(to: OnboardingStep, prefix: str = "", **kw) -> OnboardingTurn:
         reply, buttons = prompt_for(c, to)
-        return OnboardingTurn(reply=(prefix + " " + reply).strip(), buttons=buttons,
-                              next_step=to, **kw)
+        return OnboardingTurn(
+            reply=(prefix + " " + reply).strip(), buttons=buttons, next_step=to, **kw
+        )
 
     def again(reply: str, **kw) -> OnboardingTurn:
         _r, buttons = prompt_for(c, step)
@@ -245,18 +365,25 @@ def onboarding_turn(ctx: ConversationContext, step: OnboardingStep,
     if step == S.INVITE_CODE:
         m = INVITE_RE.search(text)
         if not m:
-            return again(c.say(en="I'm invite-only right now. Have an invite code? It looks like "
-                                  "FRI-XXXXXX.",
-                               hinglish="Abhi invite-only hoon. Invite code hai? Aisa dikhta hai: "
-                                        "FRI-XXXXXX.")), None
+            return again(
+                c.say(
+                    en="I'm invite-only right now. Have an invite code? It looks like FRI-XXXXXX.",
+                    hinglish="Abhi invite-only hoon. Invite code hai? Aisa dikhta hai: FRI-XXXXXX.",
+                )
+            ), None
         code = f"FRI-{m.group(1).upper()}"
-        return advance(S.NAME, c.say(en="You're in 🎉", hinglish="Aap andar ho 🎉"),
-                       invite_code=code), None
+        return advance(
+            S.NAME, c.say(en="You're in 🎉", hinglish="Aap andar ho 🎉"), invite_code=code
+        ), None
     if step == S.NAME:
         name = _extract_name(text)
         if not name:
-            return again(c.say(en="Sorry, what name should I use for you?",
-                               hinglish="Sorry, aapka naam kya likhun?")), None
+            return again(
+                c.say(
+                    en="Sorry, what name should I use for you?",
+                    hinglish="Sorry, aapka naam kya likhun?",
+                )
+            ), None
         c.name = name.split()[0]
         return advance(S.CITY, profile_updates={"name": name}), None
     if step == S.CITY:
@@ -264,14 +391,19 @@ def onboarding_turn(ctx: ConversationContext, step: OnboardingStep,
             return advance(S.LANGUAGE), None
         city = _city(text)
         if not city:
-            return again(c.say(en="Which city? e.g. Bengaluru, Delhi, Mumbai.",
-                               hinglish="Kaunsa city? e.g. Bengaluru, Delhi, Mumbai.")), None
+            return again(
+                c.say(
+                    en="Which city? e.g. Bengaluru, Delhi, Mumbai.",
+                    hinglish="Kaunsa city? e.g. Bengaluru, Delhi, Mumbai.",
+                )
+            ), None
         note = ""
         if city not in ("Bengaluru", "Delhi NCR", "Mumbai"):
-            note = c.say(en=f"{city}, got it - I work best in Bengaluru, Delhi NCR and Mumbai "
-                            f"for now.",
-                         hinglish=f"{city}, theek hai - abhi main Bengaluru, Delhi NCR aur Mumbai "
-                                  f"mein best kaam karti hoon.")
+            note = c.say(
+                en=f"{city}, got it - I work best in Bengaluru, Delhi NCR and Mumbai for now.",
+                hinglish=f"{city}, theek hai - abhi main Bengaluru, Delhi NCR aur Mumbai "
+                f"mein best kaam karti hoon.",
+            )
         else:
             note = c.say(en=f"{city}, got it.", hinglish=f"{city}, got it.")
         return advance(S.LANGUAGE, note, profile_updates={"city": city}), None
@@ -280,8 +412,11 @@ def onboarding_turn(ctx: ConversationContext, step: OnboardingStep,
         if lang is None or lang not in (Language.EN, Language.HI, Language.HINGLISH):
             lang = Language.HINGLISH if skip or lang is None else lang
         c.lang = lang
-        return advance(S.TONE, say(lang, c.tone, en="Done.", hinglish="Done.", hi="ठीक है।"),
-                       profile_updates={"language": lang}), None
+        return advance(
+            S.TONE,
+            say(lang, c.tone, en="Done.", hinglish="Done.", hi="ठीक है।"),
+            profile_updates={"language": lang},
+        ), None
     if step == S.TONE:
         tone = _tone(text, button) or (Tone.PLAYFUL if skip else None)
         if tone is None:
@@ -290,71 +425,106 @@ def onboarding_turn(ctx: ConversationContext, step: OnboardingStep,
         return advance(S.CONSENT, profile_updates={"tone": tone}), None
     if step == S.CONSENT:
         if button == "ob:consent:yes" or has_any(t, CONSENT_YES):
-            return advance(S.PIN, c.say(en="Thanks!", hinglish="Thanks!"),
-                           consent_given=True), None
-        if button == "ob:consent:no" or has_any(t, ("not now", "no", "nahi", "disagree",
-                                                    "don't agree", "dont agree")):
-            return OnboardingTurn(reply=c.say(en="No problem. Say 'start' whenever you're ready.",
-                                              hinglish="Koi baat nahi. Jab ready ho, 'start' "
-                                                       "bol dena."),
-                                  consent_given=False, next_step=S.CONSENT), None
-        return again(c.say(en="To continue I need your explicit OK - tap \"I agree\" or type "
-                              "\"I agree\".",
-                           hinglish="Aage badhne ke liye clear haan chahiye - \"I agree\" tap "
-                                    "karo ya likho.")), None
+            return advance(S.PIN, c.say(en="Thanks!", hinglish="Thanks!"), consent_given=True), None
+        if button == "ob:consent:no" or has_any(
+            t, ("not now", "no", "nahi", "disagree", "don't agree", "dont agree")
+        ):
+            return OnboardingTurn(
+                reply=c.say(
+                    en="No problem. Say 'start' whenever you're ready.",
+                    hinglish="Koi baat nahi. Jab ready ho, 'start' bol dena.",
+                ),
+                consent_given=False,
+                next_step=S.CONSENT,
+            ), None
+        return again(
+            c.say(
+                en='To continue I need your explicit OK - tap "I agree" or type "I agree".',
+                hinglish='Aage badhne ke liye clear haan chahiye - "I agree" tap karo ya likho.',
+            )
+        ), None
     if step == S.PIN:
         digits = re.sub(r"\D", "", text)
         if not re.fullmatch(r"\D*\d{4}\D*", text) or len(digits) != 4:
-            return again(c.say(en="The PIN has to be exactly 4 digits. Try again?",
-                               hinglish="PIN exactly 4 digits ka hona chahiye. Phir se bhejo?")), \
-                None
+            return again(
+                c.say(
+                    en="The PIN has to be exactly 4 digits. Try again?",
+                    hinglish="PIN exactly 4 digits ka hona chahiye. Phir se bhejo?",
+                )
+            ), None
         if digits in WEAK_PINS or len(set(digits)) == 1:
-            return again(c.say(en="That one's a bit easy to guess 😄 Pick another 4 digits?",
-                               hinglish="Thoda easy hai 😄 Koi aur 4 digits?")), None
-        return advance(S.CIRCLE, c.say(en="PIN set. (Tip: delete that message from the chat.)",
-                                       hinglish="PIN set. (Tip: woh message chat se delete kar "
-                                                "do.)"), pin=digits), None
+            return again(
+                c.say(
+                    en="That one's a bit easy to guess 😄 Pick another 4 digits?",
+                    hinglish="Thoda easy hai 😄 Koi aur 4 digits?",
+                )
+            ), None
+        return advance(
+            S.CIRCLE,
+            c.say(
+                en="PIN set. (Tip: delete that message from the chat.)",
+                hinglish="PIN set. (Tip: woh message chat se delete kar do.)",
+            ),
+            pin=digits,
+        ), None
     if step == S.CIRCLE:
         if skip:
             return advance(S.PLACES), None
         if button == "ob:circle:add":
-            return again(c.say(en="Tell me about them: name, relation, phone, language.",
-                               hinglish="Unke baare mein batao: naam, relation, phone, "
-                                        "language.")), None
+            return again(
+                c.say(
+                    en="Tell me about them: name, relation, phone, language.",
+                    hinglish="Unke baare mein batao: naam, relation, phone, language.",
+                )
+            ), None
         people = _people(ctx, text)
         if not people:
-            return again(c.say(en="Who should I add? e.g. \"my mom Sunita, +91 98…, Marathi\"",
-                               hinglish="Kisko add karun? e.g. \"meri mummy Sunita, +91 98…, "
-                                        "Marathi\"")), None
+            return again(
+                c.say(
+                    en='Who should I add? e.g. "my mom Sunita, +91 98…, Marathi"',
+                    hinglish='Kisko add karun? e.g. "meri mummy Sunita, +91 98…, Marathi"',
+                )
+            ), None
         names = ", ".join(p.name for p in people)
-        return advance(S.PLACES, c.say(en=f"Added {names}. You can add more anytime.",
-                                       hinglish=f"{names} add kar liya. Baad mein aur add kar "
-                                                f"sakte ho."), people=people), None
+        return advance(
+            S.PLACES,
+            c.say(
+                en=f"Added {names}. You can add more anytime.",
+                hinglish=f"{names} add kar liya. Baad mein aur add kar sakte ho.",
+            ),
+            people=people,
+        ), None
     if step == S.PLACES:
         if skip:
             return advance(S.FIRST_TASK), None
         places = _places(ctx, message)
         if not places:
-            return again(c.say(en="Share a location pin, or type e.g. \"home: Indiranagar\".",
-                               hinglish="Location pin bhejo, ya likho e.g. \"home: "
-                                        "Indiranagar\".")), None
+            return again(
+                c.say(
+                    en='Share a location pin, or type e.g. "home: Indiranagar".',
+                    hinglish='Location pin bhejo, ya likho e.g. "home: Indiranagar".',
+                )
+            ), None
         labels = ", ".join(p.label for p in places)
-        return advance(S.FIRST_TASK, c.say(en=f"Saved {labels}.", hinglish=f"{labels} save kar "
-                                                                         f"liya."),
-                       places=places), None
+        return advance(
+            S.FIRST_TASK,
+            c.say(en=f"Saved {labels}.", hinglish=f"{labels} save kar liya."),
+            places=places,
+        ), None
     if step == S.FIRST_TASK:
         if skip:
             return advance(S.DONE), None
         draft = draft_task(c, text, message)
         if draft is None:
-            return again(c.say(en="Tell me the call, e.g. \"Book a haircut at Looks tomorrow "
-                                  "6pm\".",
-                               hinglish="Call batao, e.g. \"Looks mein kal 6 baje haircut book "
-                                        "karo\".")), None
+            return again(
+                c.say(
+                    en='Tell me the call, e.g. "Book a haircut at Looks tomorrow 6pm".',
+                    hinglish='Call batao, e.g. "Looks mein kal 6 baje haircut book karo".',
+                )
+            ), None
         from .interpret import _task_reply
 
         reply, _buttons = prompt_for(c, S.DONE)
-        return OnboardingTurn(reply=_task_reply(c, draft) + "\n\n" + reply,
-                              next_step=S.DONE), draft
+        return OnboardingTurn(reply=_task_reply(c, draft) + "\n\n" + reply, next_step=S.DONE), draft
     reply, buttons = prompt_for(c, S.DONE)
     return OnboardingTurn(reply=reply, buttons=buttons, next_step=S.DONE), None

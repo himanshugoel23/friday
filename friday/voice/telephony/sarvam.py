@@ -32,12 +32,9 @@ when a brief needs something missing here):
   bridge_conference   | no  (TODO)          | no                | yes (monitoring)
   custom_llm_turns    | no  (mode b: gap)   | -                 | -
 
-Config (proposed for core Settings in docs/CORE_CHANGES.md; env meanwhile):
-  SARVAM_TELEPHONY_AUTH_ID / SARVAM_TELEPHONY_AUTH_TOKEN   (or VOBIZ_AUTH_ID / _TOKEN)
-  SARVAM_TELEPHONY_BASE_URL     default https://api.vobiz.ai/api/v1  (TODO verify)
-  SARVAM_CALLER_IDS             comma-separated numbers (sticky per business)
-Selection until core adds "sarvam": FRIDAY_TELEPHONY_PROVIDER=exotel and
-FRIDAY_TELEPHONY_ROUTE=sarvam,exotel,twilio (see telephony/routing.py).
+Config (core Settings): sarvam_telephony_auth_id / _auth_token / _base_url (default
+https://api.vobiz.ai/api/v1, TODO verify), sarvam_caller_ids (sticky per business),
+telephony_route (default sarvam,exotel,twilio; see telephony/routing.py).
 """
 
 from __future__ import annotations
@@ -46,10 +43,10 @@ import asyncio
 import base64
 import contextlib
 import json
-import os
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from xml.sax.saxutils import escape, quoteattr
 
 import httpx
@@ -64,9 +61,10 @@ from friday.voice._http import VendorHTTP
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
+from friday.voice.signals import block_signal
 from friday.voice.telephony.exotel import exotel_token as _token
 from friday.voice.telephony.twilio import FRAME_BYTES, TwilioCallLeg
-from friday.voice.tts.cache import cached
+from friday.voice.tts.cache import cached_tts
 
 log = get_logger(__name__)
 
@@ -86,7 +84,6 @@ _HANGUP = {
     "NO_ANSWER": DialStatus.NO_ANSWER,
     "NO_USER_RESPONSE": DialStatus.NO_ANSWER,
     "ORIGINATOR_CANCEL": DialStatus.NO_ANSWER,
-    "CALL_REJECTED": DialStatus.BUSY,
     "UNALLOCATED_NUMBER": DialStatus.FAILED,
 }
 SendText = Callable[[str], Awaitable[None]]
@@ -198,6 +195,9 @@ class SarvamCallLeg(TwilioCallLeg):
             await self.speak(text, self.language)
         await self.hangup()
 
+    async def fetch_recording(self, url: str) -> bytes | None:
+        return await self.tel_s.fetch_recording(url)
+
 
 class SarvamTelephony:
     name = "sarvam"
@@ -244,6 +244,28 @@ class SarvamTelephony:
             transport=transport,
         )
 
+    def _own_recording(self, url: str) -> bool:
+        base = urlparse(self._http._client.base_url.__str__())
+        u = urlparse(url)
+        return u.scheme == "https" and bool(u.hostname) and u.hostname == base.hostname
+
+    async def fetch_recording(self, url: str) -> bytes | None:
+        if not self._own_recording(url):  # never send our credentials to another host
+            return None
+        return (await self._http.request("GET", url)).content
+
+    async def delete_recording(self, url: str) -> None:
+        """SECURITY-14. TODO(docs.sarvam.ai/conversations/deploy/telephony/vobiz): confirm
+        the Recording delete endpoint; Plivo-style ``DELETE /Account/{id}/Recording/{rid}/``."""
+        m = re.search(r"/Recording/([0-9A-Za-z\-]+)", url)
+        if not m or not self._own_recording(url):
+            raise ProviderError("sarvam", "not a recording of this account")
+        try:
+            await self.rest("DELETE", f"/Recording/{m.group(1)}/", None)
+        except ProviderError as e:
+            if "HTTP 404" not in str(e):
+                raise
+
     def capabilities(self) -> frozenset[str]:
         return CAPABILITIES
 
@@ -257,10 +279,10 @@ class SarvamTelephony:
         q = f"{q}&token={self.token(scope)}" if q else f"token={self.token(scope)}"
         return f"{self.public_base_url}/voice/sarvam/{path}?{q}"
 
-    @property
-    def media_ws_url(self) -> str:
+    def media_ws_url_for(self, key: str) -> str:
+        """SECURITY-18: per-call stream URL; the token only authorises THIS call key."""
         base = self.public_base_url.replace("https://", "wss://").replace("http://", "ws://")
-        return f"{base}/voice/sarvam/media?token={self.token('media')}"
+        return f"{base}/voice/sarvam/media?key={key}&token={self.token(f'media:{key}')}"
 
     async def rest(self, method: str, path: str, data: dict | None) -> dict:
         resp = await self._http.request(
@@ -352,13 +374,16 @@ class SarvamTelephony:
                 self.by_sid[leg.provider_call_id] = leg
         if self.record and not leg.inbound:
             asyncio.ensure_future(self._start_recording(leg))
-        return stream_xml(f"{self.media_ws_url}&key={leg.key}")
+        return stream_xml(self.media_ws_url_for(leg.key))
 
     async def _start_recording(self, leg: SarvamCallLeg) -> None:
         try:
             # TODO(.../telephony/vobiz): Record API path + response field ("url").
             body = await self.rest("POST", f"/Call/{leg.provider_call_id}/Record/", {})
             leg.recording = body.get("url") or body.get("recording_url")
+            leg.record_expected = True
+            if leg.recording:
+                leg._recording_event.set()
         except ProviderError as e:
             log.warning("sarvam recording not started: %s", e)
 
@@ -379,7 +404,12 @@ class SarvamTelephony:
         cause = str(params.get("HangupCause") or params.get("HangupCauseName") or "").upper()
         streamed = leg.stream_sid is not None
         if leg.status is None:
-            if leg.listen_only and cause == "NORMAL_CLEARING":
+            leg.block_signal = block_signal(
+                params.get("SipResponseCode"), cause.replace("_", " ")
+            ) or ("rejected" if cause == "CALL_REJECTED" else None)
+            if leg.block_signal:
+                leg.status = DialStatus.FAILED
+            elif leg.listen_only and cause == "NORMAL_CLEARING":
                 leg.status = DialStatus.ANSWERED
             else:
                 leg.status = _HANGUP.get(
@@ -388,6 +418,7 @@ class SarvamTelephony:
             leg._status_event.set()
         if params.get("RecordUrl"):
             leg.recording = params["RecordUrl"]
+            leg._recording_event.set()
         leg._end()
         if leg.inbound and not streamed:
             await self._publish(
@@ -427,8 +458,9 @@ class SarvamTelephony:
         event = msg.get("event")
         if event == "start":
             start = msg.get("start", {})
-            leg = self.legs.get(key or "") or self.by_sid.get(start.get("callId", ""))
-            if leg is None:
+            leg = self.legs.get(key or "")  # key was authenticated by the WS route
+            if leg is None or leg.stream_sid is not None:
+                log.warning("rejected sarvam media stream (unknown call or second start)")
                 return
             state["leg"] = leg
             leg._close = close
@@ -469,37 +501,26 @@ class SarvamTelephony:
         await self._http.aclose()
 
 
-def _env(*names: str) -> str | None:
-    return next((os.environ[n] for n in names if os.environ.get(n)), None)
-
-
 def build_sarvam_telephony(c: Container) -> SarvamTelephony:
     s = c.settings
-    auth_id = getattr(s, "sarvam_telephony_auth_id", None) or _env(
-        "SARVAM_TELEPHONY_AUTH_ID", "VOBIZ_AUTH_ID"
-    )
-    token = getattr(s, "sarvam_telephony_auth_token", None) or _env(
-        "SARVAM_TELEPHONY_AUTH_TOKEN", "VOBIZ_AUTH_TOKEN"
-    )
-    if not (auth_id and token):
+    if not (s.sarvam_telephony_auth_id and s.sarvam_telephony_auth_token):
         raise ProviderError("sarvam", "SARVAM_TELEPHONY_AUTH_ID / _AUTH_TOKEN not set")
-    token = token.get_secret_value() if hasattr(token, "get_secret_value") else token
-    pool = [n.strip() for n in (_env("SARVAM_CALLER_IDS") or "").split(",") if n.strip()]
     try:
         classifier = c.audio_classifier
     except Exception:  # noqa: BLE001
         classifier = HeuristicAudioClassifier()
     return SarvamTelephony(
-        auth_id=auth_id,
-        auth_token=token,
-        caller_ids=pool,
+        auth_id=s.sarvam_telephony_auth_id,
+        auth_token=s.sarvam_telephony_auth_token.get_secret_value(),
+        caller_ids=list(s.sarvam_caller_ids or s.friday_numbers),
         public_base_url=s.public_base_url,
         secret=s.secret_key.get_secret_value(),
         stt=c.stt,
-        tts=cached(c.tts, s.media_dir),
+        tts=cached_tts(c),
         classifier=classifier,
         bus=c.bus,
         clock=c.clock,
-        base_url=_env("SARVAM_TELEPHONY_BASE_URL") or DEFAULT_BASE_URL,
+        base_url=s.sarvam_telephony_base_url or DEFAULT_BASE_URL,
         record=s.call_record,
+        inbound_claim_timeout_s=s.inbound_claim_timeout_s,
     )

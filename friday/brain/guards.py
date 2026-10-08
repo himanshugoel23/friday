@@ -46,26 +46,66 @@ from .textutil import (
 
 _FILLERS = re.compile(r"(?<!\w)(u+m+|u+h+|h+m+|e+r+m*|a+h+)(?!\w)[,.]?\s*", re.I)
 _COMMIT_PHRASES = (
-    "confirm kar dijiye", "confirm kar do", "book kar dijiye", "book kar do", "please confirm",
-    "please book", "go ahead and book", "confirm the booking", "confirm it", "book it",
-    "order place kar", "place the order", "kar dijiye book", "pakka kar dijiye",
-    "कन्फ़र्म कर दीजिए", "बुक कर दीजिए", "we'll take it", "lock it", "final kar dijiye",
+    "confirm kar dijiye",
+    "confirm kar do",
+    "book kar dijiye",
+    "book kar do",
+    "please confirm",
+    "please book",
+    "go ahead and book",
+    "confirm the booking",
+    "confirm it",
+    "book it",
+    "order place kar",
+    "place the order",
+    "kar dijiye book",
+    "pakka kar dijiye",
+    "कन्फ़र्म कर दीजिए",
+    "बुक कर दीजिए",
+    "we'll take it",
+    "lock it",
+    "final kar dijiye",
 )
 _MONEY_PROMISE = (
-    "i will pay", "i'll pay", "we will pay", "we'll pay", "payment kar dungi",
-    "pay kar dungi", "advance de", "advance bhej", "deposit de", "deposit kar",
+    "i will pay",
+    "i'll pay",
+    "we will pay",
+    "we'll pay",
+    "payment kar dungi",
+    "pay kar dungi",
+    "advance de",
+    "advance bhej",
+    "deposit de",
+    "deposit kar",
     "transfer kar dungi",
-    "upi kar", "paise bhej", "send the money", "make the payment",
+    "upi kar",
+    "paise bhej",
+    "send the money",
+    "make the payment",
 )
 _COMMIT_TYPES_NEED_APPROVAL = {
-    TaskType.BOOKING, TaskType.HEALTHCARE, TaskType.RESCHEDULE, TaskType.ORDER,
-    TaskType.RECURRING_BOOKING, TaskType.HOTEL_BOOKING, TaskType.QUOTE, TaskType.DISCOVERY,
-    TaskType.RENTAL_HUNT, TaskType.SERVICE_COORDINATION, TaskType.COMPLAINT,
+    TaskType.BOOKING,
+    TaskType.HEALTHCARE,
+    TaskType.RESCHEDULE,
+    TaskType.ORDER,
+    TaskType.RECURRING_BOOKING,
+    TaskType.HOTEL_BOOKING,
+    TaskType.QUOTE,
+    TaskType.DISCOVERY,
+    TaskType.RENTAL_HUNT,
+    TaskType.SERVICE_COORDINATION,
+    TaskType.COMPLAINT,
 }
 
 
-_BOOKING_TYPES = {TaskType.BOOKING, TaskType.HEALTHCARE, TaskType.ORDER,
-                  TaskType.RECURRING_BOOKING, TaskType.HOTEL_BOOKING, TaskType.RESCHEDULE}
+_BOOKING_TYPES = {
+    TaskType.BOOKING,
+    TaskType.HEALTHCARE,
+    TaskType.ORDER,
+    TaskType.RECURRING_BOOKING,
+    TaskType.HOTEL_BOOKING,
+    TaskType.RESCHEDULE,
+}
 # inbound call-back successes that are not new commitments (E-37)
 _INBOUND_SUCCESS_KEYS = {"reconfirmed", "ready", "closed_loop", "message_taken"}
 
@@ -77,15 +117,42 @@ def strip_fillers(text: str | None) -> str | None:
     return re.sub(r"\s{2,}", " ", out) or text
 
 
-_COMMIT_VERB = re.compile(r"\b(reserve|reserved|book|booked|confirm|confirmed|final|finali[sz]e|"
-                          r"lock|pakka|done)\b", re.I)
-_SLOT_MENTION = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm|baje|bje|o'?clock)\b|"
-                           r"\b(?:today|tomorrow|kal|aaj|slot)\b|₹\s*\d", re.I)
-_NOT_A_COMMIT = ("call back", "callback", "confirm karke", "se confirm", "confirm with",
-                 "check with", "checking with", "like to book", "want to book", "chahiye tha",
-                 "what slots", "kaunse slot", "available", "kya aap", "could you", "can you",
-                 "kar sakte", "will confirm", "baad mein", "get back", "check karke",
-                 "hold kar", "share this", "bata ke")
+_COMMIT_VERB = re.compile(
+    r"\b(reserve|reserved|book|booked|confirm|confirmed|final|finali[sz]e|"
+    r"lock|pakka|done)\b",
+    re.I,
+)
+_SLOT_MENTION = re.compile(
+    r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm|baje|bje|o'?clock)\b|"
+    r"\b(?:today|tomorrow|kal|aaj|slot)\b|₹\s*\d",
+    re.I,
+)
+_NOT_A_COMMIT = (
+    "call back",
+    "callback",
+    "confirm karke",
+    "se confirm",
+    "confirm with",
+    "check with",
+    "checking with",
+    "like to book",
+    "want to book",
+    "chahiye tha",
+    "what slots",
+    "kaunse slot",
+    "available",
+    "kya aap",
+    "could you",
+    "can you",
+    "kar sakte",
+    "will confirm",
+    "baad mein",
+    "get back",
+    "check karke",
+    "hold kar",
+    "share this",
+    "bata ke",
+)
 
 
 def _looks_like_commit(text: str | None) -> bool:
@@ -184,8 +251,10 @@ def callback_action(brief: CallBrief, out: CallActionOut, reason: str) -> CallAc
     text = {
         "en": f"Thank you. I'll confirm with {name} and call you back shortly.",
         "hi": f"शुक्रिया जी। मैं {name} जी से कन्फ़र्म करके थोड़ी देर में कॉल बैक करती हूँ।",
-    }.get(lang.value, f"Shukriya ji. Main {name} ji se confirm karke thodi der mein call back "
-                      f"karti hoon.")
+    }.get(
+        lang.value,
+        f"Shukriya ji. Main {name} ji se confirm karke thodi der mein call back karti hoon.",
+    )
     collected = {kv.key: kv.value for kv in out.collected}
     collected["guard"] = reason
     return CallAction(
@@ -199,8 +268,7 @@ def callback_action(brief: CallBrief, out: CallActionOut, reason: str) -> CallAc
     )
 
 
-def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswer]
-                   ) -> CallAction:
+def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswer]) -> CallAction:
     """Validate + guard a wire action and convert it to the core ``CallAction``."""
     text = strip_fillers(out.text)
     quote = quote_from(out.quote, brief)
@@ -212,26 +280,39 @@ def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswe
 
     # ---- commitments
     commits = out.commits_booking or (
-        out.type in (CallActionType.SAY, CallActionType.HANGUP) and _looks_like_commit(text)
-        and brief.task_type in _COMMIT_TYPES_NEED_APPROVAL)
+        out.type in (CallActionType.SAY, CallActionType.HANGUP)
+        and _looks_like_commit(text)
+        and brief.task_type in _COMMIT_TYPES_NEED_APPROVAL
+    )
     if commits:
         approved_here = any(a.approves for a in answers)
         if not brief.can_commit(list(answers)):
             return callback_action(brief, out, "no_approval")
-        if not brief.approved_terms and not approved_here and not within_delegation(
-                brief, quote, text):
+        if (
+            not brief.approved_terms
+            and not approved_here
+            and not within_delegation(brief, quote, text)
+        ):
             return callback_action(brief, out, "outside_delegation")
-    if out.type == CallActionType.HANGUP and out.outcome == CallOutcome.SUCCESS and \
-            brief.task_type in _BOOKING_TYPES and not brief.can_commit(list(answers)) and \
-            not (set(collected) & _INBOUND_SUCCESS_KEYS):
+    if (
+        out.type == CallActionType.HANGUP
+        and out.outcome == CallOutcome.SUCCESS
+        and brief.task_type in _BOOKING_TYPES
+        and not brief.can_commit(list(answers))
+        and not (set(collected) & _INBOUND_SUCCESS_KEYS)
+    ):
         # a booking "success" without any approval is a hallucinated confirmation:
         # report it as an offer (call-back route) or as partial info, never as booked
         out.outcome = CallOutcome.PENDING_APPROVAL if quote is not None else CallOutcome.PARTIAL
         collected["guard"] = "unapproved_success_downgraded"
 
     # ---- safety on speech / keys
-    if text and out.type in (CallActionType.SAY, CallActionType.HANGUP, CallActionType.ASK_USER,
-                             CallActionType.BRIDGE_USER):
+    if text and out.type in (
+        CallActionType.SAY,
+        CallActionType.HANGUP,
+        CallActionType.ASK_USER,
+        CallActionType.BRIDGE_USER,
+    ):
         check = check_speech(text, brief)
         if not check.allowed:
             return _safe_alternative(brief, out, "; ".join(check.reasons))
@@ -251,20 +332,33 @@ def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswe
             q_text = text or "Quick question from the call - how should I proceed?"
             question = MidCallQuestion(task_id=brief.task_id, text=q_text)
         else:
-            question = MidCallQuestion(task_id=brief.task_id, text=q.text, purpose=q.purpose,
-                                       options=[o[:60] for o in q.options[:3]],
-                                       timeout_s=brief.approval.hold_timeout_s)
+            question = MidCallQuestion(
+                task_id=brief.task_id,
+                text=q.text,
+                purpose=q.purpose,
+                options=[o[:60] for o in q.options[:3]],
+                timeout_s=brief.approval.hold_timeout_s,
+            )
     outcome = out.outcome
     if out.type == CallActionType.HANGUP and outcome is None:
-        if quote is not None and brief.task_type in _COMMIT_TYPES_NEED_APPROVAL and \
-                not brief.can_commit(list(answers)):
+        if (
+            quote is not None
+            and brief.task_type in _COMMIT_TYPES_NEED_APPROVAL
+            and not brief.can_commit(list(answers))
+        ):
             outcome = CallOutcome.PENDING_APPROVAL
         else:
             outcome = CallOutcome.PARTIAL
     if out.type == CallActionType.BRIDGE_USER and not brief.user_phone:
-        return CallAction(type=CallActionType.HANGUP, text=text, language=out.language,
-                          outcome=CallOutcome.NEEDS_USER_VERIFICATION, collected=collected,
-                          quote=quote, care=care_from(out.care, brief))
+        return CallAction(
+            type=CallActionType.HANGUP,
+            text=text,
+            language=out.language,
+            outcome=CallOutcome.NEEDS_USER_VERIFICATION,
+            collected=collected,
+            quote=quote,
+            care=care_from(out.care, brief),
+        )
     return CallAction(
         type=out.type,
         text=text,
@@ -276,8 +370,8 @@ def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswe
         quote=quote,
         commits_booking=bool(commits),
         leave_after_bridge=out.leave_after_bridge,
-        max_hold_s=out.max_hold_s or (brief.max_hold_s if out.type ==
-                                      CallActionType.WAIT_ON_HOLD else None),
+        max_hold_s=out.max_hold_s
+        or (brief.max_hold_s if out.type == CallActionType.WAIT_ON_HOLD else None),
         care=care_from(out.care, brief),
         user_update=out.user_update,
     )
@@ -289,15 +383,31 @@ def _safe_alternative(brief: CallBrief, out: CallActionOut, reason: str) -> Call
     lang = text_language(out.language)
     name = brief.on_behalf_of.split()[0] if brief.on_behalf_of else "my user"
     if brief.user_phone:
-        text = (f"I can't share that detail. I'll connect {name} directly."
-                if lang.value == "en" else
-                f"Woh detail main share nahi kar sakti. Main {name} ji ko call pe jod deti hoon.")
-        return CallAction(type=CallActionType.BRIDGE_USER, text=text, language=lang,
-                          collected=collected, leave_after_bridge=True,
-                          quote=quote_from(out.quote, brief), care=care_from(out.care, brief))
-    text = (f"I can't share that detail. {name} will get back to you. Thank you."
-            if lang.value == "en" else
-            f"Woh detail main share nahi kar sakti. {name} ji aapse baat kar lenge. Shukriya.")
-    return CallAction(type=CallActionType.HANGUP, text=text, language=lang,
-                      outcome=CallOutcome.NEEDS_USER_VERIFICATION, collected=collected,
-                      quote=quote_from(out.quote, brief), care=care_from(out.care, brief))
+        text = (
+            f"I can't share that detail. I'll connect {name} directly."
+            if lang.value == "en"
+            else f"Woh detail main share nahi kar sakti. Main {name} ji ko call pe jod deti hoon."
+        )
+        return CallAction(
+            type=CallActionType.BRIDGE_USER,
+            text=text,
+            language=lang,
+            collected=collected,
+            leave_after_bridge=True,
+            quote=quote_from(out.quote, brief),
+            care=care_from(out.care, brief),
+        )
+    text = (
+        f"I can't share that detail. {name} will get back to you. Thank you."
+        if lang.value == "en"
+        else f"Woh detail main share nahi kar sakti. {name} ji aapse baat kar lenge. Shukriya."
+    )
+    return CallAction(
+        type=CallActionType.HANGUP,
+        text=text,
+        language=lang,
+        outcome=CallOutcome.NEEDS_USER_VERIFICATION,
+        collected=collected,
+        quote=quote_from(out.quote, brief),
+        care=care_from(out.care, brief),
+    )

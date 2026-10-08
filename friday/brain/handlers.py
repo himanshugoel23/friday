@@ -40,8 +40,9 @@ def load_brief(data: dict[str, Any]) -> CallBrief:
 
 
 def h_interpret(p: dict[str, Any]) -> BaseModel:
-    return interpret(ConversationContext.model_validate(p["ctx"]),
-                     InboundMessage.model_validate(p["message"]))
+    return interpret(
+        ConversationContext.model_validate(p["ctx"]), InboundMessage.model_validate(p["message"])
+    )
 
 
 def h_resolve(p: dict[str, Any]) -> BaseModel:
@@ -63,19 +64,25 @@ def h_call_turn(p: dict[str, Any]) -> BaseModel:
 
 
 def h_summarize(p: dict[str, Any]) -> BaseModel:
-    return summary_text(ConversationContext.model_validate(p["ctx"]),
-                        Task.model_validate(p["task"]), CallResult.model_validate(p["result"]))
+    return summary_text(
+        ConversationContext.model_validate(p["ctx"]),
+        Task.model_validate(p["task"]),
+        CallResult.model_validate(p["result"]),
+    )
 
 
 def h_compare(p: dict[str, Any]) -> BaseModel:
-    return compare_text(ConversationContext.model_validate(p["ctx"]),
-                        Task.model_validate(p["parent"]),
-                        [Quote.model_validate(q) for q in p.get("ranked", [])])
+    return compare_text(
+        ConversationContext.model_validate(p["ctx"]),
+        Task.model_validate(p["parent"]),
+        [Quote.model_validate(q) for q in p.get("ranked", [])],
+    )
 
 
 def h_nudge(p: dict[str, Any]) -> BaseModel:
-    return nudges.judge(ConversationContext.model_validate(p["ctx"]),
-                        NudgeCandidate.model_validate(p["candidate"]))
+    return nudges.judge(
+        ConversationContext.model_validate(p["ctx"]), NudgeCandidate.model_validate(p["candidate"])
+    )
 
 
 def h_extract(p: dict[str, Any]) -> BaseModel:
@@ -84,8 +91,11 @@ def h_extract(p: dict[str, Any]) -> BaseModel:
 
 def h_translate(p: dict[str, Any]) -> BaseModel:
     src = p.get("source")
-    return TranslateOut(text=translate.translate(p.get("text") or "", Language(p["target"]),
-                                                 Language(src) if src else None))
+    return TranslateOut(
+        text=translate.translate(
+            p.get("text") or "", Language(p["target"]), Language(src) if src else None
+        )
+    )
 
 
 def h_sim_business(p: dict[str, Any]) -> BaseModel:
@@ -95,8 +105,12 @@ def h_sim_business(p: dict[str, Any]) -> BaseModel:
 def h_shortlist_reasons(p: dict[str, Any]) -> BaseModel:
     from .schemas import ReasonOut, ReasonsOut
 
-    return ReasonsOut(reasons=[ReasonOut(index=i, reason=item.get("default_reason", ""))
-                               for i, item in enumerate(p.get("items", []))])
+    return ReasonsOut(
+        reasons=[
+            ReasonOut(index=i, reason=item.get("default_reason", ""))
+            for i, item in enumerate(p.get("items", []))
+        ]
+    )
 
 
 HANDLERS: dict[str, Callable[[dict[str, Any]], BaseModel]] = {

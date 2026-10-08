@@ -22,56 +22,281 @@ from ..textutil import (
 
 # ------------------------------------------------------------------ callee signals
 
-IVR_WORDS = ("press", "dabaye", "dabayein", "dabaiye", "enter your", "enter the", "followed by",
-             "hash key", "star key", "to repeat", "main menu", "for english", "for hindi",
-             "hindi ke liye", "english ke liye", "ke liye 1", "ke liye 2", "#")
-HOLD_WORDS = ("please hold", "please stay on the line", "your call is important",
-              "all our executives are busy", "all our agents are busy", "wait time",
-              "estimated wait", "you are in queue", "in the queue", "hold music", "♪",
-              "kripya line par bane rahe", "line par bane rahiye", "intezaar karein",
-              "please wait while", "call will be answered", "next available")
-AI_QUESTION = ("are you a robot", "are you robot", "are you an ai", "are you ai", "is this a bot",
-               "are you a bot", "robot ho", "robot hai", "machine ho", "ai ho", "real person",
-               "insaan ho", "human ho", "are you human", "computer ho", "bot ho", "recorded",
-               "aap ai", "kya aap ai", "are you a machine")
-HOSTILE_AI = ("robot se baat nahi", "don't talk to robots", "dont talk to robots", "no robots",
-              "no bots", "machine se baat nahi", "don't talk to ai", "dont talk to ai",
-              "not talking to a robot", "robot se nahi", "ai se baat nahi", "real person se baat",
-              "insaan se baat karao", "human please")
-DO_NOT_CALL = ("don't call again", "dont call again", "do not call", "never call", "dobara call "
-               "mat", "phir se call mat", "call mat karna", "stop calling")
+IVR_WORDS = (
+    "press",
+    "dabaye",
+    "dabayein",
+    "dabaiye",
+    "enter your",
+    "enter the",
+    "followed by",
+    "hash key",
+    "star key",
+    "to repeat",
+    "main menu",
+    "for english",
+    "for hindi",
+    "hindi ke liye",
+    "english ke liye",
+    "ke liye 1",
+    "ke liye 2",
+    "#",
+)
+HOLD_WORDS = (
+    "please hold",
+    "please stay on the line",
+    "your call is important",
+    "all our executives are busy",
+    "all our agents are busy",
+    "wait time",
+    "estimated wait",
+    "you are in queue",
+    "in the queue",
+    "hold music",
+    "♪",
+    "kripya line par bane rahe",
+    "line par bane rahiye",
+    "intezaar karein",
+    "please wait while",
+    "call will be answered",
+    "next available",
+)
+AI_QUESTION = (
+    "are you a robot",
+    "are you robot",
+    "are you an ai",
+    "are you ai",
+    "is this a bot",
+    "are you a bot",
+    "robot ho",
+    "robot hai",
+    "machine ho",
+    "ai ho",
+    "real person",
+    "insaan ho",
+    "human ho",
+    "are you human",
+    "computer ho",
+    "bot ho",
+    "recorded",
+    "aap ai",
+    "kya aap ai",
+    "are you a machine",
+)
+HOSTILE_AI = (
+    "robot se baat nahi",
+    "don't talk to robots",
+    "dont talk to robots",
+    "no robots",
+    "no bots",
+    "machine se baat nahi",
+    "don't talk to ai",
+    "dont talk to ai",
+    "not talking to a robot",
+    "robot se nahi",
+    "ai se baat nahi",
+    "real person se baat",
+    "insaan se baat karao",
+    "human please",
+)
+DO_NOT_CALL = (
+    "don't call again",
+    "dont call again",
+    "do not call",
+    "never call",
+    "dobara call mat",
+    "phir se call mat",
+    "call mat karna",
+    "stop calling",
+)
 WRONG_NUMBER = ("wrong number", "galat number", "wrong no", "no such", "yeh woh nahi")
-CALL_LATER = ("call later", "call back later", "call after", "baad mein call", "baad me call",
-              "thodi der baad", "busy hoon", "busy hai abhi", "abhi busy", "call tomorrow",
-              "kal call", "call in an hour", "ghante baad", "please call after", "we are prepping",
-              "phir call karna", "later please", "after some time", "thodi der mein call")
-WAIT_WORDS = ("ek minute", "one minute", "one moment", "hold on", "ruko", "rukiye", "wait",
-              "hold karo", "hold kariye", "let me check", "check karke", "dekh ke batata",
-              "dekhta hoon", "dekhti hoon", "just a sec", "ek second", "do minute")
-VERIFY_WORDS = ("otp", "one time password", "verification code", "verify", "account holder",
-                "date of birth", "mother's maiden", "security question", "cvv", "pin number",
-                "your pin", "atm pin", "password")
-PAYMENT_WORDS = ("advance", "deposit", "token amount", "pay now", "payment karna", "payment kar",
-                 "upi", "gpay", "phonepe", "paytm", "transfer kar", "booking amount",
-                 "prepay", "pehle payment", "50%", "half payment", "advance dena")
-NEGATIVE_AVAIL = ("full", "not available", "no slot", "no slots", "booked", "khatam",
-                  "nahi hai", "nahin hai", "out of stock", "unavailable", "closed", "band hai",
-                  "not possible", "nahi ho payega", "nahi milega", "can't", "cannot", "sorry",
-                  "illa", "nahi")
-POSITIVE_WORDS = ("haan", "han", "yes", "ji", "available", "hai", "done", "ho jayega",
-                  "kar denge", "sure", "ok", "okay", "theek", "confirmed", "booked", "pakka",
-                  "ho gaya", "sahi hai", "correct", "right", "chalega", "milega", "in stock",
-                  "we have", "rakh dete", "rakh deta", "rakh denge", "hold kar", "sari", "houdu",
-                  "hoy", "aamaa")
-CANT_RESOLVE = ("not possible", "cannot", "can't", "nahi ho sakta", "authority", "only up to",
-                "sirf", "only", "policy nahi", "not allowed", "unable")
-DISTRESS = ("dizzy", "chakkar", "fell", "fall", "gir gaya", "gir gayi", "gir gaye", "chest pain",
-            "seene mein dard", "seene me dard", "breathless", "saans", "can't breathe",
-            "confused", "yaad nahi", "behosh", "unconscious", "bleeding", "khoon", "ulti",
-            "vomit", "bahut dard", "severe pain", "tabiyat kharab", "bimar", "fever",
-            "bukhar", "not well", "unwell", "theek nahi")
-MED_SKIPPED = ("dawai nahi li", "dawa nahi li", "medicine nahi li", "didn't take", "did not take",
-               "bhool gaya", "bhool gayi", "forgot my medicine", "nahi li", "skip")
+CALL_LATER = (
+    "call later",
+    "call back later",
+    "call after",
+    "baad mein call",
+    "baad me call",
+    "thodi der baad",
+    "busy hoon",
+    "busy hai abhi",
+    "abhi busy",
+    "call tomorrow",
+    "kal call",
+    "call in an hour",
+    "ghante baad",
+    "please call after",
+    "we are prepping",
+    "phir call karna",
+    "later please",
+    "after some time",
+    "thodi der mein call",
+)
+WAIT_WORDS = (
+    "ek minute",
+    "one minute",
+    "one moment",
+    "hold on",
+    "ruko",
+    "rukiye",
+    "wait",
+    "hold karo",
+    "hold kariye",
+    "let me check",
+    "check karke",
+    "dekh ke batata",
+    "dekhta hoon",
+    "dekhti hoon",
+    "just a sec",
+    "ek second",
+    "do minute",
+)
+VERIFY_WORDS = (
+    "otp",
+    "one time password",
+    "verification code",
+    "verify",
+    "account holder",
+    "date of birth",
+    "mother's maiden",
+    "security question",
+    "cvv",
+    "pin number",
+    "your pin",
+    "atm pin",
+    "password",
+)
+PAYMENT_WORDS = (
+    "advance",
+    "deposit",
+    "token amount",
+    "pay now",
+    "payment karna",
+    "payment kar",
+    "upi",
+    "gpay",
+    "phonepe",
+    "paytm",
+    "transfer kar",
+    "booking amount",
+    "prepay",
+    "pehle payment",
+    "50%",
+    "half payment",
+    "advance dena",
+)
+NEGATIVE_AVAIL = (
+    "full",
+    "not available",
+    "no slot",
+    "no slots",
+    "booked",
+    "khatam",
+    "nahi hai",
+    "nahin hai",
+    "out of stock",
+    "unavailable",
+    "closed",
+    "band hai",
+    "not possible",
+    "nahi ho payega",
+    "nahi milega",
+    "can't",
+    "cannot",
+    "sorry",
+    "illa",
+    "nahi",
+)
+POSITIVE_WORDS = (
+    "haan",
+    "han",
+    "yes",
+    "ji",
+    "available",
+    "hai",
+    "done",
+    "ho jayega",
+    "kar denge",
+    "sure",
+    "ok",
+    "okay",
+    "theek",
+    "confirmed",
+    "booked",
+    "pakka",
+    "ho gaya",
+    "sahi hai",
+    "correct",
+    "right",
+    "chalega",
+    "milega",
+    "in stock",
+    "we have",
+    "rakh dete",
+    "rakh deta",
+    "rakh denge",
+    "hold kar",
+    "sari",
+    "houdu",
+    "hoy",
+    "aamaa",
+)
+CANT_RESOLVE = (
+    "not possible",
+    "cannot",
+    "can't",
+    "nahi ho sakta",
+    "authority",
+    "only up to",
+    "sirf",
+    "only",
+    "policy nahi",
+    "not allowed",
+    "unable",
+)
+DISTRESS = (
+    "dizzy",
+    "chakkar",
+    "fell",
+    "fall",
+    "gir gaya",
+    "gir gayi",
+    "gir gaye",
+    "chest pain",
+    "seene mein dard",
+    "seene me dard",
+    "breathless",
+    "saans",
+    "can't breathe",
+    "confused",
+    "yaad nahi",
+    "behosh",
+    "unconscious",
+    "bleeding",
+    "khoon",
+    "ulti",
+    "vomit",
+    "bahut dard",
+    "severe pain",
+    "tabiyat kharab",
+    "bimar",
+    "fever",
+    "bukhar",
+    "not well",
+    "unwell",
+    "theek nahi",
+)
+MED_SKIPPED = (
+    "dawai nahi li",
+    "dawa nahi li",
+    "medicine nahi li",
+    "didn't take",
+    "did not take",
+    "bhool gaya",
+    "bhool gayi",
+    "forgot my medicine",
+    "nahi li",
+    "skip",
+)
 
 _SLOT = re.compile(
     r"(?:(?P<day>today|tomorrow|kal|aaj|parso|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|"
@@ -92,27 +317,46 @@ def _slot_strings(sentence: str) -> list[str]:
             continue
         before = s[max(0, m.start() - 2) : m.start()]
         after = s[m.end() : m.end() + 10]
-        if "₹" in before or re.match(r"\s*(rs|₹|rupe|min|minute|hour|ghant|din|day|week|%|"
-                                     r"people|log|x|strip|\d)", after):
+        if "₹" in before or re.match(
+            r"\s*(rs|₹|rupe|min|minute|hour|ghant|din|day|week|%|"
+            r"people|log|x|strip|\d)",
+            after,
+        ):
             continue
-        if re.match(r"\s*(?:st|nd|rd|th)?\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|"
-                    r"dec)", after):
+        if re.match(
+            r"\s*(?:st|nd|rd|th)?\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|"
+            r"dec)",
+            after,
+        ):
             continue
-        if not (m.group("ap") or mm or m.group("day") or m.group("part") or
-                re.match(r"\s*(baje|bje|o'?clock)", s[m.end() - 6 : m.end() + 6]) or
-                re.search(r"\b(ya|or|aur|slot|at|baje|free|available|hai|ka|ke|wala)\b",
-                          s[max(0, m.start() - 12) : m.end() + 12])):
+        if not (
+            m.group("ap")
+            or mm
+            or m.group("day")
+            or m.group("part")
+            or re.match(r"\s*(baje|bje|o'?clock)", s[m.end() - 6 : m.end() + 6])
+            or re.search(
+                r"\b(ya|or|aur|slot|at|baje|free|available|hai|ka|ke|wala)\b",
+                s[max(0, m.start() - 12) : m.end() + 12],
+            )
+        ):
             continue
-        start, _e, _x = parse_time_of_day(m.group(0) if (m.group("ap") or m.group("part"))
-                                          else m.group(0) + " baje")
+        start, _e, _x = parse_time_of_day(
+            m.group(0) if (m.group("ap") or m.group("part")) else m.group(0) + " baje"
+        )
         if start is None:
             continue
         hh, mi = divmod(start, 60)
         label = f"{hh % 12 or 12}{':' + f'{mi:02d}' if mi else ''} {'AM' if hh < 12 else 'PM'}"
         day = (m.group("day") or "").lower()
         if day:
-            named = {"today": "Today", "aaj": "Today", "tomorrow": "Tomorrow",
-                     "kal": "Tomorrow", "parso": "Day after"}.get(day, day[:3].title())
+            named = {
+                "today": "Today",
+                "aaj": "Today",
+                "tomorrow": "Tomorrow",
+                "kal": "Tomorrow",
+                "parso": "Day after",
+            }.get(day, day[:3].title())
             label = f"{named} {label}"
         if label not in out:
             out.append(label)
@@ -199,12 +443,16 @@ class CallState:
 
 def _is_disclosure(text: str, brief: CallBrief) -> bool:
     t = norm(text)
-    if any(norm(brief.disclosure(lang)) == t for lang in (Language.EN, Language.HI,
-                                                          Language.HINGLISH)):
+    if any(
+        norm(brief.disclosure(lang)) == t for lang in (Language.EN, Language.HI, Language.HINGLISH)
+    ):
         return True
-    return ("ai assistant" in t or "एआई" in t or "ai असिस्टेंट" in t) and (
-        "on behalf of" in t or "ki taraf se" in t or "की ओर से" in t
-    ) and len(t) < 160 and "?" not in t
+    return (
+        ("ai assistant" in t or "एआई" in t or "ai असिस्टेंट" in t)
+        and ("on behalf of" in t or "ki taraf se" in t or "की ओर से" in t)
+        and len(t) < 160
+        and "?" not in t
+    )
 
 
 def normalize_transcript(transcript: Transcript) -> Transcript:
@@ -215,8 +463,7 @@ def normalize_transcript(transcript: Transcript) -> Transcript:
     for t in transcript.turns:
         cls = getattr(t, "audio_class", None)
         val = getattr(cls, "value", cls)
-        if (t.speaker == Speaker.CALLEE and val and val != "human"
-                and audio_tag(t.text) is None):
+        if t.speaker == Speaker.CALLEE and val and val != "human" and audio_tag(t.text) is None:
             t = t.model_copy(update={"text": f"[{val}] {t.text}".strip()})
             changed = True
         turns.append(t)
@@ -241,21 +488,32 @@ def read_state(brief: CallBrief, transcript: Transcript, answers: list[UserAnswe
         st.last_callee = turn
     if st.last_callee is not None:
         st.callee_lang = st.last_callee.language or detect_language(
-            st.last_callee.text, brief.opening_language)
+            st.last_callee.text, brief.opening_language
+        )
     # offers & prices from callee speech
     negotiated_after = False
     for turn in transcript.turns:
         if turn.speaker == Speaker.FRIDAY:
-            if has_any(norm(turn.text), ("discount", "best price", "kam kar", "could you do",
-                                         "kar sakte hain kya", "can you do")):
+            if has_any(
+                norm(turn.text),
+                (
+                    "discount",
+                    "best price",
+                    "kam kar",
+                    "could you do",
+                    "kar sakte hain kya",
+                    "can you do",
+                ),
+            ):
                 negotiated_after = True
             continue
         if turn.speaker != Speaker.CALLEE or is_ivr(turn.text) or is_hold(turn.text):
             continue
         for sent in sentences(turn.text) or [turn.text]:
             s = norm(sent)
-            neg = has_any(s, NEGATIVE_AVAIL) and not has_any(s, ("ya", "or", "but", "lekin",
-                                                                "aadre", "instead"))
+            neg = has_any(s, NEGATIVE_AVAIL) and not has_any(
+                s, ("ya", "or", "but", "lekin", "aadre", "instead")
+            )
             for slot in _slot_strings(sent):
                 if neg:
                     if slot not in st.unavailable:
@@ -269,20 +527,39 @@ def read_state(brief: CallBrief, transcript: Transcript, answers: list[UserAnswe
                     st.price = amt
                 elif negotiated_after and st.price is not None and amt < st.price:
                     st.price = amt
-                elif amt > (st.price or 0) or has_any(s, ("extra", "alag", "separately",
-                                                          "additional", "se start", "plus")):
+                elif amt > (st.price or 0) or has_any(
+                    s, ("extra", "alag", "separately", "additional", "se start", "plus")
+                ):
                     st.extras.append(sent.strip())
-            if has_any(s, ("include", "included", "including", "saath mein", "ke saath",
-                           "free", "waived", "nahi lagega", "breakfast")) and not neg:
+            if (
+                has_any(
+                    s,
+                    (
+                        "include",
+                        "included",
+                        "including",
+                        "saath mein",
+                        "ke saath",
+                        "free",
+                        "waived",
+                        "nahi lagega",
+                        "breakfast",
+                    ),
+                )
+                and not neg
+            ):
                 st.inclusions.append(sent.strip())
     st.slots = [s for s in st.slots if s not in st.unavailable] or st.slots
     return st
 
 
-_TAG = re.compile(r"^\s*\[(ivr_prompt|queue_announcement|hold_music|voicemail|silence|human)\]\s*",
-                  re.I)
-IDENTIFIER_PROMPT = (r"enter your|enter the|registered mobile|account number|customer id|"
-                     r"consumer number|order id|policy number|type your")
+_TAG = re.compile(
+    r"^\s*\[(ivr_prompt|queue_announcement|hold_music|voicemail|silence|human)\]\s*", re.I
+)
+IDENTIFIER_PROMPT = (
+    r"enter your|enter the|registered mobile|account number|customer id|"
+    r"consumer number|order id|policy number|type your"
+)
 
 
 def audio_tag(text: str) -> str | None:
@@ -308,7 +585,8 @@ def is_ivr(text: str) -> bool:
         return tag == "ivr_prompt"
     t = norm(text)
     return bool(re.search(r"\b(press|dial|dabaye\w*|enter)\s*\d|\b\d\s*(dabaye|press)", t)) or (
-        has_any(t, IVR_WORDS) and has_any(t, ("press", "dabaye", "enter", "dabaiye", "dabayein")))
+        has_any(t, IVR_WORDS) and has_any(t, ("press", "dabaye", "enter", "dabaiye", "dabayein"))
+    )
 
 
 def is_hold(text: str) -> bool:
@@ -353,8 +631,11 @@ TICKET = re.compile(
     r"(?:is|hai|:)?\s*([a-z]{0,4}[- ]?\d[\d\- ]{2,}\d|[a-z]{1,4}\d{3,})",
     re.I,
 )
-AGENT = re.compile(r"(?:my name is|this is|main|mera naam|se)\s+([A-Z][a-z]+)\s*"
-                   r"(?:bol rahi|bol raha|speaking|here|hai|hoon|from|,)", re.I)
+AGENT = re.compile(
+    r"(?:my name is|this is|main|mera naam|se)\s+([A-Z][a-z]+)\s*"
+    r"(?:bol rahi|bol raha|speaking|here|hai|hoon|from|,)",
+    re.I,
+)
 
 
 def find_ticket(text: str) -> str | None:
@@ -367,16 +648,26 @@ def find_ticket(text: str) -> str | None:
 
 def find_agent(text: str) -> str | None:
     m = AGENT.search(text or "")
-    if m and m.group(1).lower() not in {"airtel", "main", "aapki", "aapka", "friday", "sir",
-                                        "madam", "ma'am", "ji"}:
+    if m and m.group(1).lower() not in {
+        "airtel",
+        "main",
+        "aapki",
+        "aapka",
+        "friday",
+        "sir",
+        "madam",
+        "ma'am",
+        "ji",
+    }:
         return m.group(1).title()
     return None
 
 
 def find_promise(text: str, now: datetime) -> tuple[date | None, str | None]:
     t = norm(text)
-    m = re.search(r"(?:within|in|agle)\s+(\d{1,3})\s*(hours?|hrs?|ghante|days?|din|working days)",
-                  t)
+    m = re.search(
+        r"(?:within|in|agle)\s+(\d{1,3})\s*(hours?|hrs?|ghante|days?|din|working days)", t
+    )
     if m:
         n = int(m.group(1))
         unit = m.group(2)

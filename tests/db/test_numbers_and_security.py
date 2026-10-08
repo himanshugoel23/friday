@@ -66,14 +66,14 @@ async def test_number_pool_round_trip(repos, clock, db):
     assert a.number_phone == n.phone and a.previous_number is None
     a2 = await repos.numbers.assign(BIZ, "+918000000002")
     assert a2.previous_number == n.phone
-    assert (await repos.numbers.get_assignment(BIZ)).number_phone == "+918000000002"
+    assert await repos.numbers.get_assignment(BIZ) == "+918000000002"
     assert BIZ not in await _raw(db, "number_assignments")
 
     for o in (NumberOutcome.ANSWERED, NumberOutcome.SHORT_CALL, NumberOutcome.NO_ANSWER):
         await repos.numbers.add_outcome(n.phone, o, business_phone=BIZ, duration_s=5)
         clock.advance(60)
     recent = await repos.numbers.recent_outcomes(n.phone)
-    assert [r.outcome for r in recent][0] == NumberOutcome.NO_ANSWER
+    assert [r.outcome for r in recent][-1] == NumberOutcome.NO_ANSWER  # oldest first
     since = clock.now() - timedelta(hours=1)
     assert await repos.numbers.count_outcomes(n.phone, since=since) == 3
     assert (
@@ -82,6 +82,9 @@ async def test_number_pool_round_trip(repos, clock, db):
     )
     assert BIZ not in await _raw(db, "number_outcomes")
 
+    await repos.numbers.clear_outcomes(n.phone)
+    assert await repos.numbers.recent_outcomes(n.phone) == []  # new window, rows archived
+    assert await repos.numbers.count_outcomes(n.phone, since=since) == 3  # still on record
     assert not await repos.numbers.is_dnc(BIZ)
     await repos.numbers.add_dnc(BIZ, reason="dnc_request", number_phone=n.phone)
     await repos.numbers.add_dnc(BIZ, reason="again")  # idempotent

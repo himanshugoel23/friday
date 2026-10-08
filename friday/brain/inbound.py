@@ -73,7 +73,7 @@ def task_label(task_type: TaskType, goal: str, item: str | None = None) -> str:
     low = g.lower()
     for prefix in ("book ", "get ", "find ", "order ", "check ", "ask ", "cancel ", "move "):
         if low.startswith(prefix):
-            g = g[len(prefix):]
+            g = g[len(prefix) :]
             break
     for cut in (" for ", " at ", " with ", ",", " on ", " tomorrow", " today"):
         idx = g.lower().find(cut)

@@ -35,8 +35,25 @@ from .heuristics.callstate import (
 from .textutil import norm
 
 _DTMF = re.compile(r"^\s*dtmf:\s*([0-9*#w•x]+)", re.I)
-_STOP = {"press", "please", "your", "dial", "enter", "followed", "number", "main", "menu",
-         "repeat", "with", "this", "that", "for", "the", "and", "to"}
+_STOP = {
+    "press",
+    "please",
+    "your",
+    "dial",
+    "enter",
+    "followed",
+    "number",
+    "main",
+    "menu",
+    "repeat",
+    "with",
+    "this",
+    "that",
+    "for",
+    "the",
+    "and",
+    "to",
+}
 
 
 class IVRStep(BaseModel):
@@ -99,13 +116,15 @@ def learn_ivr_map(transcript: Transcript, brief: CallBrief) -> IVRMap | None:
             keys = "{" + ident + "}" + ("#" if pressed.endswith("#") else "")
             steps.append(IVRStep(keys=keys, prompt=last_prompt[:120]))
         else:
-            steps.append(IVRStep(keys=pressed, expect=_keyword(last_prompt, pressed),
-                                 prompt=last_prompt[:120]))
+            steps.append(
+                IVRStep(
+                    keys=pressed, expect=_keyword(last_prompt, pressed), prompt=last_prompt[:120]
+                )
+            )
         last_prompt = None
     if not steps or not reached_human:
         return None
-    return IVRMap(phone=brief.target.phone, company=brief.company or brief.target.name,
-                  steps=steps)
+    return IVRMap(phone=brief.target.phone, company=brief.company or brief.target.name, steps=steps)
 
 
 def _identifier_label(brief: CallBrief, prompt: str) -> str | None:
@@ -143,8 +162,11 @@ def replay_step(brief: CallBrief, transcript: Transcript) -> str | None:
     last = transcript.turns[-1]
     if last.speaker != Speaker.CALLEE or not is_ivr(last.text):
         return None
-    pressed = sum(1 for t in transcript.turns if t.speaker in (Speaker.SYSTEM, Speaker.FRIDAY)
-                  and _DTMF.match(t.text))
+    pressed = sum(
+        1
+        for t in transcript.turns
+        if t.speaker in (Speaker.SYSTEM, Speaker.FRIDAY) and _DTMF.match(t.text)
+    )
     if pressed >= len(ivr_map.steps):
         return None
     step = ivr_map.steps[pressed]
@@ -154,8 +176,9 @@ def replay_step(brief: CallBrief, transcript: Transcript) -> str | None:
     m = re.match(r"\{([^}]+)\}(#?)", keys)
     if m:
         ref = m.group(1).lower()
-        ident = next((i for i in brief.approved_identifiers
-                      if ref in (i.id.lower(), i.label.lower())), None)
+        ident = next(
+            (i for i in brief.approved_identifiers if ref in (i.id.lower(), i.label.lower())), None
+        )
         if ident is None:
             return None
         return re.sub(r"\D", "", ident.value) + m.group(2)

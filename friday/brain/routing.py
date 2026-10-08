@@ -43,9 +43,16 @@ DEFAULT_MODELS: dict[str, str] = {
 }
 # tight output caps: short structured outputs (cost rule 3)
 MAX_TOKENS: dict[str, int] = {
-    "interpret": 700, "resolve_references": 300, "extract": 2500, "judge_nudge": 300,
-    "summarize": 500, "compare": 500, "shortlist_reasons": 400, "translate": 300,
-    "sim_business": 150, "call_turn": 400,
+    "interpret": 700,
+    "resolve_references": 300,
+    "extract": 2500,
+    "judge_nudge": 300,
+    "summarize": 500,
+    "compare": 500,
+    "shortlist_reasons": 400,
+    "translate": 300,
+    "sim_business": 150,
+    "call_turn": 400,
 }
 EFFORT: dict[str, str] = {p: "low" for p in DEFAULT_MODELS}
 # cheaper model when a task is over its token budget
@@ -76,18 +83,22 @@ class ModelRouter:
             if env:
                 models[purpose] = env
         self.overrides = {**models, **self.overrides}
-        self.default_model = self.default_model or getattr(
-            s, "llm_default_purpose_model", None) or HAIKU
-        self.escalation_model = (self.escalation_model
-                                 or os.environ.get("FRIDAY_LLM_ESCALATION_MODEL")
-                                 or getattr(s, "llm_escalation_model", None) or OPUS)
+        self.default_model = (
+            self.default_model or getattr(s, "llm_default_purpose_model", None) or HAIKU
+        )
+        self.escalation_model = (
+            self.escalation_model
+            or os.environ.get("FRIDAY_LLM_ESCALATION_MODEL")
+            or getattr(s, "llm_escalation_model", None)
+            or OPUS
+        )
         if self.task_token_budget is None:
             budget = os.environ.get("FRIDAY_LLM_TASK_TOKEN_BUDGET") or getattr(
-                s, "llm_task_token_budget", None)
+                s, "llm_task_token_budget", None
+            )
             self.task_token_budget = int(budget) if budget else DEFAULT_TASK_TOKEN_BUDGET
 
-    def model_for(self, purpose: str, *, task_id: str | None = None,
-                  escalate: bool = False) -> str:
+    def model_for(self, purpose: str, *, task_id: str | None = None, escalate: bool = False) -> str:
         if escalate:
             return self.escalation_model  # type: ignore[return-value]
         model = self.overrides.get(purpose) or self.default_model or HAIKU
@@ -108,8 +119,12 @@ class ModelRouter:
         self._used[task_id] += tokens
         if self.over_budget(task_id) and task_id not in self._alerted:
             self._alerted.add(task_id)
-            log.warning("task %s over its LLM token budget (%d > %d): cheaper models now",
-                        task_id[:8], self._used[task_id], self.task_token_budget)
+            log.warning(
+                "task %s over its LLM token budget (%d > %d): cheaper models now",
+                task_id[:8],
+                self._used[task_id],
+                self.task_token_budget,
+            )
 
     def used(self, task_id: str) -> int:
         return self._used.get(task_id, 0)

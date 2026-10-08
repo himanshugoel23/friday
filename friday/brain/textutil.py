@@ -64,16 +64,80 @@ def truncate_title(title: str, limit: int = 20) -> str:
 
 
 YES_WORDS = (
-    "yes", "yeah", "yep", "yup", "ok", "okay", "okk", "sure", "done", "confirmed", "confirm",
-    "haan", "han", "haa", "ha", "haanji", "haan ji", "ji haan", "ji", "theek hai", "thik hai",
-    "theek", "thik", "bilkul", "pakka", "ho gaya", "hogaya", "kar diya", "kar dete hain",
-    "chalega", "go ahead", "go", "book it", "booked", "fine", "correct", "sahi hai", "right",
-    "absolutely", "of course", "हाँ", "हां", "जी", "ठीक है", "ho", "hoy", "sari", "aamaa",
+    "yes",
+    "yeah",
+    "yep",
+    "yup",
+    "ok",
+    "okay",
+    "okk",
+    "sure",
+    "done",
+    "confirmed",
+    "confirm",
+    "haan",
+    "han",
+    "haa",
+    "ha",
+    "haanji",
+    "haan ji",
+    "ji haan",
+    "ji",
+    "theek hai",
+    "thik hai",
+    "theek",
+    "thik",
+    "bilkul",
+    "pakka",
+    "ho gaya",
+    "hogaya",
+    "kar diya",
+    "kar dete hain",
+    "chalega",
+    "go ahead",
+    "go",
+    "book it",
+    "booked",
+    "fine",
+    "correct",
+    "sahi hai",
+    "right",
+    "absolutely",
+    "of course",
+    "हाँ",
+    "हां",
+    "जी",
+    "ठीक है",
+    "ho",
+    "hoy",
+    "sari",
+    "aamaa",
 )
 NO_WORDS = (
-    "no", "nope", "nah", "not", "nahi", "nahin", "na", "mat", "rehne do", "rehne de",
-    "cancel", "don't", "dont", "never", "neither", "none", "koi nahi", "नहीं", "nako", "illa",
-    "sorry", "can't", "cannot", "unable",
+    "no",
+    "nope",
+    "nah",
+    "not",
+    "nahi",
+    "nahin",
+    "na",
+    "mat",
+    "rehne do",
+    "rehne de",
+    "cancel",
+    "don't",
+    "dont",
+    "never",
+    "neither",
+    "none",
+    "koi nahi",
+    "नहीं",
+    "nako",
+    "illa",
+    "sorry",
+    "can't",
+    "cannot",
+    "unable",
 )
 
 
@@ -88,9 +152,32 @@ def is_yes(text: str) -> bool:
 
 def is_no(text: str) -> bool:
     t = norm(text)
-    return has_any(t, ("no", "nope", "nah", "nahi", "nahin", "na", "नहीं", "nako", "illa",
-                       "neither", "none", "koi nahi", "rehne do", "mat karo", "not now",
-                       "don't", "dont", "cannot", "can't", "full hai", "not available"))
+    return has_any(
+        t,
+        (
+            "no",
+            "nope",
+            "nah",
+            "nahi",
+            "nahin",
+            "na",
+            "नहीं",
+            "nako",
+            "illa",
+            "neither",
+            "none",
+            "koi nahi",
+            "rehne do",
+            "mat karo",
+            "not now",
+            "don't",
+            "dont",
+            "cannot",
+            "can't",
+            "full hai",
+            "not available",
+        ),
+    )
 
 
 # --------------------------------------------------------------------------- phones
@@ -148,7 +235,8 @@ def extract_amounts(text: str, *, require_marker: bool = False) -> list[int]:
     count only if they look like prices (>= 50, not a time / phone / quantity)."""
     out: list[int] = []
     t = _PHONE_CANDIDATE.sub(
-        lambda m: m.group(0) if _looks_money(text, m) else " " * len(m.group(0)), text or "")
+        lambda m: m.group(0) if _looks_money(text, m) else " " * len(m.group(0)), text or ""
+    )
     for m in _MONEY.finditer(t):
         if m.group("a"):
             v = _to_int(m.group("a"), bool(m.group("ka")))
@@ -161,10 +249,13 @@ def extract_amounts(text: str, *, require_marker: bool = False) -> list[int]:
         has_marker = bool(m.group("post")) or bool(m.group("kb"))
         tail = t[m.end() : m.end() + 12].lower()
         head = t[max(0, m.start() - 12) : m.start()].lower()
-        if re.match(r"\s*(am|pm|baje|o'?clock|:|\.\d|bje|min|minute|hour|ghante|days?|din|"
-                    r"weeks?|hafte|months?|mahine|years?|saal|strips?|tablets?|pcs|pieces|"
-                    r"bhk|people|log|adults?|kids?|nights?|raat|km|kg|ltr|litre|%|percent|"
-                    r"th|st|nd|rd|ton)\b", tail):
+        if re.match(
+            r"\s*(am|pm|baje|o'?clock|:|\.\d|bje|min|minute|hour|ghante|days?|din|"
+            r"weeks?|hafte|months?|mahine|years?|saal|strips?|tablets?|pcs|pieces|"
+            r"bhk|people|log|adults?|kids?|nights?|raat|km|kg|ltr|litre|%|percent|"
+            r"th|st|nd|rd|ton)\b",
+            tail,
+        ):
             continue
         if re.search(r"(\d[:.]|[+]|\bno\.?|number|#|sr|ticket|id)\s*$", head):
             continue
@@ -239,36 +330,107 @@ def format_inr(amount: int | None) -> str:
 # --------------------------------------------------------------------------- dates & times
 
 WEEKDAYS: dict[str, int] = {
-    "monday": 0, "mon": 0, "somvar": 0, "somwar": 0, "सोमवार": 0,
-    "tuesday": 1, "tue": 1, "tues": 1, "mangalvar": 1, "mangalwar": 1, "मंगलवार": 1,
-    "wednesday": 2, "wed": 2, "budhvar": 2, "budhwar": 2, "बुधवार": 2,
-    "thursday": 3, "thu": 3, "thur": 3, "thurs": 3, "guruvar": 3, "guruwar": 3,
-    "brihaspativar": 3, "गुरुवार": 3,
-    "friday": 4, "fri": 4, "shukravar": 4, "shukrawar": 4, "शुक्रवार": 4,
-    "saturday": 5, "sat": 5, "shanivar": 5, "shaniwar": 5, "शनिवार": 5,
-    "sunday": 6, "sun": 6, "ravivar": 6, "raviwar": 6, "itvaar": 6, "itwar": 6, "रविवार": 6,
+    "monday": 0,
+    "mon": 0,
+    "somvar": 0,
+    "somwar": 0,
+    "सोमवार": 0,
+    "tuesday": 1,
+    "tue": 1,
+    "tues": 1,
+    "mangalvar": 1,
+    "mangalwar": 1,
+    "मंगलवार": 1,
+    "wednesday": 2,
+    "wed": 2,
+    "budhvar": 2,
+    "budhwar": 2,
+    "बुधवार": 2,
+    "thursday": 3,
+    "thu": 3,
+    "thur": 3,
+    "thurs": 3,
+    "guruvar": 3,
+    "guruwar": 3,
+    "brihaspativar": 3,
+    "गुरुवार": 3,
+    "friday": 4,
+    "fri": 4,
+    "shukravar": 4,
+    "shukrawar": 4,
+    "शुक्रवार": 4,
+    "saturday": 5,
+    "sat": 5,
+    "shanivar": 5,
+    "shaniwar": 5,
+    "शनिवार": 5,
+    "sunday": 6,
+    "sun": 6,
+    "ravivar": 6,
+    "raviwar": 6,
+    "itvaar": 6,
+    "itwar": 6,
+    "रविवार": 6,
 }
 WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 MONTHS: dict[str, int] = {
-    "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3, "april": 4,
-    "apr": 4, "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7, "august": 8, "aug": 8,
-    "september": 9, "sep": 9, "sept": 9, "october": 10, "oct": 10, "november": 11, "nov": 11,
-    "december": 12, "dec": 12,
+    "january": 1,
+    "jan": 1,
+    "february": 2,
+    "feb": 2,
+    "march": 3,
+    "mar": 3,
+    "april": 4,
+    "apr": 4,
+    "may": 5,
+    "june": 6,
+    "jun": 6,
+    "july": 7,
+    "jul": 7,
+    "august": 8,
+    "aug": 8,
+    "september": 9,
+    "sep": 9,
+    "sept": 9,
+    "october": 10,
+    "oct": 10,
+    "november": 11,
+    "nov": 11,
+    "december": 12,
+    "dec": 12,
 }
 _MONTH_RX = "|".join(sorted(MONTHS, key=len, reverse=True))
 
 # (start_min, end_min) for vague parts of the day (IST)
 DAYPARTS: dict[str, tuple[int, int]] = {
-    "morning": (9 * 60, 12 * 60), "subah": (9 * 60, 12 * 60), "savere": (9 * 60, 12 * 60),
+    "morning": (9 * 60, 12 * 60),
+    "subah": (9 * 60, 12 * 60),
+    "savere": (9 * 60, 12 * 60),
     "सुबह": (9 * 60, 12 * 60),
-    "afternoon": (12 * 60, 16 * 60), "dopahar": (12 * 60, 16 * 60), "dopehar": (12 * 60, 16 * 60),
-    "evening": (17 * 60, 20 * 60), "shaam": (17 * 60, 20 * 60), "sham": (17 * 60, 20 * 60),
+    "afternoon": (12 * 60, 16 * 60),
+    "dopahar": (12 * 60, 16 * 60),
+    "dopehar": (12 * 60, 16 * 60),
+    "evening": (17 * 60, 20 * 60),
+    "shaam": (17 * 60, 20 * 60),
+    "sham": (17 * 60, 20 * 60),
     "शाम": (17 * 60, 20 * 60),
-    "night": (20 * 60, 22 * 60), "raat": (20 * 60, 22 * 60), "tonight": (19 * 60, 22 * 60),
+    "night": (20 * 60, 22 * 60),
+    "raat": (20 * 60, 22 * 60),
+    "tonight": (19 * 60, 22 * 60),
 }
-_PM_PARTS = {"afternoon", "dopahar", "dopehar", "evening", "shaam", "sham", "शाम", "night",
-             "raat", "tonight"}
+_PM_PARTS = {
+    "afternoon",
+    "dopahar",
+    "dopehar",
+    "evening",
+    "shaam",
+    "sham",
+    "शाम",
+    "night",
+    "raat",
+    "tonight",
+}
 
 
 @dataclass
@@ -285,8 +447,9 @@ class When:
     def found(self) -> bool:
         return bool(self.dates) or self.start_min is not None
 
-    def window(self, default_start: int = 9 * 60, default_end: int = 21 * 60
-               ) -> tuple[datetime | None, datetime | None]:
+    def window(
+        self, default_start: int = 9 * 60, default_end: int = 21 * 60
+    ) -> tuple[datetime | None, datetime | None]:
         if not self.dates:
             return None, None
         s = self.start_min if self.start_min is not None else default_start
@@ -299,8 +462,11 @@ class When:
     def describe(self) -> str:
         parts: list[str] = []
         if self.dates:
-            parts.append("/".join(f"{WEEKDAY_NAMES[d.weekday()]} {d.day} {d:%b}"
-                                  for d in sorted(self.dates)[:3]))
+            parts.append(
+                "/".join(
+                    f"{WEEKDAY_NAMES[d.weekday()]} {d.day} {d:%b}" for d in sorted(self.dates)[:3]
+                )
+            )
         if self.start_min is not None:
             if self.exact or self.end_min is None:
                 parts.append(fmt_minutes(self.start_min))
@@ -368,9 +534,13 @@ def parse_time_of_day(text: str) -> tuple[int | None, int | None, bool]:
         ampm = tm.group(3)
         tail = t[tm.end() : tm.end() + 14]
         head = t[max(0, tm.start() - 10) : tm.start()]
-        explicit = bool(ampm) or bool(re.match(r"\s*(baje|bje|o'?clock)", tail)) or bool(
-            tm.group(2)
-        ) or bool(part) or bool(re.search(r"(at|@|around|by|after|before|ke baad)\s*$", head))
+        explicit = (
+            bool(ampm)
+            or bool(re.match(r"\s*(baje|bje|o'?clock)", tail))
+            or bool(tm.group(2))
+            or bool(part)
+            or bool(re.search(r"(at|@|around|by|after|before|ke baad)\s*$", head))
+        )
         if not explicit or hour > 23 or minute > 59:
             continue
         if re.match(r"\s*(?:st|nd|rd|th)?\s*(?:" + _MONTH_RX + r")\b", tail):

@@ -10,17 +10,17 @@ from pydantic import SecretStr
 
 from friday.api.admin import admin_token
 from friday.api.app import create_app
+from friday.channels.notifier import Notifier
 from friday.channels.whatsapp import sign
 from friday.core.models import (
+    Channel,
     FridayNumber,
     NumberOutcome,
     OutboundMessage,
-    Channel,
     User,
     UserStatus,
 )
-from friday.core.scale import Job, MemoryJobQueue, QueueOutbox
-from friday.channels.notifier import Notifier
+from friday.core.scale import MemoryJobQueue, QueueOutbox
 from tests.api.conftest import ADMIN
 from tests.api.test_app import _wa_payload
 
@@ -49,78 +49,70 @@ def test_duplicate_deliveries_are_processed_once(wired, client):
     assert len(wired.messaging.messages_to(ADMIN)) == 2
 
 
-def test_webhook_enqueues_durably_before_processing(wired):
+async def test_webhook_enqueues_durably_before_processing(wired):
     """The ack path only stores + enqueues; a job exists until a worker drains it."""
     app = create_app(wired, background=False, fast_pin_hash=True)
     rt = app.state.runtime
     queue = wired.get("job_queue")
     from friday.core.models import InboundMessage
 
-    import asyncio
-
-    async def go():
-        await wired.db.create_all()
-        msg = InboundMessage(
-            channel="simulator", from_phone=ADMIN, text="hi", provider_message_id="w1"
-        )
-        assert await rt.accept_inbound(msg)
-        assert await queue.depth() == 1 and wired.messaging.messages_to(ADMIN) == []
-        assert not await rt.accept_inbound(msg)  # duplicate
-        assert await rt.drain() == 1
-        assert wired.messaging.messages_to(ADMIN)  # processed by the worker
-        assert await queue.depth() == 0
-
-    asyncio.run(go())
+    msg = InboundMessage(channel="simulator", from_phone=ADMIN, text="hi", provider_message_id="w1")
+    assert await rt.accept_inbound(msg)
+    assert await queue.depth() == 1 and wired.messaging.messages_to(ADMIN) == []
+    assert not await rt.accept_inbound(msg)  # duplicate
+    assert await rt.drain() == 1
+    assert wired.messaging.messages_to(ADMIN)  # processed by the worker
+    assert await queue.depth() == 0
 
 
-def test_health_is_minimal_and_sim_absent_in_live(wired, app_settings):
+def _acli(app):
+    import httpx
+
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
+
+
+async def test_health_is_minimal_and_sim_absent_in_live(wired):
     app = create_app(wired, background=False)
-    with TestClient(app) as c:
-        assert c.get("/health").json() == {"status": "ok"}
-        assert c.post("/sim/messages", json={"phone": ADMIN, "text": "x"}).status_code == 200
-    live = wired.settings.model_copy(update={"mode": "live"})
-    wired.settings = live
-    app2 = create_app(wired, background=False)
-    paths = {r.path for r in app2.routes}
+    async with _acli(app) as cl:
+        assert (await cl.get("/health")).json() == {"status": "ok"}
+        assert (
+            await cl.post("/sim/messages", json={"phone": ADMIN, "text": "x"})
+        ).status_code == 200
+    wired.settings = wired.settings.model_copy(update={"mode": "live"})
+    paths = set(create_app(wired, background=False).openapi()["paths"])
     assert not any(p.startswith("/sim") for p in paths)
 
 
-def test_admin_numbers_requires_token(wired, client):
-    assert client.get("/admin/numbers").status_code == 401
-    assert client.get("/admin/numbers", headers={"Authorization": "Bearer nope"}).status_code == 401
-    token = admin_token(wired.settings)
-    h = {"Authorization": f"Bearer {token}"}
-    import asyncio
-
-    async def seed():
+async def test_admin_numbers_requires_token(wired):
+    app = create_app(wired, background=False)
+    async with _acli(app) as cl:
+        assert (await cl.get("/admin/numbers")).status_code == 401
+        assert (
+            await cl.get("/admin/numbers", headers={"Authorization": "Bearer nope"})
+        ).status_code == 401
+        h = {"Authorization": f"Bearer {admin_token(wired.settings)}"}
         n = FridayNumber(phone="+918000000001", provider="simulator", circle="KA")
         await wired.repos.numbers.upsert(n)
         await wired.repos.numbers.add_outcome(n.phone, NumberOutcome.ANSWERED)
         await wired.repos.numbers.assign("+919845000001", n.phone)
-
-    asyncio.run(seed())
-    body = client.get("/admin/numbers", headers=h).json()
-    row = body["numbers"][0]
-    assert row["calls_24h"] == 1 and row["businesses"] == 1 and row["status"] == "warming"
-    assert "+918000000001" not in json.dumps(body)  # masked
-    assert body["totals"]["count"] == 1
-    assert client.get("/admin/health", headers=h).json()["components"]["repos"] is True
+        body = (await cl.get("/admin/numbers", headers=h)).json()
+        row = body["numbers"][0]
+        assert row["calls_24h"] == 1 and row["businesses"] == 1 and row["status"] == "warming"
+        assert "+918000000001" not in json.dumps(body)  # masked
+        assert body["totals"]["count"] == 1
+        assert (await cl.get("/admin/health", headers=h)).json()["components"]["repos"] is True
 
 
-def test_admin_disabled_in_live_without_token(wired, monkeypatch):
+async def test_admin_disabled_in_live_without_token(wired, monkeypatch):
     monkeypatch.delenv("FRIDAY_ADMIN_TOKEN", raising=False)
     wired.settings = wired.settings.model_copy(update={"mode": "live"})
     app = create_app(wired, background=False)
-    with TestClient(app) as c:
-        assert c.get("/admin/numbers").status_code == 404
-    monkeypatch.setenv("FRIDAY_ADMIN_TOKEN", "ops-secret")
-    app = create_app(wired, background=False)
-    with TestClient(app) as c:
-        assert c.get("/admin/numbers").status_code == 401
-        assert (
-            c.get("/admin/numbers", headers={"Authorization": "Bearer ops-secret"}).status_code
-            == 200
-        )
+    async with _acli(app) as cl:
+        assert (await cl.get("/admin/numbers")).status_code == 404
+        monkeypatch.setenv("FRIDAY_ADMIN_TOKEN", "ops-secret")
+        assert (await cl.get("/admin/numbers")).status_code == 401
+        ok = await cl.get("/admin/numbers", headers={"Authorization": "Bearer ops-secret"})
+        assert ok.status_code == 200
 
 
 async def test_outbox_delivery_survives_consumer_crash(wired, clock):

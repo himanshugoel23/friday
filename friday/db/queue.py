@@ -135,8 +135,7 @@ class SqlJobQueue:
                         JobRow.id == r.id,
                         or_(
                             JobRow.status == JobStatus.QUEUED.value,
-                            (JobRow.status == JobStatus.CLAIMED.value)
-                            & (JobRow.lease_until < now),
+                            (JobRow.status == JobStatus.CLAIMED.value) & (JobRow.lease_until < now),
                         ),
                     )
                     .values(

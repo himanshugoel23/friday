@@ -47,10 +47,21 @@ from .inbound import (
 from .templates import template_for
 from .textutil import format_inr
 
-HOME_VISIT_CATEGORIES = {"ac repair", "plumber", "electrician", "carpenter", "nursing",
-                         "diagnostic lab", "physiotherapist", "packers and movers",
-                         "interior designer", "water supplier", "kirana", "tiffin service",
-                         "pharmacy"}
+HOME_VISIT_CATEGORIES = {
+    "ac repair",
+    "plumber",
+    "electrician",
+    "carpenter",
+    "nursing",
+    "diagnostic lab",
+    "physiotherapist",
+    "packers and movers",
+    "interior designer",
+    "water supplier",
+    "kirana",
+    "tiffin service",
+    "pharmacy",
+}
 HOME_VISIT_TYPES = {TaskType.ORDER, TaskType.SERVICE_COORDINATION}
 CARE_MAX_DURATION_S = 1200
 
@@ -60,8 +71,12 @@ class BriefError(ValueError):
 
 
 def home_visit_task(task: Task, spec) -> bool:
-    return task.type in HOME_VISIT_TYPES or (spec.category in HOME_VISIT_CATEGORIES) \
-        or "home visit" in spec.constraints or "home collection" in (spec.goal or "").lower()
+    return (
+        task.type in HOME_VISIT_TYPES
+        or (spec.category in HOME_VISIT_CATEGORIES)
+        or "home visit" in spec.constraints
+        or "home collection" in (spec.goal or "").lower()
+    )
 
 
 def _person(ctx: ConversationContext, person_id: str | None) -> Person | None:
@@ -85,20 +100,31 @@ def resolve_target(ctx: ConversationContext, task: Task) -> ContactTarget:
         return task.target
     spec = task.spec
     if task.type == TaskType.WELLBEING_CHECKIN or (
-        task.beneficiary.person_id and not spec.business_phone and not spec.business_name
+        task.beneficiary.person_id
+        and not spec.business_phone
+        and not spec.business_name
         and task.type == TaskType.WELLBEING_CHECKIN
     ):
         p = _person(ctx, task.beneficiary.person_id)
         if p and p.phone:
-            return ContactTarget(kind=TargetKind.PERSON, name=p.name, phone=p.phone,
-                                 person_id=p.id, language_hint=p.language)
+            return ContactTarget(
+                kind=TargetKind.PERSON,
+                name=p.name,
+                phone=p.phone,
+                person_id=p.id,
+                language_hint=p.language,
+            )
     if task.candidate and task.candidate.phone:
-        return ContactTarget(kind=TargetKind.BUSINESS, name=task.candidate.name,
-                             phone=task.candidate.phone)
+        return ContactTarget(
+            kind=TargetKind.BUSINESS, name=task.candidate.name, phone=task.candidate.phone
+        )
     if spec.business_phone:
-        return ContactTarget(kind=TargetKind.BUSINESS, name=spec.business_name or spec.company or
-                             "the business", phone=spec.business_phone,
-                             business_id=spec.business_id)
+        return ContactTarget(
+            kind=TargetKind.BUSINESS,
+            name=spec.business_name or spec.company or "the business",
+            phone=spec.business_phone,
+            business_id=spec.business_id,
+        )
     raise BriefError(f"task {task.id} has no call target / phone yet")
 
 
@@ -106,8 +132,11 @@ def _vendor_history(ctx: ConversationContext, business_id: str | None) -> list[s
     if not business_id:
         return []
     out = []
-    for v in sorted((v for v in ctx.vendor_history if v.business_id == business_id),
-                    key=lambda v: v.at, reverse=True)[:6]:
+    for v in sorted(
+        (v for v in ctx.vendor_history if v.business_id == business_id),
+        key=lambda v: v.at,
+        reverse=True,
+    )[:6]:
         when = format_ist(v.at, "%b %Y")
         if v.kind in (InteractionKind.QUOTED, InteractionKind.PAID) and v.amount_inr:
             verb = "quoted" if v.kind == InteractionKind.QUOTED else "charged"
@@ -164,11 +193,16 @@ def _goal(task: Task, target: ContactTarget, beneficiary: str, settings_goal: st
         return f"Call back {target.name} and confirm what the user approved: {task.approved_terms}"
     values = {
         "what": spec.item or spec.category or spec.discovery_query or "the request",
-        "beneficiary": beneficiary, "when": spec.when_text or ", ".join(spec.preferred_times),
-        "target": target.name, "reference": spec.reference or "-",
+        "beneficiary": beneficiary,
+        "when": spec.when_text or ", ".join(spec.preferred_times),
+        "target": target.name,
+        "reference": spec.reference or "-",
         "company": spec.company or target.name,
-        "care_request": (spec.care_request.value.replace("_", " ").capitalize()
-                         if spec.care_request else "Request"),
+        "care_request": (
+            spec.care_request.value.replace("_", " ").capitalize()
+            if spec.care_request
+            else "Request"
+        ),
     }
     try:
         templ = tpl.goal_template.format(**values)
@@ -177,8 +211,13 @@ def _goal(task: Task, target: ContactTarget, beneficiary: str, settings_goal: st
     return spec.goal or settings_goal or templ
 
 
-def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | None = None,
-                     *, inbound: InboundContext | None = None):
+def build_call_brief(
+    ctx: ConversationContext,
+    task: Task,
+    settings: Settings | None = None,
+    *,
+    inbound: InboundContext | None = None,
+):
     settings = settings or Settings(_env_file=None)
     spec = task.spec
     target = resolve_target(ctx, task)
@@ -195,7 +234,8 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
     shareable: dict[str, str] = {}
     if target.kind == TargetKind.BUSINESS:
         label = {TaskType.HEALTHCARE: "patient name", TaskType.HOTEL_BOOKING: "guest name"}.get(
-            task.type, "booking name")
+            task.type, "booking name"
+        )
         shareable[label] = booking_name
         if spec.party_size:
             shareable["party size"] = str(spec.party_size)
@@ -228,19 +268,27 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
     # ---- negotiation & approval
     negotiation = spec.negotiation.model_copy()
     if not template.may_negotiate:
-        negotiation = NegotiationPolicy(enabled=False, may_ask_discount=False,
-                                        may_cite_competing_quotes=False,
-                                        may_ask_package_deal=False, max_rounds=0)
+        negotiation = NegotiationPolicy(
+            enabled=False,
+            may_ask_discount=False,
+            may_cite_competing_quotes=False,
+            may_ask_package_deal=False,
+            max_rounds=0,
+        )
     elif negotiation.walk_away_above_inr is None and spec.budget and spec.budget.max_inr:
         negotiation.walk_away_above_inr = spec.budget.max_inr
-    approval = ApprovalPolicy(hold_timeout_s=settings.mid_call_question_timeout_s,
-                              rules=list(template.success_criteria))
+    approval = ApprovalPolicy(
+        hold_timeout_s=settings.mid_call_question_timeout_s, rules=list(template.success_criteria)
+    )
 
-    identifiers = [i for i in getattr(ctx, "identifiers", []) or []
-                   if i.id in spec.approved_identifier_ids]
+    identifiers = [
+        i for i in getattr(ctx, "identifiers", []) or [] if i.id in spec.approved_identifier_ids
+    ]
     user_phone = None
-    if spec.call_mode in (CallMode.WARM_TRANSFER, CallMode.TRANSLATOR) or \
-            task.type == TaskType.CUSTOMER_CARE:
+    if (
+        spec.call_mode in (CallMode.WARM_TRANSFER, CallMode.TRANSLATOR)
+        or task.type == TaskType.CUSTOMER_CARE
+    ):
         user_phone = ctx.user.phone
 
     max_duration = settings.call_max_duration_s
@@ -254,8 +302,11 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
         constraints.append("no advance payment or deposit")
     user_context: list[str] = []
     if business:
-        user_context += [f"{f.key.replace('_', ' ')}: {f.value}" for f in ctx.facts
-                         if f.business_id == business.id]
+        user_context += [
+            f"{f.key.replace('_', ' ')}: {f.value}"
+            for f in ctx.facts
+            if f.business_id == business.id
+        ]
     if spec.notes:
         user_context.append(spec.notes)
 
@@ -287,9 +338,14 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
         vendor_history=_vendor_history(ctx, business.id if business else target.business_id),
         user_context=user_context,
         allowed_disclosures=sorted(shareable.keys()),
-        forbidden_disclosures=["user's phone number", "home address (unless listed above)",
-                               "payment details", "OTP/PIN/CVV/passwords", "Aadhaar/PAN",
-                               "private notes about family members"],
+        forbidden_disclosures=[
+            "user's phone number",
+            "home address (unless listed above)",
+            "payment details",
+            "OTP/PIN/CVV/passwords",
+            "Aadhaar/PAN",
+            "private notes about family members",
+        ],
         approval=approval,
         approved_terms=task.approved_terms,
         delegation=_delegation(task),
@@ -308,39 +364,61 @@ def build_call_brief(ctx: ConversationContext, task: Task, settings: Settings | 
     if inbound is None:
         return AwaitableCallBrief(**kwargs)
     if not inbound.caller_matches_business:
-        return build_inbound_brief(ctx, caller_phone=inbound.caller_phone,
-                                   kind=inbound.kind, friday_number=inbound.friday_number,
-                                   caller_matches_business=False, settings=settings)
+        return build_inbound_brief(
+            ctx,
+            caller_phone=inbound.caller_phone,
+            kind=inbound.kind,
+            friday_number=inbound.friday_number,
+            caller_matches_business=False,
+            settings=settings,
+        )
     if inbound.matched_task_id is None and len(inbound.related) <= 1:
         inbound = inbound.model_copy(update={"matched_task_id": task.id})
     direction = CallDirection.OUTBOUND if inbound.kind == "missed_call" else CallDirection.INBOUND
     return InboundCallBrief(direction=direction, inbound=inbound, **kwargs)
 
 
-def related_from_task(task: Task, ctx: ConversationContext, *, discussed: str | None = None,
-                      resolution: str = "open", booking_details: str | None = None,
-                      called_at: datetime | None = None) -> RelatedTask:
+def related_from_task(
+    task: Task,
+    ctx: ConversationContext,
+    *,
+    discussed: str | None = None,
+    resolution: str = "open",
+    booking_details: str | None = None,
+    called_at: datetime | None = None,
+) -> RelatedTask:
     """Helper for the backend: build a ``RelatedTask`` from a task + its last result."""
     person = _person(ctx, task.beneficiary.person_id)
     last_quote = task.result.quotes[-1] if task.result and task.result.quotes else None
     return RelatedTask(
-        task_id=task.id, task_type=task.type, goal=task.spec.goal,
+        task_id=task.id,
+        task_type=task.type,
+        goal=task.spec.goal,
         label=task_label(task.type, task.spec.goal, task.spec.item),
         beneficiary_name=person.name if person else ctx.profile.name,
-        status=task.status, last_outcome=task.last_outcome, called_at=called_at,
+        status=task.status,
+        last_outcome=task.last_outcome,
+        called_at=called_at,
         discussed=discussed or (task.result.summary if task.result else None),
-        last_quote=last_quote, approved_terms=task.approved_terms,
+        last_quote=last_quote,
+        approved_terms=task.approved_terms,
         resolution=resolution,  # type: ignore[arg-type]
         booking_details=booking_details,
     )
 
 
-def build_inbound_brief(ctx: ConversationContext, *, caller_phone: str,
-                        related: list[RelatedTask] | None = None,
-                        tasks: list[Task] | None = None, kind: str = "answered",
-                        friday_number: str | None = None, caller_matches_business: bool = True,
-                        business_name: str | None = None, settings: Settings | None = None,
-                        ) -> InboundCallBrief:
+def build_inbound_brief(
+    ctx: ConversationContext,
+    *,
+    caller_phone: str,
+    related: list[RelatedTask] | None = None,
+    tasks: list[Task] | None = None,
+    kind: str = "answered",
+    friday_number: str | None = None,
+    caller_matches_business: bool = True,
+    business_name: str | None = None,
+    settings: Settings | None = None,
+) -> InboundCallBrief:
     """Brief for a business calling back / a missed-call call-back (E-31..33).
 
     * one related task  -> that task's brief + inbound context (resume / close loop)
@@ -355,25 +433,37 @@ def build_inbound_brief(ctx: ConversationContext, *, caller_phone: str,
         related, tasks = [], []
     if not related and tasks:
         related = [related_from_task(t, ctx) for t in tasks]
-    ib = InboundContext(kind=kind if related else "unknown",  # type: ignore[arg-type]
-                        caller_phone=caller_phone, friday_number=friday_number,
-                        caller_matches_business=caller_matches_business and bool(related),
-                        business_name=business_name, related=related,
-                        matched_task_id=related[0].task_id if len(related) == 1 else None)
+    ib = InboundContext(
+        kind=kind if related else "unknown",  # type: ignore[arg-type]
+        caller_phone=caller_phone,
+        friday_number=friday_number,
+        caller_matches_business=caller_matches_business and bool(related),
+        business_name=business_name,
+        related=related,
+        matched_task_id=related[0].task_id if len(related) == 1 else None,
+    )
     primary = None
     if len(related) >= 1:
         primary = next((t for t in tasks if t.id == related[0].task_id), None)
     if primary is not None:
-        target = primary.target or ContactTarget(kind=TargetKind.BUSINESS,
-                                                 name=business_name or primary.spec.business_name
-                                                 or "the business", phone=caller_phone)
+        target = primary.target or ContactTarget(
+            kind=TargetKind.BUSINESS,
+            name=business_name or primary.spec.business_name or "the business",
+            phone=caller_phone,
+        )
         primary = primary.model_copy(update={"target": target})
         return build_call_brief(ctx, primary, settings, inbound=ib)
-    task_id = related[0].task_id if related else "inbound-" + hashlib.sha1(
-        caller_phone.encode()).hexdigest()[:24]
-    goal = ("Business called back: find out which request it is about and continue it"
-            if related else "Unknown caller: take a message (name, purpose, call-back number); "
-                            "share no user details")
+    task_id = (
+        related[0].task_id
+        if related
+        else "inbound-" + hashlib.sha1(caller_phone.encode()).hexdigest()[:24]
+    )
+    goal = (
+        "Business called back: find out which request it is about and continue it"
+        if related
+        else "Unknown caller: take a message (name, purpose, call-back number); "
+        "share no user details"
+    )
     named = caller_matches_business and bool(related)
     return InboundCallBrief(
         direction=CallDirection.OUTBOUND if kind == "missed_call" else CallDirection.INBOUND,
@@ -382,8 +472,9 @@ def build_inbound_brief(ctx: ConversationContext, *, caller_phone: str,
         requester_user_id=ctx.user.id,
         task_type=related[0].task_type if related else TaskType.ENQUIRY,
         goal=goal,
-        target=ContactTarget(kind=TargetKind.BUSINESS, name=business_name or "Caller",
-                             phone=caller_phone),
+        target=ContactTarget(
+            kind=TargetKind.BUSINESS, name=business_name or "Caller", phone=caller_phone
+        ),
         on_behalf_of=(ctx.profile.name or "my user") if named else "a Friday user",
         opening_language=Language.HINGLISH,
         user_language=ctx.profile.language,

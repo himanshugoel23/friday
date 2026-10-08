@@ -11,7 +11,9 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from typing import Any
+
+from sqlalchemy import func, select, update
 
 from friday.core.models import (
     FridayNumber,
@@ -37,6 +39,7 @@ class OutcomeRecord(BaseModel):
     outcome: NumberOutcome
     duration_s: float = 0.0
     at: datetime
+    business: str | None = None  # blind index of the business phone (stable id, no PII)
 
 
 class DncEntry(BaseModel):
@@ -54,6 +57,26 @@ def _number(row: FridayNumberRow) -> FridayNumber:
 
 
 class NumberRepo(Repo):
+    # ------------------------------------------------------------------ NumberStore adapter
+    # Backend B's pool (friday/tasks/number_pool.py::NumberStore) talks to these names.
+    async def list_numbers(self) -> list[FridayNumber]:
+        return await self.list()
+
+    async def save_number(self, number: FridayNumber) -> None:
+        await self.upsert(number)
+
+    async def set_assignment(self, business_key: str, number_phone: str) -> None:
+        await self.assign(business_key, number_phone)
+
+    async def clear_outcomes(self, number_phone: str) -> None:
+        """Start a fresh health window (rows are archived, never deleted: append-only)."""
+        async with self.db.session() as s:
+            await s.execute(
+                update(NumberOutcomeRow)
+                .where(NumberOutcomeRow.number_phone == number_phone)
+                .values(archived=True)
+            )
+
     # ------------------------------------------------------------------ numbers
     async def upsert(self, number: FridayNumber) -> FridayNumber:
         values = copy_simple(number, FridayNumberRow, skip={"limits", "health"})
@@ -87,7 +110,11 @@ class NumberRepo(Repo):
             return [_number(r) for r in rows]
 
     # ------------------------------------------------------------------ sticky assignment
-    async def get_assignment(self, business_phone: str) -> NumberAssignment | None:
+    async def get_assignment(self, business_phone: str) -> str | None:
+        rec = await self.get_assignment_record(business_phone)
+        return rec.number_phone if rec else None
+
+    async def get_assignment_record(self, business_phone: str) -> NumberAssignment | None:
         async with self.db.session() as s:
             row = await s.get(NumberAssignmentRow, phone_index(business_phone))
             if row is None:
@@ -132,35 +159,58 @@ class NumberRepo(Repo):
     async def add_outcome(
         self,
         number_phone: str,
-        outcome: NumberOutcome,
+        outcome: Any,
         *,
         business_phone: str | None = None,
         duration_s: float = 0.0,
         at: datetime | None = None,
     ) -> None:
+        """``outcome`` is a ``NumberOutcome`` or a pool row (``at/outcome/business/duration_s``)."""
+        if not isinstance(outcome, NumberOutcome):
+            row = outcome
+            outcome, duration_s, at = row.outcome, row.duration_s, row.at
+            business_hmac = row.business and phone_index(row.business)
+        else:
+            business_hmac = phone_index(business_phone) if business_phone else None
         async with self.db.session() as s:
             s.add(
                 NumberOutcomeRow(
                     number_phone=number_phone,
                     outcome=outcome.value,
-                    business_phone_hmac=phone_index(business_phone) if business_phone else None,
+                    business_phone_hmac=business_hmac,
                     duration_s=float(duration_s),
                     at=at or self.now(),
                 )
             )
 
-    async def recent_outcomes(self, number_phone: str, *, limit: int = 50) -> list[OutcomeRecord]:
-        """Newest first (health window)."""
+    async def recent_outcomes(self, number_phone: str, limit: int = 50) -> list[OutcomeRecord]:
+        """The last ``limit`` outcomes of the current health window, oldest first."""
         async with self.db.session() as s:
             rows = (
-                await s.execute(
-                    select(NumberOutcomeRow)
-                    .where(NumberOutcomeRow.number_phone == number_phone)
-                    .order_by(NumberOutcomeRow.at.desc())
-                    .limit(limit)
+                (
+                    await s.execute(
+                        select(NumberOutcomeRow)
+                        .where(
+                            NumberOutcomeRow.number_phone == number_phone,
+                            NumberOutcomeRow.archived.is_(False),
+                        )
+                        .order_by(NumberOutcomeRow.at.desc())
+                        .limit(limit)
+                    )
                 )
-            ).scalars()
-            return [OutcomeRecord.model_validate(row_dict(r)) for r in rows]
+                .scalars()
+                .all()
+            )
+            return [
+                OutcomeRecord(
+                    number_phone=r.number_phone,
+                    outcome=NumberOutcome(r.outcome),
+                    duration_s=r.duration_s,
+                    at=r.at,
+                    business=r.business_phone_hmac,
+                )
+                for r in reversed(rows)
+            ]
 
     async def count_outcomes(
         self,
@@ -185,7 +235,12 @@ class NumberRepo(Repo):
 
     # ------------------------------------------------------------------ DNC (pool-wide)
     async def add_dnc(
-        self, phone: str, *, reason: str, number_phone: str | None = None
+        self,
+        phone: str,
+        reason: str = "dnc_request",
+        at: datetime | None = None,
+        *,
+        number_phone: str | None = None,
     ) -> DncEntry:
         async with self.db.session() as s:
             key = phone_index(phone)
@@ -198,7 +253,7 @@ class NumberRepo(Repo):
                     phone=phone,
                     reason=reason,
                     number_phone=number_phone,
-                    at=self.now(),
+                    at=at or self.now(),
                 )
                 s.add(row)
                 await s.flush()

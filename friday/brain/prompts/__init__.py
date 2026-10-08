@@ -33,8 +33,9 @@ _INPUT = re.compile(r"<input>\s*(.*?)\s*</input>", re.S)
 def dump_json(payload: dict[str, Any]) -> str:
     """Compact, deterministic JSON with ``<``/``>`` escaped (``\\u003c``), so untrusted
     text inside the payload can never close or forge a ``<input>``/``<data>`` block."""
-    body = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str,
-                      separators=(",", ":"))
+    body = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":")
+    )
     return body.replace("<", "\\u003c").replace(">", "\\u003e")
 
 

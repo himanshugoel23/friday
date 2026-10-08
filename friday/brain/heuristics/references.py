@@ -14,10 +14,37 @@ from ..textutil import has_any, norm, truncate_title
 
 # canonical relation -> words users say for it (EN / Hindi / Hinglish / Marathi...)
 RELATION_WORDS: dict[str, tuple[str, ...]] = {
-    "father": ("papa", "papa ji", "pappa", "dad", "daddy", "father", "pitaji", "pita ji",
-               "abba", "baba", "bauji", "pops", "पापा", "पिताजी"),
-    "mother": ("mummy", "mumma", "mom", "mommy", "mum", "maa", "ma", "mother", "amma", "aai",
-               "mataji", "माँ", "मम्मी"),
+    "father": (
+        "papa",
+        "papa ji",
+        "pappa",
+        "dad",
+        "daddy",
+        "father",
+        "pitaji",
+        "pita ji",
+        "abba",
+        "baba",
+        "bauji",
+        "pops",
+        "पापा",
+        "पिताजी",
+    ),
+    "mother": (
+        "mummy",
+        "mumma",
+        "mom",
+        "mommy",
+        "mum",
+        "maa",
+        "ma",
+        "mother",
+        "amma",
+        "aai",
+        "mataji",
+        "माँ",
+        "मम्मी",
+    ),
     "wife": ("wife", "biwi", "patni", "missus", "better half"),
     "husband": ("husband", "pati", "hubby"),
     "son": ("son", "beta", "bete"),
@@ -31,13 +58,36 @@ RELATION_WORDS: dict[str, tuple[str, ...]] = {
     "aunt": ("aunt", "aunty", "chachi", "mami", "bua", "mausi"),
 }
 _RELATION_ALIASES = {"dad": "father", "mom": "mother", "mum": "mother"}
-PARENTS_WORDS = ("parents", "mom-dad", "mom dad", "mom and dad", "mummy papa", "mummy-papa",
-                 "mom & dad", "maa papa", "mummy aur papa", "papa mummy")
+PARENTS_WORDS = (
+    "parents",
+    "mom-dad",
+    "mom dad",
+    "mom and dad",
+    "mummy papa",
+    "mummy-papa",
+    "mom & dad",
+    "maa papa",
+    "mummy aur papa",
+    "papa mummy",
+)
 
 HOME_WORDS = ("home", "ghar", "house", "flat", "apartment", "place", "ghar pe", "residence")
 OFFICE_WORDS = ("office", "work", "workplace", "daftar", "dafter")
-PRONOUN_WORDS = ("his", "her", "their", "unke", "unka", "unki", "uske", "uska", "uski",
-                 "inke", "inka", "him", "them")
+PRONOUN_WORDS = (
+    "his",
+    "her",
+    "their",
+    "unke",
+    "unka",
+    "unki",
+    "uske",
+    "uska",
+    "uski",
+    "inke",
+    "inka",
+    "him",
+    "them",
+)
 
 
 def canonical_relation(rel: str | None) -> str | None:
@@ -112,13 +162,15 @@ def _place_matches(pl: Place, t: str) -> bool:
 
 
 def _is_home(pl: Place) -> bool:
-    return has_any(norm(pl.label), HOME_WORDS) or any(has_any(norm(a), HOME_WORDS)
-                                                       for a in pl.aliases)
+    return has_any(norm(pl.label), HOME_WORDS) or any(
+        has_any(norm(a), HOME_WORDS) for a in pl.aliases
+    )
 
 
 def _is_office(pl: Place) -> bool:
-    return has_any(norm(pl.label), OFFICE_WORDS) or any(has_any(norm(a), OFFICE_WORDS)
-                                                         for a in pl.aliases)
+    return has_any(norm(pl.label), OFFICE_WORDS) or any(
+        has_any(norm(a), OFFICE_WORDS) for a in pl.aliases
+    )
 
 
 _NEAR = re.compile(
@@ -127,10 +179,38 @@ _NEAR = re.compile(
     r"|\b([a-z][\w'-]{2,20}(?: [a-z][\w'-]{2,20})?)\s+(?:ke paas|ke pass|ke nazdeek|ke aas paas)\b",
     re.I,
 )
-_STOP_LOCATIONS = {"the", "my", "a", "an", "it", "them", "morning", "evening", "time", "budget",
-                   "kal", "aaj", "subah", "shaam", "ghar", "office", "home", "next week",
-                   "march", "april", "may", "june", "july", "august", "september", "october",
-                   "november", "december", "january", "february"}
+_STOP_LOCATIONS = {
+    "the",
+    "my",
+    "a",
+    "an",
+    "it",
+    "them",
+    "morning",
+    "evening",
+    "time",
+    "budget",
+    "kal",
+    "aaj",
+    "subah",
+    "shaam",
+    "ghar",
+    "office",
+    "home",
+    "next week",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+    "january",
+    "february",
+}
 
 
 def location_text_of(text: str) -> str | None:
@@ -138,13 +218,18 @@ def location_text_of(text: str) -> str | None:
     for m in _NEAR.finditer(t):
         loc = (m.group(1) or m.group(2) or "").strip(" ,.")
         words = loc.split()
-        if not loc or loc in _STOP_LOCATIONS or (words and words[0] in _STOP_LOCATIONS) or (
-                words and words[0] in {"kis", "kaun", "kaunse", "which", "any", "koi"}):
+        if (
+            not loc
+            or loc in _STOP_LOCATIONS
+            or (words and words[0] in _STOP_LOCATIONS)
+            or (words and words[0] in {"kis", "kaun", "kaunse", "which", "any", "koi"})
+        ):
             continue
         if re.search(r"\d+\s*(am|pm)|\bbaje\b|₹|rs\b", loc):
             continue
-        if any(w in RELATION_WORDS.get("father", ()) + RELATION_WORDS.get("mother", ())
-               for w in words):
+        if any(
+            w in RELATION_WORDS.get("father", ()) + RELATION_WORDS.get("mother", ()) for w in words
+        ):
             continue
         return loc
     return None
@@ -164,8 +249,11 @@ def resolve(ctx: ConversationContext, text: str) -> ResolutionOut:
     elif len(hits) > 1:
         # same word matching several people (e.g. two "mama"s) -> ambiguous
         distinct = {p.id for p, _ in hits}
-        exact = [p for p, w in hits if norm(w) in [norm(a) for a in p.aliases]
-                 or norm(w) == norm(p.name.split()[0])]
+        exact = [
+            p
+            for p, w in hits
+            if norm(w) in [norm(a) for a in p.aliases] or norm(w) == norm(p.name.split()[0])
+        ]
         if len(exact) == 1:
             person = exact[0]
         elif len(distinct) > 1:
@@ -181,8 +269,12 @@ def resolve(ctx: ConversationContext, text: str) -> ResolutionOut:
     if person is not None:
         out.person_id = person.id
         used = next((w for p, w in hits if p.id == person.id), None)
-        if used and used != "parents" and norm(used) not in [norm(a) for a in person.aliases] \
-                and norm(used) != norm(person.name.split()[0]):
+        if (
+            used
+            and used != "parents"
+            and norm(used) not in [norm(a) for a in person.aliases]
+            and norm(used) != norm(person.name.split()[0])
+        ):
             out.new_aliases.append(AliasOut(target="person", target_id=person.id, alias=used))
 
     # ---- places
@@ -194,8 +286,9 @@ def resolve(ctx: ConversationContext, text: str) -> ResolutionOut:
         candidates = [pl for pl in ctx.places if pl.person_id == person.id and not pl.ephemeral]
         if not candidates and canonical_relation(person.relation) in ("father", "mother"):
             # "Mom & Dad's home" is often linked to only one parent
-            parents = {p.id for p in ctx.people
-                       if canonical_relation(p.relation) in ("father", "mother")}
+            parents = {
+                p.id for p in ctx.people if canonical_relation(p.relation) in ("father", "mother")
+            }
             candidates = [pl for pl in ctx.places if pl.person_id in parents]
     elif wants_office:
         candidates = [pl for pl in ctx.places if _is_office(pl) and pl.person_id is None]

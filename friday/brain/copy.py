@@ -9,13 +9,12 @@ import re
 
 from friday.core.models import Language, Tone
 
-_EMOJI = re.compile(
-    "[\U0001F300-\U0001FAFF☀-➿⭐✅⚠️]+", flags=re.UNICODE
-)
+_EMOJI = re.compile("[\U0001f300-\U0001faff☀-➿⭐✅⚠️]+", flags=re.UNICODE)
 
 
-def pick(lang: Language | str | None, *, en: str, hinglish: str | None = None,
-         hi: str | None = None) -> str:
+def pick(
+    lang: Language | str | None, *, en: str, hinglish: str | None = None, hi: str | None = None
+) -> str:
     """Choose copy for the user's language (regional -> English for chat copy)."""
     lang = Language(lang) if lang else Language.HINGLISH
     if lang == Language.HI:
@@ -41,8 +40,15 @@ def toned(text: str, tone: Tone | str | None, *, playful_tail: str = " 😄") ->
     return text
 
 
-def say(lang: Language | str | None, tone: Tone | str | None, *, en: str,
-        hinglish: str | None = None, hi: str | None = None, playful_tail: str = " 😄") -> str:
+def say(
+    lang: Language | str | None,
+    tone: Tone | str | None,
+    *,
+    en: str,
+    hinglish: str | None = None,
+    hi: str | None = None,
+    playful_tail: str = " 😄",
+) -> str:
     return toned(pick(lang, en=en, hinglish=hinglish, hi=hi), tone, playful_tail=playful_tail)
 
 

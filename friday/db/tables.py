@@ -706,6 +706,7 @@ class NumberOutcomeRow(IdMixin, Base):
     outcome: Mapped[str] = mapped_column(String(16), nullable=False)
     business_phone_hmac: Mapped[str | None] = mapped_column(String(64))
     duration_s: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # window reset
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 

@@ -70,10 +70,10 @@ from friday.voice.audio import (
 )
 from friday.voice.callerid import CallerIdSelector, choose_from_number, number_pool
 from friday.voice.classifier import HeuristicAudioClassifier
-from friday.voice.signals import block_signal
 from friday.voice.events import InboundCallReceived, MissedCallReceived
+from friday.voice.signals import block_signal
 from friday.voice.telephony.media import Segment, UtteranceSegmenter
-from friday.voice.tts.cache import cached
+from friday.voice.tts.cache import cached_tts
 
 log = get_logger(__name__)
 
@@ -863,16 +863,7 @@ class TwilioTelephony:
         await self._http.aclose()
 
 
-def build_twilio(c: Container) -> Any:
-    """Factory for FACTORIES["telephony"]["twilio"]; honours FRIDAY_TELEPHONY_ROUTE."""
-    from friday.voice.telephony.routing import build_routed_telephony, route_from_env
-
-    if route_from_env():
-        return build_routed_telephony(c)
-    return build_twilio_direct(c)
-
-
-def build_twilio_direct(c: Container) -> TwilioTelephony:
+def build_twilio(c: Container) -> TwilioTelephony:
     s = c.settings
     if not (s.twilio_account_sid and s.twilio_auth_token):
         raise ProviderError("twilio", "TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN not set")
@@ -886,7 +877,7 @@ def build_twilio_direct(c: Container) -> TwilioTelephony:
         from_number=s.twilio_from_number,
         public_base_url=s.public_base_url,
         stt=c.stt,
-        tts=cached(c.tts, s.media_dir),
+        tts=cached_tts(c),
         classifier=classifier,
         bus=c.bus,
         clock=c.clock,

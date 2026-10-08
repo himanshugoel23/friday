@@ -8,15 +8,13 @@ The runner puts what a call needs in ``OutboundCallRequest.metadata["needs"]``
 provider (in priority order) whose ``capabilities()`` cover the needs; providers
 without ``capabilities()`` use the table below.
 
-Enable (until core adds a "routed"/"sarvam" telephony option - docs/CORE_CHANGES.md):
-    FRIDAY_TELEPHONY_PROVIDER=exotel     (or twilio)
-    FRIDAY_TELEPHONY_ROUTE=sarvam,exotel,twilio
-Providers whose credentials are missing are skipped.
+Live mode with ``telephony_provider=auto`` (or ``routed``) builds this from
+``Settings.telephony_route`` (default sarvam,exotel,twilio); providers whose credentials
+are missing are skipped.
 """
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from typing import Any
 
@@ -37,7 +35,6 @@ KNOWN_CAPS: dict[str, frozenset[str]] = {
     "simulator": ALL_CAPS,
     "plivo": frozenset(),
 }
-ROUTE_ENV = "FRIDAY_TELEPHONY_ROUTE"
 
 
 def capabilities_of(provider: Any) -> frozenset[str]:
@@ -124,6 +121,20 @@ class RoutedTelephony:
                 return leg
         return None
 
+    async def delete_recording(self, url: str) -> None:
+        """Erasure (SECURITY-14): the first provider that owns the URL deletes it."""
+        last: Exception | None = None
+        for p in self.providers:
+            fn = getattr(p, "delete_recording", None)
+            if fn is None:
+                continue
+            try:
+                await fn(url)
+                return
+            except ProviderError as e:
+                last = e
+        raise last or ProviderError("routing", "no provider can delete this recording")
+
     def find(self, cls: type) -> Any | None:
         return next((p for p in self.providers if isinstance(p, cls)), None)
 
@@ -134,23 +145,18 @@ class RoutedTelephony:
                 await closer()
 
 
-def route_from_env() -> list[str] | None:
-    raw = os.environ.get(ROUTE_ENV, "").strip()
-    return [x.strip() for x in raw.split(",") if x.strip()] or None
-
-
 def build_routed_telephony(c: Container, order: list[str] | None = None) -> RoutedTelephony:
-    from friday.voice.telephony.exotel import build_exotel_direct
+    from friday.voice.telephony.exotel import build_exotel
     from friday.voice.telephony.sarvam import build_sarvam_telephony
-    from friday.voice.telephony.twilio import build_twilio_direct
+    from friday.voice.telephony.twilio import build_twilio
 
     builders = {
         "sarvam": build_sarvam_telephony,
-        "exotel": build_exotel_direct,
-        "twilio": build_twilio_direct,
+        "exotel": build_exotel,
+        "twilio": build_twilio,
     }
     built: dict[str, Any] = {}
-    for name in order or route_from_env() or ["sarvam", "exotel", "twilio"]:
+    for name in order or c.settings.telephony_route or ["sarvam", "exotel", "twilio"]:
         if name not in builders:
             continue
         try:

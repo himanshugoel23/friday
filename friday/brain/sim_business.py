@@ -22,23 +22,32 @@ from .schemas import BusinessReplyOut, strict_schema
 
 def _turns(transcript: Transcript | list[dict[str, Any]]) -> list[dict[str, Any]]:
     if isinstance(transcript, Transcript):
-        return [{"speaker": t.speaker.value, "text": t.text} for t in transcript.turns
-                if t.speaker in (Speaker.FRIDAY, Speaker.CALLEE)]
+        return [
+            {"speaker": t.speaker.value, "text": t.text}
+            for t in transcript.turns
+            if t.speaker in (Speaker.FRIDAY, Speaker.CALLEE)
+        ]
     return list(transcript)
 
 
-async def simulate_business_reply(llm: LLMClient, business: BaseModel | dict[str, Any],
-                                  transcript: Transcript | list[dict[str, Any]],
-                                  *, model: str | None = None) -> BusinessReplyOut:
+async def simulate_business_reply(
+    llm: LLMClient,
+    business: BaseModel | dict[str, Any],
+    transcript: Transcript | list[dict[str, Any]],
+    *,
+    model: str | None = None,
+) -> BusinessReplyOut:
     biz = business.model_dump(mode="json") if isinstance(business, BaseModel) else dict(business)
     payload = {"business": biz, "transcript": _turns(transcript)}
     try:
         resp = await llm.complete(
             system=system_prompt("sim_business"),
-            messages=[LLMMessage(role="user", content=render_input(payload,
-                                                                   "Your next line:"))],
-            purpose="sim_business", model=model, max_tokens=300,
-            json_schema=strict_schema(BusinessReplyOut))
+            messages=[LLMMessage(role="user", content=render_input(payload, "Your next line:"))],
+            purpose="sim_business",
+            model=model,
+            max_tokens=300,
+            json_schema=strict_schema(BusinessReplyOut),
+        )
         return BusinessReplyOut.model_validate_json(resp.text)
     except (ProviderError, ValidationError, ValueError):
         return _det_reply(biz, payload["transcript"])

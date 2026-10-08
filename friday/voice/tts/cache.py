@@ -14,20 +14,32 @@ a cache hit (billed TTS characters are reported per call).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 from collections import OrderedDict
 from pathlib import Path
 
 from friday.core.logging import get_logger
 from friday.core.models import AudioClip, Language, VoiceProfile
+from friday.core.scale import Cache
 from friday.voice.text import strip_fillers
 
 log = get_logger(__name__)
 
 
 class CachedTTS:
-    def __init__(self, inner, *, cache_dir: str | None = None, max_items: int = 512) -> None:
+    def __init__(
+        self,
+        inner,
+        *,
+        cache_dir: str | None = None,
+        max_items: int = 512,
+        cache: Cache | None = None,
+        ttl_s: int = 30 * 86400,
+    ) -> None:
         self.inner = inner
+        self.shared = cache  # S-10: shared Cache (Redis in prod) so every voice worker hits
+        self.ttl_s = ttl_s
         self.name = inner.name
         self.supported_languages = inner.supported_languages
         self.cache_dir = Path(cache_dir) if cache_dir else None
@@ -63,6 +75,14 @@ class CachedTTS:
             if key in self._mem:
                 self.hits += 1
                 return self._mem[key], True
+            if self.shared is not None:
+                blob = await self.shared.get(f"tts:{key}")
+                if isinstance(blob, (bytes, bytearray)) and b"\n" in blob:
+                    mime, _, data = bytes(blob).partition(b"\n")
+                    clip = AudioClip(data=data, mime=mime.decode() or "audio/wav")
+                    self._store(key, clip)
+                    self.hits += 1
+                    return clip, True
             path = self._disk(key)
             if path is not None and path.is_file():
                 mime, _, data = path.read_bytes().partition(b"\n")
@@ -74,6 +94,11 @@ class CachedTTS:
             self.misses += 1
             self.billed_chars += len(clean)
             self._store(key, clip)
+            if self.shared is not None:
+                with contextlib.suppress(Exception):
+                    await self.shared.set(
+                        f"tts:{key}", clip.mime.encode() + b"\n" + clip.data, ttl_s=self.ttl_s
+                    )
             if path is not None:
                 try:
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,7 +135,19 @@ class CachedTTS:
             await closer()
 
 
-def cached(tts, media_dir: str | None) -> CachedTTS:
+def cached(tts, media_dir: str | None, cache: Cache | None = None) -> CachedTTS:
     if isinstance(tts, CachedTTS):
         return tts
-    return CachedTTS(tts, cache_dir=str(Path(media_dir) / "tts_cache") if media_dir else None)
+    folder = str(Path(media_dir) / "tts_cache") if media_dir else None
+    return CachedTTS(tts, cache_dir=folder, cache=cache)
+
+
+def cached_tts(c) -> CachedTTS:  # c: Container
+    """The container's TTS wrapped with the pre-render cache (+ shared Cache if wired).
+    The disk copy is dev-only; in live the shared Cache is the store."""
+    try:
+        shared = c.get("cache")
+    except Exception:  # noqa: BLE001 - not wired in this process role
+        shared = None
+    media = None if (c.settings.is_live and shared is not None) else c.settings.media_dir
+    return cached(c.tts, media, shared)

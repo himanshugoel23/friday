@@ -342,8 +342,19 @@ class BusinessReplyOut(Wire):
 # ------------------------------------------------------------------ strict schema
 
 _DROP = {
-    "default", "title", "maxLength", "minLength", "maxItems", "minimum", "maximum",
-    "exclusiveMinimum", "exclusiveMaximum", "pattern", "format", "examples", "description",
+    "default",
+    "title",
+    "maxLength",
+    "minLength",
+    "maxItems",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "pattern",
+    "format",
+    "examples",
+    "description",
 }
 
 

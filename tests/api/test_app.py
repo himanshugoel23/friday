@@ -31,7 +31,7 @@ def client(wired):
 
 def test_health_and_voice_mount(client):
     r = client.get("/health")
-    assert r.status_code == 200 and r.json()["status"] == "ok" and r.json()["mode"] == "simulator"
+    assert r.status_code == 200 and r.json() == {"status": "ok"}  # SECURITY-28
     assert client.get("/voice/ping").json() == {"voice": "ok"}
 
 

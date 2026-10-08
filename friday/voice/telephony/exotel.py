@@ -53,9 +53,9 @@ import contextlib
 import hashlib
 import hmac
 import json
-import os
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -76,8 +76,9 @@ from friday.voice.audio import dtmf_pcm16
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
+from friday.voice.signals import block_signal
 from friday.voice.telephony.twilio import TwilioCallLeg
-from friday.voice.tts.cache import cached
+from friday.voice.tts.cache import cached_tts
 
 log = get_logger(__name__)
 
@@ -365,6 +366,7 @@ class ExotelTelephony:
             record=request.record and self.record,
         )
         leg.provider_call_id = sid
+        leg.record_expected = request.record and self.record
         self.by_sid[sid] = leg
         log.info(
             "exotel call %s -> %s from %s",
@@ -373,6 +375,24 @@ class ExotelTelephony:
             mask_phone(from_number),
         )
         return leg
+
+    def _own_recording(self, url: str) -> bool:
+        u = urlparse(url)
+        host = u.hostname or ""
+        return u.scheme == "https" and (host == "exotel.com" or host.endswith(".exotel.com"))
+
+    async def fetch_recording(self, url: str) -> bytes | None:
+        if not self._own_recording(url):  # credentials only go to Exotel hosts
+            return None
+        return (await self._http.request("GET", url)).content
+
+    async def delete_recording(self, url: str) -> None:
+        """SECURITY-14. TODO(exotel-docs: "Recordings - delete"): no documented delete
+        endpoint is confirmed; until verified this fails loudly so the erasure job keeps
+        the URL in ``pending_deletions`` and ops deletes it from the dashboard."""
+        if not self._own_recording(url):
+            raise ProviderError("exotel", "not an Exotel recording")
+        raise ProviderError("exotel", "recording deletion API not verified (TODO)")
 
     def capabilities(self) -> frozenset[str]:
         return frozenset({"outbound", "inbound", "missed_call", "media_stream", "dtmf",
@@ -395,6 +415,7 @@ class ExotelTelephony:
         event = str(payload.get("EventType") or "").lower()
         if payload.get("RecordingUrl"):
             leg.recording = str(payload["RecordingUrl"])
+            leg._recording_event.set()
         if event == "answered" or status in ("in-progress", "answered"):
             if leg.status is None:
                 leg.status = DialStatus.ANSWERED
@@ -403,7 +424,13 @@ class ExotelTelephony:
         if status in _TERMINAL or event == "terminal":
             streamed = leg.stream_sid is not None
             if leg.status is None:
+                # TODO(exotel-docs: "Call details - Reason / SipResponseCode"): verify names
+                leg.block_signal = block_signal(
+                    payload.get("SipResponseCode"), str(payload.get("Reason") or "")
+                )
                 leg.status = _DIAL.get(status, DialStatus.NO_ANSWER)
+                if leg.block_signal:
+                    leg.status = DialStatus.FAILED
                 leg._status_event.set()
             if leg.listen_only and status == "completed" and leg.status is DialStatus.NO_ANSWER:
                 leg.status = DialStatus.ANSWERED  # transfer leg completed after talking
@@ -478,7 +505,8 @@ class ExotelTelephony:
                     }
                 )
                 leg = self.by_sid.get(call_sid)
-            if leg is None:
+            if leg is None or leg.stream_sid is not None:  # unknown call / second start
+                log.warning("rejected exotel media stream (unknown call or second start)")
                 return
             state["leg"] = leg
             leg._close = close
@@ -519,27 +547,16 @@ class ExotelTelephony:
         await self._http.aclose()
 
 
-def build_exotel(c: Container) -> Any:
-    """Factory for FACTORIES["telephony"]["exotel"]. With FRIDAY_TELEPHONY_ROUTE set it
-    returns a RoutedTelephony (e.g. sarvam -> exotel -> twilio)."""
-    from friday.voice.telephony.routing import build_routed_telephony, route_from_env
-
-    if route_from_env():
-        return build_routed_telephony(c)
-    return build_exotel_direct(c)
-
-
-def build_exotel_direct(c: Container) -> ExotelTelephony:
+def build_exotel(c: Container) -> ExotelTelephony:
     s = c.settings
     if not (s.exotel_sid and s.exotel_api_key and s.exotel_api_token):
         raise ProviderError("exotel", "EXOTEL_SID / EXOTEL_API_KEY / EXOTEL_API_TOKEN not set")
-    app_id = getattr(s, "exotel_voicebot_app_id", None) or os.environ.get("EXOTEL_VOICEBOT_APP_ID")
+    app_id = s.exotel_voicebot_app_id
     if not app_id:
         raise ProviderError(
             "exotel", "EXOTEL_VOICEBOT_APP_ID not set (flow with the Voicebot applet)"
         )
-    pool = list(getattr(s, "friday_numbers", None) or [])
-    pool += [n.strip() for n in os.environ.get("EXOTEL_CALLER_IDS", "").split(",") if n.strip()]
+    pool = list(s.exotel_caller_ids or s.friday_numbers)
     if s.exotel_caller_id and s.exotel_caller_id not in pool:
         pool.append(s.exotel_caller_id)
     try:
@@ -555,11 +572,10 @@ def build_exotel_direct(c: Container) -> ExotelTelephony:
         public_base_url=s.public_base_url,
         secret=s.secret_key.get_secret_value(),
         stt=c.stt,
-        tts=cached(c.tts, s.media_dir),
+        tts=cached_tts(c),
         classifier=classifier,
         bus=c.bus,
         clock=c.clock,
-        subdomain=getattr(s, "exotel_subdomain", None)
-        or os.environ.get("EXOTEL_SUBDOMAIN", "api.in.exotel.com"),
+        subdomain=s.exotel_subdomain,
         record=s.call_record,
     )

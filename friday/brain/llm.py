@@ -60,12 +60,14 @@ class UsageTotals:
     cost_inr: float = 0.0
 
 
-def estimate_cost_inr(model: str, input_tokens: int, output_tokens: int,
-                      cache_read: int = 0, cache_write: int = 0) -> float:
+def estimate_cost_inr(
+    model: str, input_tokens: int, output_tokens: int, cache_read: int = 0, cache_write: int = 0
+) -> float:
     """Internal estimate (never shown to users). Cache reads ~0.1x, writes ~1.25x input."""
     price = next((p for k, p in PRICING_USD_PER_MTOK.items() if model.startswith(k)), (4.0, 20.0))
-    usd = (input_tokens + 0.1 * cache_read + 1.25 * cache_write) / 1e6 * price[0] \
-        + output_tokens / 1e6 * price[1]
+    usd = (input_tokens + 0.1 * cache_read + 1.25 * cache_write) / 1e6 * price[
+        0
+    ] + output_tokens / 1e6 * price[1]
     return round(usd * USD_TO_INR, 4)
 
 
@@ -208,7 +210,15 @@ class AnthropicLLM:
         totals.cost_inr += cost
         log.info(
             "llm purpose=%s model=%s in=%d out=%d cache_read=%d cache_write=%d stop=%s "
-            "cost_inr=%.4f", purpose, served, in_tok, out_tok, c_read, c_write, stop_reason, cost,
+            "cost_inr=%.4f",
+            purpose,
+            served,
+            in_tok,
+            out_tok,
+            c_read,
+            c_write,
+            stop_reason,
+            cost,
         )
         if stop_reason == "max_tokens" and json_schema:
             raise ProviderError("anthropic", f"output truncated ({purpose})", retryable=True)
@@ -234,14 +244,16 @@ class AnthropicLLM:
                 "messages": self._messages(r["messages"], r.get("attachments", ())),
             }
             if r.get("json_schema"):
-                params["output_config"] = {"format": {"type": "json_schema",
-                                                      "schema": r["json_schema"]}}
+                params["output_config"] = {
+                    "format": {"type": "json_schema", "schema": r["json_schema"]}
+                }
             items.append({"custom_id": r["custom_id"], "params": params})
         try:
             batch = await self._client.messages.batches.create(requests=items)
         except anthropic.APIError as e:
-            raise ProviderError("anthropic", f"batch submit failed: {type(e).__name__}",
-                                retryable=True) from e
+            raise ProviderError(
+                "anthropic", f"batch submit failed: {type(e).__name__}", retryable=True
+            ) from e
         return batch.id
 
     async def batch_results(self, batch_id: str) -> dict[str, str] | None:
@@ -255,8 +267,9 @@ class AnthropicLLM:
             text = ""
             if getattr(item.result, "type", "") == "succeeded":
                 msg = item.result.message
-                text = "".join(getattr(b, "text", "") for b in msg.content
-                               if getattr(b, "type", "") == "text")
+                text = "".join(
+                    getattr(b, "text", "") for b in msg.content if getattr(b, "type", "") == "text"
+                )
             out[item.custom_id] = text
         return out
 

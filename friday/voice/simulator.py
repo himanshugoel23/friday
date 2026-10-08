@@ -65,7 +65,7 @@ from friday.core.clock import Clock, FakeClock, format_ist
 from friday.core.config import Settings
 from friday.core.container import Container
 from friday.core.events import EventBus
-from friday.core.interfaces import CallEnded
+from friday.core.interfaces import TELEPHONY_CAPABILITIES, CallEnded, ProviderError
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
     AudioClass,
@@ -796,7 +796,8 @@ class SimCallLeg:
         self.dtmf: list[str] = []
         self.children: list[SimCallLeg] = []
         self._recording: Path | None = None
-        self.from_number: str | None = request.metadata.get("from_number")
+        self.from_number: str | None = request.from_number or request.metadata.get("from_number")
+        self.block_signal: str | None = None
         self.inbound = request.metadata.get("direction") == "inbound"
 
     # ------------------------------------------------------------------ dial
@@ -813,7 +814,12 @@ class SimCallLeg:
             and not self.sim.answers_now(self.request)
         ):
             mode = "no_answer"
-        if mode == "busy":
+        signal = self._carrier_signal(agent)
+        if signal:  # NP-4: the business/carrier blocks or rejects this caller ID
+            await self.sim.sleep(1)
+            self.block_signal = signal
+            self.status = DialStatus.FAILED
+        elif mode == "busy":
             await self.sim.sleep(3)
             self.status = DialStatus.BUSY
         elif mode == "voicemail":
@@ -831,6 +837,15 @@ class SimCallLeg:
         if self.status != DialStatus.ANSWERED:
             self.ended = True
         return self.status
+
+    def _carrier_signal(self, agent: _Agent | None) -> str | None:
+        """``sim:blocks_number=<friday number|*>`` / ``sim:rejects_number=<...>``."""
+        d = getattr(agent, "directives", None) or {}
+        for key, signal in (("blocks_number", "blocked"), ("rejects_number", "rejected")):
+            target = d.get(key)
+            if target and target in ("*", self.from_number):
+                return signal
+        return None
 
     def _check_live(self) -> None:
         if self.status != DialStatus.ANSWERED:
@@ -983,6 +998,8 @@ class SimulatedTelephony:
         self.legs: list[SimCallLeg] = []
         self.bus = bus
         self.friday_numbers: list[str] = list(friday_numbers or SIM_FRIDAY_NUMBERS)
+        # retired caller IDs still receive (and forward) call-backs - NP-4
+        self.retired_numbers: set[str] = set()
         self.caller_id_selector: CallerIdSelector | None = None
         self.inbound_legs: dict[str, SimCallLeg] = {}
         self.pending_inbound: list[ScheduledInbound] = []
@@ -1173,6 +1190,21 @@ class SimulatedTelephony:
 
     def take_inbound(self, call_id: str) -> SimCallLeg | None:
         return self.inbound_legs.pop(call_id, None)
+
+    # ------------------------------------------------------------------ capabilities
+    def capabilities(self) -> frozenset[str]:
+        return frozenset(TELEPHONY_CAPABILITIES)
+
+    async def delete_recording(self, url: str) -> None:
+        """SECURITY-14: erase a simulator recording (only inside <media_dir>/recordings)."""
+        from urllib.parse import unquote, urlparse
+
+        u = urlparse(url)
+        folder = (Path(self.media_dir) / "recordings").resolve()
+        path = Path(unquote(u.path))
+        if u.scheme != "file" or path.is_symlink() or path.resolve().parent != folder:
+            raise ProviderError("simulator", "not a simulator recording")
+        path.unlink(missing_ok=True)
 
     # ------------------------------------------------------------------ protocol
     async def place_call(self, request: OutboundCallRequest) -> SimCallLeg:

@@ -37,71 +37,127 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
     k = cand.kind
     if k == NudgeKind.WELLBEING_ALERT:
         detail = d.get("alert") or cand.reason
-        return NudgeOut(send=True, reason="safety alert", text=s(
-            f"⚠ {who or 'Your family member'} may need attention: {detail}. If it's an "
-            f"emergency, call 112/108.",
-            f"⚠ {who or 'Aapke family member'} ko dhyan chahiye: {detail}. Emergency ho toh "
-            f"112/108."), buttons=[_b("call_now", "Call them now"),
-                                   _b("call_doctor", "Call their doctor"),
-                                   _b("recording", "Listen")])
+        return NudgeOut(
+            send=True,
+            reason="safety alert",
+            text=s(
+                f"⚠ {who or 'Your family member'} may need attention: {detail}. If it's an "
+                f"emergency, call 112/108.",
+                f"⚠ {who or 'Aapke family member'} ko dhyan chahiye: {detail}. Emergency ho toh "
+                f"112/108.",
+            ),
+            buttons=[
+                _b("call_now", "Call them now"),
+                _b("call_doctor", "Call their doctor"),
+                _b("recording", "Listen"),
+            ],
+        )
     if k == NudgeKind.TASK_REMINDER:
         if due < now - timedelta(minutes=15):
             return NudgeOut(send=False, reason="appointment already passed")
         when = format_ist(due, "%I:%M %p").lstrip("0")
-        return NudgeOut(send=True, reason="upcoming appointment", text=s(
-            f"Reminder: {what}{' at ' + biz if biz and biz not in what else ''} at {when}.",
-            f"Yaad dila doon: {what}{' - ' + biz if biz and biz not in what else ''}, {when} "
-            f"baje."), buttons=[_b("ok", "OK"), _b("late", "Running late"),
-                                _b("reschedule", "Reschedule")])
+        return NudgeOut(
+            send=True,
+            reason="upcoming appointment",
+            text=s(
+                f"Reminder: {what}{' at ' + biz if biz and biz not in what else ''} at {when}.",
+                f"Yaad dila doon: {what}{' - ' + biz if biz and biz not in what else ''}, {when} "
+                f"baje.",
+            ),
+            buttons=[_b("ok", "OK"), _b("late", "Running late"), _b("reschedule", "Reschedule")],
+        )
     if k == NudgeKind.FOLLOW_UP:
         if task is not None and task.status.is_terminal and d.get("confirmed"):
             return NudgeOut(send=False, reason="already confirmed")
-        return NudgeOut(send=True, reason="follow-up", text=s(
-            f"Did {biz or 'they'} come and get it done?",
-            f"{biz or 'Woh'} aaye the? Kaam ho gaya?"),
-            buttons=[_b("done", "Yes, all done"), _b("not_fixed", "Not fixed"),
-                     _b("no_show", "Didn't come")])
+        return NudgeOut(
+            send=True,
+            reason="follow-up",
+            text=s(
+                f"Did {biz or 'they'} come and get it done?",
+                f"{biz or 'Woh'} aaye the? Kaam ho gaya?",
+            ),
+            buttons=[
+                _b("done", "Yes, all done"),
+                _b("not_fixed", "Not fixed"),
+                _b("no_show", "Didn't come"),
+            ],
+        )
     if k == NudgeKind.DATE_BASED:
         value = d.get("value") or cand.reason
         when = format_ist(due, "%d %b")
         about = f"{who}'s " if who else ""
-        return NudgeOut(send=True, reason="date fact coming up", text=s(
-            f"Heads up: {about}{value} - {when}. Want me to handle it?",
-            f"Heads up: {about}{value} - {when}. Main handle karun?"),
-            buttons=[_b("yes", "Yes, call"), _b("later", "Remind later"),
-                     _b("dismiss", "Not needed")])
+        return NudgeOut(
+            send=True,
+            reason="date fact coming up",
+            text=s(
+                f"Heads up: {about}{value} - {when}. Want me to handle it?",
+                f"Heads up: {about}{value} - {when}. Main handle karun?",
+            ),
+            buttons=[
+                _b("yes", "Yes, call"),
+                _b("later", "Remind later"),
+                _b("dismiss", "Not needed"),
+            ],
+        )
     if k == NudgeKind.PATTERN:
         if d.get("ignored_streak", 0) >= 3:
             return NudgeOut(send=False, reason="user keeps ignoring this pattern")
         weeks = d.get("weeks") or d.get("interval_weeks")
         since = f"{weeks} weeks since your last {what}" if weeks else f"Time for {what}?"
-        usual = f" {biz}, {d.get('usual_slot')} like usual?" if biz and d.get("usual_slot") else \
-            (f" Book {biz} like usual?" if biz else " Want me to book it?")
-        return NudgeOut(send=True, reason="routine due", text=s(f"{since} ✂️{usual}",
-                                                                 f"{since} ✂️{usual}"),
-                        buttons=[_b("book", "Book it"), _b("later", "Not now"),
-                                 _b("stop", "Stop these")])
+        usual = (
+            f" {biz}, {d.get('usual_slot')} like usual?"
+            if biz and d.get("usual_slot")
+            else (f" Book {biz} like usual?" if biz else " Want me to book it?")
+        )
+        return NudgeOut(
+            send=True,
+            reason="routine due",
+            text=s(f"{since} ✂️{usual}", f"{since} ✂️{usual}"),
+            buttons=[_b("book", "Book it"), _b("later", "Not now"), _b("stop", "Stop these")],
+        )
     if k == NudgeKind.RECURRING_DUE:
-        return NudgeOut(send=True, reason="recurring instance due", text=s(
-            f"Next {what}{' for ' + who if who else ''} is coming up "
-            f"({format_ist(due, '%a %d %b')})."
-            f" Book the usual slot?",
-            f"Agla {what}{' ' + who + ' ke liye' if who else ''} aa raha hai "
-            f"({format_ist(due, '%a %d %b')}). Usual slot book karun?"),
-            buttons=[_b("book", "Book it"), _b("skip", "Skip this one"),
-                     _b("pause", "Pause series")])
+        return NudgeOut(
+            send=True,
+            reason="recurring instance due",
+            text=s(
+                f"Next {what}{' for ' + who if who else ''} is coming up "
+                f"({format_ist(due, '%a %d %b')})."
+                f" Book the usual slot?",
+                f"Agla {what}{' ' + who + ' ke liye' if who else ''} aa raha hai "
+                f"({format_ist(due, '%a %d %b')}). Usual slot book karun?",
+            ),
+            buttons=[
+                _b("book", "Book it"),
+                _b("skip", "Skip this one"),
+                _b("pause", "Pause series"),
+            ],
+        )
     if k == NudgeKind.MORNING_BRIEFING:
         items = d.get("items") or []
-        lines = "\n".join(f"• {i}" for i in items[:5]) or s("Nothing urgent today.",
-                                                           "Aaj kuch urgent nahi.")
+        lines = "\n".join(f"• {i}" for i in items[:5]) or s(
+            "Nothing urgent today.", "Aaj kuch urgent nahi."
+        )
         name = first_name(ctx.profile.name)
-        return NudgeOut(send=True, reason="opt-in briefing", text=s(
-            f"Good morning{', ' + name if name else ''} ☀️\n{lines}",
-            f"Good morning{', ' + name if name else ''} ☀️\n{lines}"),
-            buttons=[_b("ok", "Thanks"), _b("details", "Details"), _b("stop", "Stop briefing")])
+        return NudgeOut(
+            send=True,
+            reason="opt-in briefing",
+            text=s(
+                f"Good morning{', ' + name if name else ''} ☀️\n{lines}",
+                f"Good morning{', ' + name if name else ''} ☀️\n{lines}",
+            ),
+            buttons=[_b("ok", "Thanks"), _b("details", "Details"), _b("stop", "Stop briefing")],
+        )
     if k == NudgeKind.TASK_RESULT:
         text = d.get("summary") or cand.reason
-        return NudgeOut(send=True, reason="task result", text=text,
-                        buttons=[_b("ok", "OK"), _b("details", "Details")])
-    return NudgeOut(send=cand.urgency != Urgency.NORMAL, reason="unknown kind",
-                    text=cand.reason, buttons=[_b("ok", "OK")])
+        return NudgeOut(
+            send=True,
+            reason="task result",
+            text=text,
+            buttons=[_b("ok", "OK"), _b("details", "Details")],
+        )
+    return NudgeOut(
+        send=cand.urgency != Urgency.NORMAL,
+        reason="unknown kind",
+        text=cand.reason,
+        buttons=[_b("ok", "OK")],
+    )
