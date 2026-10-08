@@ -178,7 +178,9 @@ async def test_business_touch_whatsapp_then_sms(container, notifier, channel, sm
     landline = Business(name="Clinic", phone="+911123456789")
     for b in (on_wa, mobile, landline):
         await container.repos.businesses.upsert(b)
-    tpl = TemplateRef(key="business_booking_confirmed", params=["Rahul", "Haircut Sat 6pm", "Friday"])
+    tpl = TemplateRef(
+        key="business_booking_confirmed", params=["Rahul", "Haircut Sat 6pm", "Friday"]
+    )
     assert (await notifier.business_touch(on_wa, tpl, user_id=user.id)).ok
     assert channel.last_to("+919840000001").template == tpl
     assert (await notifier.business_touch(mobile, tpl, user_id=user.id)).ok

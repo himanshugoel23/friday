@@ -32,6 +32,11 @@ from friday.core.templates import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+
+def _v(n: int) -> str:
+    return "{{" + str(n) + "}}"
+
+
 SKIP = {ROOT / "friday/core/models.py", ROOT / "friday/core/templates.py"}
 
 
@@ -72,8 +77,8 @@ def test_registry_is_consistent_with_settings_defaults():
     assert names == {k: s.name for k, s in WHATSAPP_TEMPLATES.items()}
     for spec in WHATSAPP_TEMPLATES.values():
         for n in range(1, spec.n_params + 1):
-            assert "{{%d}}" % n in spec.body_en and "{{%d}}" % n in spec.body_hi, spec.key
-        assert "{{%d}}" % (spec.n_params + 1) not in spec.body_en
+            assert _v(n) in spec.body_en and _v(n) in spec.body_hi, spec.key
+        assert _v(spec.n_params + 1) not in spec.body_en
     assert set(SMS_ONLY_VARS).isdisjoint(WHATSAPP_TEMPLATES)
 
 
@@ -131,5 +136,5 @@ def test_checklist_lists_every_template_name_and_variable_count():
     for spec in WHATSAPP_TEMPLATES.values():
         row = next((ln for ln in doc.splitlines() if f"`{spec.name}`" in ln), None)
         assert row is not None, f"{spec.name} missing from PRODUCTION_CHECKLIST.md"
-        assert "{{%d}}" % spec.n_params in row
-        assert "{{%d}}" % (spec.n_params + 1) not in row
+        assert _v(spec.n_params) in row
+        assert _v(spec.n_params + 1) not in row

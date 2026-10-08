@@ -43,4 +43,5 @@ async def test_brain_reads_links_from_settings(brain, ctx):
         grievance_email="g@t.in",
     )
     turn = await brain.onboarding_turn(ctx, OnboardingStep.CONSENT, None)
-    assert "https://t.in/x" in turn.reply and "https://t.in/p" in turn.reply and "g@t.in" in turn.reply
+    for needle in ("https://t.in/x", "https://t.in/p", "g@t.in"):
+        assert needle in turn.reply
