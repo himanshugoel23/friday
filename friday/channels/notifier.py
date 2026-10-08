@@ -67,6 +67,7 @@ OPT_IN_REMINDER_AFTER = timedelta(days=7)
 # DLT SMS template keys (Settings.sms_dlt_templates)
 SMS_USER_UPDATE = "user_task_update"
 SMS_BUSINESS_BOOKING = "business_booking_confirmed"
+SMS_BUSINESS_KEYS = (SMS_BUSINESS_BOOKING, "business_enquiry_thanks")
 
 
 def button_title(text: str) -> str:
@@ -531,12 +532,14 @@ class Notifier:  # implements core.interfaces.Notifier
                 return receipt
         if not _is_indian_mobile(business.phone):
             return SendReceipt(message_id=new_id(), ok=False, error="not_a_mobile")
-        sms_tpl = sms_template or make_template(
-            template.key
-            if template.key in (SMS_BUSINESS_BOOKING, "business_enquiry_thanks")
-            else SMS_BUSINESS_BOOKING,
-            [_sms_param(p) for p in template.params],
-        )
+        sms_key = template.key if template.key in SMS_BUSINESS_KEYS else SMS_BUSINESS_BOOKING
+        try:
+            sms_tpl = sms_template or make_template(
+                sms_key, [_sms_param(p) for p in template.params]
+            )
+        except ValueError as e:  # wrong variable count: never send a malformed DLT SMS
+            log.error("business touch SMS not sent: %s", e)
+            return SendReceipt(message_id=new_id(), ok=False, error="template_params_mismatch")
         receipt = await self.send_sms(
             business.phone, sms_tpl, user_id=user_id, task_id=task_id, business_id=business.id
         )

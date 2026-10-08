@@ -33,6 +33,9 @@ def _check(settings: Settings) -> int:
     print(f"roles: {','.join(settings.roles)}")
     for component in FACTORIES:
         provider = c.provider_for(component)
+        if provider == "off":
+            print(f"  {component:20s} {provider:14s} DISABLED (provider not configured)")
+            continue
         try:
             path = c.factory_path(component)
         except Exception as e:  # noqa: BLE001
@@ -47,10 +50,10 @@ def _check(settings: Settings) -> int:
     if not settings.is_live:
         return 0
     problems = settings.live_problems()
+    for note in settings.optional_feature_notes():
+        print(f"  disabled or simulated: {note}")
     if not problems:
         print("live configuration: OK")
-        for note in settings.optional_feature_notes():
-            print(f"  optional, disabled: {note}")
         return 1 if missing else 0
     print(f"\nLIVE CONFIGURATION INCOMPLETE - {len(problems)} problem(s); Friday will not start:")
     for p in problems:

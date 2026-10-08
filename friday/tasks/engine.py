@@ -110,6 +110,10 @@ log = get_logger(__name__)
 ROLE_FANOUT = TaskRole.FANOUT.value  # one candidate of a discovery/compare/stock-hunt parent
 ROLE_BOOKING = TaskRole.BOOKING.value  # booking call for the option the user chose
 ROLE_INSTANCE = TaskRole.INSTANCE.value  # one occurrence of a recurring series
+HOTEL_NO_LIVE_RATES = (
+    "I can't see live hotel rates right now. I'll find places, call them to ask about "
+    "availability and the rate, and check with you before booking anything."
+)
 ROLE_RECONFIRM = TaskRole.RECONFIRM.value  # hotel day-before reconfirm
 ROLE_CARE_FOLLOWUP = TaskRole.CARE_FOLLOWUP.value  # C25 follow-up at promised date
 ROLE_CALLBACK = TaskRole.CALLBACK.value  # business called back about a resolved booking (E.32/37)
@@ -2290,6 +2294,12 @@ class TaskEngine:
             stay = stay.model_copy(update={"near": near})
             task.spec.stay = stay
         hotels = self._opt("hotels")
+        if hotels is None:  # no Expedia keys: say so plainly, then use the direct-call path only
+            await self.outbox.to_user(
+                task.requester_user_id,
+                HOTEL_NO_LIVE_RATES,
+                task_id=task.id,
+            )
         offers: list[HotelOffer] = await call_opt(hotels, "search", stay, default=[]) or []
         task.result = TaskResult(success=False, summary="", hotel_offers=offers)
         await self._save(task)

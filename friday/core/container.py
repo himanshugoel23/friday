@@ -170,6 +170,30 @@ class ComponentNotAvailable(RuntimeError):
     """The factory module for a component has not been implemented (yet)."""
 
 
+class ComponentDisabled(ComponentNotAvailable):
+    """The feature is switched off because its real provider is not configured (live mode).
+    Callers treat the component as absent; nothing is simulated in its place."""
+
+
+class SimulatorInLive(ComponentNotAvailable):
+    """A simulator/fake was selected in live mode without an explicit pin or the pilot profile."""
+
+
+# component -> the Settings field that pins its provider explicitly (anything but "auto")
+PIN_FIELDS: dict[str, str] = {
+    "llm": "llm_provider",
+    "telephony": "telephony_provider",
+    "stt": "stt_provider",
+    "tts": "tts_provider",
+    "messaging": "whatsapp_provider",
+    "sms": "sms_provider",
+    "directory": "directory_provider",
+    "geocoder": "geocoder_provider",
+    "hotels": "hotel_provider",
+}
+_SIMULATED_NAMES = ("simulator", "fake")
+
+
 class Container:
     def __init__(
         self,
@@ -206,12 +230,28 @@ class Container:
         }
         return resolvers[component]() if component in resolvers else "*"
 
+    def simulator_in_live(self, component: str) -> bool:
+        """True when a simulator/fake would be used in live mode WITHOUT an explicit choice.
+        The pilot profile (founder's own test) and an explicit provider pin are explicit."""
+        s = self.settings
+        pin = PIN_FIELDS.get(component)
+        if not s.is_live or s.is_pilot or pin is None:
+            return False
+        return self.provider_for(component) in _SIMULATED_NAMES and getattr(s, pin) == "auto"
+
     def factory_path(self, component: str) -> str:
         try:
             options = FACTORIES[component]
         except KeyError:
             raise KeyError(f"unknown component {component!r}") from None
         provider = self.provider_for(component)
+        if provider == "off":
+            raise ComponentDisabled(f"{component} is disabled: its provider is not configured")
+        if self.simulator_in_live(component):
+            raise SimulatorInLive(
+                f"refusing the {provider} {component} in live mode: configure the real provider "
+                "or pin the simulator explicitly (pilot profile / FRIDAY_*_PROVIDER)"
+            )
         try:
             return options[provider]
         except KeyError:
@@ -291,6 +331,8 @@ class Container:
 
     # ------------------------------------------------------------------ lifecycle
     def check_live_config(self) -> None:
+        if self.settings.is_live and (bad := [c for c in PIN_FIELDS if self.simulator_in_live(c)]):
+            raise RuntimeError("live mode would use simulators for: " + ", ".join(bad))
         if self.settings.is_live and (problems := self.settings.live_problems()):
             raise RuntimeError("live mode misconfigured: " + "; ".join(problems))
 
@@ -309,7 +351,15 @@ class Container:
 
     def missing_role_components(self, roles: list[str] | None = None) -> list[str]:
         """Components the roles need whose factory module isn't importable (startup check)."""
-        return [comp for comp in self.role_components(roles) if not self.is_available(comp)]
+        return [
+            comp
+            for comp in self.role_components(roles)
+            if self.provider_for(comp) != "off" and not self.is_available(comp)
+        ]
+
+    def disabled_components(self) -> list[str]:
+        """Components switched off because their provider is not configured (live mode)."""
+        return [c for c in FACTORIES if self.provider_for(c) == "off"]
 
     def install_field_cipher(self) -> None:
         """Install the process-wide FieldCipher for EncryptedText/EncryptedJSON columns."""
