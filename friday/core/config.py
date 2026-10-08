@@ -31,7 +31,7 @@ import json
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Mode = Literal["simulator", "live"]
@@ -48,6 +48,7 @@ GeocoderProviderName = Literal["auto", "simulator", "google"]
 HotelProviderName = Literal["auto", "simulator", "expedia_rapid"]
 BackendName = Literal["auto", "memory", "postgres", "redis"]
 WorkerRole = Literal["api", "task", "voice", "proactive", "batch"]
+ProfileName = Literal["default", "pilot"]
 ALL_ROLES: tuple[str, ...] = ("api", "task", "voice", "proactive", "batch")
 
 # Comma-separated OR JSON list in env: FRIDAY_NUMBERS=+9180...,+9122...
@@ -84,6 +85,14 @@ class Settings(BaseSettings):
 
     # ------------------------------------------------------------------ app
     mode: Mode = "simulator"
+    # ``pilot`` (FRIDAY_PROFILE=pilot): voice-only live test on a laptop. In live mode it
+    # needs only telephony + Sarvam + LLM + the secrets/keys + an https public URL;
+    # WhatsApp/SMS/hotels/directory fall back to simulators and recordings stay off.
+    # ``default`` keeps every production requirement. See docs/LIVE_TEST_WINDOWS.md.
+    profile: ProfileName = "default"
+    # Pilot safety: the ONLY numbers `friday livecall` may dial (E.164, CSV). Default empty.
+    pilot_allowed_numbers: CsvList = Field(default_factory=list)
+    pilot_max_spend_inr: float = 25.0  # `friday livecall` refuses if the estimate is above this
     env: Literal["dev", "test", "prod"] = "dev"
     log_level: str = "INFO"
     log_json: bool = False
@@ -429,6 +438,7 @@ class Settings(BaseSettings):
         "friday_numbers",
         "roles",
         "sarvam_verified_capabilities",
+        "pilot_allowed_numbers",
         mode="before",
     )
     @classmethod
@@ -441,6 +451,12 @@ class Settings(BaseSettings):
                 return json.loads(v)
             return [x.strip() for x in v.split(",") if x.strip()]
         return v
+
+    @model_validator(mode="after")
+    def _pilot_no_recordings(self) -> Settings:
+        if self.profile == "pilot":  # pilot: recordings are never persisted
+            self.call_record = False
+        return self
 
     # ================================================================== helpers
     def model_for(self, purpose: str, *, escalate: bool = False) -> str:
@@ -491,6 +507,24 @@ class Settings(BaseSettings):
     def is_live(self) -> bool:
         return self.mode == "live"
 
+    @property
+    def is_pilot(self) -> bool:
+        return self.profile == "pilot"
+
+    def public_url_problem(self) -> str | None:
+        """Why ``public_base_url`` cannot receive provider webhooks (None == fine)."""
+        from urllib.parse import urlparse
+
+        u = urlparse(self.public_base_url.strip())
+        host = (u.hostname or "").lower()
+        if u.scheme != "https" or not host:
+            return "FRIDAY_PUBLIC_BASE_URL must be an https:// URL (the tunnel address)"
+        if host in ("localhost", "0.0.0.0", "::1") or host.startswith("127.") or (
+            host.endswith(".local") or host.endswith(".localhost") or "." not in host
+        ):
+            return "FRIDAY_PUBLIC_BASE_URL must not be localhost (use the tunnel address)"
+        return None
+
     def resolve_llm(self) -> Literal["anthropic", "fake"]:
         if self.llm_provider != "auto":
             return self.llm_provider
@@ -518,16 +552,20 @@ class Settings(BaseSettings):
         # Read-only provider: real Places data is safe even in simulator mode.
         if self.directory_provider != "auto":
             return self.directory_provider
+        if self.is_pilot:
+            return "google_places" if self.google_places_api_key else "simulator"
         return "google_places" if (self.is_live or self.google_places_api_key) else "simulator"
 
     def resolve_geocoder(self) -> Literal["simulator", "google"]:
         if self.geocoder_provider != "auto":
             return self.geocoder_provider
+        if self.is_pilot:
+            return "google" if self.google_places_api_key else "simulator"
         return "google" if (self.is_live or self.google_places_api_key) else "simulator"
 
     def resolve_hotels(self) -> Literal["simulator", "expedia_rapid"]:
         # book() has real-world side effects -> real provider only in live mode.
-        if not self.is_live:
+        if not self.is_live or (self.is_pilot and self.hotel_provider == "auto"):
             return "simulator"
         return "expedia_rapid" if self.hotel_provider == "auto" else self.hotel_provider
 
@@ -563,12 +601,12 @@ class Settings(BaseSettings):
         return {}
 
     def resolve_whatsapp(self) -> Literal["simulator", "cloud"]:
-        if not self.is_live:
+        if not self.is_live or (self.is_pilot and self.whatsapp_provider == "auto"):
             return "simulator"
         return "cloud" if self.whatsapp_provider == "auto" else self.whatsapp_provider
 
     def resolve_sms(self) -> Literal["fake", "msg91"]:
-        if not self.is_live:
+        if not self.is_live or (self.is_pilot and self.sms_provider == "auto"):
             return "fake"
         return "msg91" if self.sms_provider == "auto" else self.sms_provider
 
@@ -593,7 +631,7 @@ class Settings(BaseSettings):
         uses_sarvam = tel == "sarvam" or (tel == "routed" and "sarvam" in self.telephony_route)
         if uses_sarvam and not (self.sarvam_caller_ids or self.friday_numbers):
             problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
-        if self.is_live and not self.object_store_url:  # S-6: no local-disk recordings in live
+        if self.is_live and not self.is_pilot and not self.object_store_url:  # S-6: no local-disk recordings in live
             problems.append("missing FRIDAY_OBJECT_STORE_URL (s3://bucket/prefix) for recordings")
         if self.resolve_stt() == "sarvam" or self.resolve_tts() == "sarvam":
             need["SARVAM_API_KEY"] = self.sarvam_api_key
@@ -617,6 +655,8 @@ class Settings(BaseSettings):
         if self.resolve_sms() == "msg91":
             need |= {"MSG91_AUTH_KEY": self.msg91_auth_key, "DLT_ENTITY_ID": self.dlt_entity_id}
         problems += [f"missing {k}" for k, v in need.items() if not v]
+        if self.is_live and self.is_pilot and (msg := self.public_url_problem()):
+            problems.append(msg)
         if self.is_live and self.secret_key.get_secret_value() == _DEV_SECRET:
             problems.append("FRIDAY_SECRET_KEY must be set in live mode")
         if (
