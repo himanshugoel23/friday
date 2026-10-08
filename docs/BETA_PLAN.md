@@ -17,7 +17,7 @@ Started 2026-10-08 ("day 1"). Update the log at the bottom as work lands.
 | D6 | Beta scope limited to what is proven live: **bookings and enquiries**. Hotels, customer-care/IVR calls, call transfer ("connect me") and recordings stay **off / "coming soon"** until the Vobiz TODOs (O-2) are confirmed. | Hotels without Expedia keys are disabled in code; recordings forced off without an object store. |
 | D7 | Run with `FRIDAY_PROFILE=beta`, `FRIDAY_INVITE_ONLY=true`, roles `api,task,voice` in **one process on one VM** (O-15: live-call state is in memory). Postgres + Redis from the compose file. | Never scale the `api` service; kill switch is `friday pause`. |
 | D8 | Telephony is **Vobiz only**; the number rented inside Sarvam (+91 80 7158 2175) cannot be used. Need a dedicated number, upgraded account, call queuing OFF. | See `LAUNCH_CHECKLIST.md` s.1. |
-| D9 | **LLM provider still to decide**: Anthropic (default, `ANTHROPIC_API_KEY`) vs the half-finished OpenAI GPT provider (`friday/brain/openai_llm.py`, `OPENAI_API_KEY`; `friday check` already accepts either). Do not leave both half-done. | Open. Default recommendation: Anthropic for the beta, finish GPT later. |
+| D9 | **LLM: Anthropic, with the repo's existing cost routing. Do not use the GPT provider for the beta.** Haiku 5.5 (`claude-haiku-5-5`, $0.10 / $0.50 per 1M tokens) for every background purpose (interpret, extract, summarize, compare, translate, nudge judgement...); Sonnet 5.5 (`claude-sonnet-5-5`, $2 / $10) only for live `call_turn`; Opus only on explicit escalation. Already the defaults (`DEFAULT_LLM_MODELS`, `friday/brain/routing.py`: effort `low` everywhere, small `max_tokens`, prompt caching, 60K-token per-task budget that downgrades to the cheaper model). Reasons: Haiku 5.5 is about 7x cheaper than the GPT light model the repo uses (`gpt-5.4-mini`, est. $0.75 / $4.50) for background work; `call_turn` is quality/safety critical (AI disclosure, never commit without approval, Hinglish) so it keeps Sonnet; GPT path has no batch API and is less tested. Prices from the cached Claude model table (2026-10-06) and the repo's own GPT price estimates, which are unverified. Prices to re-check at https://platform.claude.com/docs/en/about-claude/pricing. **Live-call checks (day 1):** read the per-purpose token/cost log lines; confirm `call_turn` is not truncated at `max_tokens=400` (thinking tokens count toward it on Sonnet 5.5/Haiku 5.5; raise to ~800 if `stop=max_tokens` shows up); try Haiku 5.5 for `call_turn` (`FRIDAY_LLM_MODELS='{"call_turn": "claude-haiku-5-5"}'`) if quality holds in the test calls, as it would cut LLM cost per call by about 20x. Telephony minutes will probably dominate cost anyway. Set a monthly spend limit on the Anthropic key. Needs 30-day retention terms check for ZDR (OPS-2). |
 | D10 | All old API keys are treated as leaked (pasted in chats): **rotate and recreate** before the beta; set monthly spend limits. | `PRODUCTION_CHECKLIST.md` 1.3. |
 | D11 | Docker image is built from the repo `Dockerfile` **on the server** (`deploy/update.sh`). The cloud sandbox cannot pull `ghcr.io`, so use `deploy/build_sandbox.sh` there (see s.4). | |
 
@@ -28,7 +28,7 @@ Started 2026-10-08 ("day 1"). Update the log at the bottom as work lands.
   account, top up, buy dedicated number, call queuing OFF; rotate keys + spend limits; point the domain at the server.
 - Engineer: build the Docker image (**done**, s.4); provision Lightsail/AWS box (`deploy/lightsail-launch.sh`,
   `DEPLOY_AWS.md`); run `deploy/update.sh` + `deploy/smoke_test.sh`; `friday check` until "live configuration: OK"
-  (SMS unset); decide the LLM (D9); start on the Meta test number.
+  (SMS unset); LLM decided (D9: Anthropic); start on the Meta test number.
 - Evening milestone: WhatsApp the test number, onboard, ask for a call to your own phone, get the call and the
   WhatsApp report (`LAUNCH_CHECKLIST.md` s.7 steps 1-7).
 - Send the Vobiz questions (`SARVAM_QUESTIONS.md`) today; replies gate day 2.
@@ -86,7 +86,7 @@ Template: `deploy/env.production.example`. Never commit secrets.
 
 ## 6. Open items / next steps
 
-- [ ] D9: choose the LLM and finish its live test.
+- [x] D9 decided (Anthropic, see above); [ ] confirm `call_turn` token budget and quality in the first live calls.
 - [ ] Provision the server; first `update.sh` + `smoke_test.sh` run; fix what breaks (O-17).
 - [ ] Meta: verification, templates submitted, test number wired to the webhook.
 - [ ] Vobiz: upgrade, number, queuing off, answer/hangup URLs, questions sent.
