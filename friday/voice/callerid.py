@@ -35,7 +35,7 @@ def choose_from_number(
     pool: Sequence[str],
     selector: CallerIdSelector | None = None,
 ) -> str | None:
-    explicit = request.metadata.get("from_number") or getattr(request, "from_number", None)
+    explicit = request.from_number or request.metadata.get("from_number")
     if explicit:
         return explicit
     if selector is not None:

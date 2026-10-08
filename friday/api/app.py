@@ -23,11 +23,12 @@ from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from friday.api.admin import admin_router
 from friday.api.runtime import Runtime
 from friday.channels.simulator import SimulatorChannel
 from friday.channels.whatsapp import parse_webhook, verify_signature, verify_subscription
 from friday.core.config import Settings
-from friday.core.container import FACTORIES, ComponentNotAvailable, Container
+from friday.core.container import ComponentNotAvailable, Container
 from friday.core.logging import get_logger
 from friday.core.models import normalize_phone
 
@@ -55,12 +56,9 @@ def create_app(
     app.state.runtime = runtime
 
     @app.get("/health")
-    async def health() -> dict[str, Any]:
-        return {
-            "status": "ok",
-            "mode": c.settings.mode,
-            "components": {name: c.is_available(name) for name in FACTORIES},
-        }
+    async def health() -> dict[str, str]:
+        # SECURITY-28: nothing but liveness is public; detail lives behind the ops token.
+        return {"status": "ok"}
 
     # ------------------------------------------------------------------ WhatsApp webhook
     @app.get("/webhooks/whatsapp")
@@ -92,8 +90,12 @@ def create_app(
         except ValueError:
             raise HTTPException(status_code=400, detail="invalid json") from None
         batch = parse_webhook(payload, default_cc=c.settings.default_country_code)
+        accepted = 0
         for msg in batch.messages:
-            background_tasks.add_task(runtime.handle, msg)
+            if await runtime.accept_inbound(msg):  # S-1: dedupe + durable enqueue, then ack
+                accepted += 1
+        if accepted and c.settings.has_role("task"):
+            background_tasks.add_task(runtime.drain)  # in-process worker (after the 200)
         for st in batch.statuses:
             if st.provider_message_id and st.status == "failed":
                 background_tasks.add_task(
@@ -102,10 +104,12 @@ def create_app(
                     ok=False,
                     error=st.error,
                 )
-        return {"messages": len(batch.messages), "statuses": len(batch.statuses)}
+        return {"messages": accepted, "statuses": len(batch.statuses)}
 
     # ------------------------------------------------------------------ simulator
-    app.include_router(_sim_router(c, runtime), prefix="/sim")
+    if not c.settings.is_live:  # SECURITY-28: simulator routes never exist in live mode
+        app.include_router(_sim_router(c, runtime), prefix="/sim")
+    app.include_router(admin_router(c), prefix="/admin")
 
     # ------------------------------------------------------------------ voice
     try:

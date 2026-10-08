@@ -20,10 +20,19 @@ from friday.core.container import ComponentNotAvailable, Container
 from friday.core.events import CallFinished
 from friday.core.logging import get_logger
 from friday.core.models import InboundMessage
-from friday.core.scale import DistributedLock, LockTimeout, MemoryLock
+from friday.core.scale import (
+    DistributedLock,
+    Job,
+    JobPriority,
+    LockTimeout,
+    MemoryLock,
+    worker_id,
+)
+from friday.db.repositories._base import phone_index
 
 log = get_logger(__name__)
 
+CONSUMED_KINDS = ("inbound.message", "message.send")
 BACKGROUND_COMPONENTS = ("task_engine", "proactive")
 
 
@@ -45,12 +54,15 @@ class Runtime:
         self._tasks: list[asyncio.Task[Any]] = []
         self._started: list[Any] = []
         self.running = False
+        self.worker = worker_id("task")
 
     async def start(self, *, background: bool = True) -> None:
         await self.c.startup()
         self.callbacks.subscribe()
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         if background:
+            if self.c.settings.has_role("task"):
+                self._tasks.append(asyncio.create_task(self.worker_loop(), name="friday-worker"))
             for name in BACKGROUND_COMPONENTS:
                 await self._start_component(name)
         self.running = True
@@ -88,7 +100,80 @@ class Runtime:
         self._started.clear()
         self.running = False
 
-    async def handle(self, msg: InboundMessage) -> None:
+    # ------------------------------------------------------------------ durable inbound (S-1)
+    def _component(self, name: str) -> Any:
+        try:
+            return self.c.get(name)
+        except ComponentNotAvailable:
+            return None
+
+    async def accept_inbound(self, msg: InboundMessage) -> bool:
+        """Webhook path: idempotency check -> durable enqueue. False = duplicate.
+        No per-user in-memory state here; processing happens in a worker."""
+        idem = self._component("idempotency")
+        key = f"wa:{msg.provider_message_id}" if msg.provider_message_id else None
+        ttl = self.c.settings.webhook_idempotency_ttl_h * 3600
+        if key and idem is not None and not await idem.first_seen(key, ttl_s=ttl):
+            return False
+        queue = self._component("job_queue")
+        if queue is None:  # no queue available: process in-line (degraded)
+            await self.handle(msg)
+            return True
+        await queue.enqueue(
+            Job(
+                kind="inbound.message",
+                payload={"message": msg.model_dump(mode="json")},
+                priority=JobPriority.LIVE,
+                dedupe_key=key,
+                partition_key=phone_index(msg.from_phone),
+            )
+        )
+        return True
+
+    async def drain(self, kinds: tuple[str, ...] = CONSUMED_KINDS, *, limit: int = 20) -> int:
+        """Claim and process due jobs of ``kinds``; returns how many were processed."""
+        queue = self._component("job_queue")
+        if queue is None:
+            return 0
+        done = 0
+        while True:
+            jobs = await queue.claim(self.worker, kinds=list(kinds), limit=limit)
+            if not jobs:
+                return done
+            for job in jobs:
+                try:
+                    await self._run_job(job)
+                    await queue.ack(job.id)
+                except Exception as e:  # noqa: BLE001 - retry with backoff, dead-letter at max
+                    log.warning("job %s (%s) failed: %s", job.id, job.kind, type(e).__name__)
+                    await queue.retry(
+                        job.id, error=type(e).__name__, delay_s=min(300, 5 * 2**job.attempts)
+                    )
+                done += 1
+
+    async def _run_job(self, job: Job) -> None:
+        if job.kind == "inbound.message":
+            msg = InboundMessage.model_validate(job.payload["message"])
+            await self.handle(msg, raise_errors=True)
+        elif job.kind == "message.send":
+            await self.c.notifier.handle_job(job)
+
+    async def worker_loop(self) -> None:
+        queue = self._component("job_queue")
+        wait = getattr(queue, "wait_for_work", None)
+        while True:
+            try:
+                n = await self.drain()
+            except Exception:  # noqa: BLE001
+                log.exception("worker loop error")
+                n = 0
+            if n == 0:
+                if wait is not None:
+                    await wait(self.c.settings.queue_poll_interval_s)
+                else:
+                    await self.c.clock.sleep(self.c.settings.queue_poll_interval_s)
+
+    async def handle(self, msg: InboundMessage, *, raise_errors: bool = False) -> None:
         try:
             async with self.lock.hold(f"sender:{msg.from_phone}", timeout_s=30.0):
                 await self.pipeline.handle(msg)
@@ -97,6 +182,8 @@ class Runtime:
             raise
         except Exception:  # noqa: BLE001 - a bad message never kills the webhook
             log.exception("inbound message %s failed", msg.id)
+            if raise_errors:
+                raise
 
     async def _on_call_finished(self, event: CallFinished) -> None:
         task = await self.c.repos.tasks.get(event.task_id)

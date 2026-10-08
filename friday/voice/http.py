@@ -109,6 +109,17 @@ def build_router(c: Container) -> APIRouter:
     @router.websocket("/twilio/media")
     async def twilio_media(ws: WebSocket) -> None:
         tel = twilio()
+        # SECURITY-18: Twilio signs the WebSocket handshake too; refuse before accept().
+        # (Per-call key + token in the start message is the second, stronger check.)
+        # TODO(twilio-docs: "Media Streams - Validate Twilio signature on WebSocket"): the
+        # signed URL is the one Twilio dialled; accept the wss:// and https:// spellings.
+        wss = tel.media_ws_url
+        if not any(
+            validate_twilio_signature(tel.auth_token, url, {}, ws.headers.get("x-twilio-signature"))
+            for url in (wss, "https://" + wss.split("://", 1)[1])
+        ):
+            await ws.close(code=1008)
+            return
         await ws.accept()
         state: dict[str, Any] = {}
         try:
@@ -243,14 +254,14 @@ def build_router(c: Container) -> APIRouter:
     async def sarvam_media(ws: WebSocket) -> None:
         tel = sarvam()
 
-        if not hmac.compare_digest(
-            sarvam_token(tel.secret, "media"), ws.query_params.get("token", "")
+        key = ws.query_params.get("key") or ""
+        if not key or not hmac.compare_digest(
+            sarvam_token(tel.secret, f"media:{key}"), ws.query_params.get("token", "")
         ):
             await ws.close(code=1008)
             return
         await ws.accept()
         state: dict[str, Any] = {}
-        key = ws.query_params.get("key")
         try:
             while True:
                 raw = await ws.receive_text()
@@ -267,29 +278,33 @@ def build_router(c: Container) -> APIRouter:
                 leg.on_stream_stop()
 
     # ---------------------------------------------------------------- simulator
-    @router.post("/sim/inbound")
-    async def sim_inbound(body: SimInboundRequest) -> dict[str, Any]:
-        tel = telephony()
-        if not hasattr(tel, "simulate_inbound_call"):
-            raise HTTPException(404, "simulator telephony not active")
-        call_id = await tel.simulate_inbound_call(
-            body.from_phone, body.to_number, answered=body.answered, ring_s=body.ring_s
-        )
-        return {"provider_call_id": call_id, "answered": call_id is not None}
+    # SECURITY-19: /sim/* and /recordings are registered ONLY with the simulator. In live,
+    # recordings are served as short-lived signed object-store URLs (never by us).
+    if not c.settings.is_live and c.settings.resolve_telephony() == "simulator":
 
-    @router.post("/sim/deliver-due")
-    async def sim_deliver_due() -> dict[str, Any]:
-        tel = telephony()
-        if not hasattr(tel, "deliver_due_inbound"):
-            raise HTTPException(404, "simulator telephony not active")
-        return {"answered_call_ids": await tel.deliver_due_inbound()}
+        @router.post("/sim/inbound")
+        async def sim_inbound(body: SimInboundRequest) -> dict[str, Any]:
+            tel = telephony()
+            if not hasattr(tel, "simulate_inbound_call"):
+                raise HTTPException(404, "simulator telephony not active")
+            call_id = await tel.simulate_inbound_call(
+                body.from_phone, body.to_number, answered=body.answered, ring_s=body.ring_s
+            )
+            return {"provider_call_id": call_id, "answered": call_id is not None}
 
-    @router.get("/recordings/{name}")
-    async def recording(name: str) -> FileResponse:
-        folder = (Path(c.settings.media_dir) / "recordings").resolve()
-        path = (folder / name).resolve()
-        if path.parent != folder or not path.is_file():
-            raise HTTPException(404, "not found")
-        return FileResponse(path)
+        @router.post("/sim/deliver-due")
+        async def sim_deliver_due() -> dict[str, Any]:
+            tel = telephony()
+            if not hasattr(tel, "deliver_due_inbound"):
+                raise HTTPException(404, "simulator telephony not active")
+            return {"answered_call_ids": await tel.deliver_due_inbound()}
+
+        @router.get("/recordings/{name}")
+        async def recording(name: str) -> FileResponse:
+            folder = (Path(c.settings.media_dir) / "recordings").resolve()
+            path = (folder / name).resolve()
+            if path.parent != folder or not path.is_file():
+                raise HTTPException(404, "not found")
+            return FileResponse(path)
 
     return router

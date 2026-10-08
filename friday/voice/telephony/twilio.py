@@ -31,10 +31,11 @@ import contextlib
 import hashlib
 import hmac
 import json
+import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from xml.sax.saxutils import escape, quoteattr
 
 import httpx
@@ -455,7 +456,7 @@ class TwilioCallLeg:
         await self.tel.update_call(
             self.provider_call_id,
             conference_twiml(
-                room, monitor_ws=ws, monitor_params={"key": self.key, "role": "monitor"}
+                room, monitor_ws=ws, monitor_params=self.tel.stream_params(self.key, role="monitor")
             ),
         )
         # 2) dial the user into the same room (whisper first, US-26.2)
@@ -468,7 +469,7 @@ class TwilioCallLeg:
         twiml = conference_twiml(
             room,
             monitor_ws=ws,
-            monitor_params={"key": user_key, "role": "monitor"},
+            monitor_params=self.tel.stream_params(user_key, role="monitor"),
             say=announce,
             end_on_exit=True,
         )
@@ -666,7 +667,7 @@ class TwilioTelephony:
             language=request.language,
         )
         self.legs[key] = leg
-        twiml = stream_twiml(self.media_ws_url, {"key": key, "direction": "outbound"})
+        twiml = stream_twiml(self.media_ws_url, self.stream_params(key, direction="outbound"))
         sid = await self.create_call(
             to=request.to_phone,
             from_=from_number,
@@ -677,6 +678,7 @@ class TwilioTelephony:
             amd=request.metadata.get("role") != "user",
         )
         leg.provider_call_id = sid
+        leg.record_expected = request.record and self.record
         self.by_sid[sid] = leg
         log.info(
             "twilio call %s -> %s from %s",
@@ -685,6 +687,57 @@ class TwilioTelephony:
             mask_phone(from_number),
         )
         return leg
+
+    # ------------------------------------------------------------------ stream auth
+    def stream_token(self, key: str) -> str:
+        """SECURITY-18: per-call secret for the Media Streams socket. Only Twilio (via the
+        TwiML we returned) and we know ``key``; the token proves it was issued by us."""
+        mac = hmac.new(self.auth_token.encode(), f"twilio-stream|{key}".encode(), hashlib.sha256)
+        return mac.hexdigest()
+
+    def stream_params(self, key: str, **extra: str) -> dict[str, str]:
+        return {"key": key, "token": self.stream_token(key), **extra}
+
+    def _stream_authorised(self, params: Mapping[str, str]) -> TwilioCallLeg | None:
+        key = params.get("key") or ""
+        token = params.get("token") or ""
+        leg = self.legs.get(key)
+        if leg is None or not hmac.compare_digest(self.stream_token(key), token):
+            return None
+        return leg
+
+    # ------------------------------------------------------------------ recordings
+    @staticmethod
+    def _recording_sid(url: str) -> str | None:
+        m = re.search(r"/Recordings/(RE[0-9A-Za-z]+)", url)
+        return m.group(1) if m else None
+
+    def _own_recording(self, url: str) -> bool:
+        u = urlparse(url)
+        return (
+            u.scheme == "https"
+            and u.hostname == "api.twilio.com"
+            and f"/Accounts/{self.account_sid}/" in u.path
+        )
+
+    async def fetch_recording(self, url: str) -> bytes | None:
+        if not self._own_recording(url):  # never send our credentials anywhere else
+            return None
+        resp = await self._http.request("GET", url)
+        return resp.content
+
+    async def delete_recording(self, url: str) -> None:
+        """SECURITY-14: erase a recording at Twilio (already gone == success)."""
+        sid = self._recording_sid(url)
+        if not sid or not self._own_recording(url):
+            raise ProviderError("twilio", "not a Twilio recording of this account")
+        try:
+            await self._http.request(
+                "DELETE", f"/2010-04-01/Accounts/{self.account_sid}/Recordings/{sid}.json"
+            )
+        except ProviderError as e:
+            if "HTTP 404" not in str(e):
+                raise
 
     def capabilities(self) -> frozenset[str]:
         return frozenset({"outbound", "inbound", "missed_call", "media_stream", "dtmf",
@@ -729,6 +782,7 @@ class TwilioTelephony:
         url = params.get("RecordingUrl")
         if leg is not None and url and params.get("RecordingStatus", "completed") == "completed":
             leg.recording = url + ".mp3"
+            leg._recording_event.set()
 
     def inbound_twiml(self, params: Mapping[str, str]) -> str:
         """Answer an inbound call on a Friday number: connect the media stream."""
@@ -744,7 +798,9 @@ class TwilioTelephony:
         leg.provider_call_id = sid
         self.legs[key] = leg
         self.by_sid[sid] = leg
-        return stream_twiml(self.media_ws_url, {"key": key, "direction": "inbound"}, pause_s=1)
+        return stream_twiml(
+            self.media_ws_url, self.stream_params(key, direction="inbound"), pause_s=1
+        )
 
     async def handle_stream_message(self, msg: dict, send: SendText, state: dict) -> None:
         """One Twilio Media Streams WebSocket message (``state`` is per-socket)."""
@@ -752,15 +808,18 @@ class TwilioTelephony:
         if event == "start":
             start = msg.get("start", {})
             params = start.get("customParameters", {})
-            key = params.get("key")
-            leg = self.legs.get(key or "") or self.by_sid.get(start.get("callSid", ""))
-            if leg is None:
-                log.warning("media stream for unknown call")
+            leg = self._stream_authorised(params)
+            if leg is None:  # SECURITY-18: no key/token -> no audio, whatever the callSid
+                log.warning("rejected media stream without a valid per-call token")
                 return
-            state["leg"] = leg
             if params.get("role") == "monitor":  # listen-only fork after bridging
+                state["leg"] = leg
                 leg.attach_monitor(msg.get("streamSid") or start.get("streamSid"))
                 return
+            if leg.stream_sid is not None:  # a second start for an attached leg
+                log.warning("rejected a second media stream for an attached call")
+                return
+            state["leg"] = leg
             leg.attach_stream(msg.get("streamSid") or start.get("streamSid"), send)
             if leg.inbound and not leg.claimed and leg.provider_call_id:
                 self.inbound_legs[leg.provider_call_id] = leg
