@@ -1,0 +1,99 @@
+# Phase 1 beta: decisions, 3-day plan and progress log
+
+Single place for every decision taken while planning the first live beta, so the next session can
+continue without re-deriving anything. Companion docs: `PRODUCTION_CHECKLIST.md` (go/no-go gate),
+`LAUNCH_CHECKLIST.md` (provider setup), `DEPLOY_AWS.md` (how to deploy), `QA_REPORT.md`, `SECURITY_FIXES.md`.
+Started 2026-10-08 ("day 1"). Update the log at the bottom as work lands.
+
+## 1. Decisions
+
+| # | Decision | Notes |
+|---|---|---|
+| D1 | **Goal: a friends-only beta live in 3 days** (5-10 consenting invited users), not a public launch. | Public launch additionally needs OPS-3 pen test, OPS-5 DPIA, OPS-6 breach runbook, KMS/WAF (see `PRODUCTION_CHECKLIST.md` s.3). |
+| D2 | **Channels in phase 1: voice calls + WhatsApp. SMS is OFF.** | Considered "calls only" first, then reversed: WhatsApp stays. Reason it was not feasible: there is **no user-facing voice conversation** in the code (inbound calls only match *business call-backs*, `friday/api/callbacks.py`; onboarding, PIN, approvals, reports all run over WhatsApp). Calls-only would be new engineering (voice onboarding/consent/PIN by DTMF, voice approvals, call-back reports), not a 3-day job. |
+| D3 | SMS off means: no DLT registration, no MSG91, no sender ID, no `FRIDAY_SMS_DLT_TEMPLATES`. | `friday check` shows `sms off DISABLED`; that is expected. A total WhatsApp delivery failure is only logged/audited as `undeliverable`. |
+| D4 | **Everything outside the 24 h WhatsApp window needs an approved Meta template.** Submit all in English and Hindi on day 1 (table in `PRODUCTION_CHECKLIST.md` s.4.1): `friday_task_update_v1`, `friday_question_v1`, `friday_nudge_v1`, `friday_reengage_v1`, `friday_biz_request`, `friday_beneficiary_optin`. | Meta approval is the long pole. If not approved by day 3, mark circle opt-in and message-a-business flows "coming soon". |
+| D5 | Fallback if Meta business verification slips: use the **Meta free test number** (max 5 allow-listed phones). | Enough for a tiny beta. |
+| D6 | Beta scope limited to what is proven live: **bookings and enquiries**. Hotels, customer-care/IVR calls, call transfer ("connect me") and recordings stay **off / "coming soon"** until the Vobiz TODOs (O-2) are confirmed. | Hotels without Expedia keys are disabled in code; recordings forced off without an object store. |
+| D7 | Run with `FRIDAY_PROFILE=beta`, `FRIDAY_INVITE_ONLY=true`, roles `api,task,voice` in **one process on one VM** (O-15: live-call state is in memory). Postgres + Redis from the compose file. | Never scale the `api` service; kill switch is `friday pause`. |
+| D8 | Telephony is **Vobiz only**; the number rented inside Sarvam (+91 80 7158 2175) cannot be used. Need a dedicated number, upgraded account, call queuing OFF. | See `LAUNCH_CHECKLIST.md` s.1. |
+| D9 | **LLM provider still to decide**: Anthropic (default, `ANTHROPIC_API_KEY`) vs the half-finished OpenAI GPT provider (`friday/brain/openai_llm.py`, `OPENAI_API_KEY`; `friday check` already accepts either). Do not leave both half-done. | Open. Default recommendation: Anthropic for the beta, finish GPT later. |
+| D10 | All old API keys are treated as leaked (pasted in chats): **rotate and recreate** before the beta; set monthly spend limits. | `PRODUCTION_CHECKLIST.md` 1.3. |
+| D11 | Docker image is built from the repo `Dockerfile` **on the server** (`deploy/update.sh`). The cloud sandbox cannot pull `ghcr.io`, so use `deploy/build_sandbox.sh` there (see s.4). | |
+
+## 2. Three-day plan
+
+**Day 1 (2026-10-08): first real end-to-end loop**
+- Founder, morning (long-lead items): submit Meta templates (en + hi) and start business verification; upgrade Vobiz
+  account, top up, buy dedicated number, call queuing OFF; rotate keys + spend limits; point the domain at the server.
+- Engineer: build the Docker image (**done**, s.4); provision Lightsail/AWS box (`deploy/lightsail-launch.sh`,
+  `DEPLOY_AWS.md`); run `deploy/update.sh` + `deploy/smoke_test.sh`; `friday check` until "live configuration: OK"
+  (SMS unset); decide the LLM (D9); start on the Meta test number.
+- Evening milestone: WhatsApp the test number, onboard, ask for a call to your own phone, get the call and the
+  WhatsApp report (`LAUNCH_CHECKLIST.md` s.7 steps 1-7).
+- Send the Vobiz questions (`SARVAM_QUESTIONS.md`) today; replies gate day 2.
+
+**Day 2: harden**
+- Resolve what can be verified of the Vobiz `TODO` markers in `friday/voice/telephony/sarvam.py` (hangup causes,
+  codec/endianness, DTMF). Anything unconfirmed stays disabled for testers (D6).
+- Repeat the live flow twice: onboarding, a booking with approval, a business call-back, an inbound call,
+  "delete everything". Grep logs for leaked PINs/numbers.
+- Fix what the first live run breaks.
+- Founder: publish privacy policy, terms, Grievance Officer page and set `FRIDAY_TERMS_URL`, `FRIDAY_PRIVACY_URL`,
+  `FRIDAY_GRIEVANCE_EMAIL`; request vendor ZDR/DPA terms in writing (Anthropic/OpenAI, Sarvam, Vobiz, Meta, Google);
+  verify `friday/discovery/data/official_numbers.json`; name the on-call person.
+- Medium bugs (O-19): approval questions never expire; "2 AM" window display bug.
+
+**Day 3: go/no-go and invite**
+- Morning: dress rehearsal with 2-3 internal users; test kill switch (`friday pause`), `update.sh --rollback`,
+  backup, cost view; run `pytest` + `ruff` on the deploy commit (O-14).
+- Gate: live flow passes twice, no secrets in logs, legal URLs live, vendor terms requested.
+- Afternoon: invite 5-10 friends (invite-only on, caller warm-up caps on); watch live that evening.
+
+## 3. Risks
+
+1. Meta business verification / template approval may not finish (D5 is the fallback). Nudges and late reports outside
+   24 h need approved templates.
+2. No SMS safety net: a Meta restriction stops all text delivery (O-10); calls still work. Accepted for friends-only.
+3. Vobiz trial limits or its AI-voice/spam policy could block outbound calls.
+4. First-run live surprises (webhooks, media WebSocket, Hinglish STT latency) usually cost half a day.
+5. The compose stack, Postgres/Redis path and `smoke_test.sh` have never been run (O-17).
+
+## 4. Docker image: what was verified (2026-10-08)
+
+Built `friday:beta` (477 MB, Python 3.12, non-root uid 10001). Checked: `friday --help`, `serve` boots in simulator
+mode and `/health` returns `{"status":"ok"}`, no proxy CA in the final image, and with `FRIDAY_MODE=live
+FRIDAY_PROFILE=beta` `friday check` refuses to start listing 20 missing items (expected with no secrets).
+LLM, telephony, STT/TTS, WhatsApp, directory, geocoder, task engine and number pool components all load; SMS and
+hotels show as disabled (expected).
+**Not verified:** full pytest suite, production compose stack (Postgres/Redis/Caddy), `smoke_test.sh`, migrations
+on Postgres.
+
+**Cloud-sandbox build quirk.** The repo `Dockerfile` copies `uv` from `ghcr.io/astral-sh/uv:0.8.17`; the Claude cloud
+sandbox's egress policy blocks that blob host (403), and build containers do not trust the sandbox proxy CA. On a
+normal server the repo Dockerfile works as is. In the sandbox use `deploy/build_sandbox.sh`, which builds from a
+temporary Dockerfile that installs the same `uv` from PyPI and trusts `/root/.ccr/ca-bundle.crt` in the builder
+stage only (it never reaches the runtime image; TLS verification is never disabled). Start the daemon first with
+`dockerd &` if needed.
+
+## 5. What `friday check` needs for the beta profile
+
+LLM key; Sarvam API key; Vobiz `SARVAM_TELEPHONY_AUTH_ID`/`_AUTH_TOKEN` + `FRIDAY_NUMBERS`; WhatsApp token, phone
+number id, app secret and a non-default verify token; Google Places key; https `FRIDAY_PUBLIC_BASE_URL`; Postgres
+`FRIDAY_DATABASE_URL`; `FRIDAY_SECRET_KEY`, `FRIDAY_PIN_PEPPER`, `FRIDAY_FIELD_KEY` (or KMS id), `FRIDAY_INDEX_KEY`,
+`FRIDAY_ADMIN_TOKEN`; `FRIDAY_TERMS_URL`, `FRIDAY_PRIVACY_URL`, `FRIDAY_GRIEVANCE_EMAIL`; `FRIDAY_INVITE_ONLY=true`.
+Template: `deploy/env.production.example`. Never commit secrets.
+
+## 6. Open items / next steps
+
+- [ ] D9: choose the LLM and finish its live test.
+- [ ] Provision the server; first `update.sh` + `smoke_test.sh` run; fix what breaks (O-17).
+- [ ] Meta: verification, templates submitted, test number wired to the webhook.
+- [ ] Vobiz: upgrade, number, queuing off, answer/hangup URLs, questions sent.
+- [ ] First live call to the founder's phone (day 1 milestone).
+- [ ] Legal pages, vendor terms, verified care numbers, on-call person.
+- [ ] Possible later work: a real user-facing voice channel (voice onboarding/approvals) if a calls-only product is wanted.
+
+## 7. Log
+
+- 2026-10-08: reviewed repo state and docs; decisions D1-D11; Docker image built and smoke-checked in the sandbox.
