@@ -41,7 +41,7 @@ def _keyed() -> Settings:
         exotel_api_key="k",
         exotel_api_token=SecretStr("t"),
         exotel_caller_id="+918047110001",
-        # core Stage 3: FACTORIES["telephony"] now also lists "sarvam" and "routed"
+        # FACTORIES["telephony"] lists "sarvam" (the live default) and "routed"
         sarvam_telephony_auth_id="sarvam-auth",
         sarvam_telephony_auth_token=SecretStr("t"),
     )

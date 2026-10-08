@@ -73,15 +73,39 @@ def test_live_requires_separate_keys():  # SECURITY-30
     assert len(dev.key_material("field_key")) == 32
 
 
-def test_live_telephony_is_routed_and_csv_lists(monkeypatch):
-    monkeypatch.setenv("FRIDAY_TELEPHONY_ROUTE", "exotel,twilio")
+def test_live_telephony_is_sarvam_only_and_csv_lists(monkeypatch):
     monkeypatch.setenv("FRIDAY_NUMBERS", "+918000000001, +912200000002")
     monkeypatch.setenv("FRIDAY_ROLES", '["api","voice"]')
     s = Settings(_env_file=None, mode="live")
-    assert s.resolve_telephony() == "routed"
-    assert s.telephony_route == ["exotel", "twilio"]
+    assert s.resolve_telephony() == "sarvam"  # founder decision 2026-10-08: auto = Sarvam
+    assert s.telephony_route == ["sarvam"]
     assert s.friday_numbers == ["+918000000001", "+912200000002"]
     assert s.roles == ["api", "voice"] and s.has_role("voice") and not s.has_role("batch")
+    problems = s.live_problems()
+    assert "missing SARVAM_TELEPHONY_AUTH_ID" in problems
+    assert not any("FRIDAY_NUMBERS" in p for p in problems)  # pool present
+    assert any("FRIDAY_OBJECT_STORE_URL" in p for p in problems)
+    ok = s.model_copy(
+        update={
+            "sarvam_telephony_auth_id": "id",
+            "sarvam_telephony_auth_token": "t",
+            "object_store_url": "s3://friday-recordings/prod",
+        }
+    )
+    assert not any("TELEPHONY" in p or "OBJECT_STORE" in p for p in ok.live_problems())
+
+
+def test_live_needs_a_caller_id_pool_for_sarvam():
+    s = make(mode="live", sarvam_telephony_auth_id="i", sarvam_telephony_auth_token="t")
+    assert any("FRIDAY_NUMBERS" in p for p in s.live_problems())
+    assert not any("FRIDAY_NUMBERS" in p for p in s.model_copy(
+        update={"sarvam_caller_ids": ["+918000000001"]}).live_problems())  # fmt: skip
+
+
+def test_routed_failover_is_opt_in(monkeypatch):
+    monkeypatch.setenv("FRIDAY_TELEPHONY_ROUTE", "exotel,twilio")
+    s = Settings(_env_file=None, mode="live", telephony_provider="routed")
+    assert s.resolve_telephony() == "routed" and s.telephony_route == ["exotel", "twilio"]
     assert any("FRIDAY_TELEPHONY_ROUTE" in p for p in s.live_problems())
     configured = s.model_copy(
         update={"twilio_account_sid": "AC1", "twilio_auth_token": "t", "twilio_from_number": "+1"}

@@ -104,3 +104,30 @@ def test_check_commit_delegation_limits():  # SECURITY-27 helper
     assert not check_commit(
         b, [], amount_inr=700, slot_at=datetime(2026, 1, 6, 18, tzinfo=IST), decision="venue"
     ).allowed
+
+
+def test_looks_like_commitment_in_core():
+    from friday.core.safety import looks_like_commitment
+
+    assert looks_like_commitment("6pm ke liye book kar dijiye")
+    assert looks_like_commitment("I confirm the booking")
+    assert not looks_like_commitment("Main Rahul se confirm karke call back karti hoon")
+    assert not looks_like_commitment("What slots are available tomorrow?")
+    assert not looks_like_commitment(None)
+    from friday.voice.commit import looks_like_commitment as voice_copy
+
+    assert voice_copy is looks_like_commitment  # voice re-exports the core detector
+
+
+def test_call_action_slot_at_is_preferred_by_voice():
+    from datetime import datetime
+
+    from friday.core.clock import IST, to_ist
+    from friday.core.models import CallAction, CallActionType
+    from friday.voice.commit import slot_of
+
+    when = datetime(2026, 1, 6, 18, 0, tzinfo=IST)
+    typed = CallAction(type=CallActionType.SAY, text="x", slot_at=when)
+    assert to_ist(slot_of(typed)) == when
+    legacy = CallAction(type=CallActionType.SAY, text="x", collected={"slot_at": when.isoformat()})
+    assert to_ist(slot_of(legacy)) == when
