@@ -1,6 +1,7 @@
 """Sarvam AI text-to-speech (Bulbul). Calm female voices for Indian languages.
 
 REST: ``POST https://api.sarvam.ai/text-to-speech`` (JSON) -> ``{"audios": [b64 wav]}``.
+Models: ``bulbul:v3`` (default) or ``bulbul:v4-flash`` (see constants below).
 Text is filler-stripped and chunked on sentence boundaries (vendor length limit);
 chunks are concatenated into one WAV. ``speech_sample_rate`` defaults to 8 kHz -
 telephony quality, no resampling needed for Twilio.
@@ -9,6 +10,7 @@ telephony quality, no resampling needed for Twilio.
 from __future__ import annotations
 
 import base64
+import os
 import re
 
 import httpx
@@ -25,9 +27,48 @@ from friday.voice.text import strip_fillers
 
 log = get_logger(__name__)
 
-SARVAM_FEMALE_SPEAKERS = frozenset({"anushka", "manisha", "vidya", "arya"})
-DEFAULT_FEMALE_SPEAKER = "anushka"
-MAX_CHARS = 450
+# VERIFIED (docs.sarvam.ai/api-reference/text-to-speech/convert, 2026-10-08): bulbul:v2 is
+# deprecated (HTTP 400). ``bulbul:v3`` is the stable API default (short speaker names, pace
+# 0.5-2.0, temperature, NO pitch / loudness / enable_preprocessing). ``bulbul:v4-flash`` has the
+# same contract but speakers are personas ``<name>_<lang>_<style>``; v3 short names are invalid.
+DEFAULT_MODEL = "bulbul:v3"
+# Founder decision: calm FEMALE voice only. Female bulbul:v3 speakers (docs list; gender per
+# the Voices guide / founder review).
+SARVAM_FEMALE_SPEAKERS = frozenset({
+    "priya", "ritu", "neha", "simran", "kavya", "ishita", "shreya", "roopa", "pooja",
+    "tanya", "shruti", "suhani", "kavitha", "rupali",
+})  # fmt: skip
+DEFAULT_FEMALE_SPEAKER = "ritu"  # tested live 2026-10-08, see docs/SARVAM_QUESTIONS.md
+# First names of v4-flash personas that are female (persona = name_lang_style).
+_V4_FEMALE_NAMES = SARVAM_FEMALE_SPEAKERS | frozenset({
+    "aditi", "aparna", "chandrika", "nupur", "sanchita", "shabana", "shalini", "zarina",
+    "amelia", "sophia", "payal", "chhavi", "sarika", "suchitra", "shilpa", "aarti", "suman",
+    "vandana", "chaitra",
+})  # fmt: skip
+# Default female v4-flash persona per language (only languages the docs list a female one for).
+V4_DEFAULT_PERSONAS: dict[Language, str] = {
+    Language.EN: "simran_en_customer",
+    Language.HI: "ritu_hi_customer",
+    Language.HINGLISH: "simran_enhi_customer",
+    Language.BN: "roopa_bn_conversational",
+    Language.GU: "pooja_gu_conversational",
+    Language.MR: "rupali_mr_stories",
+    Language.TE: "kavitha_te_conversation",
+    Language.KN: "chaitra_kn_conversation",
+}
+SAMPLE_RATES = (8000, 16000, 22050, 24000)
+MAX_CHARS = 450  # docs allow 2500 for v3 / v4-flash; short chunks keep time-to-first-audio low
+
+
+def is_v4(model: str) -> bool:
+    return model.startswith("bulbul:v4")
+
+
+def is_female_speaker(speaker: str, model: str = DEFAULT_MODEL) -> bool:
+    sp = speaker.lower()
+    if is_v4(model):
+        return "_" in sp and sp.split("_")[0] in _V4_FEMALE_NAMES
+    return sp in SARVAM_FEMALE_SPEAKERS
 
 
 def chunk_text(text: str, limit: int = MAX_CHARS) -> list[str]:
@@ -57,13 +98,17 @@ class SarvamTTS:
         api_key: str,
         catalog: VoiceCatalog,
         *,
-        model: str = "bulbul:v2",
+        model: str = DEFAULT_MODEL,
+        temperature: float | None = None,
         sample_rate: int = 8000,
         base_url: str = SARVAM_BASE_URL,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.catalog = catalog
         self.model = model
+        self.temperature = temperature
+        if sample_rate not in SAMPLE_RATES:
+            raise ValueError(f"sarvam TTS sample rate must be one of {SAMPLE_RATES}")
         self.sample_rate = sample_rate
         self._http = VendorHTTP(
             "sarvam",
@@ -72,29 +117,42 @@ class SarvamTTS:
             transport=transport,
         )
 
+    def model_for(self, language: Language) -> str:
+        """v4-flash only has female personas for some languages; others use v3 for that call."""
+        if is_v4(self.model) and language not in V4_DEFAULT_PERSONAS:
+            return DEFAULT_MODEL
+        return self.model
+
     def voice_for(self, language: Language) -> VoiceProfile:
         profile = self.catalog.profile(language)
-        if profile.voice_id.lower() not in SARVAM_FEMALE_SPEAKERS:
-            log.warning(
-                "sarvam speaker %r is not a known female voice; using %s",
-                profile.voice_id,
-                DEFAULT_FEMALE_SPEAKER,
+        model = self.model_for(language)
+        if not is_female_speaker(profile.voice_id, model):
+            fallback = (
+                V4_DEFAULT_PERSONAS[language] if is_v4(model) else DEFAULT_FEMALE_SPEAKER
             )
-            profile = profile.model_copy(update={"voice_id": DEFAULT_FEMALE_SPEAKER})
+            log.info(
+                "sarvam speaker %r is not a known female %s voice; using %s",
+                profile.voice_id,
+                model,
+                fallback,
+            )
+            profile = profile.model_copy(update={"voice_id": fallback})
         return profile
 
     def payload(self, text: str, language: Language, voice: VoiceProfile) -> dict:
-        return {
+        model = self.model_for(language)
+        pace = min(2.0, max(0.5, voice.speaking_rate))
+        body = {
             "text": text,
             "target_language_code": sarvam_code(language),
             "speaker": voice.voice_id.lower(),
-            "model": self.model,
-            "pace": voice.speaking_rate,
-            "pitch": 0,
-            "loudness": 1.0,
+            "model": model,
+            "pace": pace,
             "speech_sample_rate": self.sample_rate,
-            "enable_preprocessing": True,  # numbers/dates read naturally
         }
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
+        return body
 
     async def synthesize(
         self, text: str, language: Language, *, voice: VoiceProfile | None = None
@@ -129,6 +187,16 @@ def build_sarvam_tts(c: Container) -> SarvamTTS:
     s = c.settings
     if not s.sarvam_api_key:
         raise ProviderError("sarvam", "SARVAM_API_KEY not set")
+    # Settings has no model field yet (proposed in docs/CORE_CHANGES.md): use it when core adds
+    # it, else the FRIDAY_SARVAM_TTS_MODEL env var, else the stable default.
+    model = (
+        getattr(s, "sarvam_tts_model", None)
+        or os.environ.get("FRIDAY_SARVAM_TTS_MODEL")
+        or DEFAULT_MODEL
+    )
+    # A leftover bulbul:v2 name (the old Settings default "anushka") falls back in voice_for.
     default = (s.sarvam_tts_speaker or DEFAULT_FEMALE_SPEAKER).lower()
+    if not is_female_speaker(default, model):
+        default = DEFAULT_FEMALE_SPEAKER if not is_v4(model) else "simran_en_customer"
     catalog = VoiceCatalog("sarvam", s, {}, default)
-    return SarvamTTS(s.sarvam_api_key.get_secret_value(), catalog)
+    return SarvamTTS(s.sarvam_api_key.get_secret_value(), catalog, model=model)

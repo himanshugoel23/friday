@@ -347,7 +347,8 @@ def _print_load(r: dict) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="friday")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("check")
+    check = sub.add_parser("check")
+    check.add_argument("--live", action="store_true", help="also run the read-only Vobiz probe")
     sub.add_parser("initdb")
     sub.add_parser("serve")
     worker = sub.add_parser("worker", help="run background roles without the HTTP server")
@@ -366,7 +367,12 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(settings.log_level, settings.log_json)
 
     if args.cmd == "check":
-        return _check(settings)
+        rc = _check(settings)
+        if args.live:
+            from friday.voice.telephony.vobiz_probe import run_live_check
+
+            rc = run_live_check(settings) or rc
+        return rc
     if args.cmd == "initdb":
         asyncio.run(_initdb(settings))
         return 0
