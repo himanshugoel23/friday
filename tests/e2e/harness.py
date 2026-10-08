@@ -157,8 +157,16 @@ class Friday:
     async def advance(self, **delta: float) -> None:
         """Move the fake clock, fire due timers, run every due job."""
         self.clock.advance(**delta)
+        await self.deliver_inbound()
         await self.engine.tick()
         await self.settle()
+
+    async def deliver_inbound(self) -> list[str]:
+        """Deliver scripted business call-backs / missed calls that are now due."""
+        tel = self.c.telephony
+        ids = await tel.deliver_due_inbound() if hasattr(tel, "deliver_due_inbound") else []
+        await self.settle()
+        return ids
 
     def person(self, phone: str) -> Party:
         return Person(self, phone)
