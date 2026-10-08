@@ -108,7 +108,7 @@ async def env(env_settings) -> Env:
         ),
     )
     engine = TaskEngine(
-        c, policy=TaskPolicy(_env_file=None, caller_ids=["+918069110001", "+918069110002"])
+        c, policy=TaskPolicy(caller_ids=["+918069110001", "+918069110002"])
     )
     c.override("task_engine", engine)
     user = User(phone="+919811111111")

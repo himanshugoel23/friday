@@ -20,7 +20,7 @@ from friday.core.models import (
     SendReceipt,
     TemplateRef,
 )
-from friday.db.repositories._base import Repo, dump_json, dump_json_list, row_dict
+from friday.db.repositories._base import Repo, dump_json, dump_json_list, phone_index, row_dict
 from friday.db.tables import MessageRow
 
 
@@ -66,6 +66,7 @@ class MessageRepo(Repo):
             channel=msg.channel.value,
             kind=msg.kind.value,
             phone=msg.from_phone,
+            phone_hmac=phone_index(msg.from_phone),
             text=msg.text,
             buttons=[],
             button_id=msg.button_id,
@@ -92,6 +93,7 @@ class MessageRepo(Repo):
             channel=msg.channel.value,
             kind=kind.value,
             phone=msg.to_phone,
+            phone_hmac=phone_index(msg.to_phone),
             text=msg.text,
             buttons=dump_json_list(list(msg.buttons)),
             template=dump_json(msg.template),
@@ -183,7 +185,7 @@ class MessageRepo(Repo):
             row = (
                 await s.execute(
                     select(MessageRow)
-                    .where(MessageRow.phone == phone, MessageRow.direction == "outbound")
+                    .where(MessageRow.phone_hmac == phone_index(phone), MessageRow.direction == "outbound")
                     .order_by(MessageRow.at.desc())
                     .limit(1)
                 )
@@ -195,7 +197,7 @@ class MessageRepo(Repo):
             row = (
                 await s.execute(
                     select(MessageRow)
-                    .where(MessageRow.phone == phone, MessageRow.direction == "inbound")
+                    .where(MessageRow.phone_hmac == phone_index(phone), MessageRow.direction == "inbound")
                     .order_by(MessageRow.at.desc())
                     .limit(1)
                 )

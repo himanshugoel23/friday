@@ -1,8 +1,10 @@
-"""Task-engine events (subclasses of the core ``Event``; no core change needed)."""
+"""Task-engine events. ``WellbeingAlertRaised`` now lives in core (re-exported)."""
 
 from __future__ import annotations
 
-from friday.core.events import Event, WellbeingAlertRaised  # noqa: F401  (moved to core)
+from friday.core.events import Event, WellbeingAlertRaised
+
+__all__ = ["BusinessContactLogged", "WellbeingAlertRaised"]
 
 
 class BusinessContactLogged(Event):

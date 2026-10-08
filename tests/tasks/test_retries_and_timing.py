@@ -113,7 +113,7 @@ async def test_business_hours_queue_and_lunch(env):
     assert t.status == S.SCHEDULED and to_ist(t.next_attempt_at).strftime("%H:%M") == "17:05"
     assert any("I'll call at" in x for x in env.texts())
     assert await env.advance_and_tick(hours=4) == 1
-    assert (await env.get(t.id)).status == S.COMPLETED
+    assert (await env.get(t.id)).status == S.AWAITING_APPROVAL  # unapproved SUCCESS downgraded (SECURITY-4)
     # unknown hours at 13:45 -> after the lunch window (14:30)
     env.clock.set(datetime(2026, 1, 6, 13, 45, tzinfo=IST))
     t2 = await env.task(booking(phone="+919812340000", name="New Place"))
@@ -134,13 +134,13 @@ async def test_suspicious_number_needs_go(env):
     assert t.status == S.AWAITING_APPROVAL and "Still call?" in env.texts()[-1]
     await env.engine.approve(t.id, True)
     await env.engine.drain()
-    assert (await env.get(t.id)).status == S.COMPLETED and len(env.runner.briefs) == 1
+    assert (await env.get(t.id)).status == S.AWAITING_APPROVAL and len(env.runner.briefs) == 1
 
 
 async def test_name_only_resolved_via_directory(env):
     spec = booking(phone=None, name="Looks Unisex Salon", location_text="Indiranagar")
     t = await env.task(spec)
-    assert t.target.phone == LOOKS and t.status == S.COMPLETED
+    assert t.target.phone == LOOKS and t.status == S.AWAITING_APPROVAL
     biz = await env.repos.businesses.get_by_phone(LOOKS)
     assert biz.hours is not None and biz.directory_place_id == "sim-looks-salon"
 
@@ -157,7 +157,7 @@ async def test_pre_call_approval_for_proactive_task(env):
     assert t.status == S.AWAITING_APPROVAL and env.runner.briefs == []
     await env.engine.handle_button(env.user.id, approval_button_id(t.id, True))
     await env.engine.drain()
-    assert (await env.get(t.id)).status == S.COMPLETED
+    assert (await env.get(t.id)).status == S.AWAITING_APPROVAL
 
 
 async def test_abuse_limit_queues_to_tomorrow(env):

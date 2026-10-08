@@ -72,16 +72,19 @@ from friday.core.models import (
     TargetKind,
     Task,
     TaskResult,
+    TaskRole,
     TaskSpec,
     TaskType,
     TemplateRef,
     UserAnswer,
     VendorInteraction,
     approval_button_id,
+    normalize_phone,
     parse_button_id,
     question_button_id,
 )
 from friday.core.models import TaskStatus as S
+from friday.core.safety import check_commit
 from friday.discovery.geo import is_toll_free, phone_key
 from friday.tasks import states
 from friday.tasks.categories import category_for, level_for
@@ -96,16 +99,16 @@ from friday.tasks.scheduling import next_call_time, retry_at
 log = get_logger(__name__)
 
 # ------------------------------------------------------------------ child roles
-# Persisted as a tag in ``spec.notes`` until core gets ``Task.role`` (CORE_CHANGES).
-ROLE_FANOUT = "fanout"  # one candidate of a discovery/compare/stock-hunt parent
-ROLE_BOOKING = "booking"  # booking call for the option the user chose
-ROLE_INSTANCE = "instance"  # one occurrence of a recurring series
-ROLE_RECONFIRM = "reconfirm"  # hotel day-before reconfirm
-ROLE_CARE_FOLLOWUP = "care_followup"  # C25 follow-up at promised date
-ROLE_CALLBACK = "callback"  # business called back about a resolved booking (E.32/37)
-ROLE_CLOSE_LOOP = "close_loop"  # polite "need already met" call-back (E.37)
-ROLE_RETRY = "retry"  # user asked to try again later / tomorrow
-_ROLE_RE = re.compile(r"\[friday:role=(\w+)\]")
+# Stored on ``Task.role`` (core ``TaskRole`` values).
+ROLE_FANOUT = TaskRole.FANOUT.value  # one candidate of a discovery/compare/stock-hunt parent
+ROLE_BOOKING = TaskRole.BOOKING.value  # booking call for the option the user chose
+ROLE_INSTANCE = TaskRole.INSTANCE.value  # one occurrence of a recurring series
+ROLE_RECONFIRM = TaskRole.RECONFIRM.value  # hotel day-before reconfirm
+ROLE_CARE_FOLLOWUP = TaskRole.CARE_FOLLOWUP.value  # C25 follow-up at promised date
+ROLE_CALLBACK = TaskRole.CALLBACK.value  # business called back about a resolved booking (E.32/37)
+ROLE_CLOSE_LOOP = TaskRole.CLOSE_LOOP.value  # polite "need already met" call-back (E.37)
+ROLE_RETRY = TaskRole.RETRY.value  # user asked to try again later / tomorrow
+
 
 # children created as part of satisfying the parent's need (cancelled when it resolves)
 _NEED_ROLES = {ROLE_FANOUT}
@@ -121,6 +124,7 @@ BOOKING_TYPES = {
     TaskType.RESCHEDULE,
 }
 # a pure decline ("None", "neither", "nahi"); "neither, ask for Sunday" is a new choice
+COMMIT_TYPES = BOOKING_TYPES | {TaskType.RECURRING_BOOKING}
 DECLINE_WORDS = re.compile(
     r"^\s*(none( of (these|them))?|neither|no( thanks)?|nahi+n?|cancel|don'?t book( it)?)[\s.!]*$",
     re.I,
@@ -128,14 +132,11 @@ DECLINE_WORDS = re.compile(
 
 
 def role_of(task: Task) -> str | None:
-    m = _ROLE_RE.search(task.spec.notes or "")
-    return m.group(1) if m else None
+    return task.role
 
 
-def with_role(spec: TaskSpec, role: str, **updates: Any) -> TaskSpec:
-    notes = _ROLE_RE.sub("", spec.notes or "").strip()
-    tag = f"[friday:role={role}]"
-    return spec.model_copy(update={**updates, "notes": f"{tag} {notes}".strip()})
+def _child_spec(spec: TaskSpec, **updates: Any) -> TaskSpec:
+    return spec.model_copy(update=updates)
 
 
 class TaskAborted(Exception):  # noqa: N818 - control flow
@@ -174,7 +175,7 @@ class TaskEngine:
         self.settings = c.settings
         self.clock = c.clock
         self.bus = c.bus
-        self.policy = policy or TaskPolicy()
+        self.policy = policy or TaskPolicy.from_settings(c.settings)
         self._global_calls = asyncio.Semaphore(max(1, self.settings.max_concurrent_calls))
         self._jobs: dict[str, set[asyncio.Task]] = {}
         self._calls: dict[str, asyncio.Task] = {}  # task_id -> running call coroutine task
@@ -186,20 +187,8 @@ class TaskEngine:
         self._calls_today: dict[tuple[str, str], int] = {}
         self._worker: asyncio.Task | None = None
         self._stopping = asyncio.Event()
-        # Friday caller-ID pool (E.30). Settings.friday_numbers is proposed for core.
-        self.caller_ids: list[str] = list(
-            getattr(self.settings, "friday_numbers", None)
-            or self.policy.caller_ids
-            or [
-                n
-                for n in (
-                    self.settings.twilio_from_number,
-                    self.settings.exotel_caller_id,
-                    self.settings.plivo_from_number,
-                )
-                if n
-            ]
-        )
+        # Friday caller-ID pool (E.30): Settings.friday_numbers (NumberPool supersedes).
+        self.caller_ids: list[str] = list(self.policy.caller_ids)
 
     # ================================================================== deps
     def _opt(self, name: str) -> Any:
@@ -578,9 +567,9 @@ class TaskEngine:
             beneficiary=parent.beneficiary,
             place_id=parent.place_id,
             type=btype,
-            spec=with_role(
+            role=ROLE_BOOKING,
+            spec=_child_spec(
                 parent.spec,
-                ROLE_BOOKING,
                 type=btype,
                 business_name=source.target.name,
                 business_phone=source.target.phone,
@@ -880,7 +869,9 @@ class TaskEngine:
                 created_at=self.clock.now(),
             )
             if cand is not None:
-                hours = await call_opt(self._opt("directory"), "business_hours", cand.place_id)
+                hours = cand.hours or await call_opt(
+                    self._opt("directory"), "business_hours", cand.place_id
+                )
                 if hours:
                     biz.hours = hours
             biz = await call_opt(businesses, "upsert", biz) or biz
@@ -1042,7 +1033,9 @@ class TaskEngine:
             if caller_id is None:  # no pool configured: reuse whatever number we used last
                 caller_id = await call_opt(self.calls, "sticky_number", task.target.phone)
         result = await self._run_call(task, brief, inbound_leg=inbound_leg, from_number=caller_id)
-        await self._process_result(task, result, is_confirm=is_confirm, caller_id=caller_id)
+        await self._process_result(
+            task, result, is_confirm=is_confirm, caller_id=caller_id, brief=brief
+        )
 
     async def _run_call(
         self,
@@ -1178,8 +1171,15 @@ class TaskEngine:
 
     # ================================================================== results
     async def _process_result(
-        self, task: Task, result: CallResult, *, is_confirm: bool, caller_id: str | None = None
+        self,
+        task: Task,
+        result: CallResult,
+        *,
+        is_confirm: bool,
+        caller_id: str | None = None,
+        brief: CallBrief | None = None,
     ) -> None:
+        result = await self._guard_commit(task, result, brief)
         # save_call persists the call, quotes, questions, cost ledger and call memory
         await self.tasks.save_call(result)
         task.cost_inr_est += result.cost_inr_est
@@ -1199,6 +1199,30 @@ class TaskEngine:
                 at=result.started_at,
             )
         await self._handle_outcome(task, result, is_confirm=is_confirm)
+
+    async def _guard_commit(
+        self, task: Task, result: CallResult, brief: CallBrief | None
+    ) -> CallResult:
+        """SECURITY-4: a booking/order is only "done" when the runner reports a gated
+        commit (``collected["committed"] == "true"``) AND ``core.safety.check_commit``
+        allows it for this brief. Otherwise the SUCCESS is downgraded to
+        PENDING_APPROVAL, i.e. the user is asked before anything is confirmed."""
+        if result.outcome != CallOutcome.SUCCESS or task.type not in COMMIT_TYPES:
+            return result
+        committed = str(result.collected.get("committed", "")).lower() == "true"
+        amount = next((q.amount_inr for q in result.quotes if q.amount_inr is not None), None)
+        allowed = (
+            brief is not None and check_commit(brief, result.answers, amount_inr=amount).allowed
+        )
+        if committed and allowed:
+            return result
+        await self._audit(
+            task,
+            "outcome.downgraded",
+            reason="no gated commit" if not committed else "commit not allowed",
+        )
+        log.warning("task %s: SUCCESS without an approved commit -> PENDING_APPROVAL", task.id)
+        return result.model_copy(update={"outcome": CallOutcome.PENDING_APPROVAL})
 
     async def _handle_outcome(self, task: Task, result: CallResult, *, is_confirm: bool) -> None:
         o = result.outcome
@@ -1523,9 +1547,9 @@ class TaskEngine:
             beneficiary=task.beneficiary,
             place_id=task.place_id,
             type=ttype,
-            spec=with_role(
+            role=role,
+            spec=_child_spec(
                 task.spec,
-                role,
                 type=ttype,
                 goal=goal,
                 fan_out=None,
@@ -1625,7 +1649,8 @@ class TaskEngine:
             beneficiary=task.beneficiary,
             place_id=task.place_id,
             type=task.type,
-            spec=with_role(task.spec, ROLE_RETRY),
+            role=ROLE_RETRY,
+            spec=_child_spec(task.spec),
             target=task.target,
             delegation=task.delegation,
             max_attempts=self.policy.max_attempts,
@@ -1859,9 +1884,9 @@ class TaskEngine:
                 beneficiary=parent.beneficiary,
                 place_id=parent.place_id,
                 type=ctype,
-                spec=with_role(
+                role=ROLE_FANOUT,
+                spec=_child_spec(
                     parent.spec,
-                    ROLE_FANOUT,
                     type=ctype,
                     business_name=cand.name,
                     business_phone=cand.phone,
@@ -2060,9 +2085,9 @@ class TaskEngine:
             beneficiary=parent.beneficiary,
             place_id=parent.place_id,
             type=itype,
-            spec=with_role(
+            role=ROLE_INSTANCE,
+            spec=_child_spec(
                 parent.spec,
-                ROLE_INSTANCE,
                 type=itype,
                 recurrence=None,
                 fan_out=None,
@@ -2110,18 +2135,7 @@ class TaskEngine:
         tasks = [t for t in [await self.tasks.get(tid) for tid in ids] if t is not None]
         phone = getattr(match, "from_phone", "")
         key = phone_key(phone) if phone else ""
-        called = {phone_key(m.business_phone) for m in getattr(match, "candidates", []) or []}
-        on_record = key in called or any(
-            t.target is not None and phone_key(t.target.phone) == key for t in tasks
-        )
-        biz = await call_opt(repo(self.repos, "businesses"), "get_by_phone", phone)
-        if biz is not None and phone_key(biz.phone) != key:
-            on_record = False
-        flagged = biz is not None and biz.verification in (
-            NumberVerdict.SCAM,
-            NumberVerdict.SUSPICIOUS,
-        )
-        verified = bool(tasks) and on_record and not flagged
+        verified = await self._caller_matches(match, tasks)
         if tasks and not verified:  # E.34: flag the mismatch to the scam check
             self._verified.pop(key, None)
             await self._verify(phone, name=tasks[0].target.name if tasks[0].target else None)
@@ -2130,6 +2144,42 @@ class TaskEngine:
                 "inbound caller-ID %s does not match the business record", mask_phone(phone)
             )
         return tasks, verified
+
+    async def _caller_matches(self, match: Any, tasks: list[Task]) -> bool:
+        """SECURITY-8 / E.34, strict: the caller ID equals (E.164) the number we called
+        for the matched task, call memory has that call from the Friday number they
+        rang (when known), and the business isn't flagged."""
+        if not tasks:
+            return False
+        try:
+            caller = normalize_phone(getattr(match, "from_phone", "") or "")
+        except ValueError:
+            return False
+        friday_number = getattr(match, "friday_number", None)
+        memories = list(getattr(match, "candidates", []) or [])
+        ok = False
+        for t in tasks:
+            if t.target is None:
+                continue
+            try:
+                same = normalize_phone(t.target.phone) == caller
+            except ValueError:
+                same = False
+            if not same:
+                continue
+            mine = [m for m in memories if m.task_id == t.id]
+            if friday_number:
+                mine = [m for m in mine if getattr(m, "friday_number", None) == friday_number]
+            if mine:
+                ok = True
+                break
+        if not ok:
+            return False
+        biz = await call_opt(repo(self.repos, "businesses"), "get_by_phone", caller)
+        return not (
+            biz is not None
+            and biz.verification in (NumberVerdict.SCAM, NumberVerdict.SUSPICIOUS)
+        )
 
     async def _classify(self, tasks: list[Task]) -> tuple[str, list[Task]]:
         """E.37 decision by state: resume | choose_task | about_offer | about_booking |
@@ -2197,9 +2247,9 @@ class TaskEngine:
             beneficiary=task.beneficiary,
             place_id=task.place_id,
             type=ttype,
-            spec=with_role(
+            role=role,
+            spec=_child_spec(
                 task.spec,
-                role,
                 goal=goals[action],
                 fan_out=None,
                 recurrence=None,
@@ -2299,6 +2349,10 @@ class TaskEngine:
         phone = getattr(match, "from_phone", "")
         if not tasks:
             return await self.handle_unknown_caller(match, contact, leg=leg)
+        if not verified:  # SECURITY-8: no user/task details to an unverified caller
+            plan = await self.handle_unknown_caller(match, contact, leg=leg)
+            plan.task_ids = [t.id for t in tasks]
+            return plan
         action, matched = await self._classify(tasks)
         primary = matched[0]
         who = await self._requester_name(primary)
@@ -2360,7 +2414,7 @@ class TaskEngine:
                 )
                 result = result.model_copy(update={"task_id": other.id})
                 task, is_confirm = other, bool(other.approved_terms)
-        await self._process_result(task, result, is_confirm=is_confirm)
+        await self._process_result(task, result, is_confirm=is_confirm, brief=brief)
         return result
 
     async def handle_missed_call(self, match: Any, contact: Any = None) -> InboundPlan:
@@ -2647,7 +2701,7 @@ def _has_offer(task: Task) -> bool:
 
 
 def _alt_numbers(biz: Business) -> list[str]:
-    alts = list(getattr(biz, "alt_phones", []) or [])  # proposed core field
+    alts = list(biz.alt_phones)
     if biz.whatsapp_phone:
         alts.append(biz.whatsapp_phone)
     return alts

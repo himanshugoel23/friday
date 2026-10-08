@@ -161,6 +161,7 @@ class ProactiveEngine:
             return None
         verdict = await self._guard(cand)
         nudge = Nudge(
+            id=cand.nudge_id,
             user_id=cand.user_id,
             kind=cand.kind,
             category=cand.category,

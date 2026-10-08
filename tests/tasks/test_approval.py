@@ -222,3 +222,33 @@ async def test_submit_preexisting_task_and_update_spec(env):
     await env.engine.drain()
     assert (await env.get(task.id)).status == S.AWAITING_APPROVAL
     assert (S.NEEDS_INFO, S.PLANNING) in env.transitions
+
+
+async def test_security4_hallucinated_success_is_downgraded(env):
+    """A runner/brain claiming SUCCESS without a gated commit never books (SECURITY-4)."""
+    env.runner.script(LOOKS, outcome(CallOutcome.SUCCESS, collected={"summary": "Booked!"}))
+    t = await env.task(booking())
+    assert t.status == S.AWAITING_APPROVAL and t.last_outcome == CallOutcome.PENDING_APPROVAL
+    assert "outcome.downgraded" in env.repos.audit.actions()
+    assert InteractionKind.BOOKED not in env.repos.businesses.kinds()
+
+
+async def test_security4_committed_flag_without_authority_is_downgraded(env):
+    """Even a 'committed' flag is ignored when check_commit refuses (no approval)."""
+    env.runner.script(
+        LOOKS, outcome(CallOutcome.SUCCESS, collected={"committed": "true", "summary": "Booked!"})
+    )
+    t = await env.task(booking())
+    assert t.status == S.AWAITING_APPROVAL
+
+
+async def test_security4_delegation_ceiling_enforced(env):
+    from tests.tasks.fakes import quote
+
+    d = Delegation(granted=True, max_price_inr=300)
+    env.runner.script(
+        LOOKS,
+        outcome(CallOutcome.SUCCESS, quotes=[quote("Looks", 400)], collected={"committed": "true"}),
+    )
+    t = await env.task(booking(delegation=d))
+    assert t.status == S.AWAITING_APPROVAL  # ₹400 > delegated ₹300 ceiling

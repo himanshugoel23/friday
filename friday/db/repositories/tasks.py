@@ -29,7 +29,14 @@ from friday.core.models import (
     UserAnswer,
     new_id,
 )
-from friday.db.repositories._base import Repo, copy_simple, dump_json, dump_json_list, row_dict
+from friday.db.repositories._base import (
+    Repo,
+    copy_simple,
+    dump_json,
+    dump_json_list,
+    phone_index,
+    row_dict,
+)
 from friday.db.tables import (
     CallMemoryRow,
     CallQuestionRow,
@@ -300,6 +307,7 @@ class TaskRepo(Repo):
                 task_id=result.task_id,
                 user_id=task_row.requester_user_id,
                 business_phone=result.to_phone,
+                business_phone_hmac=phone_index(result.to_phone),
                 direction=result.direction.value,
                 at=result.started_at,
             )

@@ -77,31 +77,18 @@ async def test_pin_never_stored_raw_anywhere(repos, clock, db) -> None:
     assert f"'{PIN}'" not in await _all_tables_dump(db)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-12: Person.notes (health data) stored in plaintext - needs field-level "
-    "encryption",
-)
 async def test_person_notes_encrypted_at_rest(repos, clock, db) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     await repos.people.upsert(Person(owner_user_id=user.id, name="Ramesh", notes=DAD_NOTES))
     assert "insulin" not in await _raw_dump(db, "people")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-12: saved addresses stored in plaintext - needs field-level encryption",
-)
 async def test_place_address_encrypted_at_rest(repos, clock, db) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     await repos.places.upsert(Place(owner_user_id=user.id, label="Home", address_text=HOME_ADDRESS))
     assert "Shanti Apartments" not in await _raw_dump(db, "places")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-12: call transcripts stored in plaintext - needs field-level encryption",
-)
 async def test_call_transcript_encrypted_at_rest(repos, clock, db) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     task = Task(

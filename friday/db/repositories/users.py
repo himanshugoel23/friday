@@ -16,7 +16,7 @@ from friday.core.models import (
     User,
     UserStatus,
 )
-from friday.db.repositories._base import Repo, copy_simple, row_dict
+from friday.db.repositories._base import Repo, copy_simple, phone_index, row_dict
 from friday.db.tables import (
     AutonomySettingRow,
     ConsentRow,
@@ -41,19 +41,19 @@ class UserRepo(Repo):
     async def get_by_phone(self, phone: str) -> User | None:
         async with self.db.session() as s:
             row = (
-                await s.execute(select(UserRow).where(UserRow.phone == phone))
+                await s.execute(select(UserRow).where(UserRow.phone_hmac == phone_index(phone)))
             ).scalar_one_or_none()
             return _user(row) if row else None
 
     async def add(self, user: User) -> User:
         async with self.db.session() as s:
-            s.add(UserRow(**copy_simple(user, UserRow)))
+            s.add(UserRow(**copy_simple(user, UserRow), phone_hmac=phone_index(user.phone)))
         return user
 
     async def save(self, user: User) -> User:
         user.updated_at = self.now()
         async with self.db.session() as s:
-            await s.merge(UserRow(**copy_simple(user, UserRow)))
+            await s.merge(UserRow(**copy_simple(user, UserRow), phone_hmac=phone_index(user.phone)))
         return user
 
     async def list_by_status(self, *statuses: UserStatus) -> list[User]:

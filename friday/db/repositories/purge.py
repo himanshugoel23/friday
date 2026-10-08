@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import delete, update
 
 from friday.core.models import OnboardingStep, UserStatus
-from friday.db.repositories._base import Repo
+from friday.db.repositories._base import Repo, phone_index
 from friday.db.tables import (
     AccountIdentifierRow,
     AuditRow,
@@ -85,6 +85,7 @@ class DataPurger(Repo):
                 .where(UserRow.id == user_id)
                 .values(
                     phone=tombstone_phone(user_id),
+                    phone_hmac=phone_index(tombstone_phone(user_id)),
                     status=UserStatus.DELETED.value,
                     onboarding_step=OnboardingStep.DONE.value,
                     pin_hash=None,

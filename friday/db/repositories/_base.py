@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
 from typing import Any, TypeVar
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from pydantic import BaseModel
 
 from friday.core.clock import Clock, SystemClock
@@ -61,19 +62,62 @@ def row_dict(row: Any, *, skip: set[str] = frozenset()) -> dict[str, Any]:
     return {k: getattr(row, k) for k in columns(type(row)) if k not in skip}
 
 
-class SecretBox:
-    """Symmetric encryption for identifier values at rest (Fernet, key derived from
-    ``Settings.secret_key``). Never log plaintext or ciphertext."""
+def phone_index(phone: str) -> str:
+    """Blind index (HMAC-SHA256, index key) for equality lookups on encrypted phones."""
+    from friday.core.crypto import get_field_cipher
 
-    def __init__(self, secret: str) -> None:
-        key = hashlib.sha256(("friday-identifiers:" + secret).encode()).digest()
-        self._fernet = Fernet(base64.urlsafe_b64encode(key))
+    return get_field_cipher().blind_index(phone, label="phone")
+
+
+def _hkdf(secret: str, label: str) -> bytes:
+    """HKDF-SHA256 (RFC 5869) -> 32 bytes, purpose-labelled (SECURITY-13)."""
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+    return HKDF(
+        algorithm=hashes.SHA256(), length=32, salt=b"friday-kdf-v1", info=label.encode()
+    ).derive(secret.encode())
+
+
+def _legacy_key(secret: str) -> bytes:
+    """Wave-1 derivation (bare SHA-256); read-only so old rows stay readable."""
+    return hashlib.sha256(("friday-identifiers:" + secret).encode()).digest()
+
+
+class SecretBox:
+    """Symmetric encryption for identifier values at rest (Fernet).
+
+    SECURITY-13: keys are HKDF-derived with a purpose label; ``previous`` secrets (and
+    the wave-1 SHA-256 derivation) stay readable via ``MultiFernet``; ``rotate`` re-
+    encrypts a token under the current key. Never log plaintext or ciphertext."""
+
+    LABEL = "identifiers"
+
+    def __init__(self, secret: str, previous: Sequence[str] = ()) -> None:
+        keys = [_hkdf(secret, self.LABEL)]
+        keys += [_hkdf(p, self.LABEL) for p in previous]
+        keys += [_legacy_key(secret)] + [_legacy_key(p) for p in previous]
+        self._fernet = MultiFernet([Fernet(base64.urlsafe_b64encode(k)) for k in keys])
+        self._current = Fernet(base64.urlsafe_b64encode(keys[0]))
 
     def encrypt(self, plaintext: str) -> str:
-        return self._fernet.encrypt(plaintext.encode()).decode()
+        return self._current.encrypt(plaintext.encode()).decode()
 
     def decrypt(self, token: str) -> str:
         try:
             return self._fernet.decrypt(token.encode()).decode()
         except InvalidToken as e:  # wrong key / tampered
+            raise ValueError("identifier could not be decrypted (secret key changed?)") from e
+
+    def needs_rotation(self, token: str) -> bool:
+        try:
+            self._current.decrypt(token.encode())
+        except InvalidToken:
+            return True
+        return False
+
+    def rotate(self, token: str) -> str:
+        try:
+            return self._fernet.rotate(token.encode()).decode()
+        except InvalidToken as e:
             raise ValueError("identifier could not be decrypted (secret key changed?)") from e

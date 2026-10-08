@@ -110,9 +110,10 @@ async def test_unverified_caller_gets_no_details_and_is_flagged(env):
     plan = await env.engine.handle_business_callback(
         await env.repos.calls.match(LOOKS), None, leg=LEG
     )
-    assert not plan.verified
-    brief = env.runner.inbound[0][1]
-    assert brief.shareable_details == {} and any("unverified" in c for c in brief.constraints)
+    assert not plan.verified and plan.action == "take_message"
+    brief = env.runner.inbound[0][1]  # SECURITY-8: message-taking brief, no user details
+    assert brief.shareable_details == {} and brief.requester_user_id == ""
+    assert "Rahul" not in brief.goal and "Haircut" not in brief.goal
     assert "inbound.caller_mismatch" in env.repos.audit.actions()
     # an unverified missed call is never auto-called back
     n = len(env.runner.briefs)
@@ -277,7 +278,7 @@ async def test_runner_without_from_number_kwarg_still_works(env):
     old = OldRunner()
     env.container.override("call_runner", old)
     t = await env.task(booking())
-    assert t.status == S.COMPLETED and len(old.briefs) == 1
+    assert t.status == S.AWAITING_APPROVAL and len(old.briefs) == 1
 
 
 async def test_inbound_leg_taken_from_telephony_by_provider_call_id(env):
@@ -300,3 +301,16 @@ async def test_inbound_leg_taken_from_telephony_by_provider_call_id(env):
 
     plan = await env.engine.handle_business_callback(await env.repos.calls.match(LOOKS), Contact())
     assert tel.asked == ["CA123"] and env.runner.inbound[0][0] is LEG and plan.result is not None
+
+
+async def test_security8_caller_must_match_number_and_friday_line(env):
+    """Matched by memory but rang a different Friday number than we used -> unverified."""
+    t = await offered(env)
+    match = await env.repos.calls.match(LOOKS)
+    match.friday_number = "+918069119999"  # not the number we called them from
+    plan = await env.engine.handle_business_callback(match, None, leg=LEG)
+    assert plan.action == "take_message" and not plan.verified
+    assert env.runner.inbound[0][1].on_behalf_of == "Friday"
+    good = await env.repos.calls.match(LOOKS, friday_number=env.repos.calls.memory[0].friday_number)
+    assert (await env.engine.handle_business_callback(good, None, leg=LEG)).verified
+    _ = t

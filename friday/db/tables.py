@@ -31,6 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from friday.core.clock import utcnow
+from friday.core.crypto import EncryptedJSON, EncryptedText
 from friday.db.base import Base, IdMixin, JSONType, TimestampMixin, UTCDateTime
 
 _USER_FK = "users.id"
@@ -45,10 +46,25 @@ def _user_fk(nullable: bool = False) -> Mapped[Any]:
 # ------------------------------------------------------------------------------ people
 
 
+def _enc(table: str, column: str) -> EncryptedText:
+    """SECURITY-12: AES-GCM column, AAD ``table.column``."""
+    return EncryptedText(f"{table}.{column}")
+
+
+def _enc_json(table: str, column: str) -> EncryptedJSON:
+    return EncryptedJSON(f"{table}.{column}")
+
+
+def _hmac_col(*, unique: bool = False, nullable: bool = True) -> Mapped[Any]:
+    """Blind index (HMAC-SHA256 with the index key) for equality lookups on a phone."""
+    return mapped_column(String(64), unique=unique, index=not unique, nullable=nullable)
+
+
 class UserRow(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
-    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    phone: Mapped[str] = mapped_column(_enc("users", "phone"), nullable=False)
+    phone_hmac: Mapped[str] = _hmac_col(unique=True, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="onboarding")
     onboarding_step: Mapped[str] = mapped_column(String(20), nullable=False, default="invite_code")
     pin_hash: Mapped[str | None] = mapped_column(String(255))
@@ -65,7 +81,7 @@ class ProfileRow(Base):
     user_id: Mapped[str] = mapped_column(
         String(32), ForeignKey(_USER_FK, ondelete="CASCADE"), primary_key=True
     )
-    name: Mapped[str | None] = mapped_column(String(120))
+    name: Mapped[str | None] = mapped_column(_enc("profiles", "name"))
     city: Mapped[str | None] = mapped_column(String(120))
     language: Mapped[str] = mapped_column(String(12), default="hinglish", nullable=False)
     tone: Mapped[str] = mapped_column(String(12), default="friendly", nullable=False)
@@ -87,7 +103,7 @@ class ConsentRow(IdMixin, Base):
         String(32), ForeignKey("people.id", ondelete="CASCADE")
     )
     policy_version: Mapped[str] = mapped_column(String(20), nullable=False)
-    evidence_text: Mapped[str | None] = mapped_column(Text)
+    evidence_text: Mapped[str | None] = mapped_column(_enc("consents", "evidence_text"))
     message_id: Mapped[str | None] = mapped_column(String(32))
     recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
@@ -127,12 +143,13 @@ class PersonRow(IdMixin, TimestampMixin, Base):
     __tablename__ = "people"
 
     owner_user_id: Mapped[str] = _user_fk()
-    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    name: Mapped[str] = mapped_column(_enc("people", "name"), nullable=False)
     relation: Mapped[str | None] = mapped_column(String(40))
     aliases: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
-    phone: Mapped[str | None] = mapped_column(String(20), index=True)
+    phone: Mapped[str | None] = mapped_column(_enc("people", "phone"))
+    phone_hmac: Mapped[str | None] = _hmac_col()
     language: Mapped[str | None] = mapped_column(String(12))
-    notes: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(_enc("people", "notes"))
     contact_consent: Mapped[str] = mapped_column(String(16), default="not_asked", nullable=False)
     consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     checkin_consent: Mapped[str] = mapped_column(String(16), default="not_asked", nullable=False)
@@ -147,11 +164,11 @@ class PlaceRow(IdMixin, TimestampMixin, Base):
     owner_user_id: Mapped[str] = _user_fk()
     label: Mapped[str] = mapped_column(String(80), nullable=False)
     aliases: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
-    address_text: Mapped[str | None] = mapped_column(Text)
-    formatted_address: Mapped[str | None] = mapped_column(Text)
+    address_text: Mapped[str | None] = mapped_column(_enc("places", "address_text"))
+    formatted_address: Mapped[str | None] = mapped_column(_enc("places", "formatted_address"))
     city: Mapped[str | None] = mapped_column(String(120))
-    lat: Mapped[float | None] = mapped_column(Float)
-    lng: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[str | None] = mapped_column(_enc("places", "lat"))  # float as encrypted text
+    lng: Mapped[str | None] = mapped_column(_enc("places", "lng"))
     source: Mapped[str] = mapped_column(String(16), default="typed", nullable=False)
     person_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("people.id", ondelete="SET NULL"), index=True
@@ -198,7 +215,7 @@ class FactRow(IdMixin, TimestampMixin, Base):
     user_id: Mapped[str] = _user_fk()
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     key: Mapped[str] = mapped_column(String(80), nullable=False)
-    value: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[str] = mapped_column(_enc("facts", "value"), nullable=False)
     due_on: Mapped[date | None] = mapped_column(Date, index=True)
     recurrence: Mapped[str] = mapped_column(String(10), default="none", nullable=False)
     business_id: Mapped[str | None] = mapped_column(
@@ -265,13 +282,14 @@ class MessageRow(IdMixin, Base):
     direction: Mapped[str] = mapped_column(String(8), nullable=False)
     channel: Mapped[str] = mapped_column(String(12), nullable=False)
     kind: Mapped[str] = mapped_column(String(16), default="text", nullable=False)
-    phone: Mapped[str] = mapped_column(String(20), nullable=False)  # from/to
-    text: Mapped[str | None] = mapped_column(Text)
+    phone: Mapped[str] = mapped_column(_enc("messages", "phone"), nullable=False)  # from/to
+    phone_hmac: Mapped[str | None] = _hmac_col()
+    text: Mapped[str | None] = mapped_column(_enc("messages", "text"))
     buttons: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list, nullable=False)
     button_id: Mapped[str | None] = mapped_column(String(256))
-    template: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
-    media_url: Mapped[str | None] = mapped_column(Text)
-    location: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    template: Mapped[dict[str, Any] | None] = mapped_column(_enc_json("messages", "template"))
+    media_url: Mapped[str | None] = mapped_column(_enc("messages", "media_url"))
+    location: Mapped[dict[str, Any] | None] = mapped_column(_enc_json("messages", "location"))
     provider_message_id: Mapped[str | None] = mapped_column(String(128), index=True)
     task_id: Mapped[str | None] = mapped_column(String(32), index=True)
     nudge_id: Mapped[str | None] = mapped_column(String(32))
@@ -305,18 +323,18 @@ class TaskRow(IdMixin, TimestampMixin, Base):
     )
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="created")
-    spec: Mapped[dict[str, Any]] = mapped_column(JSONType, nullable=False)  # TaskSpec
-    target: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # ContactTarget
+    spec: Mapped[dict[str, Any]] = mapped_column(_enc_json("tasks", "spec"), nullable=False)
+    target: Mapped[dict[str, Any] | None] = mapped_column(_enc_json("tasks", "target"))
     recurrence: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # RecurrenceRule
     next_run_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     next_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     last_outcome: Mapped[str | None] = mapped_column(String(20))
-    result: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # TaskResult
+    result: Mapped[dict[str, Any] | None] = mapped_column(_enc_json("tasks", "result"))
     candidate: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # BusinessCandidate
     shortlist: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list, nullable=False)
-    approved_terms: Mapped[str | None] = mapped_column(Text)
+    approved_terms: Mapped[str | None] = mapped_column(_enc("tasks", "approved_terms"))
     delegation: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # Delegation
     cost_inr_est: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     source_message_id: Mapped[str | None] = mapped_column(String(32))
@@ -333,19 +351,21 @@ class CallRow(IdMixin, Base):
     provider: Mapped[str] = mapped_column(String(20), nullable=False)
     provider_call_id: Mapped[str | None] = mapped_column(String(128), index=True)
     direction: Mapped[str] = mapped_column(String(10), default="outbound", nullable=False)
-    to_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    to_phone: Mapped[str] = mapped_column(_enc("calls", "to_phone"), nullable=False)
     business_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("businesses.id", ondelete="SET NULL")
     )
     dial_status: Mapped[str] = mapped_column(String(16), nullable=False)
     outcome: Mapped[str] = mapped_column(String(20), nullable=False)
-    collected: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
+    collected: Mapped[dict[str, Any]] = mapped_column(
+        _enc_json("calls", "collected"), default=dict, nullable=False
+    )
     languages_heard: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     care: Mapped[dict[str, Any] | None] = mapped_column(JSONType)  # CareOutcome
     hold_seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     cost_inr_est: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     mode: Mapped[str] = mapped_column(String(16), default="agent", nullable=False)
-    recording_url: Mapped[str | None] = mapped_column(Text)
+    recording_url: Mapped[str | None] = mapped_column(_enc("calls", "recording_url"))
     started_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
@@ -362,7 +382,7 @@ class CallTurnRow(Base):
     )
     seq: Mapped[int] = mapped_column(Integer, nullable=False)
     speaker: Mapped[str] = mapped_column(String(8), nullable=False)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(_enc("call_turns", "text"), nullable=False)
     language: Mapped[str | None] = mapped_column(String(12))
     confidence: Mapped[float | None] = mapped_column(Float)
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
@@ -378,11 +398,11 @@ class CallQuestionRow(IdMixin, Base):
     )
     call_id: Mapped[str | None] = mapped_column(String(32))
     purpose: Mapped[str] = mapped_column(String(20), default="clarify", nullable=False)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(_enc("call_questions", "text"), nullable=False)
     options: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     timeout_s: Mapped[int] = mapped_column(Integer, default=90, nullable=False)
     asked_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
-    answer_text: Mapped[str | None] = mapped_column(Text)
+    answer_text: Mapped[str | None] = mapped_column(_enc("call_questions", "answer_text"))
     answer_option_index: Mapped[int | None] = mapped_column(Integer)
     answer_approves: Mapped[bool | None] = mapped_column(Boolean)
     answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
@@ -408,7 +428,7 @@ class QuoteRow(IdMixin, Base):
     exclusions: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     validity: Mapped[str | None] = mapped_column(String(200))
     available_slots: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
-    notes: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(_enc("quotes", "notes"))
     within_budget: Mapped[bool | None] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
@@ -440,8 +460,8 @@ class HotelBookingRow(IdMixin, TimestampMixin, Base):
     confirmation_ref: Mapped[str | None] = mapped_column(String(80))
     booking_link: Mapped[str | None] = mapped_column(Text)
     hold_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
-    guest_name: Mapped[str | None] = mapped_column(String(120))
-    notes: Mapped[str | None] = mapped_column(Text)
+    guest_name: Mapped[str | None] = mapped_column(_enc("hotel_bookings", "guest_name"))
+    notes: Mapped[str | None] = mapped_column(_enc("hotel_bookings", "notes"))
 
 
 # ------------------------------------------------------------------------------ proactive
@@ -539,7 +559,7 @@ class CallMemoryRow(IdMixin, Base):
     __tablename__ = "call_memory"
     __table_args__ = (
         UniqueConstraint("call_id"),
-        Index("ix_call_memory_phone_at", "business_phone", "at"),
+        Index("ix_call_memory_phone_at", "business_phone_hmac", "at"),
     )
 
     call_id: Mapped[str | None] = mapped_column(String(32))
@@ -550,7 +570,8 @@ class CallMemoryRow(IdMixin, Base):
     business_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("businesses.id", ondelete="SET NULL")
     )
-    business_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    business_phone: Mapped[str] = mapped_column(_enc("call_memory", "business_phone"), nullable=False)
+    business_phone_hmac: Mapped[str] = _hmac_col(nullable=False)
     friday_number: Mapped[str | None] = mapped_column(String(20), index=True)
     direction: Mapped[str] = mapped_column(String(10), default="outbound", nullable=False)
     outcome: Mapped[str | None] = mapped_column(String(24))
@@ -562,11 +583,12 @@ class InboundContactRow(IdMixin, Base):
     ``status``: matched | ambiguous | unmatched. Unmatched rows hold no user link."""
 
     __tablename__ = "inbound_contacts"
-    __table_args__ = (Index("ix_inbound_contacts_phone_at", "from_phone", "at"),)
+    __table_args__ = (Index("ix_inbound_contacts_phone_at", "from_phone_hmac", "at"),)
 
     kind: Mapped[str] = mapped_column(String(12), nullable=False)  # call | missed_call | message
     channel: Mapped[str] = mapped_column(String(12), default="voice", nullable=False)
-    from_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    from_phone: Mapped[str] = mapped_column(_enc("inbound_contacts", "from_phone"), nullable=False)
+    from_phone_hmac: Mapped[str] = mapped_column(String(64), nullable=False)
     friday_number: Mapped[str | None] = mapped_column(String(20))
     provider_ref: Mapped[str | None] = mapped_column(String(128))
     call_id: Mapped[str | None] = mapped_column(String(128))  # voice call id (take_inbound key)
@@ -581,7 +603,7 @@ class InboundContactRow(IdMixin, Base):
         String(32), ForeignKey(_USER_FK, ondelete="CASCADE"), index=True
     )
     candidate_task_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
-    note: Mapped[str | None] = mapped_column(Text)  # caller's message (unmatched: name/purpose)
+    note: Mapped[str | None] = mapped_column(_enc("inbound_contacts", "note"))  # caller's message (unmatched: name/purpose)
     handled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 

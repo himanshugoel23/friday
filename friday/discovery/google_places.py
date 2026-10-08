@@ -196,6 +196,7 @@ class GooglePlacesDirectory:
             maps_url=p.get("googleMapsUri"),
             open_now=(p.get("currentOpeningHours") or {}).get("openNow"),
             price_level=_PRICE_LEVELS.get(p.get("priceLevel", "")),
+            hours=parse_opening_hours(p.get("regularOpeningHours")),
         )
 
 

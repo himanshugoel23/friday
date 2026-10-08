@@ -16,7 +16,7 @@ from friday.tasks.recurrence import next_run
 from friday.tasks.scheduling import next_call_time, retry_at
 
 S = Settings(_env_file=None)
-P = TaskPolicy(_env_file=None)
+P = TaskPolicy()
 
 
 def ist(*a):
@@ -61,16 +61,19 @@ def test_retry_table():
         minutes=5
     )
     assert to_ist(retry_at(CallOutcome.HOLD_TIMEOUT, 1, now, P)).strftime("%d %H") == "06 10"
-    custom = TaskPolicy(_env_file=None, no_answer_delays_min=[1], busy_delay_min=2)
+    custom = TaskPolicy(no_answer_delays_min=[1], busy_delay_min=2)
     assert retry_at(CallOutcome.NO_ANSWER, 1, now, custom) - now == timedelta(minutes=1)
     assert retry_at(CallOutcome.BUSY, 1, now, custom) - now == timedelta(minutes=2)
 
 
-def test_policy_env_override(monkeypatch):
+def test_policy_reads_settings(monkeypatch):
     monkeypatch.setenv("FRIDAY_TASKS_MAX_ATTEMPTS", "5")
     monkeypatch.setenv("FRIDAY_TASKS_NO_ANSWER_DELAYS_MIN", "[15, 60]")
-    p = TaskPolicy(_env_file=None)
+    monkeypatch.setenv("FRIDAY_NUMBERS", "+918069110001,+918069110002")
+    p = TaskPolicy.from_settings(Settings(_env_file=None))
     assert p.max_attempts == 5 and p.no_answer_delays_min == [15, 60]
+    assert p.caller_ids == ["+918069110001", "+918069110002"]
+    assert TaskPolicy.from_settings(Settings(_env_file=None), max_attempts=1).max_attempts == 1
 
 
 def test_recurrence_weekly_monthly_yearly_daily():

@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from friday.core.models import CallOutcome, new_id
-from friday.db.repositories._base import Repo, row_dict
+from friday.db.repositories._base import Repo, phone_index, row_dict
 from friday.db.tables import CallMemoryRow, InboundContactRow, TaskRow
 
 DEFAULT_MATCH_WINDOW = timedelta(days=30)
@@ -127,11 +127,14 @@ class CallMemoryRepo(Repo):
                     task_id=task_id,
                     user_id=user_id,
                     business_phone=business_phone,
+                    business_phone_hmac=phone_index(business_phone),
                     direction="outbound",
                     at=at or self.now(),
                 )
                 s.add(row)
-            row.business_phone = business_phone or row.business_phone
+            if business_phone:
+                row.business_phone = business_phone
+                row.business_phone_hmac = phone_index(business_phone)
             if friday_number is not None:
                 row.friday_number = friday_number
             if business_id is not None:
@@ -157,7 +160,9 @@ class CallMemoryRepo(Repo):
     ) -> list[CallMemory]:
         """Newest first."""
         async with self.db.session() as s:
-            q = select(CallMemoryRow).where(CallMemoryRow.business_phone == business_phone)
+            q = select(CallMemoryRow).where(
+                CallMemoryRow.business_phone_hmac == phone_index(business_phone)
+            )
             if since is not None:
                 q = q.where(CallMemoryRow.at >= since)
             rows = (await s.execute(q.order_by(CallMemoryRow.at.desc()).limit(limit))).scalars()
@@ -264,7 +269,11 @@ class CallMemoryRepo(Repo):
         )
         async with self.db.session() as s:
             values = contact.model_dump()
-            values |= {"kind": contact.kind.value, "status": contact.status.value}
+            values |= {
+                "kind": contact.kind.value,
+                "status": contact.status.value,
+                "from_phone_hmac": phone_index(contact.from_phone),
+            }
             s.add(InboundContactRow(**values))
         return contact
 

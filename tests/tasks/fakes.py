@@ -485,6 +485,9 @@ def result(brief: CallBrief, outcome: CallOutcome, **kw) -> CallResult:
         CallOutcome.NO_ANSWER: DialStatus.NO_ANSWER,
         CallOutcome.VOICEMAIL: DialStatus.VOICEMAIL,
     }.get(outcome, DialStatus.ANSWERED)
+    if outcome == CallOutcome.SUCCESS and brief.can_commit(kw.get("answers", [])):
+        # what the voice runner reports after a gated commit (SECURITY-4)
+        kw["collected"] = {"committed": "true", **kw.get("collected", {})}
     return CallResult(
         task_id=brief.task_id,
         provider="stub",

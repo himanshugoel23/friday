@@ -120,6 +120,7 @@ class SimulatedDirectory:
             review_snippets=[r.text for r in b.reviews] if full else [],
             maps_url=f"https://maps.google.com/?q={b.lat},{b.lng}",
             open_now=open_now,
+            hours=hours if full else None,
         )
 
 
