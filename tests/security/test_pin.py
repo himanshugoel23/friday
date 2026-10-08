@@ -104,11 +104,6 @@ def test_extract_pin_requires_exactly_one_group() -> None:
     assert extract_pin("call me at 9876543210") is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-11: a PIN typed inside a sentence is stored in the message log and sent "
-    "to the LLM (redaction only when the whole message is the PIN)",
-)
 async def test_pin_inside_sentence_is_redacted(repos, clock, pipeline, fake_brain) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     await pipeline.handle(

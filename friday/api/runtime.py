@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
-from collections import defaultdict
 from typing import Any
 
 from friday.api.callbacks import CallbackService
@@ -21,6 +20,7 @@ from friday.core.container import ComponentNotAvailable, Container
 from friday.core.events import CallFinished
 from friday.core.logging import get_logger
 from friday.core.models import InboundMessage
+from friday.core.scale import DistributedLock, LockTimeout, MemoryLock
 
 log = get_logger(__name__)
 
@@ -36,7 +36,12 @@ class Runtime:
         self.c = c
         self.pipeline = InboundPipeline(c, fast_pin_hash=fast_pin_hash)
         self.callbacks: CallbackService = self.pipeline.callbacks
-        self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # SECURITY-34 / S-3: per-sender serialisation through the shared DistributedLock
+        # (ref-counted memory lock in dev; Postgres advisory / Redis lock across replicas).
+        try:
+            self.lock: DistributedLock = c.get("lock")
+        except ComponentNotAvailable:
+            self.lock = MemoryLock()
         self._tasks: list[asyncio.Task[Any]] = []
         self._started: list[Any] = []
         self.running = False
@@ -84,11 +89,14 @@ class Runtime:
         self.running = False
 
     async def handle(self, msg: InboundMessage) -> None:
-        async with self._locks[msg.from_phone]:
-            try:
+        try:
+            async with self.lock.hold(f"sender:{msg.from_phone}", timeout_s=30.0):
                 await self.pipeline.handle(msg)
-            except Exception:  # noqa: BLE001 - a bad message never kills the webhook
-                log.exception("inbound message %s failed", msg.id)
+        except LockTimeout:
+            log.warning("inbound message %s: sender busy, lock timeout", msg.id)
+            raise
+        except Exception:  # noqa: BLE001 - a bad message never kills the webhook
+            log.exception("inbound message %s failed", msg.id)
 
     async def _on_call_finished(self, event: CallFinished) -> None:
         task = await self.c.repos.tasks.get(event.task_id)

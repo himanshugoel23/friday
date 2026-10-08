@@ -183,10 +183,10 @@ async def test_send_and_fetch_media_with_mock_transport():
             return httpx.Response(200, json={"messages": [{"id": "wamid.OK"}]})
         if request.url.path.endswith("/MEDIA1"):
             return httpx.Response(
-                200, json={"url": "https://lookaside.example/m1", "mime_type": "audio/ogg"}
+                200, json={"url": "https://lookaside.fbsbx.com/m1", "mime_type": "audio/ogg"}
             )
-        if request.url.host == "lookaside.example":
-            return httpx.Response(200, content=b"OGG")
+        if request.url.host == "lookaside.fbsbx.com":
+            return httpx.Response(200, content=b"OGG", headers={"content-type": "audio/ogg"})
         return httpx.Response(404)
 
     ch = WhatsAppCloudChannel(
@@ -206,4 +206,30 @@ async def test_send_and_fetch_media_with_mock_transport():
     assert blob.data == b"OGG" and blob.mime == "audio/ogg"
     with pytest.raises(ProviderError):
         await ch.fetch_media("MISSING")
+    await ch.aclose()
+
+
+async def test_fetch_media_refuses_foreign_hosts_and_big_files():
+    """SECURITY-20: the bearer token never goes to other hosts; size/type capped."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/EVIL"):
+            return httpx.Response(200, json={"url": "https://attacker.example/x", "mime_type": "audio/ogg"})
+        if request.url.path.endswith("/BIG"):
+            return httpx.Response(200, json={"url": "https://lookaside.fbsbx.com/big", "mime_type": "audio/ogg"})
+        if request.url.path.endswith("/HTML"):
+            return httpx.Response(200, json={"url": "https://lookaside.fbsbx.com/h"})
+        if request.url.path == "/big":
+            return httpx.Response(200, content=b"x" * 10, headers={"content-length": str(17 * 1024 * 1024)})
+        if request.url.path == "/h":
+            return httpx.Response(200, content=b"<html>", headers={"content-type": "text/html"})
+        return httpx.Response(404)
+
+    ch = WhatsAppCloudChannel(access_token="TOKEN", phone_number_id="PNID", transport=httpx.MockTransport(handler))
+    for ref in ("EVIL", "http://lookaside.fbsbx.com/x", "https://attacker.example/x", "BIG", "HTML", "../../x"):
+        with pytest.raises(ProviderError):
+            await ch.fetch_media(ref)
+    assert all(r.url.host != "attacker.example" for r in seen)
     await ch.aclose()

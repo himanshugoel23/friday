@@ -2,10 +2,8 @@
 
 Inputs (no imports from friday.voice / friday.tasks):
 
-* the voice side publishes bus events named ``InboundCallReceived`` /
-  ``MissedCallReceived`` (fields ``from_phone``, ``to_number`` / ``to_phone`` /
-  ``friday_number``, optional ``provider_call_id`` / ``call_id``); we subscribe to the base
-  ``Event`` and filter by class name until the core events land (CORE_CHANGES);
+* the voice side publishes ``core.events.InboundCallReceived`` /
+  ``MissedCallReceived`` (``from_phone``, ``to_number``, ``provider_call_id``);
 * the inbound message pipeline calls ``on_business_message`` for messages from
   business numbers.
 
@@ -24,12 +22,13 @@ called business number, and only the requester's first name + the task goal.
 from __future__ import annotations
 
 import inspect
+import re
 from typing import TYPE_CHECKING, Any
 
 from friday.core.container import ComponentNotAvailable
-from friday.core.events import Event
+from friday.core.events import Event, InboundCallReceived, MissedCallReceived
 from friday.core.logging import get_logger, mask_phone
-from friday.core.models import InboundMessage, normalize_phone
+from friday.core.models import InboundMessage, TaskType, normalize_phone
 from friday.db.repositories import CallbackMatch, InboundContact, InboundKind, MatchStatus
 
 if TYPE_CHECKING:
@@ -37,8 +36,43 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-INBOUND_CALL_EVENTS = {"InboundCallReceived", "InboundCall", "BusinessCallReceived"}
-MISSED_CALL_EVENTS = {"MissedCallReceived", "MissedCall"}
+# SECURITY-29: a minimised, non-sensitive label instead of ``spec.goal`` (which may
+# carry health details, names, addresses).
+_TYPE_LABELS: dict[TaskType, str] = {
+    TaskType.BOOKING: "a booking",
+    TaskType.ENQUIRY: "an enquiry",
+    TaskType.RESCHEDULE: "a booking change",
+    TaskType.CANCEL_BOOKING: "a cancellation",
+    TaskType.RECONFIRM: "a booking confirmation",
+    TaskType.RUNNING_LATE: "a booking",
+    TaskType.ORDER: "an order",
+    TaskType.STOCK_HUNT: "an availability check",
+    TaskType.SERVICE_COORDINATION: "a service visit",
+    TaskType.STATUS_CHASE: "a status check",
+    TaskType.COMPLAINT: "a complaint",
+    TaskType.RENTAL_HUNT: "a rental enquiry",
+    TaskType.QUOTE: "a quote",
+    TaskType.HEALTHCARE: "an appointment",
+    TaskType.RECURRING_BOOKING: "a regular booking",
+    TaskType.WELLBEING_CHECKIN: "a check-in",
+    TaskType.CUSTOMER_CARE: "a service request",
+    TaskType.HOTEL_BOOKING: "a room booking",
+    TaskType.DISCOVERY: "an enquiry",
+}
+_SAFE_CATEGORY = re.compile(r"^[a-z][a-z /&-]{1,30}$")
+_SENSITIVE_CATEGORY = re.compile(r"(clinic|doctor|hospital|lab|diagnos|pharma|medic|health|therap)")
+
+
+def task_label(task_type: TaskType, category: str | None = None) -> str:
+    """'a salon booking' / 'an appointment' - never the goal text, never medical words."""
+    base = _TYPE_LABELS.get(task_type, "a request")
+    cat = (category or "").strip().lower()
+    if not cat or not _SAFE_CATEGORY.match(cat) or _SENSITIVE_CATEGORY.search(cat):
+        return base
+    noun = base.split(" ", 1)[1]
+    article = "an" if cat[0] in "aeiou" else "a"
+    return f"{article} {cat} {noun}"
+
 
 UNMATCHED_GREETING = (
     "Hi, this is Friday, an AI assistant. I couldn't find what this is about. "
@@ -55,33 +89,34 @@ class CallbackService:
 
     # ------------------------------------------------------------------ wiring
     def subscribe(self) -> None:
-        self.c.bus.subscribe(Event, self._on_event)
+        self.c.bus.subscribe(InboundCallReceived, self._on_inbound)
+        self.c.bus.subscribe(MissedCallReceived, self._on_missed)
 
     def unsubscribe(self) -> None:
-        self.c.bus.unsubscribe(Event, self._on_event)
+        self.c.bus.unsubscribe(InboundCallReceived, self._on_inbound)
+        self.c.bus.unsubscribe(MissedCallReceived, self._on_missed)
 
-    async def _on_event(self, event: Event) -> None:
-        name = type(event).__name__
-        if name not in INBOUND_CALL_EVENTS and name not in MISSED_CALL_EVENTS:
-            return
+    async def _on_inbound(self, event: InboundCallReceived) -> None:
+        await self._from_event(event, answered=True)
+
+    async def _on_missed(self, event: MissedCallReceived) -> None:
+        await self._from_event(event, answered=False)
+
+    async def _from_event(self, event: Event, *, answered: bool) -> None:
         from_phone = getattr(event, "from_phone", None)
         if not from_phone:
             return
-        # Field names differ between producers: accept both spellings defensively.
-        friday_number = (
-            getattr(event, "to_number", None)
-            or getattr(event, "to_phone", None)
-            or getattr(event, "friday_number", None)
-        )
-        provider_ref = getattr(event, "provider_call_id", None)
-        call_id = getattr(event, "call_id", None) or provider_ref
-        await self.on_inbound_call(
-            from_phone,
-            friday_number,
-            answered=name in INBOUND_CALL_EVENTS,
-            provider_ref=provider_ref or call_id,
-            call_id=call_id,
-        )
+        ref = getattr(event, "provider_call_id", None)
+        try:
+            await self.on_inbound_call(
+                from_phone,
+                getattr(event, "to_number", None),
+                answered=answered,
+                provider_ref=ref,
+                call_id=ref,
+            )
+        except ValueError:  # "anonymous" / unparsable caller ID: nothing to match
+            log.info("inbound call with unparsable caller id ignored")
 
     def _engine(self) -> Any:
         try:
@@ -146,12 +181,12 @@ class CallbackService:
             handled = await self._engine_call(("handle_unknown_caller",), match, contact)
         elif answered:
             handled = await self._engine_call(
-                ("handle_business_callback", "resume_from_callback"), match, contact
+                ("handle_business_callback",), match, contact
             )
         else:
             # The engine logs unmatched missed calls itself (no call-back, no details).
             handled = await self._engine_call(
-                ("handle_missed_call", "on_missed_call"), match, contact
+                ("handle_missed_call",), match, contact
             )
         if handled:
             await self.repos.calls.mark_handled(contact.id)
@@ -169,7 +204,7 @@ class CallbackService:
             provider_ref=msg.provider_message_id,
         )
         if await self._engine_call(
-            ("handle_business_message", "handle_business_reply"), msg, match
+            ("handle_business_message",), msg, match
         ):
             await self.repos.calls.mark_handled(contact.id)
         return match
@@ -188,7 +223,7 @@ class CallbackService:
         if match.from_phone not in called or (target_phone and target_phone != match.from_phone):
             return {}
         name = (task.spec.on_behalf_of or "").split(" ")[0] or "our user"
-        return {"on_behalf_of": name, "about": task.spec.goal}
+        return {"on_behalf_of": name, "about": task_label(task.type, task.spec.category)}
 
     @staticmethod
     def greeting(context: dict[str, str]) -> str:

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 from datetime import timedelta
 from typing import Any
 
@@ -39,8 +40,10 @@ from friday.core.models import (
     Urgency,
     nudge_button_id,
 )
+from friday.core.scale import Job, JobPriority, MemoryLock, worker_id
 from friday.proactive import triggers
 from friday.proactive.guardrails import CAP_EXEMPT_KINDS, Verdict, evaluate
+from friday.proactive.retention import RetentionJob
 from friday.tasks.categories import autonomy_for
 from friday.tasks.context import build_context
 from friday.tasks.events import WellbeingAlertRaised
@@ -48,6 +51,14 @@ from friday.tasks.outbox import Outbox
 from friday.tasks.ports import call_opt, repo
 
 log = get_logger(__name__)
+
+NUDGE_KINDS = ("nudge.evaluate", "nudge.send")
+
+
+def shard_of(user_id: str, shards: int) -> int:
+    """Stable across processes (unlike ``hash()``)."""
+    return int(hashlib.sha1(user_id.encode()).hexdigest(), 16) % max(1, shards)
+
 
 IGNORE_AFTER = timedelta(hours=24)  # no interaction within 24h -> IGNORED (US-10.2)
 _DONE = (NudgeStatus.ACTED, NudgeStatus.IGNORED, NudgeStatus.DISMISSED)
@@ -63,6 +74,13 @@ class ProactiveEngine:
         self._worker: asyncio.Task | None = None
         self._stopping = asyncio.Event()
         self._lock = asyncio.Lock()
+        self._local_locks = MemoryLock()
+        self._pump_task: asyncio.Task | None = None
+        self._handlers: set[asyncio.Task] = set()
+        self._created: list[Nudge] = []
+        self._closed = False
+        self.worker_id = worker_id("proactive")
+        self.retention = RetentionJob(c)
         self.bus.subscribe(WellbeingAlertRaised, self._on_alert)
 
     # ------------------------------------------------------------------ deps
@@ -79,6 +97,22 @@ class ProactiveEngine:
     @property
     def nudges(self) -> Any:
         return self.repos.nudges
+
+    @property
+    def queue(self) -> Any:
+        return self.c.get("job_queue")
+
+    @property
+    def locks(self) -> Any:
+        return self._opt("lock") or self._local_locks
+
+    def owns(self, user_id: str) -> bool:
+        """S-8 sharding: this process handles users with hash(user_id) % shards == index."""
+        shards = max(1, self.settings.proactive_shards)
+        index = self.settings.proactive_shard_index
+        if index is None or shards == 1:
+            return True
+        return shard_of(user_id, shards) == index
 
     @property
     def outbox(self) -> Outbox:
@@ -109,22 +143,116 @@ class ProactiveEngine:
 
     async def aclose(self) -> None:
         await self.stop()
+        self._closed = True
+        for t in [self._pump_task, *self._handlers]:
+            if t is not None and not t.done():
+                t.cancel()
         self.bus.unsubscribe(WellbeingAlertRaised, self._on_alert)
+
+    # ------------------------------------------------------------------ jobs (S-8)
+    async def _enqueue(
+        self, kind: str, *, user_id: str, dedupe: str, due_at=None, **payload
+    ) -> None:
+        await self.queue.enqueue(
+            Job(
+                kind=kind,
+                payload={"user_id": user_id, **payload},
+                priority=JobPriority.PROACTIVE,
+                due_at=due_at,
+                dedupe_key=dedupe,
+                partition_key=user_id,
+                created_at=self.clock.now(),
+            )
+        )
+        self._kick()
+
+    def _kick(self) -> None:
+        if self._closed or not self.settings.has_role("proactive"):
+            return
+        if self._pump_task is None or self._pump_task.done():
+            self._pump_task = asyncio.ensure_future(self._pump())
+
+    async def _pump(self) -> None:
+        limit = max(1, self.settings.worker_concurrency.get("proactive", 8))
+        running: set[asyncio.Task] = set()
+        while not self._closed:
+            room = limit - len(running)
+            jobs = (
+                await self.queue.claim(self.worker_id, kinds=list(NUDGE_KINDS), limit=room)
+                if room > 0
+                else []
+            )
+            for job in jobs:
+                t = asyncio.ensure_future(self.handle_job(job))
+                running.add(t)
+                self._handlers.add(t)
+                t.add_done_callback(self._handlers.discard)
+            if not running:
+                return
+            _, running = await asyncio.wait(running, return_when=asyncio.FIRST_COMPLETED)
+
+    async def handle_job(self, job: Job) -> None:
+        try:
+            # Shards partition the SCHEDULING (which users each tick enqueues); any
+            # proactive worker may execute a job - the per-user lock + dedupe keep it exact.
+            user_id = job.payload.get("user_id", "")
+            if job.kind == "nudge.evaluate":
+                for cand in await self.candidates(user_id):
+                    nudge = await self.process(cand)
+                    if nudge is not None:
+                        self._created.append(nudge)
+            elif job.kind == "nudge.send":
+                nudge = await self._get(job.payload.get("nudge_id", ""))
+                if nudge is not None and nudge.status == NudgeStatus.SCHEDULED:
+                    sent = await self._send_one(nudge)
+                    if sent is not None:
+                        self._created.append(sent)
+            await self.queue.ack(job.id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            log.exception("proactive job %s failed", job.id)
+            await self.queue.retry(job.id, error=type(e).__name__, delay_s=60.0)
+
+    async def drain(self, limit_s: float = 30.0) -> None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + limit_s
+        while loop.time() < deadline:
+            pump = self._pump_task
+            if pump is not None and not pump.done():
+                await asyncio.wait([pump], timeout=max(0.01, deadline - loop.time()))
+                continue
+            busy = [h for h in self._handlers if not h.done()]
+            if busy:
+                await asyncio.wait(busy, timeout=0.05)
+                continue
+            if not await self.queue.depth(kinds=list(NUDGE_KINDS)):
+                return
+            self._kick()
+            await asyncio.sleep(0)
+        raise TimeoutError("proactive queue still busy")
 
     # ------------------------------------------------------------------ tick
     async def tick(self) -> list[Nudge]:
-        """One pass: mark ignores, send due scheduled nudges, run all triggers."""
+        """One pass for this shard: ignores, retention, then one ``nudge.evaluate`` job
+        per owned user (dedupe per minute) and ``nudge.send`` for due scheduled nudges.
+        Returns the nudges created/sent during this pass."""
         async with self._lock:
             now = self.clock.now()
+            self._created = []
             await self._mark_ignored(now)
-            out = await self._send_scheduled(now)
+            await self.retention.run_daily(now)
+            await self._send_scheduled(now)
             users = await call_opt(repo(self.repos, "users"), "list_active", default=[]) or []
             for user in users:
-                for cand in await self.candidates(user.id):
-                    nudge = await self.process(cand)
-                    if nudge is not None:
-                        out.append(nudge)
-            return out
+                if self.owns(user.id):
+                    await self._enqueue(
+                        "nudge.evaluate",
+                        user_id=user.id,
+                        dedupe=f"nudge.eval:{user.id}:{now:%Y%m%d%H%M}",
+                    )
+            await self.drain()
+            return list(self._created)
 
     async def candidates(self, user_id: str) -> list[NudgeCandidate]:
         now = self.clock.now()
@@ -157,6 +285,11 @@ class ProactiveEngine:
     async def process(self, cand: NudgeCandidate) -> Nudge | None:
         """Dedupe -> guardrails -> judge -> autonomy -> send. Returns the stored nudge
         (SENT / SCHEDULED / SUPPRESSED) or None if it was a duplicate."""
+        # per-user lock: cap / quiet hours / dedupe stay exact across shards and replicas
+        async with self.locks.hold(f"nudges:{cand.user_id}", timeout_s=60):
+            return await self._process_locked(cand)
+
+    async def _process_locked(self, cand: NudgeCandidate) -> Nudge | None:
         if await self.nudges.exists(cand.user_id, cand.dedupe_key):
             return None
         verdict = await self._guard(cand)
@@ -180,7 +313,15 @@ class ProactiveEngine:
             nudge.status = NudgeStatus.SCHEDULED
             nudge.scheduled_for = verdict.send_at
             nudge.text = cand.reason  # re-judged when due
-            return await self._store(nudge)
+            stored = await self._store(nudge)
+            await self._enqueue(
+                "nudge.send",
+                user_id=nudge.user_id,
+                dedupe=f"nudge.send:{nudge.id}",
+                due_at=verdict.send_at,
+                nudge_id=nudge.id,
+            )
+            return stored
         return await self._judge_and_send(nudge, cand)
 
     async def _guard(self, cand: NudgeCandidate) -> Verdict:
@@ -317,7 +458,8 @@ class ProactiveEngine:
     async def _get(self, nudge_id: str) -> Nudge | None:
         return await call_opt(self.nudges, "get", nudge_id) or self._nudges.get(nudge_id)
 
-    async def _send_scheduled(self, now) -> list[Nudge]:
+    async def _send_scheduled(self, now) -> None:
+        """Recovery: make sure every due SCHEDULED nudge of this shard has a send job."""
         due = await call_opt(self.nudges, "list_scheduled_due", now)
         if due is None:
             due = [
@@ -325,8 +467,18 @@ class ProactiveEngine:
                 for n in self._nudges.values()
                 if n.status == NudgeStatus.SCHEDULED and n.scheduled_for and n.scheduled_for <= now
             ]
-        out = []
         for n in due:
+            if self.owns(n.user_id):
+                await self._enqueue(
+                    "nudge.send", user_id=n.user_id, dedupe=f"nudge.send:{n.id}", nudge_id=n.id
+                )
+
+    async def _send_one(self, n: Nudge) -> Nudge | None:
+        async with self.locks.hold(f"nudges:{n.user_id}", timeout_s=60):
+            fresh = await self._get(n.id) or n
+            if fresh.status != NudgeStatus.SCHEDULED:
+                return None  # another worker already sent it
+            now = self.clock.now()
             cand = NudgeCandidate(
                 user_id=n.user_id,
                 kind=n.kind,
@@ -341,12 +493,11 @@ class ProactiveEngine:
             )
             verdict = await self._guard(cand)  # the cap may have filled up meanwhile
             if verdict.action != "send":
-                n.status = NudgeStatus.SUPPRESSED
-                n.reason = verdict.reason
-                await self._store(n)
-                continue
-            out.append(await self._judge_and_send(n, cand))
-        return out
+                fresh.status = NudgeStatus.SUPPRESSED
+                fresh.reason = verdict.reason
+                await self._store(fresh)
+                return None
+            return await self._judge_and_send(fresh, cand)
 
     async def _mark_ignored(self, now) -> None:
         cutoff = now - IGNORE_AFTER

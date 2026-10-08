@@ -7,7 +7,7 @@ from datetime import date, datetime
 from sqlalchemy import func, select
 
 from friday.core.clock import Clock
-from friday.core.models import AccountIdentifier, AuditEntry, Fact
+from friday.core.models import AccountIdentifier, AuditEntry, Fact, new_id
 from friday.db.repositories._base import Repo, SecretBox, copy_simple, row_dict
 from friday.db.session import Database
 from friday.db.tables import AccountIdentifierRow, AuditRow, CostEntryRow, FactRow
@@ -35,6 +35,11 @@ class FactRepo(Repo):
         fact.updated_at = self.now()
         async with self.db.session() as s:
             existing = await s.get(FactRow, fact.id)
+            if existing is not None and existing.user_id != fact.user_id:
+                # SECURITY-10: never re-assign another user's row - mint a new id.
+                fact.id = new_id()
+                fact.created_at = self.now()
+                existing = None
             if existing is None:
                 q = select(FactRow).where(FactRow.user_id == fact.user_id, FactRow.key == fact.key)
                 q = q.where(
@@ -118,6 +123,9 @@ class IdentifierRepo(Repo):
         now = self.now()
         async with self.db.session() as s:
             existing = await s.get(AccountIdentifierRow, identifier.id)
+            if existing is not None and existing.user_id != identifier.user_id:
+                identifier.id = new_id()  # SECURITY-10: foreign id -> new row
+                existing = None
             await s.merge(
                 AccountIdentifierRow(
                     id=identifier.id,

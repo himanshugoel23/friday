@@ -3,7 +3,7 @@ keep a PII-free user tombstone and scrubbed audit entries."""
 
 from __future__ import annotations
 
-from sqlalchemy import delete, update
+from sqlalchemy import delete, select, update
 
 from friday.core.models import OnboardingStep, UserStatus
 from friday.db.repositories._base import Repo, phone_index
@@ -13,6 +13,7 @@ from friday.db.tables import (
     AutonomySettingRow,
     BusinessRow,
     CallMemoryRow,
+    CallRow,
     ConsentRow,
     FactRow,
     HotelBookingRow,
@@ -22,6 +23,7 @@ from friday.db.tables import (
     NudgeFeedbackRow,
     NudgeRow,
     PersonRow,
+    PinLockRow,
     PlaceRow,
     ProfileRow,
     TaskRow,
@@ -35,6 +37,36 @@ def tombstone_phone(user_id: str) -> str:
 
 
 class DataPurger(Repo):
+    async def recording_urls(self, user_id: str) -> list[str]:
+        """SECURITY-14: every recording URL of the user's calls (collect BEFORE purge)."""
+        async with self.db.session() as s:
+            rows = (
+                await s.execute(
+                    select(CallRow.recording_url)
+                    .join(TaskRow, TaskRow.id == CallRow.task_id)
+                    .where(TaskRow.requester_user_id == user_id, CallRow.recording_url.is_not(None))
+                )
+            ).scalars()
+            return [u for u in rows if u]
+
+    async def _minimise_consents(self, s, user_id: str) -> int:  # noqa: ANN001
+        """SECURITY-33: keep DPDP receipts (kind, granted, policy_version, recorded_at)
+        with only a phone HMAC; drop evidence text, message id and the person link."""
+        user = await s.get(UserRow, user_id)
+        n = 0
+        for row in (await s.execute(select(ConsentRow).where(ConsentRow.user_id == user_id))).scalars():
+            if row.person_id:
+                person = await s.get(PersonRow, row.person_id)
+                row.phone_hmac = person.phone_hmac if person else None
+            else:
+                row.phone_hmac = user.phone_hmac if user else None
+            row.person_id = None
+            row.evidence_text = None
+            row.message_id = None
+            n += 1
+        await s.flush()
+        return n
+
     async def purge_user(self, user_id: str) -> dict[str, int]:
         """Returns per-table deleted-row counts (no PII). Cost ledger rows (amounts
         only) are kept for ops accounting."""
@@ -45,6 +77,7 @@ class DataPurger(Repo):
                 res = await s.execute(delete(table).where(*conds))
                 counts[table.__tablename__] = int(res.rowcount or 0)  # type: ignore[attr-defined]
 
+            counts["consents_kept_minimised"] = await self._minimise_consents(s, user_id)
             await wipe(NudgeFeedbackRow, NudgeFeedbackRow.user_id == user_id)
             await wipe(NudgeRow, NudgeRow.user_id == user_id)
             await wipe(HotelBookingRow, HotelBookingRow.user_id == user_id)
@@ -56,10 +89,10 @@ class DataPurger(Repo):
             await wipe(AccountIdentifierRow, AccountIdentifierRow.user_id == user_id)
             await wipe(VendorInteractionRow, VendorInteractionRow.user_id == user_id)
             await wipe(PlaceRow, PlaceRow.owner_user_id == user_id)
-            await wipe(ConsentRow, ConsentRow.user_id == user_id)
             await wipe(PersonRow, PersonRow.owner_user_id == user_id)
             await wipe(AutonomySettingRow, AutonomySettingRow.user_id == user_id)
             await wipe(ProfileRow, ProfileRow.user_id == user_id)
+            await wipe(PinLockRow, PinLockRow.user_id == user_id)
             await wipe(
                 InviteRow,
                 InviteRow.created_by_user_id == user_id,

@@ -102,6 +102,9 @@ class TaskRepo:
     async def get_question(self, qid):
         return self.questions.get(qid)
 
+    async def get_answer(self, qid):
+        return self.answers.get(qid)
+
     async def answer_question(self, answer):
         self.answers[answer.question_id] = answer
         return True
@@ -374,6 +377,15 @@ class CallsRepo:
         if len(open_) > 1:
             return Match("ambiguous", from_phone, friday_number, candidates=chosen)
         return Match("matched", from_phone, friday_number, chosen[0].task_id, chosen)
+
+    async def recent_for_phone(self, business_phone, *, since=None, limit=50):
+        rows = [
+            Mem(direction="outbound", **m.__dict__)
+            for m in reversed(self.memory)
+            if m.business_phone == business_phone
+            and (since is None or m.at is None or m.at >= since)
+        ]
+        return rows[:limit]
 
     async def inbound_for_task(self, task_id):
         return [c for c in self.inbound if c.task_id == task_id]

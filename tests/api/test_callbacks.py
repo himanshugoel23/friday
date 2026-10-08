@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from friday.core.events import Event
+from friday.core.events import InboundCallReceived, MissedCallReceived
 from friday.core.models import (
     Business,
     CallOutcome,
@@ -129,7 +129,7 @@ async def test_inbound_call_and_missed_call_go_to_engine(wired, pipeline, engine
     assert (await repos.calls.inbound_for_task(task.id))[-1].kind == InboundKind.MISSED_CALL
 
     ctx = await cb.safe_context(match)
-    assert ctx == {"on_behalf_of": "Rahul", "about": "Haircut Saturday"}
+    assert ctx == {"on_behalf_of": "Rahul", "about": "a booking"}
     greeting = cb.greeting(ctx)
     assert "AI assistant" in greeting and "Rahul" in greeting and "Sharma" not in greeting
 
@@ -175,11 +175,6 @@ async def test_bus_events_from_voice_are_wired(wired, pipeline, engine, bus):
     )
     pipeline.callbacks.subscribe()
 
-    class MissedCallReceived(Event):  # shape the voice side will publish
-        from_phone: str
-        to_number: str | None = None
-        provider_call_id: str | None = None
-
     await bus.publish(
         MissedCallReceived(from_phone=BIZ, to_number=FRIDAY_A, provider_call_id="CA9")
     )
@@ -221,8 +216,9 @@ async def test_purge_removes_call_memory(wired):
     assert (await repos.calls.match(BIZ)).status == MatchStatus.UNMATCHED
 
 
-async def test_voice_event_field_names_and_call_id(wired, pipeline, engine, bus):
-    """Voice's events: ``to_number`` (or ``to_phone``) + ``provider_call_id``/``call_id``."""
+async def test_core_inbound_event_and_call_id(wired, pipeline, engine, bus):
+    """core.events.InboundCallReceived: ``to_number`` disambiguates; the provider call id
+    reaches the engine (``contact.call_id`` -> telephony.take_inbound)."""
     repos = wired.repos
     user, t1 = await _setup(repos)
     _, t2 = await _setup(repos, goal="Facial")
@@ -233,28 +229,26 @@ async def test_voice_event_field_names_and_call_id(wired, pipeline, engine, bus)
         task_id=t2.id, user_id=user.id, business_phone=BIZ, friday_number=FRIDAY_B, call_id="c2"
     )
     pipeline.callbacks.subscribe()
-
-    class InboundCallReceived(Event):  # alternative producer spelling: to_phone + call_id
-        from_phone: str
-        to_phone: str | None = None
-        call_id: str | None = None
-
-    await bus.publish(InboundCallReceived(from_phone=BIZ, to_phone=FRIDAY_B, call_id="CALL-1"))
+    await bus.publish(
+        InboundCallReceived(from_phone=BIZ, to_number=FRIDAY_B, provider_call_id="CALL-1")
+    )
     name, (match, contact) = engine.calls[-1]
     assert name == "handle_business_callback"
-    assert match.friday_number == FRIDAY_B and match.task_id == t2.id  # disambiguated
+    assert match.friday_number == FRIDAY_B and match.task_id == t2.id
     assert contact.call_id == "CALL-1" and contact.provider_ref == "CALL-1"
-
-    class VoiceInbound(Event):  # mirrors friday/voice/events.py (no cross-package import)
-        from_phone: str
-        to_number: str | None = None
-        provider_call_id: str | None = None
-
-    VoiceInbound.__name__ = "InboundCallReceived"
-
-    await bus.publish(VoiceInbound(from_phone=BIZ, to_number=FRIDAY_A, provider_call_id="PC-9"))
-    name, (match, contact) = engine.calls[-1]
-    assert match.task_id == t1.id and contact.call_id == "PC-9"
     stored = await repos.calls.get_inbound(contact.id)
-    assert stored.call_id == "PC-9" and stored.friday_number == FRIDAY_A
+    assert stored.call_id == "CALL-1" and stored.friday_number == FRIDAY_B
+    n = len(engine.calls)
+    await bus.publish(InboundCallReceived(from_phone="anonymous"))  # ignored safely
+    assert len(engine.calls) == n
     pipeline.callbacks.unsubscribe()
+
+
+def test_task_label_never_leaks_goal_or_health():
+    """SECURITY-29."""
+    from friday.api.callbacks import task_label
+
+    assert task_label(TaskType.BOOKING, "salon") == "a salon booking"
+    assert task_label(TaskType.HEALTHCARE, "diabetes clinic") == "an appointment"
+    assert task_label(TaskType.BOOKING, "Dr. Mehta's 9pm <script>") == "a booking"
+    assert task_label(TaskType.ORDER, "pharmacy") == "an order"

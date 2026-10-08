@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import inspect
 from datetime import date, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
+from friday.core.interfaces import Notifier as _CoreNotifier
 from friday.core.logging import get_logger
 from friday.core.models import (
     AutonomySetting,
@@ -26,10 +27,7 @@ from friday.core.models import (
     Nudge,
     NudgeFeedback,
     NudgeKind,
-    OutboundMessage,
     Profile,
-    SendReceipt,
-    Urgency,
     User,
     UserAnswer,
 )
@@ -37,15 +35,7 @@ from friday.core.models import (
 log = get_logger(__name__)
 
 
-@runtime_checkable
-class Notifier(Protocol):
-    """Backend notifier (B-4). Chooses channel, applies the WhatsApp 24h window
-    (falls back to ``msg.template``), enforces circle-member consent, logs the message.
-    ``urgency`` lets it bypass quiet hours for SAFETY messages."""
-
-    async def send(
-        self, msg: OutboundMessage, *, urgency: Urgency = Urgency.NORMAL
-    ) -> SendReceipt: ...
+Notifier = _CoreNotifier  # merged into core (Stage 3)
 
 
 class ProfileStore(Protocol):

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import re
 import secrets
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -30,9 +29,11 @@ from friday.api.context import build_context
 from friday.api.costs import AbuseLimiter, CostTracker
 from friday.api.onboarding import OnboardingFlow
 from friday.api.security import PinCheck, PinHasher, PinService, extract_pin
+from friday.api.state import SLOW_DOWN, InboundThrottle, PendingAction, UserState
 from friday.core.clock import format_ist
 from friday.core.container import ComponentNotAvailable
 from friday.core.events import MessageReceived, TaskStatusChanged, UserAnswerReceived
+from friday.core.interfaces import Brain, TaskEngine
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
     AudioClip,
@@ -60,6 +61,7 @@ from friday.core.models import (
     Task,
     TaskSpec,
     TaskStatus,
+    TemplateRef,
     User,
     UserAnswer,
     UserStatus,
@@ -67,6 +69,7 @@ from friday.core.models import (
     parse_button_id,
 )
 from friday.db.repositories import MatchStatus
+from friday.db.repositories._base import phone_index
 
 if TYPE_CHECKING:
     from friday.core.container import Container
@@ -74,6 +77,16 @@ if TYPE_CHECKING:
 log = get_logger(__name__)
 
 REDACTED = "[redacted]"
+# WhatsApp "system" events that signal a possible account takeover (SECURITY-23).
+FREEZE_SIGNALS = frozenset({"user_changed_number", "customer_identity_changed", "sim_swap"})
+STEP_UP_DELEGATION_INR = 5000
+PIN_TOKEN = "[PIN]"
+FOUR_DIGITS_RE = re.compile(r"(?<!\d)\d{4}(?!\d)")
+PIN_TOKEN_STRIP_RE = re.compile(r"\[PIN\]|[\s.,!?;:]+", re.I)
+# Task states in which a mid-call / approval question may be answered (SECURITY-9).
+ANSWERABLE_STATUSES = frozenset(
+    {TaskStatus.AWAITING_USER, TaskStatus.AWAITING_APPROVAL, TaskStatus.CALLING}
+)
 PROFILE_FIELDS = {
     "name",
     "city",
@@ -107,15 +120,6 @@ CANCELLED = "Okay, cancelled. Nothing changed."
 RATE_LIMITED = "I'm handling a lot right now. I'll pick this up at {when}."
 
 
-@dataclass
-class PendingAction:
-    kind: str  # "pin" | "delete_confirm"
-    interpretation: Interpretation | None
-    message: InboundMessage | None
-    expires_at: datetime
-    extra: dict[str, Any] = field(default_factory=dict)
-
-
 class InboundPipeline:
     NO_BRAIN = "I'm still waking up (my brain module isn't connected yet). Try again soon."
     PENDING_TTL = timedelta(minutes=10)
@@ -128,17 +132,23 @@ class InboundPipeline:
         self.repos = c.repos
         self.notifier = c.notifier
         self.pins = PinService(
-            PinHasher(self.settings.secret_key.get_secret_value(), fast=fast_pin_hash),
+            PinHasher(
+                self.settings.key_material("pin_pepper"),
+                fast=fast_pin_hash,
+                legacy=(self.settings.secret_key.get_secret_value(),),
+            ),
             self.repos.users,
             self.clock,
             self.settings.pin_max_attempts,
-            self.repos.audit,
+            self.repos.pin_locks,
         )
         self.costs = CostTracker(self.settings, self.clock, self.bus, self.repos)
         self.limiter = AbuseLimiter(self.settings, self.clock, self.repos)
         self.onboarding = OnboardingFlow(self)
         self.callbacks = CallbackService(c)
-        self._pending: dict[str, PendingAction] = {}
+        cache = self._opt("cache")
+        self.state = UserState(cache)
+        self.throttle = InboundThrottle(cache)
 
     # ------------------------------------------------------------------ optional components
     def _opt(self, name: str) -> Any:
@@ -147,14 +157,16 @@ class InboundPipeline:
         except ComponentNotAvailable:
             return None
 
-    def brain(self) -> Any:
+    def brain(self) -> Brain | None:
         return self._opt("brain")
 
-    def engine(self) -> Any:
+    def engine(self) -> TaskEngine | None:
+        """``core.interfaces.TaskEngine`` (Backend B). Methods are called by their
+        Protocol names; a partial engine (tests, staged rollout) is tolerated."""
         return self._opt("task_engine")
 
     async def _engine_call(self, names: tuple[str, ...], *args: Any, **kw: Any) -> bool:
-        engine = self.engine()
+        engine: Any = self.engine()
         if engine is None:
             return False
         for name in names:
@@ -307,8 +319,28 @@ class InboundPipeline:
         if user.status in (UserStatus.SUSPENDED, UserStatus.DELETED):
             return
         msg.user_id = user.id
-        redact = self._looks_sensitive(user, msg)
+        if msg.kind == MessageKind.SYSTEM:
+            if (msg.text or "").lower() in FREEZE_SIGNALS:
+                await self.freeze_sensitive_actions(user, reason=(msg.text or "").lower())
+            return
+        sender = phone_index(msg.from_phone)
+        if not await self.throttle.allow(sender, self.clock.now()):
+            # SECURITY-21: logged (redacted), answered at most once, never sent to the LLM.
+            await self.repos.messages.log_inbound(msg.model_copy(update={"text": REDACTED}))
+            if await self.throttle.first_notice(sender, self.clock.now()):
+                await self.reply(user, SLOW_DOWN)
+            return
+        redact = await self._looks_sensitive(user, msg)
+        pin_in_text = False
+        if not redact and user.pin_hash and msg.text:
+            msg.text, pin_in_text = self._redact_pin_groups(user, msg.text)
         await self._log_inbound(user, msg, redact=redact)
+        if pin_in_text:
+            # SECURITY-11 / E18: the PIN never reaches the log or the LLM; a PIN typed
+            # outside a PIN prompt is never used as verification.
+            await self.reply(user, PIN_LOOKALIKE)
+            if not PIN_TOKEN_STRIP_RE.sub("", msg.text or ""):
+                return
 
         if user.status == UserStatus.WAITLISTED:
             await self.onboarding.waitlisted(user, msg)
@@ -340,14 +372,22 @@ class InboundPipeline:
             return blob.data.decode("utf-8", "replace")
         return None
 
-    def _looks_sensitive(self, user: User, msg: InboundMessage) -> bool:
+    def _redact_pin_groups(self, user: User, text: str) -> tuple[str, bool]:
+        """Replace every 4-digit group (max 3 checked) that matches the user's PIN."""
+        hit = False
+        for group in FOUR_DIGITS_RE.findall(text)[:3]:
+            if self.pins.matches(user, group):
+                text = re.sub(rf"(?<!\d){group}(?!\d)", PIN_TOKEN, text)
+                hit = True
+        return text, hit
+
+    async def _looks_sensitive(self, user: User, msg: InboundMessage) -> bool:
         if self.onboarding.awaiting_pin(user):
             return True
-        pending = self._get_pending(user.id)
+        pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None and pending.kind == "pin":
             return True
-        pin = extract_pin(msg.text)
-        return bool(pin and msg.text and msg.text.strip() == pin and user.pin_hash)
+        return False
 
     async def _log_inbound(self, user: User, msg: InboundMessage, *, redact: bool) -> None:
         logged = msg.model_copy(update={"text": REDACTED}) if redact and msg.text else msg
@@ -462,23 +502,10 @@ class InboundPipeline:
         return True
 
     # ------------------------------------------------------------------ active users
-    def _get_pending(self, user_id: str) -> PendingAction | None:
-        p = self._pending.get(user_id)
-        if p is not None and p.expires_at <= self.clock.now():
-            del self._pending[user_id]
-            return None
-        return p
-
     async def _active(self, user: User, msg: InboundMessage) -> None:
-        pending = self._get_pending(user.id)
+        pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None:
             await self._continue_pending(user, msg, pending)
-            return
-
-        # E18: unprompted PIN-looking message that matches the PIN -> warn, stop.
-        pin = extract_pin(msg.text)
-        if pin and msg.text and msg.text.strip() == pin and self.pins.matches(user, pin):
-            await self.reply(user, PIN_LOOKALIKE)
             return
 
         if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):
@@ -511,35 +538,36 @@ class InboundPipeline:
             pin = extract_pin(text)
             if pin is None:
                 if CANCEL_RE.match(text):
-                    self._pending.pop(user.id, None)
+                    await self.state.clear_pending(user.id)
                     await self.reply(user, CANCELLED)
                 else:
                     await self.reply(user, PIN_NEEDED)
                 return
             result = await self.pins.verify(user, pin)
             if result.status == PinCheck.OK:
-                self._pending.pop(user.id, None)
+                await self.state.clear_pending(user.id)
                 await self.audit("pin.verified", user)
                 assert pending.interpretation is not None and pending.message is not None
+                await self.state.mark_stepped_up(user.id)
                 await self.execute(user, pending.message, pending.interpretation, pin_verified=True)
             elif result.status == PinCheck.WRONG:
                 await self.audit("pin.failed", user)
                 await self.reply(user, PIN_WRONG.format(left=result.attempts_left))
             elif result.status == PinCheck.LOCKED:
-                self._pending.pop(user.id, None)
+                await self.state.clear_pending(user.id)
                 await self.reply(user, PIN_LOCKED)
             else:
-                self._pending.pop(user.id, None)
+                await self.state.clear_pending(user.id)
                 await self.reply(user, PIN_NOT_SET)
             return
         if pending.kind == "delete_confirm":
-            self._pending.pop(user.id, None)
+            await self.state.clear_pending(user.id)
             if text.upper() == "DELETE":
                 await self.delete_everything(user)
             else:
                 await self.reply(user, CANCELLED)
             return
-        self._pending.pop(user.id, None)  # unknown kind: drop
+        await self.state.clear_pending(user.id)  # unknown kind: drop
 
     # ------------------------------------------------------------------ buttons
     async def _button(self, user: User, msg: InboundMessage) -> bool:
@@ -554,8 +582,8 @@ class InboundPipeline:
         kind, ref, value = parsed
         if kind == "q":
             question = await self.repos.tasks.get_question(ref)
-            if question is None:
-                return False
+            if question is None or not await self._may_answer(user, question.task_id):
+                return True  # SECURITY-9: foreign/stale question - swallow, never forward
             try:
                 idx = int(value)
                 option = question.options[idx]
@@ -588,13 +616,26 @@ class InboundPipeline:
             return True
         return False
 
+    async def _may_answer(self, user: User, task_id: str) -> bool:
+        """SECURITY-9: only the task's requester, and only while the task is waiting."""
+        task = await self.repos.tasks.get(task_id)
+        return (
+            task is not None
+            and task.requester_user_id == user.id
+            and task.status in ANSWERABLE_STATUSES
+        )
+
     async def _record_answer(self, user: User, answer: UserAnswer) -> None:
+        question = await self.repos.tasks.get_question(answer.question_id)
+        if question is None or not await self._may_answer(user, question.task_id):
+            log.info("ignored answer to a foreign or stale question from user %s", user.id)
+            return
         stored = await self.repos.tasks.answer_question(answer)
         if not stored:
             return
         await self.audit("question.answered", user, subject_id=answer.question_id)
         await self.bus.publish(UserAnswerReceived(answer=answer))
-        await self._engine_call(("handle_answer", "on_user_answer", "answer"), answer)
+        await self._engine_call(("handle_answer",), answer)
 
     async def _nudge_action(
         self, user: User, nudge_id: str, action: str, msg: InboundMessage
@@ -639,6 +680,10 @@ class InboundPipeline:
             interp.requires_pin
             or intent in (Intent.DELETE_DATA, Intent.SAVE_IDENTIFIER)
             or any(a.level == AutonomyLevel.ACT_AUTOMATICALLY for a in interp.autonomy_updates)
+            or (
+                await self._sensitive_read(user, interp)
+                and not await self.state.stepped_up(user.id)
+            )
         )
         if needs_pin and not pin_verified:
             if not user.pin_hash:
@@ -647,11 +692,14 @@ class InboundPipeline:
             if await self.pins.is_locked(user):
                 await self.reply(user, PIN_LOCKED)
                 return
-            self._pending[user.id] = PendingAction(
-                kind="pin",
-                interpretation=interp,
-                message=msg,
-                expires_at=self.clock.now() + self.PENDING_TTL,
+            await self.state.set_pending(
+                user.id,
+                PendingAction(
+                    kind="pin",
+                    interpretation=interp,
+                    message=msg,
+                    expires_at=self.clock.now() + self.PENDING_TTL,
+                ),
             )
             await self.reply(user, PIN_NEEDED)
             return
@@ -713,17 +761,52 @@ class InboundPipeline:
                 await self.repos.autonomy.upsert(a.model_copy(update={"user_id": user.id}))
             await self.audit("settings.changed", user)
         elif intent == Intent.DELETE_DATA:
-            self._pending[user.id] = PendingAction(
-                kind="delete_confirm",
-                interpretation=None,
-                message=None,
-                expires_at=self.clock.now() + self.PENDING_TTL,
+            await self.state.set_pending(
+                user.id,
+                PendingAction(
+                    kind="delete_confirm",
+                    interpretation=None,
+                    message=None,
+                    expires_at=self.clock.now() + self.PENDING_TTL,
+                ),
             )
             reply, buttons = DELETE_CONFIRM, []
         elif intent == Intent.INVITE:
             reply, buttons = await self._invites(user), []
 
         await self.reply(user, reply, buttons)
+
+    async def _sensitive_read(self, user: User, interp: Interpretation) -> bool:
+        """SECURITY-23 step-up (enforced by intent, not only the brain's flag):
+        memory queries (notes, addresses, identifiers, circle), changing a circle
+        member's phone, and large delegations. A verified PIN covers 10 minutes."""
+        if interp.intent == Intent.QUERY_MEMORY:
+            return True
+        if interp.intent == Intent.ADD_PERSON and interp.person_upsert is not None:
+            existing = await self.repos.people.get(interp.person_upsert.id)
+            new_phone = interp.person_upsert.phone
+            if existing is not None and existing.owner_user_id == user.id and new_phone:
+                try:
+                    new_phone = normalize_phone(new_phone, self.settings.default_country_code)
+                except ValueError:
+                    return True
+                return new_phone != existing.phone
+        if interp.intent in (Intent.NEW_TASK, Intent.TASK_UPDATE) and interp.task_spec:
+            d = interp.task_spec.delegation
+            return d.granted and (d.max_price_inr is None or d.max_price_inr >= STEP_UP_DELEGATION_INR)
+        return False
+
+    async def freeze_sensitive_actions(self, user: User, *, reason: str) -> None:
+        """Re-registration / SIM-swap signal: freeze PIN-gated actions for 24 h and
+        tell the user by SMS (their WhatsApp may be the compromised channel)."""
+        await self.pins.freeze(user, reason=reason)
+        await self.state.clear_user(user.id)
+        await self.audit("security.freeze", user, actor="system", reason=reason)
+        await self.notifier.send_sms(
+            user.phone,
+            TemplateRef(key="user_task_update", params=["Security hold 24h"]),
+            user_id=user.id,
+        )
 
     async def _learn_aliases(self, user: User, interp: Interpretation) -> None:
         if interp.resolution is None:
@@ -804,7 +887,7 @@ class InboundPipeline:
             TaskStatusChanged(task_id=task.id, user_id=user.id, old=None, new=task.status)
         )
         if queued_until is None:
-            await self._engine_call(("submit", "start_task", "enqueue"), task)
+            await self._engine_call(("submit",), task)
         await self.costs.check(user.id)
         return task, queued_until
 
@@ -812,7 +895,7 @@ class InboundPipeline:
         task = await self.repos.tasks.get(task_id)
         if task is None or task.requester_user_id != user.id or task.status.is_terminal:
             return
-        if await self._engine_call(("update_spec", "update_task"), task.id, spec):
+        if await self._engine_call(("update_spec",), task.id, spec):
             return
         task.spec = spec
         await self.repos.tasks.save(task)
@@ -843,7 +926,7 @@ class InboundPipeline:
         if task.status.is_terminal:
             return
         await self.audit("task.cancel_requested", user, actor="user", subject_id=task.id)
-        if await self._engine_call(("cancel", "cancel_task"), task.id):
+        if await self._engine_call(("cancel",), task.id):
             return
         old = task.status
         await self.repos.tasks.set_status(task.id, TaskStatus.CANCELLED)
@@ -882,10 +965,28 @@ class InboundPipeline:
     async def delete_everything(self, user: User) -> None:
         """PIN-verified + DELETE-confirmed purge. Ends in-flight tasks first."""
         for task in await self.repos.tasks.list_for_user(user.id, open_only=True):
-            await self._engine_call(("cancel", "cancel_task"), task.id)
+            await self._engine_call(("cancel",), task.id)
         phone = user.phone
+        recordings = await self.repos.purger.recording_urls(user.id)
         counts = await self.repos.purger.purge_user(user.id)
-        self._pending.pop(user.id, None)
+        # SECURITY-14: recordings live outside the DB (object store / provider).
+        from friday.db.objectstore import build_object_store
+        from friday.db.retention import erase_recordings
+
+        try:
+            store = build_object_store(self.settings)
+        except Exception:  # noqa: BLE001 - misconfigured store: queue for retention
+            store = None
+        if store is not None:
+            await erase_recordings(
+                self.repos, recordings, store=store, telephony=self._opt("telephony")
+            )
+        else:
+            from friday.db.retention import add_pending_deletion
+
+            for url in recordings:
+                await add_pending_deletion(self.repos, url, error="no object store")
+        await self.state.clear_user(user.id)
         await self.repos.audit.log(
             "data.deleted", user_id=user.id, actor="user", tables=len(counts)
         )

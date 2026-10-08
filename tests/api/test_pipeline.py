@@ -236,6 +236,7 @@ async def _task(pipeline, user) -> Task:
         Task(
             requester_user_id=user.id,
             type=TaskType.BOOKING,
+            status=TaskStatus.AWAITING_APPROVAL,
             spec=TaskSpec(type=TaskType.BOOKING, goal="haircut"),
         )
     )
@@ -518,3 +519,28 @@ async def test_nudge_button_fallback_without_proactive(pipeline, channel, wired,
     await say(pipeline, channel, ADMIN, "1")
     assert (await pipeline.repos.nudges.get(nudge.id)).status == NudgeStatus.ACTED
     assert engine.calls[-1][0] == "submit"
+
+
+async def test_question_answers_owner_and_state_checked(pipeline, channel, engine, wired):
+    """SECURITY-9: another user's q: button, or a question on a finished task, is ignored."""
+    alice = await onboard(pipeline, channel)
+    task = await _task(pipeline, alice)
+    q = MidCallQuestion(task_id=task.id, text="6pm?", options=["Yes", "No"], asked_at=pipeline.clock.now())
+    await pipeline.repos.tasks.add_question(q)
+    bob = await pipeline.repos.users.add(
+        User(phone="+919800000999", status=UserStatus.ACTIVE, onboarding_step=OnboardingStep.DONE)
+    )
+    from friday.core.models import InboundMessage, MessageKind, question_button_id
+
+    n = len(engine.calls)
+    await pipeline.handle(
+        InboundMessage(channel="simulator", from_phone=bob.phone, kind=MessageKind.BUTTON_REPLY,
+                       text="Yes", button_id=question_button_id(q.id, 0))
+    )
+    assert await pipeline.repos.tasks.get_answer(q.id) is None and len(engine.calls) == n
+    await pipeline.repos.tasks.set_status(task.id, TaskStatus.COMPLETED)
+    await pipeline.handle(
+        InboundMessage(channel="simulator", from_phone=alice.phone, kind=MessageKind.BUTTON_REPLY,
+                       text="Yes", button_id=question_button_id(q.id, 0))
+    )
+    assert await pipeline.repos.tasks.get_answer(q.id) is None

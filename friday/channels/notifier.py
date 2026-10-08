@@ -60,6 +60,8 @@ TEMPLATE_REQUIRED = "template_required"
 UNKNOWN_RECIPIENT = "unknown_recipient"
 NO_CHANNEL = "no_channel"
 
+OPT_IN_REMINDER_AFTER = timedelta(days=7)
+
 # DLT SMS template keys (Settings.sms_dlt_templates)
 SMS_USER_UPDATE = "user_task_update"
 SMS_BUSINESS_BOOKING = "business_booking_confirmed"
@@ -80,7 +82,7 @@ def _sms_param(text: str) -> str:
     return text if len(text) <= 30 else text[:29] + "…"
 
 
-class Notifier:
+class Notifier:  # implements core.interfaces.Notifier
     def __init__(
         self,
         *,
@@ -149,6 +151,10 @@ class Notifier:
             if not allowed:
                 return await self._refuse(msg, CONSENT_REQUIRED)
 
+        # --- SECURITY-15: a circle member's phone is gated even without person_id
+        elif msg.business_id is None and not await self._phone_may_receive(msg, opt_in_request):
+            return await self._refuse(msg, CONSENT_REQUIRED)
+
         # --- 24h window
         if msg.template is None and not await self.in_window(msg):
             if msg.person_id is None and msg.business_id is None and msg.user_id:
@@ -166,6 +172,20 @@ class Notifier:
         ):
             await self._sms_fallback(msg)
         return receipt
+
+    async def _phone_may_receive(self, msg: OutboundMessage, opt_in_request: bool) -> bool:
+        """True unless ``msg.to_phone`` belongs to a circle member who hasn't opted in
+        (and isn't the requesting user themself)."""
+        people = await self.repos.people.find_by_phone(msg.to_phone)
+        if not people:
+            return True
+        if msg.user_id:
+            user = await self.repos.users.get(msg.user_id)
+            if user is not None and user.phone == msg.to_phone:
+                return True
+        if opt_in_request and msg.template is not None:
+            return all(p.contact_consent != PersonConsent.OPTED_OUT for p in people)
+        return all(p.contact_consent == PersonConsent.OPTED_IN for p in people)
 
     async def _deliver(self, msg: OutboundMessage) -> SendReceipt:
         assert self.messaging is not None
@@ -206,9 +226,10 @@ class Notifier:
         task_id: str | None = None,
         business_id: str | None = None,
         person_id: str | None = None,
+        opt_in_request: bool = False,
     ) -> SendReceipt:
-        """DLT template SMS (no consent gate here: callers to circle members use
-        ``message_person``/``request_person_opt_in``)."""
+        """DLT template SMS. SECURITY-15: circle members (by ``person_id`` or by phone)
+        only when OPTED_IN, except an explicit one-time ``opt_in_request``."""
         record = OutboundMessage(
             channel=Channel.SMS,
             to_phone=to_phone,
@@ -218,6 +239,16 @@ class Notifier:
             business_id=business_id,
             person_id=person_id,
         )
+        if person_id is not None:
+            person = await self.repos.people.get(person_id)
+            ok = person is not None and (
+                person.contact_consent == PersonConsent.OPTED_IN
+                or (opt_in_request and person.contact_consent != PersonConsent.OPTED_OUT)
+            )
+            if not ok:
+                return await self._refuse(record, CONSENT_REQUIRED)
+        if business_id is None and not await self._phone_may_receive(record, opt_in_request):
+            return await self._refuse(record, CONSENT_REQUIRED)
         if self.sms is None:
             return await self._refuse(record, NO_CHANNEL)
         try:
@@ -320,15 +351,32 @@ class Notifier:
         requester_name: str,
         what: str,
         template_key: str = "beneficiary_optin",
+        reminder: bool = False,
     ) -> SendReceipt:
         """One-time opt-in request (template) to a circle member; marks consent PENDING.
-        Template params: name, requester, relation, what (PRD §8.1)."""
+        Template params: name, requester, relation, what (PRD §8.1).
+
+        SECURITY-16: at most one request per person; ``reminder=True`` allows ONE more,
+        no sooner than 7 days after the first. Suppressed phones (anyone who said STOP
+        to any owner) never get a request."""
+        person = await self.repos.people.get(person.id) or person
         if not person.phone:
             return SendReceipt(message_id=new_id(), ok=False, error=UNKNOWN_RECIPIENT)
         if person.contact_consent in (PersonConsent.OPTED_IN, PersonConsent.OPTED_OUT):
             return SendReceipt(
                 message_id=new_id(), ok=False, error=f"already {person.contact_consent.value}"
             )
+        if await self.repos.suppressions.is_suppressed(person.phone):
+            return SendReceipt(message_id=new_id(), ok=False, error="suppressed")
+        if person.contact_consent == PersonConsent.PENDING:
+            sent = [
+                e
+                for e in await self.repos.audit.list_for_user(person.owner_user_id, limit=500)
+                if e.action == "consent.optin_requested" and e.subject_id == person.id
+            ]
+            too_soon = bool(sent) and self.clock.now() - min(e.at for e in sent) < OPT_IN_REMINDER_AFTER
+            if not reminder or len(sent) >= 2 or too_soon:
+                return SendReceipt(message_id=new_id(), ok=False, error="already pending")
         tpl = TemplateRef(
             key=template_key,
             params=[person.name, requester_name, person.relation or "family", what],

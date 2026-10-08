@@ -113,10 +113,16 @@ async def test_business_hours_queue_and_lunch(env):
     assert t.status == S.SCHEDULED and to_ist(t.next_attempt_at).strftime("%H:%M") == "17:05"
     assert any("I'll call at" in x for x in env.texts())
     assert await env.advance_and_tick(hours=4) == 1
-    assert (await env.get(t.id)).status == S.AWAITING_APPROVAL  # unapproved SUCCESS downgraded (SECURITY-4)
+    assert (
+        await env.get(t.id)
+    ).status == S.AWAITING_APPROVAL  # unapproved SUCCESS downgraded (SECURITY-4)
     # unknown hours at 13:45 -> after the lunch window (14:30)
     env.clock.set(datetime(2026, 1, 6, 13, 45, tzinfo=IST))
     t2 = await env.task(booking(phone="+919812340000", name="New Place"))
+    assert t2.status == S.AWAITING_APPROVAL  # unlisted mobile: "is it a business?" first
+    await env.engine.approve(t2.id, True)
+    await env.engine.drain()
+    t2 = await env.get(t2.id)
     assert to_ist(t2.next_attempt_at).strftime("%H:%M") == "14:30"
 
 

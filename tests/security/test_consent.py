@@ -126,11 +126,6 @@ async def test_circle_member_stop_revokes_consent(repos, clock, pipeline, wired,
     assert not (await wired.notifier.message_person(dad.id, "hello")).ok
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-15: consent gate keys on person_id only; a message to a circle member's "
-    "phone without person_id is delivered",
-)
 async def test_consent_gate_applies_by_phone_too(wired, repos, clock, channel) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     await _dad(repos, user.id, PersonConsent.OPTED_OUT)
@@ -144,10 +139,6 @@ async def test_consent_gate_applies_by_phone_too(wired, repos, clock, channel) -
     assert _sent_to(channel, DAD_PHONE) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-15: notifier.send_sms has no consent gate for circle members",
-)
 async def test_sms_to_circle_member_requires_consent(wired, repos, clock) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     dad = await _dad(repos, user.id, PersonConsent.NOT_ASKED)
@@ -160,10 +151,6 @@ async def test_sms_to_circle_member_requires_consent(wired, repos, clock) -> Non
     assert not receipt.ok
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-16: opt-in requests can be re-sent without limit while PENDING (spam)",
-)
 async def test_opt_in_request_sent_at_most_once(wired, repos, clock, channel) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     dad = await _dad(repos, user.id, PersonConsent.NOT_ASKED)
@@ -174,11 +161,6 @@ async def test_opt_in_request_sent_at_most_once(wired, repos, clock, channel) ->
     assert not second.ok
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-16: deleting and re-adding a person resets an OPTED_OUT phone "
-    "(no per-phone suppression list)",
-)
 async def test_opt_out_survives_delete_and_re_add(wired, repos, clock, channel) -> None:
     user = await make_active_user(repos, clock, ALICE_PHONE)
     dad = await _dad(repos, user.id, PersonConsent.OPTED_OUT)

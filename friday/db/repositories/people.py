@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from friday.core.models import GeoPoint, Person, Place
+from friday.core.models import GeoPoint, Person, PersonConsent, Place
 from friday.db.repositories._base import Repo, copy_simple, phone_index, row_dict
-from friday.db.tables import PersonRow, PlaceRow
+from friday.db.tables import PersonRow, PlaceRow, SuppressionRow
 
 
 def _person(row: PersonRow) -> Person:
@@ -48,8 +48,20 @@ class PersonRepo(Repo):
             return [_person(r) for r in rows]
 
     async def upsert(self, person: Person) -> Person:
+        """SECURITY-16: saving OPTED_OUT suppresses the phone for every owner; a new row
+        for a suppressed phone starts OPTED_OUT (delete + re-add can't reset it)."""
         person.updated_at = self.now()
         async with self.db.session() as s:
+            if person.phone:
+                h = phone_index(person.phone)
+                if person.contact_consent == PersonConsent.OPTED_OUT:
+                    await _suppress(s, h, "contact", "opted_out", self.now())
+                elif await _is_suppressed(s, h, "contact"):
+                    person.contact_consent = PersonConsent.OPTED_OUT
+                if person.checkin_consent == PersonConsent.OPTED_OUT:
+                    await _suppress(s, h, "checkin", "opted_out", self.now())
+                elif await _is_suppressed(s, h, "checkin"):
+                    person.checkin_consent = PersonConsent.OPTED_OUT
             await s.merge(
                 PersonRow(
                     **copy_simple(person, PersonRow),
@@ -65,6 +77,35 @@ class PersonRepo(Repo):
                 return False
             await s.delete(row)
             return True
+
+
+async def _is_suppressed(s, phone_hmac: str, scope: str) -> bool:  # noqa: ANN001
+    row = (
+        await s.execute(
+            select(SuppressionRow.id).where(
+                SuppressionRow.phone_hmac == phone_hmac, SuppressionRow.scope == scope
+            )
+        )
+    ).first()
+    return row is not None
+
+
+async def _suppress(s, phone_hmac: str, scope: str, reason: str, at) -> None:  # noqa: ANN001
+    if not await _is_suppressed(s, phone_hmac, scope):
+        s.add(SuppressionRow(phone_hmac=phone_hmac, scope=scope, reason=reason, at=at))
+        await s.flush()
+
+
+class SuppressionRepo(Repo):
+    """Per-phone suppression (STOP / opt-out), across all owners (SECURITY-16)."""
+
+    async def add(self, phone: str, *, scope: str = "contact", reason: str = "stop") -> None:
+        async with self.db.session() as s:
+            await _suppress(s, phone_index(phone), scope, reason, self.now())
+
+    async def is_suppressed(self, phone: str, *, scope: str = "contact") -> bool:
+        async with self.db.session() as s:
+            return await _is_suppressed(s, phone_index(phone), scope)
 
 
 class PlaceRepo(Repo):

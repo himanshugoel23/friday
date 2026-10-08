@@ -34,6 +34,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from friday.core.clock import at_ist, format_ist, ist_day_bounds, to_ist
+from friday.core.container import JOB_ROUTES
 from friday.core.events import (
     MidCallQuestionAsked,
     TaskStatusChanged,
@@ -60,13 +61,16 @@ from friday.core.models import (
     HotelBookingStatus,
     HotelOffer,
     HotelProperty,
+    InboundContext,
     InteractionKind,
     MidCallQuestion,
     NumberCheck,
+    NumberOutcome,
     NumberVerdict,
     PersonConsent,
     QuestionPurpose,
     Quote,
+    RelatedTask,
     ReplyButton,
     ShortlistItem,
     TargetKind,
@@ -85,7 +89,8 @@ from friday.core.models import (
 )
 from friday.core.models import TaskStatus as S
 from friday.core.safety import check_commit
-from friday.discovery.geo import is_toll_free, phone_key
+from friday.core.scale import Job, JobPriority, MemoryLock, worker_id
+from friday.discovery.geo import is_indian_mobile, is_toll_free, phone_key
 from friday.tasks import states
 from friday.tasks.categories import category_for, level_for
 from friday.tasks.context import build_context
@@ -124,6 +129,19 @@ BOOKING_TYPES = {
     TaskType.RESCHEDULE,
 }
 # a pure decline ("None", "neither", "nahi"); "neither, ask for Sunday" is a new choice
+# SECURITY-25: links, UPI ids, payment / advance / OTP asks in relayed business text
+_RISKY_RELAY = re.compile(
+    r"(https?://|www\.|\b[\w.\-]{2,}@[a-z]{2,}\b|\bupi\b|\badvance\b|\bpay(ment)?\b|"
+    r"\botp\b|\bkyc\b|\bdeposit\b|\btoken amount\b|\bbhugtan\b|\bpaise bhej)",
+    re.I,
+)
+# SECURITY-21 safety caps (separate from the beta's "no user cap" promise; ops-only)
+USER_DAILY_CALL_CAP = 50
+TARGET_DAILY_CAP = 3
+TARGET_WEEKLY_CAP = 10
+NO_NUMBER_RETRY_MIN = 15  # NP-3: no caller-ID free -> try again in 15 min
+SHORT_CALL_S = 10
+ANSWER_POLL_S = 0.25  # mid-call answer: poll the DB row (answers stored by other replicas)
 COMMIT_TYPES = BOOKING_TYPES | {TaskType.RECURRING_BOOKING}
 DECLINE_WORDS = re.compile(
     r"^\s*(none( of (these|them))?|neither|no( thanks)?|nahi+n?|cancel|don'?t book( it)?)[\s.!]*$",
@@ -137,6 +155,11 @@ def role_of(task: Task) -> str | None:
 
 def _child_spec(spec: TaskSpec, **updates: Any) -> TaskSpec:
     return spec.model_copy(update=updates)
+
+
+JOB_STEP = "task.step"
+JOB_SCHEDULED = "task.scheduled"
+JOB_CALL = "call.place"
 
 
 class TaskAborted(Exception):  # noqa: N818 - control flow
@@ -177,7 +200,11 @@ class TaskEngine:
         self.bus = c.bus
         self.policy = policy or TaskPolicy.from_settings(c.settings)
         self._global_calls = asyncio.Semaphore(max(1, self.settings.max_concurrent_calls))
-        self._jobs: dict[str, set[asyncio.Task]] = {}
+        self._pump_task: asyncio.Task | None = None
+        self._handlers: set[asyncio.Task] = set()
+        self._closed = False
+        self._local_locks = MemoryLock()
+        self.worker_id = worker_id("task")
         self._calls: dict[str, asyncio.Task] = {}  # task_id -> running call coroutine task
         self._pending: dict[str, tuple[asyncio.Future, str, str, MidCallQuestion]] = {}
         self._offer_questions: dict[str, str] = {}  # question id -> task id
@@ -227,33 +254,134 @@ class TaskEngine:
         return repo(self.repos, "calls")
 
     # ================================================================== lifecycle
-    def _spawn(self, task_id: str, coro: Awaitable[Any]) -> asyncio.Task:
-        job = asyncio.ensure_future(coro)
-        self._jobs.setdefault(task_id, set()).add(job)
+    @property
+    def queue(self) -> Any:
+        """Durable JobQueue (core memory impl in dev/tests, Postgres in prod)."""
+        return self.c.get("job_queue")
 
-        def done(j: asyncio.Task) -> None:
-            self._jobs.get(task_id, set()).discard(j)
-            if not j.cancelled() and j.exception() is not None:
-                log.error("task %s job failed: %r", task_id, j.exception())
+    @property
+    def locks(self) -> Any:
+        return self._opt("lock") or self._local_locks
 
-        job.add_done_callback(done)
+    @property
+    def pool(self) -> Any:
+        """Caller-ID NumberPool (NP-2)."""
+        return self._opt("number_pool")
+
+    def _kinds(self) -> tuple[str, ...]:
+        """Job kinds this process consumes (JOB_ROUTES x Settings.roles)."""
+        return tuple(
+            k
+            for k in (JOB_STEP, JOB_SCHEDULED, JOB_CALL)
+            if self.settings.has_role(JOB_ROUTES.get(k, "task"))
+        )
+
+    async def _enqueue(
+        self,
+        kind: str,
+        task_id: str,
+        *,
+        due_at: datetime | None = None,
+        dedupe: str | None = None,
+        priority: int = JobPriority.TASK,
+        **payload: Any,
+    ) -> Job:
+        job = Job(
+            kind=kind,
+            payload={"task_id": task_id, **payload},
+            priority=priority,
+            due_at=due_at,
+            dedupe_key=dedupe,
+            partition_key=task_id,
+            max_attempts=self.settings.queue_max_attempts,
+            created_at=self.clock.now(),
+        )
+        job = await self.queue.enqueue(job)
+        self._kick()
         return job
 
+    async def _step(
+        self, task_id: str, *, needs_approval: bool = False, priority: int = JobPriority.TASK
+    ) -> None:
+        """Durable "advance this task" job (S-7). Consumers re-read the task, so an
+        extra wake-up is harmless; a lost one is recovered by ``tick``."""
+        await self._enqueue(JOB_STEP, task_id, needs_approval=needs_approval, priority=priority)
+
+    def _kick(self) -> None:
+        """Make sure a local claim loop is draining due jobs."""
+        if self._closed or not self._kinds():
+            return
+        if self._pump_task is None or self._pump_task.done():
+            self._pump_task = asyncio.ensure_future(self._pump_queue())
+
+    async def _pump_queue(self) -> None:
+        limit = max(1, self.settings.worker_concurrency.get("task", 32))
+        kinds = list(self._kinds())
+        running: set[asyncio.Task] = set()
+        while not self._closed:
+            room = limit - len(running)
+            jobs = (
+                await self.queue.claim(
+                    self.worker_id,
+                    kinds=kinds,
+                    limit=room,
+                    lease_s=self.settings.queue_visibility_timeout_s,
+                )
+                if room > 0
+                else []
+            )
+            for job in jobs:
+                t = asyncio.ensure_future(self.handle_job(job))
+                running.add(t)
+                self._handlers.add(t)
+                t.add_done_callback(self._handlers.discard)
+            if not running:
+                return
+            _, running = await asyncio.wait(running, return_when=asyncio.FIRST_COMPLETED)
+
+    async def handle_job(self, job: Job) -> None:
+        """Run one claimed job and ack it. Voice workers (role=voice) call this for the
+        ``call.place`` jobs they claim; task workers for ``task.*``."""
+        task_id = job.payload.get("task_id", "")
+        try:
+            if job.kind in (JOB_STEP, JOB_SCHEDULED):
+                async with self.locks.hold(f"task:{task_id}", timeout_s=120):
+                    await self._run(task_id, needs_approval=bool(job.payload.get("needs_approval")))
+            elif job.kind == JOB_CALL:
+                await self._run_call_job(job)
+            else:
+                log.warning("task engine got unknown job kind %s", job.kind)
+            await self.queue.ack(job.id)
+        except asyncio.CancelledError:
+            raise  # worker shutting down: the lease expires and another worker takes it
+        except Exception as e:  # noqa: BLE001
+            log.exception("job %s (%s) failed", job.id, job.kind)
+            await self.queue.retry(job.id, error=type(e).__name__, delay_s=30.0)
+
     async def drain(self, limit_s: float = 30.0) -> None:
-        """Wait until no engine work is in flight (tests / graceful shutdown)."""
+        """Process every due job until the queue is idle (tests / graceful shutdown)."""
         loop = asyncio.get_running_loop()
         deadline = loop.time() + limit_s
         while True:
-            jobs = [j for js in self._jobs.values() for j in js if not j.done()]
-            if not jobs:
-                return
             if loop.time() > deadline:
-                raise TimeoutError(f"{len(jobs)} engine jobs still running")
-            await asyncio.wait(jobs, timeout=max(0.01, deadline - loop.time()))
+                raise TimeoutError("engine queue still busy")
+            pump = self._pump_task
+            if pump is None or pump.done():
+                busy = [h for h in self._handlers if not h.done()]
+                if busy:
+                    await asyncio.wait(busy, timeout=0.05)
+                    continue
+                if not await self.queue.depth(kinds=list(self._kinds())):
+                    return
+                self._kick()
+                continue
+            if loop.time() > deadline:
+                raise TimeoutError("engine queue still busy")
+            await asyncio.wait([pump], timeout=max(0.01, deadline - loop.time()))
 
     async def start(self, poll_s: float = 5.0) -> None:
-        """Queue worker: dials due SCHEDULED tasks. Cadence uses real time; every
-        scheduling decision uses ``Clock.now()``."""
+        """Worker loop: recover due SCHEDULED tasks into jobs and claim due jobs.
+        Cadence uses real time; every scheduling decision uses ``Clock.now()``."""
         if self._worker and not self._worker.done():
             return
         self._stopping.clear()
@@ -276,22 +404,32 @@ class TaskEngine:
             self._worker = None
 
     async def aclose(self) -> None:
+        """Stop claiming; in-flight handlers are cancelled WITHOUT ack, so their leases
+        expire and another worker resumes them (restart-safe)."""
         await self.stop()
-        for js in self._jobs.values():
-            for j in js:
-                j.cancel()
+        self._closed = True
+        for t in [self._pump_task, *self._handlers]:
+            if t is not None and not t.done():
+                t.cancel()
 
     async def tick(self) -> int:
-        """Start every due task (SCHEDULED retries/queued calls/recurring runs)."""
+        """Exactly-once timers: every due SCHEDULED task gets one ``task.scheduled`` job
+        (dedupe on task + due time) and the local claim loop runs due jobs."""
         now = self.clock.now()
         due = await self.tasks.list_due(now)
-        started = 0
         for task in due:
-            if any(not j.done() for j in self._jobs.get(task.id, set())):
-                continue
-            self._spawn(task.id, self._run(task.id))
-            started += 1
-        return started
+            await self._schedule_job(task, due_at=now)
+        self._kick()
+        return len(due)
+
+    async def _schedule_job(self, task: Task, *, due_at: datetime | None = None) -> None:
+        when = task.next_attempt_at or self.clock.now()
+        await self._enqueue(
+            JOB_SCHEDULED,
+            task.id,
+            due_at=due_at or when,
+            dedupe=f"sched:{task.id}:{when.isoformat()}",
+        )
 
     # ================================================================== public API
     async def create_task(
@@ -335,7 +473,7 @@ class TaskEngine:
             await self._audit(task, "task.created", type=task.type.value, approved=approved)
         else:  # persisted by the inbound pipeline; keep our normalisation
             task = await self.tasks.save(task)
-        self._spawn(task.id, self._run(task.id, needs_approval=not approved))
+        await self._step(task.id, needs_approval=not approved)
         return task
 
     async def cancel(self, task_id: str, *, by_user: bool = True) -> Task | None:
@@ -391,7 +529,7 @@ class TaskEngine:
             if spec.delegation.granted:
                 task.delegation = spec.delegation
         task = await self._transition(task, S.PLANNING)
-        self._spawn(task.id, self._run(task.id))
+        await self._step(task.id)
         return task
 
     def pending_question(self, user_id: str) -> MidCallQuestion | None:
@@ -589,7 +727,7 @@ class TaskEngine:
         parent.result.details["booking_child_id"] = child.id
         await self._audit(parent, "task.chosen", index=index, business=quote.business_name)
         await self._transition(parent, S.WAITING_CHILDREN)
-        self._spawn(child.id, self._run(child.id))
+        await self._step(child.id)
         return parent
 
     # ================================================================== dispatcher
@@ -615,7 +753,7 @@ class TaskEngine:
                 else:
                     await self._queue_dial(task)
             elif task.status in (S.CALLING, S.CONFIRMATION_CALLBACK):
-                await self._call(task)
+                pass  # the call.place job owns a live/queued call: never dial from a step
             elif task.status == S.DISCOVERING:
                 await self._discover(task)
             elif task.status == S.WAITING_CHILDREN:
@@ -624,17 +762,19 @@ class TaskEngine:
             log.info("task %s aborted (resolved concurrently)", task_id)
         except asyncio.CancelledError:
             raise
-        except Exception as e:  # noqa: BLE001 - never leave a task hanging
+        except Exception:  # noqa: BLE001 - never leave a task hanging
             log.exception("task %s failed", task_id)
-            fresh = await self.tasks.get(task_id)
-            if fresh and not fresh.status.is_terminal:
-                fresh.result = TaskResult(
-                    success=False, summary="Sorry, something went wrong on my side."
-                )
-                await self._transition(fresh, S.FAILED, force=True)
-                await self._report(fresh, fresh.result)
-                await self._on_terminal(fresh)
-            _ = e
+            await self._fail_unexpected(task_id)
+
+    async def _fail_unexpected(self, task_id: str) -> None:
+        fresh = await self.tasks.get(task_id)
+        if fresh and not fresh.status.is_terminal:
+            fresh.result = TaskResult(
+                success=False, summary="Sorry, something went wrong on my side."
+            )
+            await self._transition(fresh, S.FAILED, force=True)
+            await self._report(fresh, fresh.result)
+            await self._on_terminal(fresh)
 
     async def _transition(self, task: Task, new: S, *, force: bool = False, **updates: Any) -> Task:
         current = await self.tasks.get(task.id)
@@ -648,6 +788,8 @@ class TaskEngine:
         task.status = new
         task.updated_at = self.clock.now()
         task = await self.tasks.save(task)
+        if new == S.SCHEDULED and task.next_attempt_at is not None:
+            await self._schedule_job(task)  # durable timer (exactly-once across replicas)
         if old != new:
             await self.bus.publish(
                 TaskStatusChanged(
@@ -719,6 +861,8 @@ class TaskEngine:
         if task.target.kind == TargetKind.BUSINESS and not task.target.business_id:
             await self._attach_business(task)  # vendor memory for children / timed tasks
         if task.target.kind == TargetKind.BUSINESS and not await self._vet_number(task):
+            return
+        if task.target.kind == TargetKind.BUSINESS and not await self._private_number_ok(task):
             return
         if needs_approval and not task.approved_terms:
             await self._ask_call_approval(task)
@@ -926,7 +1070,35 @@ class TaskEngine:
             return False
         return True
 
-    async def _ask_call_approval(self, task: Task, text: str | None = None) -> None:
+    async def _private_number_ok(self, task: Task) -> bool:
+        """SECURITY-22: Friday only calls businesses or people who agreed. A mobile
+        number with no listing / official entry / history is asked about ONCE (the
+        answer is the task approval, recorded in the audit log)."""
+        phone = task.target.phone
+        if task.approved_terms or not is_indian_mobile(phone):
+            return True
+        if await self._verified_business(task):
+            return True
+        check = await self._verify(phone, name=task.target.name, company=task.spec.company)
+        listed = check.verdict == NumberVerdict.TRUSTED or any(
+            ("listing" in sig or "official" in sig or "called this number before" in sig)
+            and "different number" not in sig
+            for sig in check.signals
+        )
+        if listed:
+            return True
+        await self._audit(task, "target.private_number_check")
+        await self._ask_call_approval(
+            task,
+            f"Is {phone} a business? Friday only calls businesses or people who agreed to "
+            "hear from Friday.",
+            yes="Yes, a business",
+        )
+        return False
+
+    async def _ask_call_approval(
+        self, task: Task, text: str | None = None, *, yes: str = "Go"
+    ) -> None:
         if text is None:
             target = task.target.name if task.target else "them"
             text = f"Shall I call {target} now? ({task.spec.goal})"
@@ -937,7 +1109,7 @@ class TaskEngine:
             task.requester_user_id,
             text,
             buttons=[
-                ReplyButton(id=approval_button_id(task.id, True), title="Go"),
+                ReplyButton(id=approval_button_id(task.id, True), title=yes),
                 ReplyButton(id=approval_button_id(task.id, False), title="Cancel"),
             ],
             task_id=task.id,
@@ -1005,9 +1177,161 @@ class TaskEngine:
                     task_id=task.id,
                 )
             return
+        # SECURITY-21/22 + NP-3: never call a DNC'd business; caps; choose a caller-ID
+        hold = await self._outbound_guard(task, now)
+        if hold is not None:
+            return
+        payload: dict[str, Any] = {}
+        pool = self.pool
+        if (
+            pool is not None
+            and task.target is not None
+            and await call_opt(pool, "has_numbers", default=True)
+        ):
+            choice = await pool.choose_for(
+                task.target.phone,
+                city=await self._target_city(task),
+                business_id=task.target.business_id,
+            )
+            if choice is None:  # every number paced/cooling: wait for one to free up
+                await self._transition(
+                    task, S.SCHEDULED, next_attempt_at=now + timedelta(minutes=NO_NUMBER_RETRY_MIN)
+                )
+                return
+            if choice.not_before is not None and choice.not_before > now:
+                await self._transition(task, S.SCHEDULED, next_attempt_at=choice.not_before)
+                return
+            payload = {"from_number": choice.number.phone, "number_changed": choice.changed}
         target = S.CONFIRMATION_CALLBACK if task.approved_terms else S.CALLING
         task = await self._transition(task, target, next_attempt_at=None)
-        await self._call(task)
+        attempt = task.attempts + 1
+        await self._enqueue(
+            JOB_CALL,
+            task.id,
+            dedupe=f"call:{task.id}:{attempt}",
+            attempt=attempt,
+            **payload,
+        )
+
+    async def _target_city(self, task: Task) -> str | None:
+        biz = await call_opt(repo(self.repos, "businesses"), "get_by_phone", task.target.phone)
+        return biz.city if biz else None
+
+    async def _outbound_guard(self, task: Task, now: datetime) -> str | None:
+        """None = may dial. Otherwise the task was rescheduled / failed and the reason
+        is returned. SECURITY-22: DNC is honoured pool-wide and never auto-retried.
+        SECURITY-21: hard per-user daily cap and per-target caps across all users."""
+        if task.target is None:
+            return None
+        pool = self.pool
+        if pool is not None and await pool.is_blocked(task.target.phone):
+            await self._audit(task, "call.blocked_dnc")
+            await self._fail(
+                task,
+                f"{task.target.name} asked not to be called by Friday, so I won't call them.",
+            )
+            return "dnc"
+        start, end = ist_day_bounds(now)
+        user_calls = await self._user_calls_between(task.requester_user_id, start, end)
+        cap = USER_DAILY_CALL_CAP
+        if user_calls >= int(cap * 0.8):
+            log.warning(
+                "ops: user %s at %d/%d safety-cap calls today",
+                task.requester_user_id,
+                user_calls,
+                cap,
+            )
+        if user_calls >= cap:
+            await self._audit(task, "call.user_cap", calls=user_calls)
+            when = next_call_time(end, self.settings)
+            await self._transition(task, S.SCHEDULED, next_attempt_at=when)
+            return "user_cap"
+        if task.target.kind == TargetKind.BUSINESS and not await self._verified_business(task):
+            day = await self._target_calls_since(task.target.phone, start)
+            week = await self._target_calls_since(task.target.phone, now - timedelta(days=7))
+            if week >= TARGET_WEEKLY_CAP:
+                await self._audit(task, "call.target_cap", window="week")
+                await self._fail(
+                    task,
+                    "This number has already been called many times this week, so I'll "
+                    "leave it for now to avoid bothering them.",
+                )
+                return "target_week_cap"
+            if day >= TARGET_DAILY_CAP:
+                await self._audit(task, "call.target_cap", window="day")
+                when = next_call_time(end, self.settings)
+                await self._transition(task, S.SCHEDULED, next_attempt_at=when)
+                return "target_day_cap"
+        return None
+
+    async def _user_calls_between(self, user_id: str, start: datetime, end: datetime) -> int:
+        counted = await call_opt(
+            repo(self.repos, "costs"), "count_between", user_id, start, end, kind="call"
+        )
+        local = self._calls_today.get((user_id, to_ist(start).date().isoformat()), 0)
+        return max(int(counted or 0), local)
+
+    async def _target_calls_since(self, phone: str, since: datetime) -> int:
+        rows = await call_opt(self.calls, "recent_for_phone", phone, since=since, limit=100)
+        return sum(1 for r in rows or [] if getattr(r, "direction", "outbound") == "outbound")
+
+    async def _verified_business(self, task: Task) -> bool:
+        """Directory listing / official number / customer care / trusted verdict."""
+        biz = await call_opt(repo(self.repos, "businesses"), "get_by_phone", task.target.phone)
+        if task.candidate is not None or (
+            biz is not None
+            and (
+                biz.directory_place_id
+                or biz.is_customer_care
+                or biz.verification == NumberVerdict.TRUSTED
+            )
+        ):
+            return True
+        official = await call_opt(self._opt("official_numbers"), "find_by_phone", task.target.phone)
+        return official is not None
+
+    async def _run_call_job(self, job: Job) -> None:
+        """``call.place``: at-most-once dialling. The attempt counter is persisted before
+        the dial, so a job re-delivered after a crash never calls the business twice."""
+        payload = job.payload
+        task = await self.tasks.get(payload.get("task_id", ""))
+        from_number = payload.get("from_number")
+        if task is None or task.status not in (S.CALLING, S.CONFIRMATION_CALLBACK):
+            if from_number and self.pool is not None:
+                await self.pool.release(from_number)  # stale job: free the reserved slot
+            return
+        attempt = int(payload.get("attempt", task.attempts + 1))
+        if task.attempts >= attempt:
+            # this attempt already started on a worker that died: never redial blindly
+            log.warning("task %s: call attempt %d lost (worker restart)", task.id, attempt)
+            if from_number and self.pool is not None:
+                await self.pool.release(from_number)
+            lost = CallResult(
+                task_id=task.id,
+                provider="unknown",
+                to_phone=task.target.phone if task.target else "",
+                dial_status=DialStatus.FAILED,
+                outcome=CallOutcome.FAILED,
+                error="lost: worker restarted mid-call",
+                started_at=self.clock.now(),
+                ended_at=self.clock.now(),
+            )
+            await self._process_result(
+                task, lost, is_confirm=task.status == S.CONFIRMATION_CALLBACK
+            )
+            return
+        try:
+            await self._call(
+                task, from_number=from_number, number_changed=bool(payload.get("number_changed"))
+            )
+        except TaskAborted:
+            if from_number and self.pool is not None:
+                await self.pool.release(from_number)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - brain/repo failure around a call
+            log.exception("call job for task %s failed", task.id)
+            await self._fail_unexpected(task.id)
 
     def _abuse_limited(self, task: Task, now: datetime) -> bool:
         """Ops-only abuse limit (off by default); never shown to users as a cap."""
@@ -1016,23 +1340,46 @@ class TaskEngine:
         key = (task.requester_user_id, to_ist(now).date().isoformat())
         return self._calls_today.get(key, 0) >= self.settings.abuse_max_calls_per_day
 
-    async def _call(self, task: Task, *, inbound_leg: Any = None) -> None:
+    async def _call(
+        self,
+        task: Task,
+        *,
+        inbound_leg: Any = None,
+        from_number: str | None = None,
+        number_changed: bool = False,
+    ) -> None:
         is_confirm = task.status == S.CONFIRMATION_CALLBACK
         ctx = await self._context(task.requester_user_id)
-        brief = await self.brain.build_call_brief(ctx, task)
+        brief = await _maybe_await(self.brain.build_call_brief(ctx, task))
         task.attempts += 1
         brief = await self._finalize_brief(task, brief)
-        task = await self._save(task)
+        task = await self._save(task)  # attempt persisted BEFORE dialling (at-most-once)
         key = (task.requester_user_id, to_ist(self.clock.now()).date().isoformat())
         self._calls_today[key] = self._calls_today.get(key, 0) + 1
-        caller_id = None
-        if task.target and task.target.kind == TargetKind.BUSINESS:  # sticky caller-ID (E.30)
+        caller_id = from_number
+        pooled = from_number is not None
+        if caller_id is None and task.target and task.target.kind == TargetKind.BUSINESS:
+            # no pool configured: sticky caller-ID from call memory (E.30)
             caller_id = await call_opt(
                 self.calls, "choose_number", task.target.phone, self.caller_ids
+            ) or await call_opt(self.calls, "sticky_number", task.target.phone)
+        brief = brief.model_copy(
+            update={"from_number": caller_id, "number_changed": number_changed}
+        )
+        try:
+            result = await self._run_call(
+                task, brief, inbound_leg=inbound_leg, from_number=caller_id
             )
-            if caller_id is None:  # no pool configured: reuse whatever number we used last
-                caller_id = await call_opt(self.calls, "sticky_number", task.target.phone)
-        result = await self._run_call(task, brief, inbound_leg=inbound_leg, from_number=caller_id)
+        finally:
+            if pooled and self.pool is not None:
+                await self.pool.release(from_number)
+        if pooled and self.pool is not None and task.target is not None:
+            await self.pool.record_outcome(
+                getattr(result, "from_number", None) or from_number,
+                number_outcome(result),
+                business_phone=task.target.phone,
+                duration_s=result.duration_s,
+            )
         await self._process_result(
             task, result, is_confirm=is_confirm, caller_id=caller_id, brief=brief
         )
@@ -1139,9 +1486,7 @@ class TaskEngine:
             )
             answer: UserAnswer | None = None
             try:
-                answer = await asyncio.wait_for(fut, timeout=question.timeout_s)
-            except TimeoutError:
-                answer = None
+                answer = await self._await_answer(fut, question)
             finally:
                 self._pending.pop(question.id, None)
                 current = await self.tasks.get(task.id)
@@ -1153,6 +1498,24 @@ class TaskEngine:
             return answer
 
         return ask_user
+
+    async def _await_answer(
+        self, fut: asyncio.Future, question: MidCallQuestion
+    ) -> UserAnswer | None:
+        """S-7: the answer may arrive in THIS process (future) or be stored by another
+        replica (DB question row): wait for whichever comes first, up to the timeout."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + question.timeout_s
+        while True:
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return None
+            done, _ = await asyncio.wait([fut], timeout=min(ANSWER_POLL_S, remaining))
+            if done:
+                return fut.result()
+            stored = await call_opt(self.tasks, "get_answer", question.id)
+            if stored is not None:
+                return stored
 
     def _notify_cb(self, task: Task) -> Callable[[str], Awaitable[None]]:
         sent = 0
@@ -1229,6 +1592,24 @@ class TaskEngine:
         role = role_of(task)
         if o == CallOutcome.CANCELLED:
             raise TaskAborted(task.id)
+        if is_dnc_request(result) and task.target is not None:
+            # SECURITY-22: persisted pool-wide, never auto-retried
+            if self.pool is not None:
+                await self.pool.block(task.target.phone, "dnc_request")
+            await self._audit(task, "call.dnc_request")
+            summary = await self._summarize(task, result)
+            await self._vendor_memory(task, result, summary, committed=False)
+            summary.success = False
+            summary.summary = (
+                f"{task.target.name} asked not to be called again, so Friday won't call "
+                "this number any more."
+            )
+            task.result = summary
+            await self._transition(task, S.FAILED)
+            if role not in _SILENT_ROLES:
+                await self._report(task, summary)
+            await self._on_terminal(task)
+            return
         if o == CallOutcome.PENDING_APPROVAL or (o == CallOutcome.USER_TIMEOUT and result.quotes):
             summary = await self._summarize(task, result)
             await self._vendor_memory(task, result, summary, committed=False)
@@ -1949,7 +2330,7 @@ class TaskEngine:
             )
             for c in created[: max(0, limit - len(active))]:
                 c = await self._transition(c, S.PLANNING)
-                self._spawn(c.id, self._run(c.id))
+                await self._step(c.id)
                 active.append(c)
             if active or created:
                 return
@@ -2111,8 +2492,9 @@ class TaskEngine:
         else:
             parent.recurrence = rule.model_copy(update={"next_run_at": nxt[0]})
             parent.next_attempt_at = nxt[0]
-            await self._save(parent)
-        self._spawn(instance.id, self._run(instance.id))
+            parent = await self._save(parent)
+            await self._schedule_job(parent)
+        await self._step(instance.id)
 
     # ================================================================== E.30-37 inbound
     # Matching lives in call memory (Backend A: ``repos.calls.match`` -> CallbackMatch with
@@ -2177,8 +2559,7 @@ class TaskEngine:
             return False
         biz = await call_opt(repo(self.repos, "businesses"), "get_by_phone", caller)
         return not (
-            biz is not None
-            and biz.verification in (NumberVerdict.SCAM, NumberVerdict.SUSPICIOUS)
+            biz is not None and biz.verification in (NumberVerdict.SCAM, NumberVerdict.SUSPICIOUS)
         )
 
     async def _classify(self, tasks: list[Task]) -> tuple[str, list[Task]]:
@@ -2274,9 +2655,33 @@ class TaskEngine:
         verified: bool,
         context_line: str,
         candidates: list[Task] | None = None,
+        match: Any = None,
     ) -> CallBrief:
         ctx = await self._context(task.requester_user_id)
-        brief = await self.brain.build_call_brief(ctx, task)
+        if match is not None and _accepts(self.brain.build_call_brief, "inbound"):
+            related = [
+                RelatedTask(
+                    task_id=t.id,
+                    task_type=t.type,
+                    goal=t.spec.goal,
+                    label=t.spec.category or t.type.value.replace("_", " "),
+                    status=t.status,
+                    last_outcome=t.last_outcome,
+                    approved_terms=t.approved_terms,
+                )
+                for t in (candidates or [task])
+            ]
+            inbound = InboundContext(
+                caller_phone=getattr(match, "from_phone", ""),
+                friday_number=getattr(match, "friday_number", None),
+                caller_matches_business=verified,
+                business_name=task.target.name if task.target else None,
+                related=related,
+                matched_task_id=task.id if len(related) == 1 else None,
+            )
+            brief = await _maybe_await(self.brain.build_call_brief(ctx, task, inbound=inbound))
+        else:
+            brief = await _maybe_await(self.brain.build_call_brief(ctx, task))
         brief = await self._finalize_brief(task, brief)
         constraints = [
             "INBOUND CALL: the business called Friday back. After the disclosure say: "
@@ -2300,6 +2705,15 @@ class TaskEngine:
                 ],
             }
         return brief.model_copy(update=updates)
+
+    async def _line_in_service(self, match: Any) -> bool:
+        """NP-3: the Friday number they rang must be a pool number (active, cooling or
+        retired-but-still-forwarding). Unknown/expired lines get the message-taking brief."""
+        dialled = getattr(match, "friday_number", None)
+        pool = self.pool
+        if not dialled or pool is None or not await call_opt(pool, "has_numbers", default=False):
+            return True
+        return await pool.owner_of(dialled) is not None
 
     def _unknown_brief(self, phone: str) -> CallBrief:
         return CallBrief(
@@ -2347,7 +2761,7 @@ class TaskEngine:
         are open, or handles a late call-back by state."""
         tasks, verified = await self._match_tasks(match)
         phone = getattr(match, "from_phone", "")
-        if not tasks:
+        if not tasks or not await self._line_in_service(match):
             return await self.handle_unknown_caller(match, contact, leg=leg)
         if not verified:  # SECURITY-8: no user/task details to an unverified caller
             plan = await self.handle_unknown_caller(match, contact, leg=leg)
@@ -2363,6 +2777,7 @@ class TaskEngine:
             verified=verified,
             context_line=context_line,
             candidates=matched if action == "choose_task" else None,
+            match=match,
         )
         plan = InboundPlan(action, task_ids=[t.id for t in matched], brief=brief, verified=verified)
         await self._audit(primary, "inbound.call", decision=action, verified=verified)
@@ -2457,7 +2872,7 @@ class TaskEngine:
                 else:
                     primary.next_attempt_at = self.clock.now()
                     await self._save(primary)
-                self._spawn(primary.id, self._run(primary.id))
+                await self._step(primary.id)
             return InboundPlan(
                 "callback_scheduled", task_ids=[t.id for t in matched], verified=True
             )
@@ -2478,7 +2893,7 @@ class TaskEngine:
                 f"{name} tried to reach me about {primary.spec.goal}. I'm calling them back.",
                 task_id=child.id,
             )
-        self._spawn(child.id, self._run(child.id))
+        await self._step(child.id)
         return InboundPlan(action, task_ids=[primary.id, child.id], verified=True)
 
     async def handle_business_message(self, msg: Any, match: Any = None) -> InboundPlan:
@@ -2506,15 +2921,21 @@ class TaskEngine:
         if action == "close_loop":
             await self._note_late_contact(primary, f"{name} messaged after the need was met.")
             return InboundPlan("close_loop", task_ids=[primary.id], verified=True)
-        prefix = (
-            f"{name} replied about {primary.spec.goal}"
+        about = (
+            f"about {primary.spec.goal}"
             if action != "choose_task"
-            else f"{name} replied (you have {len(matched)} open requests with them)"
+            else f"(you have {len(matched)} open requests with them)"
         )
         text = (msg.text or "(media)")[:500]
+        relay = f'Message from {name} (not verified by Friday) {about}:\n"{text}"'
+        if _RISKY_RELAY.search(text):  # SECURITY-25
+            relay += (
+                "\n⚠ It mentions a link, UPI id, payment or OTP. "
+                "Friday never asks you to pay or share OTPs."
+            )
         await self.outbox.to_user(
             primary.requester_user_id,
-            f'{prefix}: "{text}"',
+            relay,
             task_id=primary.id,
             media_url=getattr(msg, "media_url", None),
         )
@@ -2654,11 +3075,42 @@ class _Unmatched:
         self.friday_number = dialled
 
 
+async def _maybe_await(value: Any) -> Any:
+    return await value if inspect.isawaitable(value) else value
+
+
 def _accepts(fn: Any, name: str) -> bool:
     try:
         return name in inspect.signature(fn).parameters
     except (TypeError, ValueError):
         return False
+
+
+def is_dnc_request(result: CallResult) -> bool:
+    c = result.collected
+    return any(
+        str(c.get(k, "")).lower() in ("1", "true", "yes") for k in ("do_not_call", "dnc_request")
+    )
+
+
+def number_outcome(result: CallResult) -> NumberOutcome:
+    """CallResult -> caller-ID health signal (NP-3)."""
+    if is_dnc_request(result):
+        return NumberOutcome.DNC_REQUEST
+    if result.dial_status == DialStatus.BUSY:
+        return NumberOutcome.BUSY
+    if result.dial_status in (DialStatus.NO_ANSWER, DialStatus.VOICEMAIL):
+        return NumberOutcome.NO_ANSWER
+    if result.dial_status == DialStatus.FAILED:
+        err = (result.error or "").lower()
+        if "block" in err:
+            return NumberOutcome.BLOCKED
+        if "reject" in err:
+            return NumberOutcome.REJECTED
+        return NumberOutcome.FAILED
+    if result.outcome == CallOutcome.HUNG_UP or (0 < result.duration_s < SHORT_CALL_S):
+        return NumberOutcome.SHORT_CALL
+    return NumberOutcome.ANSWERED
 
 
 def _cap_options(options: list[str]) -> list[str]:

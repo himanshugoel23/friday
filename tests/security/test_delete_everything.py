@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from sqlalchemy import text
 
 from friday.core.models import (
@@ -163,11 +162,6 @@ async def test_delete_requires_pin_and_confirmation(
     assert await repos.people.list_for_owner(alice.id)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-14: purge deletes DB rows but not call recordings (local files / "
-    "telephony provider storage)",
-)
 async def test_delete_everything_removes_recordings(
     repos, clock, pipeline, channel, fake_brain, tmp_path
 ) -> None:

@@ -117,3 +117,30 @@ async def test_unknown_whatsapp_sender_learns_nothing(repos, clock, pipeline, ch
     )
     replies = " ".join(channel.render(m) for m in channel.messages_to(UNKNOWN))
     assert "Rahul" not in replies and "Ramesh" not in replies and "haircut" not in replies
+
+
+async def test_relayed_upi_link_is_flagged(wired, repos, clock) -> None:
+    """SECURITY-25: business messages are relayed as unverified, with a payment warning."""
+    import pytest
+
+    pytest.importorskip("friday.tasks.engine")
+    from friday.core.models import Channel
+    from friday.tasks.engine import TaskEngine
+    from tests.tasks.fakes import RecordingNotifier
+
+    alice, task = await _alice_called_salon(repos, clock)
+    notifier = RecordingNotifier()
+    wired.override("notifier", notifier)
+    engine = TaskEngine(wired)
+    match = await repos.calls.match(SALON_PHONE)
+    msg = InboundMessage(
+        channel=Channel.WHATSAPP,
+        from_phone=SALON_PHONE,
+        text="Pay ₹200 advance to looks@okaxis or https://pay.example/x to confirm",
+    )
+    plan = await engine.handle_business_message(msg, match)
+    assert plan.action == "relayed"
+    [text] = notifier.texts(alice.id)
+    assert text.startswith("Message from Looks Salon (not verified by Friday)")
+    assert "Friday never asks you to pay or share OTPs" in text
+    _ = task

@@ -312,9 +312,8 @@ class TaskRepo(Repo):
                 at=result.started_at,
             )
             s.add(mem)
-        from_number = getattr(result, "from_number", None)
-        if from_number:
-            mem.friday_number = from_number
+        if result.from_number:
+            mem.friday_number = result.from_number
         mem.business_id = mem.business_id or business_id
         mem.outcome = result.outcome.value
 

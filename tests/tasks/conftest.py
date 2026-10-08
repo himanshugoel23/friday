@@ -107,9 +107,7 @@ async def env(env_settings) -> Env:
             clock=clock,
         ),
     )
-    engine = TaskEngine(
-        c, policy=TaskPolicy(caller_ids=["+918069110001", "+918069110002"])
-    )
+    engine = TaskEngine(c, policy=TaskPolicy(caller_ids=["+918069110001", "+918069110002"]))
     c.override("task_engine", engine)
     user = User(phone="+919811111111")
     await repos.users.add(user)

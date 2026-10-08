@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
+from pydantic import BaseModel
 from sqlalchemy import func, select
 
 from friday.core.models import (
@@ -21,6 +23,7 @@ from friday.db.tables import (
     AutonomySettingRow,
     ConsentRow,
     InviteRow,
+    PinLockRow,
     ProfileRow,
     UserRow,
 )
@@ -216,3 +219,37 @@ class AutonomyRepo(Repo):
     async def upsert_many(self, settings: Sequence[AutonomySetting]) -> None:
         for st in settings:
             await self.upsert(st)
+
+
+class PinLock(BaseModel):
+    user_id: str
+    strikes: int = 0
+    locked_until: datetime | None = None
+    support_required: bool = False
+    reason: str | None = None
+    updated_at: datetime | None = None
+
+    def active(self, now: datetime) -> bool:
+        return self.support_required or (self.locked_until is not None and self.locked_until > now)
+
+
+class PinLockRepo(Repo):
+    """SECURITY-23 lock state (strike count, lock expiry, support-only unlock)."""
+
+    async def get(self, user_id: str) -> PinLock:
+        async with self.db.session() as s:
+            row = await s.get(PinLockRow, user_id)
+            return PinLock.model_validate(row_dict(row)) if row else PinLock(user_id=user_id)
+
+    async def save(self, lock: PinLock) -> PinLock:
+        lock.updated_at = self.now()
+        async with self.db.session() as s:
+            await s.merge(PinLockRow(**lock.model_dump()))
+        return lock
+
+    async def clear(self, user_id: str) -> None:
+        """Support-verified unlock."""
+        async with self.db.session() as s:
+            row = await s.get(PinLockRow, user_id)
+            if row is not None:
+                await s.delete(row)

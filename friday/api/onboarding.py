@@ -66,7 +66,6 @@ def step_index(step: OnboardingStep) -> int:
 class OnboardingFlow:
     def __init__(self, pipeline: InboundPipeline) -> None:
         self.p = pipeline
-        self._pending_pin: dict[str, str] = {}  # user_id -> argon2 hash of 1st entry
 
     def awaiting_pin(self, user: User) -> bool:
         return user.status == UserStatus.ONBOARDING and user.onboarding_step == OnboardingStep.PIN
@@ -223,15 +222,15 @@ class OnboardingFlow:
         if pin is None:
             await self.p.reply(user, PIN_ASK)
             return
-        first = self._pending_pin.get(user.id)
+        first = await self.p.state.get_first_pin_hash(user.id)
         if first is None:
             if pin_problem(pin):
                 await self.p.reply(user, PIN_WEAK)
                 return
-            self._pending_pin[user.id] = self.p.pins.hasher.hash(pin)
+            await self.p.state.set_first_pin_hash(user.id, self.p.pins.hasher.hash(pin))
             await self.p.reply(user, PIN_CONFIRM)
             return
-        del self._pending_pin[user.id]
+        await self.p.state.clear_first_pin_hash(user.id)
         if not self.p.pins.hasher.verify(first, pin):
             await self.p.reply(user, PIN_MISMATCH)
             return

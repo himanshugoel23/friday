@@ -166,11 +166,6 @@ async def test_media_stream_needs_per_call_secret() -> None:
 # ------------------------------------------------------------------ flooding
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-21: no per-sender inbound rate limit; every message reaches the LLM "
-    "(cost DoS / abuse amplification)",
-)
 async def test_inbound_flood_is_throttled(repos, clock, pipeline, fake_brain) -> None:
     await make_active_user(repos, clock, ALICE_PHONE)
     for i in range(60):

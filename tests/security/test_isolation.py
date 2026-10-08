@@ -8,8 +8,6 @@ that echoes foreign ids back.
 
 from __future__ import annotations
 
-import pytest
-
 from friday.core.models import (
     AccountIdentifier,
     AutonomyCategory,
@@ -161,11 +159,6 @@ async def test_forged_nudge_button_for_foreign_nudge_is_ignored(repos, clock, pi
     assert stored.responded_at is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-9: q:<question_id> button answers are not checked against the sender "
-    "(another user can approve someone else's booking)",
-)
 async def test_forged_question_button_for_foreign_question_is_ignored(
     repos, clock, pipeline
 ) -> None:
@@ -209,11 +202,6 @@ async def test_brain_supplied_foreign_place_id_is_not_overwritten(
     assert stored.owner_user_id == home.owner_user_id and stored.address_text == HOME_ADDRESS
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-10: facts are upserted by id without an owner check "
-    "(a foreign fact id re-assigns/overwrites another user's memory)",
-)
 async def test_brain_supplied_foreign_fact_id_is_not_overwritten(
     repos, clock, pipeline, fake_brain
 ) -> None:
@@ -226,10 +214,6 @@ async def test_brain_supplied_foreign_fact_id_is_not_overwritten(
     assert stored.user_id == fact.user_id and stored.value == fact.value
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-10: identifiers are upserted by id without an owner check",
-)
 async def test_identifier_upsert_with_foreign_id_does_not_steal_row(repos, clock) -> None:
     *_, ident, _task, _q = await _seed_alice(repos, clock)
     bob = await make_active_user(repos, clock, BOB_PHONE)

@@ -75,6 +75,21 @@ class UserRow(IdMixin, TimestampMixin, Base):
     last_inbound_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
+class PinLockRow(Base):
+    """SECURITY-23: progressive PIN lockout / re-registration freeze per user."""
+
+    __tablename__ = "pin_locks"
+
+    user_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey(_USER_FK, ondelete="CASCADE"), primary_key=True
+    )
+    strikes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    support_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(40))  # lockout | identity_change | sim_swap
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
 class ProfileRow(Base):
     __tablename__ = "profiles"
 
@@ -104,6 +119,8 @@ class ConsentRow(IdMixin, Base):
     )
     policy_version: Mapped[str] = mapped_column(String(20), nullable=False)
     evidence_text: Mapped[str | None] = mapped_column(_enc("consents", "evidence_text"))
+    # SECURITY-33: after erasure the receipt keeps only an HMAC of the phone.
+    phone_hmac: Mapped[str | None] = mapped_column(String(64), index=True)
     message_id: Mapped[str | None] = mapped_column(String(32))
     recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
@@ -156,6 +173,19 @@ class PersonRow(IdMixin, TimestampMixin, Base):
     linked_user_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey(_USER_FK, ondelete="SET NULL")
     )
+
+
+class SuppressionRow(IdMixin, Base):
+    """SECURITY-16: phones that said STOP/no (or were set OPTED_OUT). Keyed by blind
+    index only (no PII), so it survives person deletion and "delete everything"."""
+
+    __tablename__ = "suppressions"
+    __table_args__ = (UniqueConstraint("phone_hmac", "scope"),)
+
+    phone_hmac: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    scope: Mapped[str] = mapped_column(String(16), nullable=False)  # contact | checkin
+    reason: Mapped[str | None] = mapped_column(String(40))
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
 class PlaceRow(IdMixin, TimestampMixin, Base):
@@ -548,6 +578,18 @@ class CostEntryRow(IdMixin, Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
+class PendingDeletionRow(IdMixin, Base):
+    """SECURITY-14/32: erasures that failed (provider down) - retried by retention."""
+
+    __tablename__ = "pending_deletions"
+
+    kind: Mapped[str] = mapped_column(String(16), default="recording", nullable=False)
+    url: Mapped[str] = mapped_column(_enc("pending_deletions", "url"), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
 # -------------------------------------------------------------------------- call memory (E30-35)
 
 
@@ -605,6 +647,71 @@ class InboundContactRow(IdMixin, Base):
     candidate_task_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
     note: Mapped[str | None] = mapped_column(_enc("inbound_contacts", "note"))  # caller's message (unmatched: name/purpose)
     handled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+# -------------------------------------------------------------------------- caller-ID pool (NP-1)
+
+
+class FridayNumberRow(IdMixin, Base):
+    """A Friday caller-ID (FridayNumber); limits/health as JSON."""
+
+    __tablename__ = "friday_numbers"
+
+    phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    city: Mapped[str | None] = mapped_column(String(80))
+    circle: Mapped[str | None] = mapped_column(String(8), index=True)
+    status: Mapped[str] = mapped_column(String(10), default="warming", nullable=False, index=True)
+    warmup_day: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    limits: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
+    health: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict, nullable=False)
+    cooldowns: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cooling_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    forward_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    verified_caller_name: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class NumberAssignmentRow(Base):
+    """Sticky business -> Friday number (one row per business phone)."""
+
+    __tablename__ = "number_assignments"
+
+    business_phone_hmac: Mapped[str] = mapped_column(String(64), primary_key=True)
+    business_phone: Mapped[str] = mapped_column(
+        _enc("number_assignments", "business_phone"), nullable=False
+    )
+    number_phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    assigned_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    previous_number: Mapped[str | None] = mapped_column(String(20))
+
+
+class NumberOutcomeRow(IdMixin, Base):
+    """Append-only outcome log per number (monthly partitions in Postgres, see
+    migrations). No clear business phone - blind index only."""
+
+    __tablename__ = "number_outcomes"
+    __table_args__ = (Index("ix_number_outcomes_number_at", "number_phone", "at"),)
+
+    number_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    business_phone_hmac: Mapped[str | None] = mapped_column(String(64))
+    duration_s: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class DncRow(IdMixin, Base):
+    """Pool-wide do-not-call registry (SECURITY-22). Lookup by blind index."""
+
+    __tablename__ = "dnc_registry"
+
+    phone_hmac: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    phone: Mapped[str] = mapped_column(_enc("dnc_registry", "phone"), nullable=False)
+    reason: Mapped[str] = mapped_column(String(40), nullable=False)
+    number_phone: Mapped[str | None] = mapped_column(String(20))  # which caller-ID got it
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 

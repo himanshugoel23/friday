@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel
@@ -43,6 +45,10 @@ if TYPE_CHECKING:
 log = get_logger(__name__)
 
 GRAPH_BASE = "https://graph.facebook.com"
+MEDIA_HOSTS = frozenset({"lookaside.fbsbx.com", "graph.facebook.com"})
+MAX_MEDIA_BYTES = 16 * 1024 * 1024
+ALLOWED_MEDIA_TYPES = ("audio/", "image/", "video/", "application/pdf")
+MEDIA_ID_RE = re.compile(r"[A-Za-z0-9_.\-]{1,128}")
 MAX_TEXT = 4096
 MAX_INTERACTIVE_BODY = 1024
 
@@ -178,6 +184,9 @@ def parse_message(m: dict[str, Any], *, default_cc: str = "+91") -> InboundMessa
         except (KeyError, TypeError, ValueError):
             return None
         return InboundMessage(kind=MessageKind.LOCATION, location=pin, **base)
+    if mtype == "system":  # number change / identity change (SECURITY-23 freeze)
+        system = m.get("system") or {}
+        return InboundMessage(kind=MessageKind.SYSTEM, text=system.get("type") or "system", **base)
     if mtype == "contacts":
         contacts = m.get("contacts") or []
         phone = None
@@ -367,29 +376,48 @@ class WhatsAppCloudChannel:
         return SendReceipt(message_id=msg.id, provider_message_id=wamid)
 
     async def fetch_media(self, media_url: str) -> MediaBlob:
+        """SECURITY-20: the bearer token only ever goes to Meta hosts over https; size
+        and content type are capped."""
         try:
-            if media_url.startswith("http"):
+            if media_url.startswith(("http://", "https://")):
                 url, mime = media_url, None
             else:
+                if not MEDIA_ID_RE.fullmatch(media_url):
+                    raise ProviderError("whatsapp", "invalid media id")
                 meta = await self._client.get(f"/{media_url}")
                 if meta.status_code >= 400:
                     raise ProviderError("whatsapp", f"media lookup failed: {_error_text(meta)}")
                 info = meta.json()
-                url, mime = info["url"], info.get("mime_type")
-            blob = await self._client.get(url)
+                url, mime = str(info.get("url") or ""), info.get("mime_type")
+            if not _trusted_media_url(url):
+                raise ProviderError("whatsapp", "media URL host not allowed")
+            chunks: list[bytes] = []
+            size = 0
+            async with self._client.stream("GET", url) as blob:
+                if blob.status_code >= 400:
+                    raise ProviderError("whatsapp", f"media download failed ({blob.status_code})")
+                declared = int(blob.headers.get("content-length") or 0)
+                if declared > MAX_MEDIA_BYTES:
+                    raise ProviderError("whatsapp", "media too large")
+                ctype = mime or blob.headers.get("content-type", "application/octet-stream")
+                if not ctype.split(";")[0].strip().lower().startswith(ALLOWED_MEDIA_TYPES):
+                    raise ProviderError("whatsapp", "media type not allowed")
+                async for chunk in blob.aiter_bytes():
+                    size += len(chunk)
+                    if size > MAX_MEDIA_BYTES:
+                        raise ProviderError("whatsapp", "media too large")
+                    chunks.append(chunk)
         except httpx.HTTPError as e:
-            raise ProviderError(
-                "whatsapp", f"media download: {type(e).__name__}", retryable=True
-            ) from e
-        if blob.status_code >= 400:
-            raise ProviderError("whatsapp", f"media download failed ({blob.status_code})")
-        return MediaBlob(
-            data=blob.content,
-            mime=mime or blob.headers.get("content-type", "application/octet-stream"),
-        )
+            raise ProviderError("whatsapp", f"media download: {type(e).__name__}", retryable=True) from e
+        return MediaBlob(data=b"".join(chunks), mime=ctype.split(";")[0].strip())
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+def _trusted_media_url(url: str) -> bool:
+    u = urlparse(url)
+    return u.scheme == "https" and (u.hostname or "").lower() in MEDIA_HOSTS and not u.username
 
 
 def _error_text(resp: httpx.Response) -> str:
