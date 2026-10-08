@@ -35,6 +35,8 @@ from typing import Annotated, Literal
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from friday.core.templates import default_whatsapp_names
+
 Mode = Literal["simulator", "live"]
 LLMProviderName = Literal["auto", "anthropic", "fake"]
 TelephonyProviderName = Literal[
@@ -294,12 +296,7 @@ class Settings(BaseSettings):
     whatsapp_session_window_h: int = 24
     # logical template key -> approved WhatsApp template name (JSON in env)
     whatsapp_templates: dict[str, str] = Field(
-        default_factory=lambda: {
-            "nudge": "friday_nudge_v1",
-            "task_update": "friday_task_update_v1",
-            "question": "friday_question_v1",
-            "reengage": "friday_reengage_v1",
-        }
+        default_factory=default_whatsapp_names  # single source: friday/core/templates.py
     )
     whatsapp_template_language: str = "en"
 

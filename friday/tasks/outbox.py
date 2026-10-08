@@ -23,6 +23,7 @@ from friday.core.models import (
     TemplateRef,
     Urgency,
 )
+from friday.core.templates import make_template
 from friday.tasks.ports import call_opt
 
 log = get_logger(__name__)
@@ -78,7 +79,7 @@ class Outbox:
             text=text,
             buttons=list(buttons)[:3],
             template=template
-            or TemplateRef(key=template_key, params=[truncate(text, TEMPLATE_PARAM_MAX)]),
+            or make_template(template_key, [truncate(text, TEMPLATE_PARAM_MAX)]),
             media_url=media_url,
             task_id=task_id,
             question_id=question_id,
@@ -104,7 +105,7 @@ class Outbox:
             user_id=person.owner_user_id,
             person_id=person.id,
             text=text,
-            template=TemplateRef(key="task_update", params=[truncate(text, TEMPLATE_PARAM_MAX)]),
+            template=make_template("task_update", [truncate(text, TEMPLATE_PARAM_MAX)]),
             task_id=task_id,
         )
         return await self._send(msg, urgency)

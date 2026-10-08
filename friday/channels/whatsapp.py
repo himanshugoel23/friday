@@ -38,6 +38,7 @@ from friday.core.models import (
     SendReceipt,
     normalize_phone,
 )
+from friday.core.templates import expected_params, params_mismatch
 
 if TYPE_CHECKING:
     from friday.core.container import Container
@@ -352,6 +353,13 @@ class WhatsAppCloudChannel:
 
     # ------------------------------------------------------------------ MessagingChannel
     async def send(self, msg: OutboundMessage) -> SendReceipt:
+        if (
+            msg.template is not None
+            and expected_params(msg.template.key) is not None
+            and (problem := params_mismatch(msg.template.key, len(msg.template.params)))
+        ):  # Meta would reject it; never send a template we know is malformed
+            log.error("whatsapp template not sent: %s", problem)
+            return SendReceipt(message_id=msg.id, ok=False, error="template_params_mismatch")
         payload = build_payload(
             msg, templates=self.templates, template_language=self.template_language
         )

@@ -48,6 +48,7 @@ from friday.core.models import (
     question_button_id,
 )
 from friday.core.scale import Outbox, OutboxEntry
+from friday.core.templates import first_name_param, make_template
 
 if TYPE_CHECKING:
     from friday.core.container import Container
@@ -216,10 +217,13 @@ class Notifier:  # implements core.interfaces.Notifier
         key = "question" if msg.question_id else "nudge" if msg.nudge_id else "task_update"
         profile = await self.repos.profiles.get(msg.user_id) if msg.user_id else None
         lang = _template_language(profile.language if profile else None)
-        params = [msg.text or ""]
+        text = msg.text or ""
+        params = [text]
+        if key == "nudge":  # 2 variables: first name, text (friday/core/templates.py)
+            params = [first_name_param(profile.name if profile else None), text]
         return msg.model_copy(
             update={
-                "template": TemplateRef(key=key, params=params, language=lang),
+                "template": make_template(key, params, lang),
                 "text": None,
                 "buttons": [],
             }
@@ -228,8 +232,8 @@ class Notifier:  # implements core.interfaces.Notifier
     async def _sms_fallback(self, msg: OutboundMessage) -> SendReceipt | None:
         if self.sms is None:
             return None
-        text = msg.text or (msg.template.params[0] if msg.template and msg.template.params else "")
-        tpl = TemplateRef(key=SMS_USER_UPDATE, params=[_sms_param(text or "update")])
+        text = msg.text or (msg.template.params[-1] if msg.template and msg.template.params else "")
+        tpl = make_template(SMS_USER_UPDATE, [_sms_param(text or "update")])
         return await self.send_sms(msg.to_phone, tpl, user_id=msg.user_id, task_id=msg.task_id)
 
     async def send_sms(
@@ -458,10 +462,10 @@ class Notifier:  # implements core.interfaces.Notifier
             )
             if not reminder or len(sent) >= 2 or too_soon:
                 return SendReceipt(message_id=new_id(), ok=False, error="already pending")
-        tpl = TemplateRef(
-            key=template_key,
-            params=[person.name, requester_name, person.relation or "family", what],
-            language=_template_language(person.language),
+        tpl = make_template(
+            template_key,
+            [person.name, requester_name, person.relation or "family", what],
+            _template_language(person.language),
         )
         msg = OutboundMessage(
             channel=self.messaging.channel if self.messaging else Channel.SIMULATOR,
@@ -527,8 +531,11 @@ class Notifier:  # implements core.interfaces.Notifier
                 return receipt
         if not _is_indian_mobile(business.phone):
             return SendReceipt(message_id=new_id(), ok=False, error="not_a_mobile")
-        sms_tpl = sms_template or TemplateRef(
-            key=SMS_BUSINESS_BOOKING, params=[_sms_param(p) for p in template.params]
+        sms_tpl = sms_template or make_template(
+            template.key
+            if template.key in (SMS_BUSINESS_BOOKING, "business_enquiry_thanks")
+            else SMS_BUSINESS_BOOKING,
+            [_sms_param(p) for p in template.params],
         )
         receipt = await self.send_sms(
             business.phone, sms_tpl, user_id=user_id, task_id=task_id, business_id=business.id

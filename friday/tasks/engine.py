@@ -81,7 +81,6 @@ from friday.core.models import (
     TaskRole,
     TaskSpec,
     TaskType,
-    TemplateRef,
     UserAnswer,
     VendorInteraction,
     approval_button_id,
@@ -92,6 +91,7 @@ from friday.core.models import (
 from friday.core.models import TaskStatus as S
 from friday.core.safety import check_commit
 from friday.core.scale import Job, JobPriority, MemoryLock, worker_id
+from friday.core.templates import make_template
 from friday.discovery.geo import is_indian_mobile, is_toll_free, phone_key
 from friday.tasks import states
 from friday.tasks.categories import category_for, level_for
@@ -686,7 +686,7 @@ class TaskEngine:
             # politely let the business release the slot (no call needed)
             await self.outbox.to_business(
                 task.target.phone,
-                TemplateRef(key="business_booking_declined", params=[task.target.name]),
+                make_template("business_booking_declined", [task.target.name]),
                 business_id=task.target.business_id,
                 task_id=task.id,
             )
@@ -1836,9 +1836,9 @@ class TaskEngine:
             user = await call_opt(repo(self.repos, "users"), "get", task.requester_user_id)
             await self.outbox.to_business(
                 biz.whatsapp_phone,
-                TemplateRef(
-                    key=self.policy.business_request_template,
-                    params=[task.spec.on_behalf_of or "my user", task.spec.goal],
+                make_template(
+                    self.policy.business_request_template,
+                    [task.spec.on_behalf_of or "my user", task.spec.goal],
                 ),
                 business_id=biz.id,
                 task_id=task.id,

@@ -36,11 +36,11 @@ from friday.core.models import (
     PersonConsent,
     ReplyButton,
     TaskSpec,
-    TemplateRef,
     Urgency,
     nudge_button_id,
 )
 from friday.core.scale import Job, JobPriority, MemoryLock, worker_id
+from friday.core.templates import first_name_param, make_template
 from friday.proactive import triggers
 from friday.proactive.guardrails import CAP_EXEMPT_KINDS, Verdict, evaluate
 from friday.proactive.retention import RetentionJob
@@ -418,7 +418,11 @@ class ProactiveEngine:
             buttons=buttons,
             nudge_id=nudge.id,
             urgency=nudge.urgency,
-            template=decision.template or TemplateRef(key="nudge", params=[text[:900]]),
+            template=decision.template
+            or make_template(
+                "nudge",
+                [first_name_param(ctx.profile.name if ctx.profile else None), text[:900]],
+            ),
         )
         return nudge
 
