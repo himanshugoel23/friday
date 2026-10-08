@@ -84,6 +84,7 @@ the container (`friday/core/container.py`); one codebase, several deployments.
 | `docs/QA_REPORT.md` | test results, load test, bugs, go/no-go |
 | `docs/LAUNCH_CHECKLIST.md` | what to do to run the first live pilot |
 | `docs/BETA_PLAN.md` | phase-1 beta decisions (calls + WhatsApp, no SMS), 3-day plan, progress log |
+| `docs/TRIAL_CODESPACES.md` | free first live call from a browser (Codespaces + tunnel, pilot profile) |
 | `tests/e2e/README.md` | e2e suites and simworld coverage table |
 | `tests/contracts/` | contract kit for JobQueue / Lock / Cache / RateLimiter / Idempotency |
 

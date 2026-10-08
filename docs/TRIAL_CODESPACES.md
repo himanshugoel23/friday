@@ -1,0 +1,58 @@
+# Free trial: first live call from GitHub Codespaces (no server, no laptop)
+
+Decision D13 in `BETA_PLAN.md`. Use this to try Friday for free, from a phone or tablet browser, before paying
+for a real server. It uses the existing **pilot profile** (`FRIDAY_PROFILE=pilot`, `friday init-env | doctor |
+livecall`, see also `LIVE_TEST_WINDOWS.md` which is the same flow written for Windows).
+
+## What it proves, and what it does not
+
+* Proves: the real call loop (Vobiz telephony + Sarvam speech + the LLM): Friday rings **your own number**, says
+  she is an AI first, mirrors Hindi/English/Hinglish, and the call quality and latency are acceptable.
+* Does NOT prove: WhatsApp, Postgres/Redis, the production Docker stack, Caddy/HTTPS, backups, multi-user flows.
+  Those need the real server (see `DEPLOY_AWS.md`, or any India-region VPS; D12 in `BETA_PLAN.md`).
+* Pilot mode needs only: LLM key, Sarvam key, Vobiz credentials + a number you own, the generated secrets, and an
+  https public URL. WhatsApp/SMS/hotels fall back to simulators and recordings stay off. It may only dial numbers in
+  `FRIDAY_PILOT_ALLOWED_NUMBERS`, and refuses if the estimated spend is above `FRIDAY_PILOT_MAX_SPEND_INR` (25).
+* A Codespace sleeps after about 30 minutes idle and the free tunnel address changes on every start, so this is for
+  trying only. GitHub's free Codespaces quota (about 120 core-hours a month on a personal account, so about 60 hours
+  on a 2-core machine) can change: check github.com/settings/billing.
+
+## Accounts and keys needed (a few rupees per test call)
+
+| What | Where | Env name |
+|---|---|---|
+| LLM | console.anthropic.com (new key, set a monthly spend limit) | `ANTHROPIC_API_KEY` |
+| Speech | Sarvam dashboard | `SARVAM_API_KEY` |
+| Telephony | Vobiz console: trial upgraded, balance topped up, one number you own, call queuing OFF | `SARVAM_TELEPHONY_AUTH_ID`, `SARVAM_TELEPHONY_AUTH_TOKEN`, `FRIDAY_NUMBERS` |
+| Allowed target | your own mobile, E.164 | `FRIDAY_PILOT_ALLOWED_NUMBERS=+91XXXXXXXXXX` |
+
+Never paste keys into chat or commit them. `.env` is git-ignored. Create fresh keys (old ones were shared in chats).
+
+## Steps (all in a browser)
+
+1. github.com -> the repo -> **Code** -> **Codespaces** -> **Create codespace on `claude/friday-phase-1`**
+   (2-core machine). The editor and a terminal open in the browser.
+2. Terminal:
+   ```bash
+   pip install uv
+   sudo curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && sudo chmod +x /usr/local/bin/cloudflared
+   uv sync
+   uv run friday init-env        # creates .env with random secrets, lists what is still empty
+   ```
+3. Open `.env` in the editor. Fill the empty names listed above and set `FRIDAY_MODE=live`, `FRIDAY_PROFILE=pilot`.
+4. Second terminal tab: `cloudflared tunnel --url http://localhost:8000` prints `https://<random>.trycloudflare.com`.
+   Put that in `.env` as `FRIDAY_PUBLIC_BASE_URL` (https, no trailing slash). It changes on every restart.
+5. In the first tab: `uv run friday doctor` (read-only checks; fix what it names), then optionally a free dry run
+   `uv run friday livecall --to +910000000000 --simulate`.
+6. The real call: `uv run friday livecall --to +91XXXXXXXXXX` (your own number). Your phone rings from the Vobiz number.
+   Expect the AI disclosure first, language mirroring, an honest answer to "are you a bot?". Logs go to `var/livecalls/`.
+
+## If it fails
+
+* `FRIDAY_PUBLIC_BASE_URL ... https`: paste the current tunnel address. `/health is not reachable`: the tunnel is
+  not running or the address in `.env` is stale. Another live call seems to be running: wait, or delete
+  `var/livecalls/livecall.lock` if sure.
+* Vobiz rejects the call: trial accounts restrict destinations and caller IDs; upgrade the account. Record the
+  rejection text in `LIVE_TEST_ISSUES.md`.
+* Free alternatives for a real (always-on) server later: Oracle Cloud Always Free (Mumbai; sign-up often fails with
+  Indian cards, capacity is scarce) or Google Cloud's $300 trial credit (Mumbai). A paid India VPS is the safest.

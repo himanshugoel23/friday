@@ -21,6 +21,7 @@ Started 2026-10-08 ("day 1"). Update the log at the bottom as work lands.
 | D10 | All old API keys are treated as leaked (pasted in chats): **rotate and recreate** before the beta; set monthly spend limits. | `PRODUCTION_CHECKLIST.md` 1.3. |
 | D11 | Docker image is built from the repo `Dockerfile` **on the server** (`deploy/update.sh`). The cloud sandbox cannot pull `ghcr.io`, so use `deploy/build_sandbox.sh` there (see s.4). | |
 | D12 | **Hosting: not AWS.** Both AWS accounts available (066899195555, 405449670622) are managed sandbox accounts inside AWS Organizations with an SCP that explicitly denies Lightsail (`AccessDenied ... lightsail:CreateKeyPair ... service control policy`); not suitable and not ours to override. Use an India-region VPS instead (DigitalOcean Bangalore recommended): Ubuntu 24.04, 4 GB / 2 vCPU, `deploy/lightsail-launch.sh` works as first-boot user data (now creates the `ubuntu` user if missing). Backups: `deploy/backup.sh` accepts `BACKUP_ENDPOINT_URL` for S3-compatible storage (e.g. DO Spaces). A fresh standalone AWS account (root sign-in, no organization) remains a valid alternative using `deploy/aws/cloudshell_provision.sh`. |
+| D13 | **Free first live call: GitHub Codespaces + Cloudflare quick tunnel + the `pilot` profile**, no server or laptop needed. Proves the call loop only (not WhatsApp/Postgres/Docker stack). Guide: `docs/TRIAL_CODESPACES.md`. The real beta still needs an India-region server (D12). |
 
 ## 2. Three-day plan
 
@@ -99,3 +100,4 @@ Template: `deploy/env.production.example`. Never commit secrets.
 
 - 2026-10-08: reviewed repo state and docs; decisions D1-D11; Docker image built and smoke-checked in the sandbox.
 - 2026-10-09: AWS blocked by organization SCPs on both provided accounts; switched hosting to an India-region VPS (D12).
+- 2026-10-09: added the free Codespaces trial guide (D13); next: get Vobiz upgraded + keys, run the first live call.
