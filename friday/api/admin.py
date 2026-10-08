@@ -6,10 +6,15 @@ work; in live mode with no explicit token the admin routes answer 404 (disabled)
 
   GET /admin/health    component availability, queue depth, dead letters
   GET /admin/numbers   caller-ID pool dashboard (health / volume / status per number)
+
+Pilot profile ONLY (FRIDAY_PROFILE=pilot; the routes do not exist otherwise):
+  POST /admin/livecall       place ONE short test call (same rules as ``friday livecall``)
+  GET  /admin/livecall/last  summary of the last test call made by this process
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hmac
 import os
@@ -17,10 +22,18 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from friday.core.container import FACTORIES, ComponentNotAvailable, Container
 from friday.core.logging import mask_phone
 from friday.core.models import FridayNumber
+from friday.pilot import HARD_MAX_SECONDS, LiveCallRefused, place_test_call
+
+
+class LiveCallIn(BaseModel):
+    to: str
+    goal: str | None = Field(default=None, max_length=1000)
+    max_seconds: int = 180
 
 
 def admin_token(settings: Any) -> str | None:
@@ -103,4 +116,38 @@ def admin_router(c: Container) -> APIRouter:
             by_status[r["status"]] = by_status.get(r["status"], 0) + 1
         return {"numbers": rows, "totals": {"count": len(rows), "by_status": by_status}}
 
+    if c.settings.is_pilot:
+        _add_livecall_routes(router, c, require_admin)
     return router
+
+
+def _add_livecall_routes(router: APIRouter, c: Container, require_admin: Any) -> None:
+    state: dict[str, Any] = {"last": None, "busy": False}
+
+    @router.post("/livecall", dependencies=[Depends(require_admin)])
+    async def livecall(body: LiveCallIn) -> dict[str, Any]:
+        if state["busy"]:  # one call at a time, even before the lock file is taken
+            raise HTTPException(status_code=409, detail="a test call is already in progress")
+        if body.max_seconds > HARD_MAX_SECONDS:
+            raise HTTPException(status_code=422, detail=f"max_seconds is at most {HARD_MAX_SECONDS}")
+        state["busy"] = True
+
+        async def go() -> dict[str, Any]:
+            try:
+                summary = await place_test_call(
+                    c, body.to, goal=body.goal, max_seconds=body.max_seconds
+                )
+                state["last"] = {**summary, "finished_at": c.clock.now().isoformat()}
+                return summary
+            finally:
+                state["busy"] = False
+
+        task = asyncio.create_task(go())  # survives a dropped HTTP connection
+        try:
+            return await asyncio.shield(task)
+        except LiveCallRefused as e:
+            raise HTTPException(status_code=e.status, detail=e.reasons) from None
+
+    @router.get("/livecall/last", dependencies=[Depends(require_admin)])
+    async def livecall_last() -> dict[str, Any]:
+        return {"in_progress": state["busy"], "last": state["last"]}
