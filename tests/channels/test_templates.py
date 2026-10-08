@@ -14,11 +14,10 @@ import pytest
 from friday.channels.notifier import build_notifier
 from friday.channels.simulator import SimulatorChannel
 from friday.channels.sms import FakeSMS
-from friday.channels.whatsapp import WhatsAppCloud, build_payload
+from friday.channels.whatsapp import WhatsAppCloudChannel, build_payload
 from friday.core.config import Settings
 from friday.core.models import (
     Channel,
-    NudgeCandidate,
     OutboundMessage,
     Profile,
     TemplateRef,
@@ -89,7 +88,7 @@ def test_make_template_refuses_a_wrong_count_or_unknown_key():
 def test_whatsapp_never_sends_a_malformed_registered_template():
     import asyncio
 
-    ch = WhatsAppCloud(access_token="t", phone_number_id="1", templates={})
+    ch = WhatsAppCloudChannel(access_token="t", phone_number_id="1", templates={})
     msg = OutboundMessage(
         channel=Channel.WHATSAPP, to_phone="+919800000001",
         template=TemplateRef(key="nudge", params=["one only"]),
@@ -125,14 +124,6 @@ async def test_notifier_fallback_and_proactive_fallback_both_send_two_nudge_vari
     assert len(by_key["task_update"].params) == 1
     for m in sent:
         assert len(m.template.params) == expected_params(m.template.key)
-
-
-async def test_proactive_engine_fallback_template_has_registered_count(container, clock):
-    from friday.proactive.engine import ProactiveEngine  # noqa: F401  (import must work)
-
-    src = (ROOT / "friday/proactive/engine.py").read_text()
-    assert 'make_template(\n                "nudge"' in src  # the fallback goes via the registry
-    assert NudgeCandidate  # the brain's own nudge template is covered by the AST scan
 
 
 def test_checklist_lists_every_template_name_and_variable_count():
