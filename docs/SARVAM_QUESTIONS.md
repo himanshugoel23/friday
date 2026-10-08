@@ -57,3 +57,16 @@ Questions 2, 11 and 12 (per-turn hook, STT/TTS pricing, data retention for speec
 Credentials go in `SARVAM_TELEPHONY_AUTH_ID` / `SARVAM_TELEPHONY_AUTH_TOKEN` (the Vobiz Auth ID and Auth Token).
 Vobiz must be able to reach a public HTTPS URL (`FRIDAY_PUBLIC_BASE_URL`) for the answer/hangup webhooks and the
 media WebSocket (`/voice/sarvam/media`), so a live call test needs a deployed or tunnelled server.
+
+## Update 2026-10-08 (later): there is NO direct Vobiz account
+The founder confirmed there is no separate Vobiz login: the number (+91 80 7158 2175) exists only inside Sarvam's
+console (Voice Agents > Deploy > Phone numbers, via a Sarvam "Vobiz connection"). So the direct-Vobiz route
+("Route A": Vobiz Auth ID/Token, Plivo-style API, media WebSocket to our server) is NOT available unless Sarvam gives
+us those credentials or an equivalent stream endpoint. The only confirmed way to place calls is Sarvam's platform:
+`POST https://apps.sarvam.ai/api/scheduling/v1/orgs/{org_id}/workspaces/{workspace_id}/campaigns` (header
+`X-API-Key`; body app_config{app_id, app_version, app_type:"agent"}, connection_configs[{connection_id, phone_numbers}],
+attempts_per_second ...) which runs a Sarvam-HOSTED agent.
+DECISION PENDING (do not build blind): we need to learn whether a Sarvam agent supports (1) a custom LLM / per-turn
+webhook so OUR brain and safety guard decide every turn, or (2) raw audio streaming to our server on this number, or
+(3) credentials to the underlying Vobiz connection. Until one of these is confirmed, live calls must not be placed
+for booking/commitment tasks, because a hosted agent's speech cannot be gated by friday.core.safety.
