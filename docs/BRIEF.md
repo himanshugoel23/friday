@@ -297,3 +297,31 @@ webhooks; no lost tasks, no duplicate calls, no double-sent messages.
    task, alerts; autoscaling on queue depth and concurrent calls.
 10. **Load testing:** simulator-driven load test (thousands of simulated users and concurrent calls, no real
     providers) proving the targets before launch.
+
+## Founder requirement: public "front door" number — inbound user calls & voice onboarding (pulled forward from Phase 2)
+Goal: one memorable Friday number circulated everywhere (marketing). Anyone can call it (or message the same
+brand on WhatsApp) and start onboarding; repeat callers are recognised and served as a personal assistant.
+1. **Front-door numbers are separate from the outbound pool.** Stable, never rotated, never used to call businesses.
+   Toll-free (1800) and/or a local 10-digit number; a missed call to it triggers a call-back to the caller.
+2. **First call (unknown caller ID):** answer instantly; short AI-disclosed greeting; detect the caller's language
+   from their first words (open in Hinglish) and mirror it; collect name + city; spoken consent (DPDP) with
+   "press 1 to agree" fallback; 18+ confirmation; **PIN entered on the keypad only (never spoken, DTMF masked
+   in recordings and logs)**; offer WhatsApp (send a DLT SMS / approved template with a wa.me link — a WhatsApp
+   chat can only be opened by the user first or via an approved template); then do their first task on the call.
+   Onboarding is a deterministic state machine with pre-rendered prompts; the LLM only handles free-form answers
+   (cost control). Short sentences, repeat numbers back, tolerate noise/accents/barge-in.
+3. **Repeat call (known caller ID):** short greeting by name, surface pending updates ("your Saturday haircut
+   is confirmed; the AC quotes are ready"), take the request, run the same task engine. Results come back by
+   WhatsApp, SMS, or a call-back (works on feature phones with no data). Mid-call questions to the user that
+   can't be answered live become an SMS/WhatsApp question or a "press 1/2" call-back. Caller ID is not
+   authentication: sensitive actions (addresses, notes, identifiers, delete data) require the keypad PIN.
+4. **Access policy for a public number:** waitlist/batch admission or a daily cap on NEW onboardings (the founder's
+   "no usage cap" applies to onboarded users, not anonymous callers); non-onboarded callers get a short max call
+   length.
+5. **Abuse protection:** per-caller rate limits, repeat-caller blocklist, prank/silence/abuse detection with fast
+   hang-up, premium/international call limits, spend alerts on the front-door number.
+6. **Marketing assets:** a QR code + short link that opens WhatsApp chat or tel: dial; Truecaller-verified name
+   ("Friday (AI Assistant)"); consistent number everywhere.
+7. Reuses the existing CallSessionRunner inbound path (run_inbound), user repositories, onboarding state machine,
+   PIN module and task engine. New work: caller classification (user / business / unknown), a voice
+   onboarding flow, keypad PIN capture with masking, SMS/WhatsApp hand-off, front-door abuse controls.
