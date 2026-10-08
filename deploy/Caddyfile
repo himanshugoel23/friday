@@ -1,0 +1,52 @@
+# Caddy: automatic HTTPS (Let's Encrypt) for the founder's domain + reverse proxy to Friday.
+# FRIDAY_DOMAIN and ACME_EMAIL come from /etc/friday/.env via docker-compose.prod.yml.
+{
+	email {$ACME_EMAIL}
+}
+
+{$FRIDAY_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Webhook URLs carry secrets in the query string (?token=, ?key=, hub.verify_token): keep them
+	# out of the logs.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			request>uri query {
+				replace token REDACTED
+				replace key REDACTED
+				replace hub.verify_token REDACTED
+			}
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			request>headers>X-Hub-Signature-256 delete
+		}
+	}
+
+	# Only the paths Friday really serves are reachable from the internet.
+	@friday path /health /webhooks/whatsapp /voice/* /admin/health /admin/numbers
+	handle @friday {
+		# WebSockets (Vobiz media stream /voice/sarvam/media) pass through automatically;
+		# flush immediately so audio frames are never buffered; no read timeout on long calls.
+		reverse_proxy api:8000 {
+			flush_interval -1
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

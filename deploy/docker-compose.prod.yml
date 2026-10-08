@@ -1,0 +1,174 @@
+# Friday private-beta production: ONE Ubuntu 24.04 VM in AWS ap-south-1 (Mumbai).
+#
+# Always run with the env file on the server (secrets live ONLY there, never in git):
+#   docker compose --env-file /etc/friday/.env -f deploy/docker-compose.prod.yml up -d
+# (deploy/update.sh and deploy/smoke_test.sh do this for you.)
+#
+# WHY "api" RUNS THE TASK AND VOICE ROLES TOO (read before changing):
+#   A live call's state is held in memory by the process that placed it: the Vobiz answer
+#   webhook, the media WebSocket, the leg itself and mid-call questions to the user (a
+#   future waiting for the WhatsApp reply) must all hit the SAME process. So on one VM the
+#   `api` service runs `serve` with roles api,task,voice (single replica, never scale it).
+#   `worker-proactive` is safe to split off. `worker-task` / `worker-voice` exist only under
+#   the profile "split" for the later multi-node design (sticky routing by ?w=<worker> on a
+#   load balancer, see docs/DEPLOY_AWS.md section 15); do NOT enable them on this VM.
+
+name: friday
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-friday: &friday
+  image: friday:${FRIDAY_TAG:-latest}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+    args:
+      GIT_SHA: ${GIT_SHA:-unknown}
+  env_file:
+    - ${FRIDAY_ENV_FILE:-/etc/friday/.env}
+  environment: &friday-env
+    FRIDAY_DATABASE_URL: postgresql+asyncpg://friday:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/friday
+    REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
+    FRIDAY_PAUSE_FILE: /var/lib/friday/PAUSED
+  volumes:
+    - friday_state:/var/lib/friday
+  restart: unless-stopped
+  init: true
+  logging: *default-logging
+  networks: [public, data]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:                       # the ONLY published ports of the whole stack
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      FRIDAY_DOMAIN: ${FRIDAY_DOMAIN:?set FRIDAY_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data         # certificates: keep this volume
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [public]
+    logging: *default-logging
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    <<: *friday
+    command: ["serve"]
+    environment:
+      <<: *friday-env
+      FRIDAY_ROLES: api,task,voice
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    mem_limit: 2g
+
+  worker-proactive:
+    <<: *friday
+    command: ["worker", "--roles", "proactive"]
+    environment:
+      <<: *friday-env
+      FRIDAY_ROLES: proactive
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0 if b'friday' in open('/proc/1/cmdline','rb').read() else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 512m
+
+  # ---- NOT for the single VM: enable only with `--profile split` (see header) ----
+  worker-task:
+    <<: *friday
+    profiles: ["split"]
+    command: ["worker", "--roles", "task"]
+    environment:
+      <<: *friday-env
+      FRIDAY_ROLES: task
+    mem_limit: 1g
+
+  worker-voice:
+    <<: *friday
+    profiles: ["split"]
+    command: ["worker", "--roles", "voice"]
+    environment:
+      <<: *friday-env
+      FRIDAY_ROLES: voice
+    mem_limit: 1g
+
+  # One-shot: `docker compose ... run --rm migrate` (update.sh does this). Alembic upgrade head.
+  migrate:
+    <<: *friday
+    profiles: ["tools"]
+    restart: "no"
+    entrypoint: ["python", "-m", "friday.db.migrate"]
+    command: ["up"]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: friday
+      POSTGRES_DB: friday
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U friday -d friday"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [data]             # not published, not on the internet-facing network
+    logging: *default-logging
+    mem_limit: 1g
+    shm_size: 128mb
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}", "--save", "60", "1000", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [data]
+    logging: *default-logging
+    mem_limit: 256m
+
+networks:
+  public: {}                     # has outbound internet (Anthropic, Sarvam, Vobiz, Meta, Google)
+  data:
+    internal: true               # no route to the internet at all
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:
+  friday_state:                  # holds the kill-switch flag file shared by all containers
