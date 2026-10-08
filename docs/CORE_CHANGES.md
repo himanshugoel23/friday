@@ -323,3 +323,14 @@ All voice work compiles against merged core; these are follow-ups, each with a l
 * `TaskEngine.claim_calls` (default `True`) is set to `False` by the runtime when a voice worker owns `call.place`, so the engine no longer claims it. A voice-only process builds the engine only for `handle_job`.
 * New `friday worker --roles voice,task`: background roles without the HTTP server (SIGTERM drains).
 * `friday check` lists roles and the components each role needs. In live mode it prints every missing or unsafe setting by name and exits 1.
+
+## 2026-10-08 — Voice integration engineer (real Sarvam / Vobiz docs)
+Proposals for `friday/core/config.py` (frozen; additive, none needed to run today):
+```python
+sarvam_tts_model: str = "bulbul:v3"      # "bulbul:v4-flash" is also accepted (female personas per language)
+sarvam_tts_speaker: str = "ritu"         # CHANGE the default from the deprecated bulbul:v2 name "anushka"
+sarvam_stt_model: str = "saaras:v4"      # saarika:v2.5 is retired
+sarvam_stt_keyterms: CsvList = []        # <= 50 domain terms (saaras:v4 only)
+```
+Workaround in place: the TTS adapter reads `Settings.sarvam_tts_model` if present, else the env var `FRIDAY_SARVAM_TTS_MODEL`, else `bulbul:v3`. A non-female or legacy v2 speaker (the current `anushka` default) is replaced by `ritu`, so nothing breaks before core changes. `friday/cli.py` got a tiny `friday check --live` flag (read-only Vobiz account probe, `friday.voice.telephony.vobiz_probe`).
+Also for ops: `.env.example` should say `FRIDAY_SARVAM_CALLER_IDS` must be numbers ON the Vobiz account (trial: `+918065354620`); `friday check --live` flags a mismatch.

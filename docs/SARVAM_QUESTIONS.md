@@ -3,8 +3,9 @@
 Friday's brain must decide every turn and `friday.core.safety` must gate every utterance and
 key press, so we integrate in **raw media streaming** mode: the call audio goes to our
 WebSocket, we use Sarvam STT/TTS on our side. The adapter is `friday/voice/telephony/sarvam.py`
-(capability matrix in its docstring). The docs were not reachable while writing it, so each
-point below is a `TODO(<doc page>)` in code. Please confirm, in this order of importance.
+(capability matrix in its docstring). The docs are now read and verified (see the
+2026-10-08 "Docs reconciled" section at the end, which supersedes the earlier updates); the
+list below is kept for history, with the answers marked.
 
 ## Blockers (decide whether we can launch on Sarvam only)
 1. **Raw audio to our server.** Can a Sarvam-rented number, or a BYO carrier via Vobiz, stream
@@ -119,3 +120,56 @@ confirmed.
 Questions for Vobiz sales/support before buying: AI-voice-agent use and spam policy for outbound from their DIDs;
 per-call caller-ID selection and multiple numbers; CNAP/caller-name; concurrency limits; per-minute and rental pricing;
 raw media stream to our WebSocket; DTMF, recording (and delete) and transfer API; call queuing off by default.
+
+## Docs reconciled and live-checked (2026-10-08, voice integration pass) - supersedes the updates above
+Route: **Vobiz direct** (own Auth ID/Token, raw bidirectional stream to our WebSocket, our brain and
+safety guard decide every turn). The Sarvam-rented number stays out of scope. Verified against the real
+docs (vobiz.ai/docs/*.md, vobiz.ai/openapi.json, docs.sarvam.ai/api-reference/*) and read-only live calls.
+
+Answered (code cites the page in `friday/voice/telephony/sarvam.py`):
+* Q1 raw audio: YES. `<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">`; events
+  `start` / `media` / `playedStream` / `clearedAudio` in, `playAudio` / `checkpoint` / `clearAudio` / `stop` out.
+  There is NO inbound `stop` and NO `dtmf` event: the WebSocket close is the end (Hangup callback is authoritative).
+  `playedStream` is skipped after `clearAudio`, so every checkpoint wait has a timeout.
+* Q3 outbound API: `POST /Account/{id}/Call/`, 200 `{api_id, message "Call fired", request_uuid}` (accepted/queued, not
+  answered); 402 low balance, 429 CPS/concurrency. Hangup causes (CDR): NORMAL_CLEARING, USER_BUSY, NO_ANSWER,
+  ORIGINATOR_CANCEL, CALL_REJECTED, REJECTED, INVALID_NUMBER, UNALLOCATED_NUMBER, SERVICE_UNAVAILABLE, SERVER_ERROR,
+  MEDIA_TIMEOUT, PROTOCOL_ERROR, NETWORK_/DESTINATION_OUT_OF_ORDER, NORMAL_TEMPORARY_FAILURE, SWITCH_CONGESTION, UNKNOWN.
+  Per-call `hangup_url` / `ring_url` / `fallback_url` are supported (no Application needed for outbound).
+* Q5 DTMF: SEND = `POST /Call/{uuid}/DTMF/` `{digits "0-9*#wW", leg}` (verified). RECEIVE = only the `<Gather>` verb; the
+  stream has no DTMF event, so Friday cannot see key presses on the stream (it hears speech).
+* Q6 limits: trial account CPS 1, 3 concurrent calls (live). 429 on excess.
+* Q7 transfer: `POST /Call/{uuid}/` `{legs:"aleg", aleg_url}` -> `<Dial callerId=our number><Number>+E164</Number></Dial>`
+  with `callbackUrl` events DialAnswer/DialConnected/DialHangup. A TRANSFER, not 3-way. Conference exists as XML
+  (`<Conference>`), a monitored 3-way is possible but not built (REST list/retrieve of conferences is unreliable).
+* Q8 recording: `POST /Call/{uuid}/Record/` (`time_limit` DEFAULT 60 s, we set it to the call cap; mp3/wav; returns
+  `recording_id` + `url`); download needs the auth headers; delete = `DELETE /Account/{id}/Recording/{recording_id}/` (204).
+  Container may not match the extension. Region/retention not stated in the docs: still ask.
+* Q9 inbound: attach an Application (answer_url/hangup_url) to the number; hangup callback without a stream = missed call.
+  Hangup fields: HangupCause/Code/Name/Source, StartTime, AnswerTime, EndTime.
+* Q10 AMD: parameters on make-call + async `machine_detection_url` (Machine bool). The agent should stay silent during the
+  analysis window; we use the "Balanced" profile and treat a missing callback as human.
+* Sarvam STT: `saaras:v4` is the default (saarika:v2.5 retired); `language_code=unknown` returns `language_code` +
+  `language_probability` (used for mirroring); `keyterms` (<=50, v4 only) supported; realtime WebSocket not used.
+* Sarvam TTS: `bulbul:v2` is deprecated (HTTP 400). Default now `bulbul:v3` + female speaker `ritu` (configurable;
+  `bulbul:v4-flash` personas supported). Live check: Hindi and English lines synthesised and transcribed back correctly.
+
+Live account facts (read-only, `uv run friday check --live`): standard prepaid TRIAL account, balance about INR 24, CPS 1,
+concurrent 3, one shared trial number `+918065354620` (active, voice, not blocked/spam), API-streaming rate 0.44 INR/min,
+`features.call_queue` = TRUE.
+
+Still open / needs the founder before the first live call:
+1. **Turn `call_queue` OFF** (Vobiz support or console); queued calls can be held and marked failed. The docs do not say how.
+2. **Set the caller ID** to the trial number: `FRIDAY_SARVAM_CALLER_IDS=+918065354620` (the probe flagged the current
+   value as not a number on this account). Confirm `from` accepts the `+91...` form (docs show both `+91` and digits).
+3. Ask Vobiz: may a **trial** account dial arbitrary mobile numbers (or only verified ones)? The shared trial number is
+   likely spam-labelled/CNAP-less; is an AI-voice-agent use policy / DLT registration needed? A dedicated number costs setup
+   INR 100 + INR 159/month per the listing.
+4. A public HTTPS URL (`FRIDAY_PUBLIC_BASE_URL`) is needed for answer/hangup/machine/transfer webhooks and the media WebSocket.
+   Callbacks must answer within 3 s; Vobiz signs them (`X-Vobiz-Signature-V3`); we rely on our URL tokens and could also verify
+   the signature (optional hardening).
+5. Recording storage region and retention, plus whether it can be disabled: not documented, ask support (DPDP).
+6. Inbound DTMF from the other party (menu-by-keypad callers) is not available on the stream; decide if `<Gather>` is needed.
+7. Unverified until a real call: exact form fields of the answer callback, AMD accuracy while Friday speaks the disclosure
+   first, L16 byte order (avoided by using mu-law), and per-minute cost of the stream plus Sarvam STT/TTS (Sarvam pricing).
+First live call procedure above (own phone) stands; use `+918065354620` as the caller ID and run `friday check --live` first.
