@@ -192,3 +192,15 @@ class Friday:
         await self.settle()
         return match
 
+
+
+def friday_lines(call) -> list[str]:
+    from friday.core.models import Speaker
+
+    return [t.text for t in call.transcript.turns if t.speaker == Speaker.FRIDAY]
+
+
+def callee_lines(call) -> list[str]:
+    from friday.core.models import Speaker
+
+    return [t.text for t in call.transcript.turns if t.speaker == Speaker.CALLEE]
