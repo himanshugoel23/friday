@@ -36,6 +36,7 @@ from friday.db.repositories.calls import (
 from friday.db.repositories.memory import AuditRepo, CostRepo, FactRepo, IdentifierRepo
 from friday.db.repositories.messages import MessageRepo, StoredMessage
 from friday.db.repositories.nudges import NudgeRepo
+from friday.db.repositories.numbers import DncEntry, NumberAssignment, NumberRepo, OutcomeRecord
 from friday.db.repositories.people import PersonRepo, PlaceRepo, SuppressionRepo
 from friday.db.repositories.purge import DataPurger
 from friday.db.repositories.tasks import TaskRepo
@@ -71,6 +72,10 @@ __all__ = [
     "InviteRepo",
     "MessageRepo",
     "NudgeRepo",
+    "NumberRepo",
+    "NumberAssignment",
+    "OutcomeRecord",
+    "DncEntry",
     "PersonRepo",
     "PinLock",
     "PinLockRepo",
@@ -107,6 +112,7 @@ class Repositories:
     calls: CallMemoryRepo  # call memory + inbound calls/missed calls/business messages
     suppressions: SuppressionRepo
     pin_locks: PinLockRepo
+    numbers: NumberRepo  # caller-ID pool state (NP-1)
     purger: DataPurger
 
 
@@ -136,6 +142,7 @@ def make_repositories(
         calls=CallMemoryRepo(db, clock),
         suppressions=SuppressionRepo(db, clock),
         pin_locks=PinLockRepo(db, clock),
+        numbers=NumberRepo(db, clock),
         purger=DataPurger(db, clock),
     )
 
