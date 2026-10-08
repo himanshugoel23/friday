@@ -106,3 +106,16 @@ Applications -> Overview), `FRIDAY_SARVAM_CALLER_IDS=+918071582175` (comma list)
    phone; if Vobiz refuses, the log shows `BRIDGE FAILED` and the user gets a call-back pack.
 7. **Recording and erasure:** the report has a recording link; "delete everything" must delete it.
 Stop on any failure: `FRIDAY_MODE=simulator` restores the safe default.
+
+## Update 2026-10-08 (final): the number is "Rent from Sarvam" - Sarvam owns the Vobiz account
+Per docs.sarvam.ai/conversations/deploy/telephony/rent-from-sarvam, numbers rented inside Sarvam's dashboard are
+provisioned on Sarvam's own Vobiz account (connection name "Sarvam Vobiz"); no Vobiz credentials are exposed to the
+customer, and a rented number is assigned to a Sarvam agent (inbound deployment / outbound campaign group).
+Consequence: +91 80 7158 2175 can only be driven through Sarvam's HOSTED agent platform. Friday's design needs our
+brain and safety guard to decide every turn, so the direct route needs the founder to open their OWN Vobiz account
+(Vobiz.ai, KYC with GST), buy a number there, and give us its Auth ID/Token. The rented Sarvam number can be kept for
+experiments or released. Hosted-agent mode is limited to low-risk calls (enquiries) until a custom-LLM/per-turn hook is
+confirmed.
+Questions for Vobiz sales/support before buying: AI-voice-agent use and spam policy for outbound from their DIDs;
+per-call caller-ID selection and multiple numbers; CNAP/caller-name; concurrency limits; per-minute and rental pricing;
+raw media stream to our WebSocket; DTMF, recording (and delete) and transfer API; call queuing off by default.
