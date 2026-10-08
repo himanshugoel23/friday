@@ -47,3 +47,13 @@ point below is a `TODO(<doc page>)` in code. Please confirm, in this order of im
 13. AI-caller disclosure and spam-label policy for outbound calls from your numbers; known
     carrier-block thresholds and how blocks are reported (we map SIP 603 / 607 / 608 and
     "spam / block" reasons to the number-health score).
+
+## Update 2026-10-08: the number is a Vobiz BYO number
+The founder's calling number was created through **Vobiz** (a Bengaluru, +91 80 style DID). That is the
+"BYO carrier" route this adapter was built for. So questions 1 (raw audio stream to our WebSocket), 3 (outbound
+API), 4 (numbers, caller ID per call, DLT/TRAI), 5 (DTMF), 6 (concurrency), 7 (transfer), 8 (recording and delete),
+9 (inbound and missed calls) and 10 (voicemail detection) are mainly for **Vobiz** (the carrier/Voice API).
+Questions 2, 11 and 12 (per-turn hook, STT/TTS pricing, data retention for speech) stay with **Sarvam**.
+Credentials go in `SARVAM_TELEPHONY_AUTH_ID` / `SARVAM_TELEPHONY_AUTH_TOKEN` (the Vobiz Auth ID and Auth Token).
+Vobiz must be able to reach a public HTTPS URL (`FRIDAY_PUBLIC_BASE_URL`) for the answer/hangup webhooks and the
+media WebSocket (`/voice/sarvam/media`), so a live call test needs a deployed or tunnelled server.
