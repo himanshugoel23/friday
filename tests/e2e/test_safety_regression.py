@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
-
 from friday.core.models import CallOutcome, Fact, FactKind, Speaker
 from tests.e2e.conftest import PAPA, RAHUL
 

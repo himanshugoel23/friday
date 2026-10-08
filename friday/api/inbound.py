@@ -513,7 +513,10 @@ class InboundPipeline:
                     subject_id=person.id,
                 )
                 if granted:
-                    note = f"{person.name} said yes. I can now send them confirmations and reminders."
+                    note = (
+                        f"{person.name} said yes. "
+                        "I can now send them confirmations and reminders."
+                    )
                     if asked_checkin:
                         note = f"{person.name} said yes to the check-in calls too."
                 else:

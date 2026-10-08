@@ -662,6 +662,16 @@ class TaskEngine:
         if task.shortlist and not await self.tasks.list_children(task.id):
             await self._start_children(task)  # shortlist approved
             return task
+        if task.type == TaskType.CUSTOMER_CARE and task.target is not None:
+            # BUG-10b: "Go" on the summary approves sharing the offered identifiers, for
+            # this task only
+            offered = await self._care_offered_identifiers(task)
+            if offered:
+                task.spec.approved_identifier_ids = sorted(
+                    {*task.spec.approved_identifier_ids, *(i.id for i in offered)}
+                )
+                await self._audit(task, "care.identifiers_approved", count=len(offered))
+                task = await self._save(task)
         await self._queue_dial(task)  # pre-call approval ("Go")
         return task
 
@@ -897,7 +907,10 @@ class TaskEngine:
                 f"{person.name} hasn't agreed to check-in calls yet. I'll start once they opt in."
             )
             if asked:
-                msg = f"I've asked {person.name} for their OK. I'll start the check-ins once they say yes."
+                msg = (
+                    f"I've asked {person.name} for their OK. "
+                    "I'll start the check-ins once they say yes."
+                )
             await self._needs_info(task, ["checkin_consent"], msg)
             return False
         task.target = ContactTarget(
@@ -988,7 +1001,9 @@ class TaskEngine:
         if not phone and name:  # US-3.2: memory, then a directory lookup by name
             businesses = repo(self.repos, "businesses")
             known = await call_opt(businesses, "known_for_user", task.requester_user_id, default=[])
-            hit = next((b for b in known or [] if name_similarity(b.name, name) >= NAME_MATCH), None)
+            hit = next(
+                (b for b in known or [] if name_similarity(b.name, name) >= NAME_MATCH), None
+            )
             if hit:
                 phone = hit.phone
             else:
@@ -1169,19 +1184,35 @@ class TaskEngine:
             task_id=task.id,
         )
 
-    async def _care_summary(self, task: Task) -> str:
-        """US-30.2 pre-call summary: company, official number, ask, identifiers (masked)."""
+    async def _care_offered_identifiers(self, task: Task) -> list[Any]:
+        """Saved identifiers for this company that the pre-call approval offers to share
+        (BUG-10b). Nothing is shared unless the user approves THIS task."""
         ids = (
             await call_opt(
                 repo(self.repos, "identifiers"), "list_for_user", task.requester_user_id, default=[]
             )
             or []
         )
-        shared = [i for i in ids if i.id in task.spec.approved_identifier_ids]
+        company = (task.spec.company or task.spec.business_name or "").strip().lower()
+        return [
+            i
+            for i in ids
+            if i.id in task.spec.approved_identifier_ids
+            or (company and (i.company or "").strip().lower() == company)
+            or (company and company in i.label.lower())
+        ]
+
+    async def _care_summary(self, task: Task) -> str:
+        """US-30.2 pre-call summary: company, official number, ask, identifiers (masked)."""
+        shared = await self._care_offered_identifiers(task)
         lines = [
             f"I'll call {task.target.name} on their official number {task.target.phone}.",
             f"Ask: {task.spec.goal}",
-            "I'll share: " + (", ".join(f"{i.label} {i.masked}" for i in shared) or "nothing"),
+            "OK to share my "
+            + ", ".join(f"{i.label} {i.masked}" for i in shared)
+            + " for this call? (tap Go to allow)"
+            if shared
+            else "I'll share: nothing",
             "Never shared: OTPs, PINs, CVV, passwords.",
         ]
         return "\n".join(lines)
@@ -1641,9 +1672,17 @@ class TaskEngine:
             return result
         committed = str(result.collected.get("committed", "")).lower() == "true"
         amount = next((q.amount_inr for q in result.quotes if q.amount_inr is not None), None)
-        allowed = (
-            brief is not None and check_commit(brief, result.answers, amount_inr=amount).allowed
-        )
+        if amount is None:
+            with contextlib.suppress(TypeError, ValueError):
+                amount = int(float(result.collected.get("amount_inr")))  # type: ignore[arg-type]
+        slot_at = None
+        raw_slot = result.collected.get("slot_at")
+        if raw_slot:  # BUG-1: the runner records the resolved slot for window checks
+            with contextlib.suppress(ValueError):
+                slot_at = datetime.fromisoformat(str(raw_slot).replace("Z", "+00:00"))
+        allowed = brief is not None and check_commit(
+            brief, result.answers, amount_inr=amount, slot_at=slot_at
+        ).allowed
         if committed and allowed:
             return result
         await self._audit(
@@ -3275,8 +3314,8 @@ def _resolution_of(action: str | None, task: Task) -> str:
 
 NAME_MATCH = 0.8
 _GENERIC_NAME_TOKENS = frozenset(
-    "the and a of salon shop store clinic services service centre center hospital studio "
-    "unisex family".split()
+    {"the", "and", "a", "of", "salon", "shop", "store", "clinic", "services", "service"}
+    | {"centre", "center", "hospital", "studio", "unisex", "family"}
 )
 
 

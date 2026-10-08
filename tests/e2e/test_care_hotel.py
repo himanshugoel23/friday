@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from friday.core.models import CallOutcome, TaskStatus, TaskType
 from tests.e2e.harness import callee_lines
 
@@ -18,13 +16,13 @@ async def _save_airtel_number(rahul):
 
 
 async def test_care_uses_the_official_number_and_never_shares_unapproved_details(friday, rahul):
-    await _save_airtel_number(rahul)
     await rahul.say(CARE_ASK)
     t = await rahul.task()
     assert t.type == TaskType.CUSTOMER_CARE and t.status == TaskStatus.AWAITING_APPROVAL
     summary = rahul.last()
     assert "+911800000121" in summary and "official number" in summary
     assert "Never shared: OTPs, PINs, CVV, passwords." in summary
+    assert "I'll share: nothing" in summary  # no saved identifier -> nothing to approve
     await rahul.say("1")
     t = await rahul.task()
     (call,) = await rahul.calls(t)
@@ -38,11 +36,7 @@ async def test_care_ivr_hold_ticket_when_the_identifier_is_approved(friday, rahu
     await _save_airtel_number(rahul)
     await rahul.say(CARE_ASK)
     t = await rahul.task()
-    ids = await friday.c.repos.identifiers.list_for_user(t.requester_user_id)
-    # (BUG-10b: nothing in the product approves a saved identifier yet; do it directly)
-    await friday.engine.update_spec(
-        t.id, t.spec.model_copy(update={"approved_identifier_ids": [i.id for i in ids]})
-    )
+    assert "OK to share my" in rahul.last()  # BUG-10b: the approval step offers the number
     await rahul.say("1")
     t = await rahul.task(0)  # (the promised-date follow-up child is the newest task: BUG-11)
     assert t.status == TaskStatus.COMPLETED
@@ -61,10 +55,6 @@ async def test_care_follow_up_is_scheduled_for_the_promised_date(friday, rahul):
     await _save_airtel_number(rahul)
     await rahul.say(CARE_ASK)
     t = await rahul.task()
-    ids = await friday.c.repos.identifiers.list_for_user(t.requester_user_id)
-    await friday.engine.update_spec(
-        t.id, t.spec.model_copy(update={"approved_identifier_ids": [i.id for i in ids]})
-    )
     await rahul.say("1")
     follow = [x for x in await rahul.tasks() if x.parent_task_id == t.id]
     assert follow and follow[0].status == TaskStatus.SCHEDULED

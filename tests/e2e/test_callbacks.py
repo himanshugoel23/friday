@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from friday.core.models import CallDirection, TaskStatus
 from tests.e2e.harness import friday_lines
 
@@ -33,7 +31,7 @@ async def test_business_calls_back_on_the_number_that_missed_it(friday, rahul):
     assert "Rahul" in lines[0]  # context only for a verified, matched caller
     # the approval rule still holds on the call-back: the offer goes to the user
     assert t.status == TaskStatus.AWAITING_APPROVAL
-    assert "committed" not in inbound[0].collected
+    assert all("committed" not in c.collected for c in inbound)
 
 
 async def test_unknown_caller_learns_nothing_about_any_user(friday, rahul):
@@ -75,9 +73,10 @@ async def test_late_callback_after_the_user_cancelled_is_closed_politely(friday,
         for c in await rahul.calls(tk)
         if c.direction == CallDirection.INBOUND
     ]
-    assert len(inbound) == 1
+    assert inbound  # (the persona may also ring back by itself: BUG-6)
+    assert all(c.collected.get('closed_loop') == 'true' for c in inbound)
     # nothing is committed, the cancelled task stays cancelled and no retry is revived
-    assert "committed" not in inbound[0].collected
+    assert all("committed" not in c.collected for c in inbound)
     assert (await rahul.task(0)).status == TaskStatus.CANCELLED
     assert not [x for x in rahul.texts() if "Ho gaya" in x]
 

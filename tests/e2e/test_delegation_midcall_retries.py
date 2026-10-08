@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 
-import pytest
-
 from friday.core.clock import to_ist
 from friday.core.models import CallOutcome, TaskStatus
 from tests.e2e.harness import callee_lines, friday_lines
@@ -19,13 +17,6 @@ DELEGATED = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-1 (engine half): the brain/runner now commit within limits and record "
-    "collected['slot_at'], but friday/tasks/engine.py:_guard_commit calls check_commit without "
-    "slot_at, so it downgrades SUCCESS to PENDING_APPROVAL. Fix there: "
-    "slot_at=datetime.fromisoformat(result.collected['slot_at']) when present",
-)
 async def test_delegated_booking_is_confirmed_on_the_call_within_limits(friday, rahul):
     await rahul.say(DELEGATED.format(cap="₹800"))
     t = await rahul.task()
