@@ -45,10 +45,10 @@ TelephonyProviderName = Literal[
 STTProviderName = Literal["auto", "fake", "sarvam", "deepgram"]
 TTSProviderName = Literal["auto", "fake", "sarvam", "elevenlabs"]
 WhatsAppProviderName = Literal["auto", "simulator", "cloud"]
-SMSProviderName = Literal["auto", "fake", "msg91"]
+SMSProviderName = Literal["auto", "fake", "msg91", "off"]
 DirectoryProviderName = Literal["auto", "simulator", "google_places"]
 GeocoderProviderName = Literal["auto", "simulator", "google"]
-HotelProviderName = Literal["auto", "simulator", "expedia_rapid"]
+HotelProviderName = Literal["auto", "simulator", "expedia_rapid", "off"]
 BackendName = Literal["auto", "memory", "postgres", "redis"]
 WorkerRole = Literal["api", "task", "voice", "proactive", "batch"]
 ProfileName = Literal["default", "pilot", "beta"]
@@ -94,8 +94,9 @@ class Settings(BaseSettings):
     # ``default`` keeps every production requirement. See docs/LIVE_TEST_WINDOWS.md.
     # ``beta`` (FRIDAY_PROFILE=beta): small private-beta production (docs/DEPLOY_AWS.md). Live mode
     # requires LLM, Sarvam, Vobiz + caller IDs, Google Places, WhatsApp Cloud, an https public URL,
-    # all keys/secrets and the admin token; Expedia hotels, MSG91/DLT SMS and the object store are
-    # OPTIONAL (hotels -> simulator, SMS -> off, recordings stay OFF without an object store).
+    # all keys/secrets, the admin token and the legal links; Expedia hotels, MSG91/DLT SMS and the
+    # object store are OPTIONAL and DISABLED (never simulated) when missing: hotels -> direct-call
+    # path only, SMS -> off, recordings stay OFF without an object store.
     profile: ProfileName = "default"
     # Pilot safety: the ONLY numbers `friday livecall` may dial (E.164, CSV). Default empty.
     pilot_allowed_numbers: CsvList = Field(default_factory=list)
@@ -110,6 +111,13 @@ class Settings(BaseSettings):
     default_country_code: str = "+91"
     default_language: Literal["en", "hi", "hinglish"] = "hinglish"
     media_dir: str = "./var/media"  # local recordings/voice notes (simulator + dev)
+
+    # Legal links shown in the onboarding consent message. Required in the beta profile and any
+    # non-pilot live mode (``live_problems``); the pilot (founder-only test) may leave them unset.
+    terms_url: str | None = None
+    privacy_url: str | None = None
+    grievance_email: str | None = None  # Grievance Officer contact (DPDP / IT Rules)
+    grievance_name: str | None = None  # optional: the Officer's name
 
     # ------------------------------------------------------------------ database
     database_url: str = "sqlite+aiosqlite:///./friday.db"  # Postgres: postgresql+asyncpg://
@@ -533,21 +541,67 @@ class Settings(BaseSettings):
     def beta_msg91_configured(self) -> bool:
         return bool(self.msg91_auth_key and self.dlt_entity_id)
 
+    def legal_links_required(self) -> bool:
+        return self.is_live and not self.is_pilot
+
+    def missing_legal_settings(self) -> list[str]:
+        """Env names of the legal settings that are required but unset (empty == fine)."""
+        if not self.legal_links_required():
+            return []
+        have = {
+            "FRIDAY_TERMS_URL": self.terms_url,
+            "FRIDAY_PRIVACY_URL": self.privacy_url,
+            "FRIDAY_GRIEVANCE_EMAIL": self.grievance_email,
+        }
+        return [k for k, v in have.items() if not (v and v.strip())]
+
     def optional_feature_notes(self) -> list[str]:
-        """Beta only: which OPTIONAL features are off and what happens instead."""
-        if not self.is_beta:
+        """Live mode: every feature that is OFF or SIMULATED, in plain words (``friday check``)."""
+        if not self.is_live:
             return []
         notes = []
-        if self.resolve_hotels() == "simulator":
+        hotels = self.resolve_hotels()
+        if hotels == "off":
             notes.append(
-                "hotels: OFF (no Expedia keys) - hotel tasks run on the SIMULATOR and book "
-                "nothing real; do not offer them to testers"
+                "hotel live rates: OFF (no Expedia keys) - Friday still finds a hotel in the "
+                "directory, phones it, asks availability and the rate and asks the user before "
+                "any booking; users are told live rates are not available. No rates are made up"
             )
-        if self.resolve_sms() == "fake":
-            notes.append("SMS: OFF (no MSG91/DLT) - WhatsApp is the only text channel")
+        elif hotels == "simulator":
+            notes.append("hotels: SIMULATED (founder test only) - names carry [SIMULATED]")
+        if self.resolve_sms() == "off":
+            notes.append(
+                "SMS: OFF (no MSG91/DLT) - Friday uses WhatsApp or a call-back; nothing is "
+                "recorded as sent by SMS"
+            )
+        elif self.resolve_sms() == "fake":
+            notes.append("SMS: SIMULATED (founder test only) - no real SMS is sent")
+        if self.resolve_whatsapp() == "simulator":
+            notes.append("WhatsApp: SIMULATED (founder test only) - no real message is sent")
+        if self.resolve_directory() == "simulator":
+            notes.append("business directory: SIMULATED (founder test only) - listings are fake")
+        if self.resolve_geocoder() == "simulator":
+            notes.append("geocoder: SIMULATED (founder test only)")
         if not self.object_store_url:
             notes.append("recordings: OFF (no FRIDAY_OBJECT_STORE_URL) - nothing is recorded")
         return notes
+
+    def simulated_in_live(self) -> list[str]:
+        """Components resolved to a simulator/fake while live (empty for a safe config)."""
+        if not self.is_live:
+            return []
+        out = []
+        if self.resolve_hotels() == "simulator":
+            out.append("hotels")
+        if self.resolve_sms() == "fake":
+            out.append("sms")
+        if self.resolve_whatsapp() == "simulator":
+            out.append("messaging")
+        if self.resolve_directory() == "simulator":
+            out.append("directory")
+        if self.resolve_geocoder() == "simulator":
+            out.append("geocoder")
+        return out
 
     def public_url_problem(self) -> str | None:
         """Why ``public_base_url`` cannot receive provider webhooks (None == fine)."""
@@ -601,12 +655,14 @@ class Settings(BaseSettings):
             return "google" if self.google_places_api_key else "simulator"
         return "google" if (self.is_live or self.google_places_api_key) else "simulator"
 
-    def resolve_hotels(self) -> Literal["simulator", "expedia_rapid"]:
+    def resolve_hotels(self) -> Literal["simulator", "expedia_rapid", "off"]:
         # book() has real-world side effects -> real provider only in live mode.
+        # Live without Expedia keys is "off", never a simulator that invents rates; only the
+        # pilot (founder test) or an explicit pin may simulate.
         if not self.is_live or (self.is_pilot and self.hotel_provider == "auto"):
             return "simulator"
         if self.is_beta and self.hotel_provider == "auto":  # optional in beta
-            return "expedia_rapid" if self.beta_expedia_configured() else "simulator"
+            return "expedia_rapid" if self.beta_expedia_configured() else "off"
         return "expedia_rapid" if self.hotel_provider == "auto" else self.hotel_provider
 
     def resolve_telephony(
@@ -645,11 +701,11 @@ class Settings(BaseSettings):
             return "simulator"
         return "cloud" if self.whatsapp_provider == "auto" else self.whatsapp_provider
 
-    def resolve_sms(self) -> Literal["fake", "msg91"]:
+    def resolve_sms(self) -> Literal["fake", "msg91", "off"]:
         if not self.is_live or (self.is_pilot and self.sms_provider == "auto"):
             return "fake"
         if self.is_beta and self.sms_provider == "auto":  # optional in beta
-            return "msg91" if self.beta_msg91_configured() else "fake"
+            return "msg91" if self.beta_msg91_configured() else "off"
         return "msg91" if self.sms_provider == "auto" else self.sms_provider
 
     def live_problems(self) -> list[str]:
@@ -700,6 +756,14 @@ class Settings(BaseSettings):
         problems += [f"missing {k}" for k, v in need.items() if not v]
         if self.is_live and (self.is_pilot or self.is_beta) and (msg := self.public_url_problem()):
             problems.append(msg)
+        # onboarding consent message: terms, privacy and the Grievance Officer contact
+        problems += [
+            f"missing {k} (legal link shown at onboarding)" for k in self.missing_legal_settings()
+        ]
+        links = (("FRIDAY_TERMS_URL", self.terms_url), ("FRIDAY_PRIVACY_URL", self.privacy_url))
+        for k, v in links:
+            if self.legal_links_required() and v and not v.strip().startswith("https://"):
+                problems.append(f"{k} must be an https:// URL")
         if self.is_live and self.secret_key.get_secret_value() == _DEV_SECRET:
             problems.append("FRIDAY_SECRET_KEY must be set in live mode")
         if (
@@ -724,7 +788,15 @@ class Settings(BaseSettings):
                 problems.append("FRIDAY_DATABASE_URL must be PostgreSQL (postgresql+asyncpg://)")
             if not self.invite_only:
                 problems.append("FRIDAY_INVITE_ONLY must stay true in the beta")
-            if self.whatsapp_provider == "simulator" or self.telephony_provider == "simulator":
+            pinned = (
+                self.whatsapp_provider == "simulator"
+                or self.telephony_provider == "simulator"
+                or self.directory_provider == "simulator"
+                or self.geocoder_provider == "simulator"
+                or self.hotel_provider == "simulator"
+                or self.sms_provider == "fake"
+            )
+            if pinned:
                 problems.append("beta must not pin a simulator provider in live mode")
         return problems
 

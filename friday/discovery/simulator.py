@@ -17,6 +17,7 @@ from friday.discovery.geo import haversine_km, hours_from_simworld, names_match,
 from friday.discovery.maps_links import parse_maps_link
 from friday.simworld import SimBusiness, SimWorld, load_world
 
+SIMULATED_PREFIX = "[SIMULATED] "
 PROVIDER = "simulator"
 DEFAULT_RADIUS_KM = 6.0
 
@@ -46,8 +47,15 @@ class SimulatedDirectory:
     name = PROVIDER
 
     def __init__(
-        self, world: SimWorld | None = None, *, clock: Clock | None = None, radius_km: float = 6.0
+        self,
+        world: SimWorld | None = None,
+        *,
+        clock: Clock | None = None,
+        radius_km: float = 6.0,
+        mark_simulated: bool = False,
     ) -> None:
+        # Live mode (pilot founder test): results that could reach the user say so.
+        self.name_prefix = SIMULATED_PREFIX if mark_simulated else ""
         self.world = world or load_world()
         self.clock = clock or SystemClock()
         self.radius_km = radius_km
@@ -109,7 +117,7 @@ class SimulatedDirectory:
         return BusinessCandidate(
             provider=PROVIDER,
             place_id=b.id,
-            name=b.name,
+            name=self.name_prefix + b.name,
             phone=b.phone if full else None,
             category=b.category,
             address=f"{b.area}, {b.city}",
@@ -200,7 +208,7 @@ class SimulatedGeocoder:
 
 
 def build_simulated_directory(c) -> SimulatedDirectory:  # c: Container
-    return SimulatedDirectory(clock=c.clock)
+    return SimulatedDirectory(clock=c.clock, mark_simulated=c.settings.is_live)
 
 
 def build_simulated_geocoder(c) -> SimulatedGeocoder:  # c: Container

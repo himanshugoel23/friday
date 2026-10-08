@@ -31,7 +31,15 @@ LINK_BASE = "https://sim.friday.local/hotels/book"
 class SimulatedHotels:
     name = PROVIDER
 
-    def __init__(self, world: SimWorld | None = None, *, clock: Clock | None = None) -> None:
+    def __init__(
+        self,
+        world: SimWorld | None = None,
+        *,
+        clock: Clock | None = None,
+        mark_simulated: bool = False,
+    ) -> None:
+        # Live mode (pilot founder test): simulated rates/bookings say so in plain words.
+        self.name_prefix = "[SIMULATED] " if mark_simulated else ""
         self.world = world or load_world()
         self.clock = clock or SystemClock()
         self._bookings: dict[str, HotelBooking] = {}
@@ -44,7 +52,7 @@ class SimulatedHotels:
         return HotelProperty(
             provider=PROVIDER,
             property_id=b.id,
-            name=b.name,
+            name=self.name_prefix + b.name,
             phone=b.phone,
             address=f"{b.area}, {b.city}",
             location=GeoPoint(lat=b.lat, lng=b.lng),
@@ -169,4 +177,4 @@ class SimulatedHotels:
 
 
 def build_simulated_hotels(c) -> SimulatedHotels:  # c: Container
-    return SimulatedHotels(clock=c.clock)
+    return SimulatedHotels(clock=c.clock, mark_simulated=c.settings.is_live)
