@@ -126,10 +126,10 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
     if step == S.INVITE_CODE:
         return (
             c.say(
-                en="Hey! I'm Friday, your assistant who makes calls so you don't have to. "
-                "I'm invite-only right now. Got an invite code?",
-                hinglish="Hi! Main Friday hoon - aapke liye calls karti hoon taaki aapko na "
-                "karni pade. Abhi invite-only hoon. Invite code hai?",
+                en="I'm Friday. I make calls so you don't have to. Access is by invite only. "
+                "Do you have a code?",
+                hinglish="Main Friday hoon. Aapke liye calls karti hoon. Abhi sirf invite se "
+                "access hai. Code hai?",
             ),
             [],
         )
@@ -137,8 +137,8 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
         return c.say(en="What should I call you?", hinglish="Aapko kya bulaun?"), []
     if step == S.CITY:
         return c.say(
-            en=f"Nice to meet you{', ' + name if name else ''}! Which city are you in?",
-            hinglish=f"Milke achha laga{', ' + name if name else ''}! Kaunse city mein ho?",
+            en=f"Nice to meet you{', ' + name if name else ''}. Which city are you in?",
+            hinglish=f"Milke achha laga{', ' + name if name else ''}. Kaunsa city?",
         ), [_b("ob:skip", "Skip")]
     if step == S.LANGUAGE:
         return c.say(
@@ -150,29 +150,27 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
         ]
     if step == S.TONE:
         return c.say(
-            en='How should I sound? Playful: "Done! Sat 11 baje." Formal: "Your '
+            en='Tone? Playful: "Done. Saturday, 11." Formal: "Your appointment is confirmed '
+            'for Saturday, 11 AM."',
+            hinglish='Mera style? Playful: "Ho gaya. Saturday 11 baje." Formal: "Your '
             'appointment is confirmed for Saturday, 11 AM."',
-            hinglish='Mera style kaisa chahiye? Playful: "Ho gaya! Saturday 11 baje." '
-            'Formal: "Your appointment is confirmed for Saturday, 11 AM."',
         ), [_b("ob:tone:playful", "Playful"), _b("ob:tone:formal", "Formal")]
     if step == S.CONSENT:
         return c.say(
-            en="One important thing. I store your details (name, city, tasks, call recordings) "
-            'in India, only to do your tasks. Say "delete everything" anytime to erase it '
-            "all. I always tell people on calls that I'm an AI. Full terms: "
-            "https://friday.example/terms\nAre you 18+ and do you agree?",
-            hinglish="Ek zaroori cheez. Main aapki details (naam, city, tasks, call recordings) "
-            'India mein store karti hoon, sirf aapke kaam ke liye. Kabhi bhi "delete '
-            'everything" bolke sab mita sakte ho. Main har call pe batati hoon ki main '
-            "AI hoon. Full terms: https://friday.example/terms\nKya aap 18+ ho aur "
-            "agree karte ho?",
+            en="I store your details (name, city, tasks, call recordings) in India, only to do "
+            'your tasks. Say "delete everything" anytime to erase them. On every call I '
+            "say I'm an AI. Terms: https://friday.example/terms\nAre you 18+ and do you "
+            "agree?",
+            hinglish="Main aapki details (naam, city, tasks, call recordings) India mein "
+            'store karti hoon, sirf aapke kaam ke liye. "delete everything" bolke kabhi bhi '
+            "mita sakte ho. Har call pe main batati hoon ki main AI hoon. Terms: "
+            "https://friday.example/terms\nKya aap 18+ ho aur agree karte ho?",
         ), [_b("ob:consent:yes", "I agree"), _b("ob:consent:no", "Not now")]
     if step == S.PIN:
         return c.say(
-            en="Now set a 4-digit Friday PIN. I'll ask for it before sensitive things "
-            "like deleting your data.",
-            hinglish="Ab ek 4-digit Friday PIN set karo, sensitive kaam ke liye (jaise "
-            "data delete karna).",
+            en="Set a 4-digit Friday PIN. I ask for it before sensitive actions.",
+            hinglish="Ek 4-digit Friday PIN set kijiye. Sensitive kaam se pehle main yahi "
+            "poochungi.",
         ), []
     if step == S.CIRCLE:
         nri = not c.ctx.user.phone.startswith("+91")
@@ -193,21 +191,20 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
         ), [_b("ob:skip", "Skip")]
     if step == S.FIRST_TASK:
         return c.say(
-            en="Last thing: what's one call you've been avoiding? I'll make it now. "
-            'e.g. "Dentist appointment Saturday", "ask the AC guy for a price"',
-            hinglish="Last cheez: koi ek call jo aap kab se taal rahe ho? Main abhi kar "
-            'deti hoon. e.g. "Dentist appointment Saturday", "AC service ka '
-            'price poocho"',
+            en="Last one: what call have you been putting off? I'll make it now. "
+            'e.g. "Dentist, Saturday"',
+            hinglish="Last: kaunsi call taal rahe ho? Main abhi kar deti hoon. "
+            'e.g. "Dentist, Saturday"',
         ), [_b("ob:skip", "Later")]
     return (
         c.say(
-            en="You're all set! I make calls for you - bookings, enquiries, orders, "
-            "customer care, hotels, family check-ins. To let me decide on the call, say "
-            "e.g. \"any slot 5-7pm under ₹800, you decide\". Say 'help' anytime.",
-            hinglish="Sab set hai! Main aapke liye calls karti hoon - bookings, enquiries, "
-            "orders, customer care, hotels, family check-ins. Mujhe call pe decide "
-            'karne dena ho toh bolo "5-7 ke beech koi bhi slot, ₹800 tak, aap '
-            "decide karo\". Kabhi bhi 'help' bolo.",
+            en="You're set. I handle bookings, enquiries, orders, customer care, hotels and "
+            "family check-ins. To let me decide on the call, say e.g. \"any slot 5-7pm "
+            "under ₹800, you decide\". 'help' lists more.",
+            hinglish="Sab set hai. Bookings, enquiries, orders, customer care, hotels aur "
+            "family check-ins - sab main karti hoon. Call pe mujhe decide karne dena ho toh "
+            'bolo "5-7 ke beech koi bhi slot, ₹800 tak, aap decide karo". Aur jaanne ke '
+            "liye 'help'.",
         ),
         [],
     )

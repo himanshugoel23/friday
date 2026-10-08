@@ -84,8 +84,17 @@ class _Ctx:
         self.tone = ctx.profile.tone
         self.name = first_name(ctx.profile.name, "")
 
-    def say(self, *, en: str, hinglish: str | None = None, hi: str | None = None) -> str:
-        return say(self.lang, self.tone, en=en, hinglish=hinglish, hi=hi)
+    def say(
+        self,
+        *,
+        en: str,
+        hinglish: str | None = None,
+        hi: str | None = None,
+        playful_tail: str = "",
+    ) -> str:
+        return say(
+            self.lang, self.tone, en=en, hinglish=hinglish, hi=hi, playful_tail=playful_tail
+        )
 
 
 _ORDINALS = [
@@ -2230,11 +2239,15 @@ def _task_reply(c: _Ctx, d: TaskDraft) -> str:
         TaskType.CANCEL_BOOKING,
     ):
         return c.say(en=f"Calling {target} now.", hinglish=f"{target} ko abhi call kar rahi hoon.")
+    if c.tone == Tone.PLAYFUL:
+        return c.say(
+            en=f"On it. Dialling {target}{when}. Nothing gets booked without your nod.",
+            hinglish=f"Lag gayi call: {target}{when}. Aapke haan bole bina kuch book nahi hoga.",
+        )
     return c.say(
-        en=f"Calling {target} now{when}. I'll come back with their options before "
-        f"confirming anything.",
-        hinglish=f"{target} ko abhi call kar rahi hoon{when}. Options lekar aapse "
-        f"confirm karungi, phir book.",
+        en=f"Calling {target} now{when}. I'll bring you their options before confirming.",
+        hinglish=f"{target} ko abhi call kar rahi hoon{when}. Options lekar aapse confirm "
+        f"karungi, phir book.",
     )
 
 
