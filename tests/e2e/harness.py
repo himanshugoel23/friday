@@ -28,6 +28,30 @@ from friday.core.models import (
 )
 
 PIN = "4826"
+
+_ROLES: dict[str, str | None] = {}
+
+
+def shim_task_role(monkeypatch: Any) -> None:
+    """WORKAROUND for BUG-2 (``Task.role`` has no column in ``tasks``, so fan-out children
+    lose their role on a DB round trip and every parallel-quote / stock-hunt / recurring
+    flow collapses). Mimics the fix inside the tests only, so the downstream behaviour of
+    those flows can still be verified. ``test_bugs.py`` proves the bug without the shim."""
+    from friday.db.repositories import tasks as repo
+
+    real_values, real_task = repo._task_values, repo._task
+
+    def values(task):  # noqa: ANN001
+        _ROLES[task.id] = task.role
+        return real_values(task)
+
+    def build(row):  # noqa: ANN001
+        t = real_task(row)
+        t.role = _ROLES.get(t.id)
+        return t
+
+    monkeypatch.setattr(repo, "_task_values", values)
+    monkeypatch.setattr(repo, "_task", build)
 START = datetime(2026, 1, 5, 11, 0, tzinfo=IST)  # Mon 11:00 IST: in the call window
 ONBOARDING_LINES = ["hi", "Rahul", "Pune", "Hinglish", "casual", "I agree", PIN, PIN, "skip", "skip"]
 
@@ -145,9 +169,9 @@ class Friday:
         await self.onboard(phone, name=name)
         return p
 
-    async def onboard(self, phone: str, name: str = "Rahul") -> Party:
+    async def onboard(self, phone: str, name: str = "Rahul", city: str = "Bengaluru") -> Party:
         p = Party(self, phone)
-        for line in ["hi", name, "Pune", "Hinglish", "casual", "I agree", PIN, PIN, "skip", "skip"]:
+        for line in ["hi", name, city, "Hinglish", "casual", "I agree", PIN, PIN, "skip", "skip"]:
             await p.say(line)
         await p.say("later")  # first task: later
         u = await p.user_row()
