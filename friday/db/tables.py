@@ -28,6 +28,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     event,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 

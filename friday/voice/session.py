@@ -37,7 +37,8 @@ import contextlib
 import re
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from contextlib import AsyncExitStack
+from typing import Any, Protocol
 
 from friday.core.clock import Clock
 from friday.core.config import Settings
@@ -74,7 +75,13 @@ from friday.core.models import (
     Transcription,
     UserAnswer,
 )
-from friday.core.safety import check_keys, check_speech
+from friday.core.safety import KeyBuffer, check_speech
+from friday.core.scale import Cache, LockTimeout, RateLimiter
+from friday.voice.commit import (
+    COMMIT_TYPES,
+    commit_reasons,
+    is_commit_action,
+)
 from friday.voice.events import CallCostReport, CallLanguageSwitched, CallLatencyReport
 from friday.voice.latency import LatencyRecorder
 from friday.voice.text import mask_digits, redact_secrets, strip_fillers
@@ -112,6 +119,11 @@ _INBOUND_GREETING = {
     ),
     Language.HI: "नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट। हमने आपको पहले {name} की ओर से कॉल किया था।",
 }
+_NEW_NUMBER = {
+    Language.EN: "Friday here, calling from a new number.",
+    Language.HINGLISH: "Friday bol rahi hoon, ab main is naye number se call karti hoon.",
+    Language.HI: "मैं Friday बोल रही हूँ, अब मैं इस नए नंबर से कॉल करती हूँ।",
+}
 _SAFE_EXIT = {
     Language.EN: "I'll check with {name} and call you back. Thank you.",
     Language.HINGLISH: "Main {name} se confirm karke aapko call back karti hoon. Dhanyavaad.",
@@ -147,18 +159,15 @@ def _line(table: dict[Language, str], language: Language, **kw: Any) -> tuple[st
 
 
 class VoiceCallResult(CallResult):
-    """CallResult + fields proposed for core (docs/CORE_CHANGES.md)."""
+    """CallResult + the per-turn latency summary (not part of the core model)."""
 
-    from_number: str | None = None  # Friday caller-ID used (sticky per business, E30)
-    # cost components for the ledger (founder cost rule 7/8); also in CallCostReport
-    telephony_seconds: float = 0.0  # answered -> end, incl. hold
-    stt_seconds: float = 0.0  # audio actually sent to STT (VAD'd, none on hold music)
-    tts_chars: int = 0  # characters spoken
-    tts_billed_chars: int = 0  # characters not served from the pre-render cache
-    translate_calls: int = 0
-    ivr_keys_replayed: int = 0  # menu steps replayed from a learned IVR map (no LLM)
-    policy_calls: int = 0
     latency: dict[str, float] = {}
+
+
+class RecordingStore(Protocol):
+    """What the runner needs from Backend A's object store (``friday.db.objectstore``)."""
+
+    async def put(self, key: str, data: bytes, *, content_type: str) -> str: ...
 
 
 _DIAL_OUTCOME = {
@@ -190,6 +199,9 @@ class CallRunner:
         clock: Clock | None = None,
         bus: EventBus | None = None,
         tts_languages: frozenset[Language] | None = None,
+        rate_limiter: RateLimiter | None = None,
+        cache: Cache | None = None,
+        recording_store: RecordingStore | None = None,
     ) -> None:
         self._c = c
         self._telephony = telephony
@@ -204,6 +216,14 @@ class CallRunner:
         self.bus = bus or (c.bus if c else EventBus())
         self._tts_languages = tts_languages
         self._cancelled: set[str] = set()
+        self.rate_limiter = rate_limiter
+        self.cache = cache
+        self.recording_store = recording_store
+        self.draining = False
+        self.active: dict[str, asyncio.Task | None] = {}  # call_id -> task (live calls)
+        self._sessions: dict[str, _Session] = {}
+        self._idle = asyncio.Event()
+        self._idle.set()
 
     # ------------------------------------------------------------------ dependencies
     @property
@@ -244,6 +264,35 @@ class CallRunner:
         sibling found, user cancelled). ``run`` then returns outcome CANCELLED."""
         self._cancelled.add(task_id)
 
+    @property
+    def live_calls(self) -> int:
+        return len(self.active)
+
+    def _enter(self, call_id: str) -> None:
+        self.active[call_id] = asyncio.current_task()
+        self._idle.clear()
+
+    def _leave(self, call_id: str) -> None:
+        self.active.pop(call_id, None)
+        if not self.active:
+            self._idle.set()
+
+    async def drain(self, timeout_s: float | None = None) -> bool:
+        """Graceful shutdown (S-9): refuse new calls, let live calls finish. Returns True
+        when idle; after ``timeout_s`` live calls are asked to wrap up (cancel) and the
+        runner waits for them to end."""
+        self.draining = True
+        try:
+            await asyncio.wait_for(self._idle.wait(), timeout=timeout_s)
+            return True
+        except TimeoutError:
+            for call_id, _task in list(self.active.items()):
+                log.warning("drain timeout: ending live call %s", call_id)
+            for sess in list(self._sessions.values()):
+                self.cancel(sess.brief.task_id)
+            await self._idle.wait()
+            return False
+
     async def run(
         self,
         brief: CallBrief,
@@ -263,7 +312,7 @@ class CallRunner:
             brief,
             ask_user,
             notify_user,
-            from_number=from_number or getattr(brief, "from_number", None),
+            from_number=from_number,
         )
         return await session.execute()
 
@@ -319,7 +368,12 @@ class _Session:
         self.inbound = inbound_leg is not None
         self.leg: CallLeg | None = inbound_leg
         self.context = context
-        self.from_number = from_number
+        self.from_number = from_number or brief.from_number
+        self.keybuf = KeyBuffer(brief)  # SECURITY-24: keys since the last IVR prompt
+        self.committed = False  # SECURITY-4: a gated commit was actually spoken
+        self.human_reached = False
+        self.pressed: list[str] = []  # menu keys (for learned IVR maps)
+        self.block_signal: str | None = None
         self.result = VoiceCallResult(
             task_id=brief.task_id,
             provider=getattr(inbound_leg, "provider", None) or "unknown",
@@ -345,6 +399,7 @@ class _Session:
         self.tts_chars = 0
         self.translations = 0
         self.voicemail_detected = False
+        self._stack: AsyncExitStack | None = None
         self._prerender: asyncio.Future | None = None
         self._extra_legs: list[CallLeg] = []
         self.care: CareOutcome | None = None
@@ -361,8 +416,25 @@ class _Session:
         return self.brief.task_id in self.r._cancelled
 
     async def execute(self) -> CallResult:
+        r = self.r
+        if r.draining:
+            self.result.error = "voice worker is draining"
+            self.result.outcome = CallOutcome.FAILED
+            self.result.ended_at = self.clock.now()
+            return self.result
+        r._enter(self.result.call_id)
+        r._sessions[self.result.call_id] = self
         try:
-            self.result.outcome = await self._run()
+            async with AsyncExitStack() as stack:
+                self._stack = stack
+                return await self._execute_inner()
+        finally:
+            r._sessions.pop(self.result.call_id, None)
+            r._leave(self.result.call_id)
+
+    async def _execute_inner(self) -> CallResult:
+        try:
+            self.result.outcome = self._check_outcome(await self._run())
         except asyncio.CancelledError:
             self.result.outcome = CallOutcome.CANCELLED
             self.result.error = "task cancelled"
@@ -377,6 +449,22 @@ class _Session:
         await self._finish()
         return self.result
 
+    def _check_outcome(self, outcome: CallOutcome) -> CallOutcome:
+        """SECURITY-4: the outcome comes from what actually happened on the call. A
+        SUCCESS on a task that commits money/slots needs a gated commit turn; the model's
+        claim alone is never enough."""
+        if (
+            outcome == CallOutcome.SUCCESS
+            and self.brief.task_type in COMMIT_TYPES
+            and not self.committed
+        ):
+            self.transcript.add(
+                Speaker.SYSTEM, "OUTCOME DOWNGRADED: no gated commit", at=self.clock.now()
+            )
+            has_offer = bool(self.result.quotes or self.result.collected)
+            return CallOutcome.PENDING_APPROVAL if has_offer else CallOutcome.PARTIAL
+        return outcome
+
     async def _finish(self) -> None:
         r = self.result
         if self.leg is not None and not self.hung_up and not self.left:
@@ -387,11 +475,15 @@ class _Session:
             self.care.hold_seconds = r.hold_seconds
             r.care = self.care
         r.collected = dict(r.collected)
+        if self.committed:
+            r.collected["committed"] = "true"  # engine: COMPLETED needs this (SECURITY-4)
+        else:
+            r.collected.pop("committed", None)
+        if self.block_signal:
+            r.collected["provider_signal"] = self.block_signal
         if self.leg is not None:
-            try:
-                r.recording_url = await self.leg.recording_url()
-            except Exception:  # noqa: BLE001
-                log.warning("recording unavailable for %s", r.call_id)
+            await self._store_recording()
+        await self._learn_ivr_map()
         summary = self.latency.summary()
         r.latency = summary
         self._collect_costs()
@@ -495,11 +587,12 @@ class _Session:
         needs = self._needs()
         if needs:
             meta["needs"] = ",".join(sorted(needs))
-        extra: dict[str, Any] = {}
         if self.from_number:
             meta["from_number"] = self.from_number
-            if "from_number" in OutboundCallRequest.model_fields:  # proposed core field
-                extra["from_number"] = self.from_number
+        if not await self._reserve_capacity("telephony"):
+            self.result.error = "telephony rate-limited; retry later"
+            self.result.dial_status = DialStatus.FAILED
+            return CallOutcome.FAILED
         req = OutboundCallRequest(
             to_phone=b.target.phone,
             task_id=b.task_id,
@@ -508,7 +601,7 @@ class _Session:
             max_duration_s=b.max_duration_s,
             language=b.opening_language,
             metadata=meta,
-            **extra,
+            from_number=self.from_number,
         )
         tel = self.r.telephony
         self.result.provider = getattr(tel, "name", "unknown")
@@ -521,6 +614,11 @@ class _Session:
         self.result.provider = getattr(self.leg, "provider", None) or self.result.provider
         self.result.provider_call_id = self.leg.provider_call_id
         self.result.from_number = getattr(self.leg, "from_number", None) or self.from_number
+        if not await self._reserve_capacity(self.result.provider):
+            self.result.error = f"{self.result.provider} concurrency limit; retry later"
+            self.result.dial_status = DialStatus.FAILED
+            await self._safe_hangup()
+            return CallOutcome.FAILED
         await self.r.bus.publish(
             CallStarted(
                 task_id=b.task_id,
@@ -534,6 +632,12 @@ class _Session:
         self.result.dial_status = status
         if status != DialStatus.ANSWERED:
             self.hung_up = True  # nothing to hang up
+            signal = getattr(self.leg, "block_signal", None)
+            if signal in ("blocked", "rejected"):  # NP-4: feeds the number's health
+                self.block_signal = signal
+                self.result.dial_status = DialStatus.FAILED
+                self.result.error = f"call {signal} by the carrier/provider"
+                return CallOutcome.FAILED
             return _DIAL_OUTCOME.get(status, CallOutcome.FAILED)
         self.result.answered_at = self.clock.now()
         try:
@@ -637,6 +741,20 @@ class _Session:
                 await prerender(texts, lang)
 
         self._prerender = asyncio.ensure_future(warm())
+
+    async def _reserve_capacity(self, key: str) -> bool:
+        """Provider limiters (S-9): token for dialling + a concurrency slot held for the
+        whole call. False = rate-limited / no slot -> FAILED (retryable), never raises."""
+        lim = self.r.rate_limiter
+        if lim is None or self._stack is None:
+            return True
+        try:
+            if key == "telephony" and not await lim.acquire("telephony", timeout_s=5.0):
+                return False
+            await self._stack.enter_async_context(lim.slot(key, timeout_s=10.0))
+        except (LockTimeout, TimeoutError):
+            return False
+        return True
 
     def _needs(self) -> set[str]:
         """Capabilities this call needs (RoutedTelephony falls back per call)."""
