@@ -1,0 +1,147 @@
+"""End-to-end harness: the REAL app (Runtime + InboundPipeline + brain on the fake LLM +
+task engine + simulated telephony / directory / hotels / geocoder + simulator channel)
+on in-memory SQLite and a FakeClock. No network, no keys.
+
+``Friday`` is the little driver the scenarios use:
+
+    f = await Friday.start()
+    u = await f.user("+919811100001")        # onboarded, PIN 4826
+    await u.say("Looks Unisex Salon mein haircut book karo kal shaam")
+    u.last()                                  # last text Friday sent
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from friday.api.runtime import Runtime
+from friday.core.clock import IST, FakeClock
+from friday.core.config import Settings
+from friday.core.container import Container
+from friday.core.models import (
+    OutboundMessage,
+    Task,
+    User,
+    UserStatus,
+)
+
+PIN = "4826"
+START = datetime(2026, 1, 5, 11, 0, tzinfo=IST)  # Mon 11:00 IST: in the call window
+ONBOARDING_LINES = ["hi", "Rahul", "Pune", "Hinglish", "casual", "I agree", PIN, PIN, "skip", "skip"]
+
+
+def make_settings(**over: Any) -> Settings:
+    base: dict[str, Any] = dict(
+        _env_file=None,
+        mode="simulator",
+        env="test",
+        database_url="sqlite+aiosqlite:///:memory:",
+        anthropic_api_key=None,
+        sarvam_api_key=None,
+        deepgram_api_key=None,
+        elevenlabs_api_key=None,
+        google_places_api_key=None,
+        invite_only=False,
+    )
+    base.update(over)
+    return Settings(**base)
+
+
+@dataclass
+class Party:
+    f: Friday
+    phone: str
+
+    @property
+    def ch(self):
+        return self.f.channel
+
+    def msgs(self) -> list[OutboundMessage]:
+        return self.ch.messages_to(self.phone)
+
+    def texts(self) -> list[str]:
+        return [self.ch.render(m) for m in self.msgs()]
+
+    def last(self) -> str:
+        m = self.ch.last_to(self.phone)
+        return self.ch.render(m) if m else ""
+
+    def all_text(self) -> str:
+        return "\n".join(self.texts())
+
+    async def say(self, text: str) -> list[str]:
+        n = len(self.msgs())
+        await self.f.rt.handle(self.ch.make_inbound(self.phone, text), raise_errors=True)
+        await self.f.settle()
+        return [self.ch.render(m) for m in self.msgs()[n:]]
+
+    async def user_row(self) -> User:
+        u = await self.f.c.repos.users.get_by_phone(self.phone)
+        assert u is not None
+        return u
+
+    async def tasks(self) -> list[Task]:
+        u = await self.user_row()
+        return list(await self.f.c.repos.tasks.list_for_user(u.id))
+
+    async def task(self, index: int = -1) -> Task:
+        ts = sorted(await self.tasks(), key=lambda t: t.created_at)
+        return ts[index]
+
+
+class Friday:
+    def __init__(self, c: Container, rt: Runtime, clock: FakeClock) -> None:
+        self.c = c
+        self.rt = rt
+        self.clock = clock
+        self.channel = c.messaging
+        self.engine = c.task_engine
+
+    @classmethod
+    async def start(cls, *, now: datetime = START, **settings: Any) -> Friday:
+        clock = FakeClock(now)
+        c = Container(make_settings(**settings), clock=clock)
+        await c.db.create_all()
+        rt = Runtime(c, fast_pin_hash=True)
+        await rt.start(background=False)
+        return cls(c, rt, clock)
+
+    async def close(self) -> None:
+        await self.rt.stop()
+        await self.c.aclose()
+
+    async def settle(self) -> None:
+        await self.engine.drain()
+
+    async def advance(self, **delta: float) -> None:
+        """Move the fake clock, fire due timers, run every due job."""
+        self.clock.advance(**delta)
+        await self.engine.tick()
+        await self.settle()
+
+    def person(self, phone: str) -> Party:
+        return Person(self, phone)
+
+    async def user(self, phone: str, name: str = "Rahul", *, language: str = "hinglish") -> Party:
+        """Create an ACTIVE, consented user quickly (use onboard() to test the flow itself)."""
+        p = Party(self, phone)
+        await self.onboard(phone, name=name)
+        return p
+
+    async def onboard(self, phone: str, name: str = "Rahul") -> Party:
+        p = Party(self, phone)
+        for line in ["hi", name, "Pune", "Hinglish", "casual", "I agree", PIN, PIN, "skip", "skip"]:
+            await p.say(line)
+        await p.say("later")  # first task: later
+        u = await p.user_row()
+        assert u.status == UserStatus.ACTIVE, u.status
+        return p
+
+    async def business_calls(self, phone: str, *, answered: bool = True):
+        """A business calls (or missed-calls) Friday's number."""
+        match, _contact = await self.rt.callbacks.on_inbound_call(phone, None, answered=answered)
+        await self.settle()
+        return match
+
