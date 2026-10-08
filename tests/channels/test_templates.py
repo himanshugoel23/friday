@@ -103,7 +103,7 @@ def test_whatsapp_never_sends_a_malformed_registered_template():
     assert len(ok["template"]["components"][0]["parameters"]) == 2
 
 
-async def test_notifier_fallback_and_proactive_fallback_both_send_two_nudge_variables(
+async def test_notifier_fallback_sends_two_nudge_variables_and_one_for_updates(
     container, clock
 ):
     await container.db.create_all()
@@ -114,11 +114,11 @@ async def test_notifier_fallback_and_proactive_fallback_both_send_two_nudge_vari
         User(phone="+919800000001", status=UserStatus.ACTIVE,
              last_inbound_at=clock.now() - timedelta(hours=30))  # window closed
     )
-    await container.repos.profiles.add(Profile(user_id=user.id, name="Rahul Sharma"))
+    await container.repos.profiles.save(Profile(user_id=user.id, name="Rahul Sharma"))
     n = build_notifier(container)
     await n.notify_user(user.id, "Your appointment is at 5", nudge_id="n1")
     await n.notify_user(user.id, "Update", task_id="t1")
-    sent = [m for m in channel.sent if m.template]
+    sent = [m for m in channel.outbox if m.template]
     by_key = {m.template.key: m.template for m in sent}
     assert by_key["nudge"].params == ["Rahul", "Your appointment is at 5"]
     assert len(by_key["task_update"].params) == 1
