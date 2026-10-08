@@ -1,9 +1,9 @@
 """Read-only Vobiz account probe (never places a call, never spends money).
 
-Calls three GET endpoints (verified live 2026-10-08, docs: vobiz.ai/docs/api-reference/authentication,
-/docs/account/account-object, /docs/account-phone-number):
+Calls three GET endpoints (verified live 2026-10-08; docs: vobiz.ai/docs/api-reference/
+authentication, /docs/account/account-object, /docs/account-phone-number):
 
-  * ``GET /auth/me``                          account object (type, trial, CPS, concurrency, features)
+  * ``GET /auth/me``                          account object (type, trial, CPS, features)
   * ``GET /Account/{auth_id}/balance/INR``    prepaid balance
   * ``GET /Account/{auth_id}/numbers``        numbers on the account
 

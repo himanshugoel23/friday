@@ -137,9 +137,7 @@ class SarvamTTS:
         profile = self.catalog.profile(language)
         model = self.model_for(language)
         if not is_female_speaker(profile.voice_id, model, language):
-            fallback = (
-                V4_DEFAULT_PERSONAS[language] if is_v4(model) else DEFAULT_FEMALE_SPEAKER
-            )
+            fallback = V4_DEFAULT_PERSONAS[language] if is_v4(model) else DEFAULT_FEMALE_SPEAKER
             log.info(
                 "sarvam speaker %r is not a known female %s voice; using %s",
                 profile.voice_id,

@@ -139,7 +139,8 @@ async def test_place_call_payload_sticky_and_answer_xml(sar, rec):
     assert b["to"] == "+918040000001" and b["from"] in sar.caller_ids and b["ring_timeout"] == 25
     assert "token=" in b["answer_url"] and "/voice/sarvam/hangup" in b["hangup_url"]
     assert b["hangup_on_ring"] == 25 and b["answer_method"] == "POST"
-    assert b["machine_detection"] == "true" and "/voice/sarvam/machine" in b["machine_detection_url"]
+    assert b["machine_detection"] == "true"
+    assert "/voice/sarvam/machine" in b["machine_detection_url"]
     assert 2000 <= b["machine_detection_time"] <= 10000  # documented range
     xml = await sar.answer_xml({"CallUUID": "call-1"}, leg.key)
     assert 'bidirectional="true"' in xml and "wss://friday.example.in/voice/sarvam/media" in xml
@@ -218,7 +219,9 @@ async def test_hangup_answered_and_rejected(sar):
     )
     assert leg.status == DialStatus.ANSWERED  # (the runner then waits for the stream)
     rej = await sar.place_call(OutboundCallRequest(to_phone="+918040000005", task_id="t"))
-    await sar.handle_hangup({"CallUUID": rej.provider_call_id, "HangupCause": "CALL_REJECTED"}, None)
+    await sar.handle_hangup(
+        {"CallUUID": rej.provider_call_id, "HangupCause": "CALL_REJECTED"}, None
+    )
     assert await rej.wait_for_answer(1) == DialStatus.FAILED and rej.block_signal == "rejected"
 
 

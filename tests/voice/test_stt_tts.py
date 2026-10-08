@@ -126,9 +126,9 @@ async def test_sarvam_stt_keyterms_only_on_v4():
     transport, calls = mock(
         lambda r: httpx.Response(200, json={"transcript": "x", "language_code": "en-IN"})
     )
-    await SarvamSTT(
-        "k", model="saaras:v3", keyterms=["Airtel"], transport=transport
-    ).transcribe(WAV)
+    await SarvamSTT("k", model="saaras:v3", keyterms=["Airtel"], transport=transport).transcribe(
+        WAV
+    )
     assert 'name="keyterms"' not in calls[0].content.decode(errors="replace")
 
 
@@ -198,7 +198,71 @@ def test_sarvam_tts_tolerates_v4_flash_personas():
 
 def test_sarvam_tts_rejects_unsupported_sample_rate():
     with pytest.raises(ValueError):
-        SarvamTTS("k", VoiceCatalog("sarvam", Settings(_env_file=None), {}, "ritu"), sample_rate=11025)
+        cat = VoiceCatalog("sarvam", Settings(_env_file=None), {}, "ritu")
+        SarvamTTS("k", cat, sample_rate=11025)
+
+
+def test_chunk_text_respects_sentences():
+    parts = chunk_text("One. Two. Three.", limit=9)
+    assert parts == ["One. Two.", "Three."]
+
+
+async def test_deepgram_params_and_parse():
+    transport, calls = mock(
+        lambda r: httpx.Response(
+            200,
+            json={
+                "results": {
+                    "channels": [
+                        {
+                            "detected_language": "hi",
+                            "alternatives": [
+                                {"transcript": "kal shaam ka slot hai kya", "confidence": 0.9}
+                            ],
+                        }
+                    ]
+                }
+            },
+        )
+    )
+    stt = DeepgramSTT("dg", transport=transport)
+    t = await stt.transcribe(WAV, language_hint=Language.HINGLISH)
+    q = dict(calls[0].url.params)
+    assert q["language"] == "multi" and q["model"] == "nova-3"
+    assert calls[0].headers["Authorization"] == "Token dg"
+    assert t.language == Language.HINGLISH and t.confidence == 0.9
+    await stt.transcribe(WAV, language_hint=Language.TA)
+    assert dict(calls[1].url.params)["detect_language"] == "true"
+
+
+async def test_vendor_errors_normalised():
+    transport, _ = mock(lambda r: httpx.Response(401, text="bad key"))
+    with pytest.raises(ProviderError) as e:
+        await SarvamSTT("x", transport=transport).transcribe(WAV)
+    assert not e.value.retryable
+    transport, calls = mock(lambda r: httpx.Response(503, text="busy"))
+    stt = DeepgramSTT("x", transport=transport)
+    stt._http.retries = 0
+    with pytest.raises(ProviderError) as e:
+        await stt.transcribe(WAV)
+    assert e.value.retryable
+
+
+async def test_elevenlabs_request():
+    transport, calls = mock(lambda r: httpx.Response(200, content=tone(300, 0.1, 16000)))
+    s = Settings(_env_file=None)
+    tts = ElevenLabsTTS(
+        "xi", VoiceCatalog("elevenlabs", s, {}, DEFAULT_FEMALE_VOICE_ID), transport=transport
+    )
+    clip = await tts.synthesize("Hmm, your appointment is confirmed.", Language.HINGLISH)
+    req = calls[0]
+    assert req.url.path == f"/v1/text-to-speech/{DEFAULT_FEMALE_VOICE_ID}"
+    assert dict(req.url.params)["output_format"] == "pcm_16000"
+    body = json.loads(req.content)
+    assert body["text"] == "your appointment is confirmed." and body["language_code"] == "hi"
+    assert body["voice_settings"]["style"] == 0.0
+    assert clip.mime == "audio/wav"
+    assert Language.KN not in tts.supported_languages
 
 
 async def test_fake_tts_records_calls():

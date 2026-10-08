@@ -778,7 +778,7 @@ async def test_vobiz_auth_headers_and_inbound_l16_stream():
     assert "authorization" not in req.headers
     assert str(req.url) == "https://api.vobiz.ai/api/v1/Account/MA9/Call/"
     xml = await sar.answer_xml({"CallUUID": "cu-1"}, leg.key)
-    assert 'bidirectional="true"' in xml and "audio/x-l16;rate=8000" in xml
+    assert 'bidirectional="true"' in xml and "audio/x-mulaw;rate=8000" in xml
     sent: list[dict] = []
 
     async def send(text):

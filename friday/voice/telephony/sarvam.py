@@ -111,8 +111,8 @@ Anything D/U has a defined graceful path; the runner reads ``capabilities()`` pe
   bridge_transfer            | S      | REST transfer to <Dial>; Friday leaves the call.
                              |        | Kill switch: ``disable={"bridge_transfer"}``.
   bridge_conference / 3-way  | U      | possible with <Conference> but not built.
-  concurrency / CPS          | S      | account: CPS 1, 3 concurrent (trial); 429 -> retryable
-                             |        | ProviderError; our limiters slot("telephony"), slot("sarvam").
+  concurrency / CPS          | S      | trial: CPS 1, 3 concurrent; 429 -> retryable error;
+                             |        | our limiters: slot("telephony"), slot("sarvam").
   custom_llm_turns (mode b)  | U      | not built.
 
 Config (core Settings): sarvam_telephony_auth_id / _auth_token / _base_url (default
@@ -428,9 +428,14 @@ class SarvamTelephony:
         u = urlparse(url)
         host = (u.hostname or "").lower()
         root = ".".join((base.hostname or "").lower().split(".")[-2:])
-        return u.scheme == "https" and bool(host) and (host == base.hostname or (
-            bool(root) and (host == root or host.endswith("." + root))
-        ))
+        return (
+            u.scheme == "https"
+            and bool(host)
+            and (
+                host == base.hostname
+                or (bool(root) and (host == root or host.endswith("." + root)))
+            )
+        )
 
     async def fetch_recording(self, url: str) -> bytes | None:
         if not self._own_recording(url):  # never send our credentials to another host
@@ -648,8 +653,7 @@ class SarvamTelephony:
         key = params.get("key", "")
         speak = f'<Speak voice="WOMAN">{escape(say)}</Speak>' if say else ""
         events = (
-            f" callbackUrl={quoteattr(self.url('transfer_events', key))}"
-            ' callbackMethod="POST"'
+            f' callbackUrl={quoteattr(self.url("transfer_events", key))} callbackMethod="POST"'
             if key
             else ""
         )
