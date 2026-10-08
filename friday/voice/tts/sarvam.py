@@ -64,10 +64,20 @@ def is_v4(model: str) -> bool:
     return model.startswith("bulbul:v4")
 
 
-def is_female_speaker(speaker: str, model: str = DEFAULT_MODEL) -> bool:
+def _persona_languages(language: Language) -> frozenset[str]:
+    base = sarvam_code(language).split("-")[0]
+    return frozenset({"en", "enhi", "hi"}) if language == Language.HINGLISH else frozenset({base})
+
+
+def is_female_speaker(
+    speaker: str, model: str = DEFAULT_MODEL, language: Language | None = None
+) -> bool:
     sp = speaker.lower()
     if is_v4(model):
-        return "_" in sp and sp.split("_")[0] in _V4_FEMALE_NAMES
+        parts = sp.split("_")
+        if len(parts) < 3 or parts[0] not in _V4_FEMALE_NAMES:
+            return False
+        return language is None or parts[1] in _persona_languages(language)
     return sp in SARVAM_FEMALE_SPEAKERS
 
 
@@ -126,7 +136,7 @@ class SarvamTTS:
     def voice_for(self, language: Language) -> VoiceProfile:
         profile = self.catalog.profile(language)
         model = self.model_for(language)
-        if not is_female_speaker(profile.voice_id, model):
+        if not is_female_speaker(profile.voice_id, model, language):
             fallback = (
                 V4_DEFAULT_PERSONAS[language] if is_v4(model) else DEFAULT_FEMALE_SPEAKER
             )
@@ -196,7 +206,7 @@ def build_sarvam_tts(c: Container) -> SarvamTTS:
     )
     # A leftover bulbul:v2 name (the old Settings default "anushka") falls back in voice_for.
     default = (s.sarvam_tts_speaker or DEFAULT_FEMALE_SPEAKER).lower()
-    if not is_female_speaker(default, model):
-        default = DEFAULT_FEMALE_SPEAKER if not is_v4(model) else "simran_en_customer"
+    if not is_v4(model) and not is_female_speaker(default, model):
+        default = DEFAULT_FEMALE_SPEAKER
     catalog = VoiceCatalog("sarvam", s, {}, default)
     return SarvamTTS(s.sarvam_api_key.get_secret_value(), catalog, model=model)

@@ -1,7 +1,7 @@
 """Voice HTTP/WS endpoints (mounted by friday/api at ``/voice``).
 
 Sarvam / Vobiz (live, primary for India) - URLs carry ``token=``:
-  GET|POST /voice/sarvam/answer|inbound|hangup|machine|transfer   (XML / callbacks)
+  GET|POST /voice/sarvam/answer|inbound|hangup|machine|transfer|transfer_events   (XML / callbacks)
   WS   /voice/sarvam/media       bidirectional mu-law stream
 
 Exotel (live, India fallback) - URLs carry ``token=`` (see telephony/exotel.py):
@@ -260,8 +260,14 @@ def build_router(c: Container) -> APIRouter:
         tel = sarvam()
         key = sarvam_auth(tel, request)
         params = await params_of(request)
-        await tel.handle_transfer_status(params, key)
         return Response(content=tel.transfer_xml(params), media_type="application/xml")
+
+    @router.api_route("/sarvam/transfer_events", methods=["GET", "POST"])
+    async def sarvam_transfer_events(request: Request) -> Response:
+        tel = sarvam()
+        key = sarvam_auth(tel, request)
+        await tel.handle_transfer_status(await params_of(request), key)
+        return Response(status_code=204)
 
     @router.websocket("/sarvam/media")
     async def sarvam_media(ws: WebSocket) -> None:

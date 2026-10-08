@@ -42,16 +42,24 @@ class Recorder:
     def __call__(self, request):
         self.requests.append(request)
         if request.method == "POST" and request.url.path.endswith("/Call/"):
-            return httpx.Response(
-                201,
+            return httpx.Response(  # recorded shape: vobiz.ai/docs/call/make-call
+                200,
                 json={
                     "api_id": "a",
-                    "message": "call fired",
+                    "message": "Call fired",
                     "request_uuid": f"uuid-{len(self.requests)}",
                 },
             )
         if request.url.path.endswith("/Record/"):
-            return httpx.Response(202, json={"url": "https://media.vobiz.ai/rec/abc.mp3"})
+            return httpx.Response(  # recorded shape: call/record-calls/start-recording
+                200,
+                json={
+                    "api_id": "x",
+                    "message": "recording started",
+                    "recording_id": "11111111-2222-3333-4444-555555555555",
+                    "url": "https://media.vobiz.ai/rec/abc.mp3",
+                },
+            )
         return httpx.Response(202, json={})
 
     def body(self, i=-1):
@@ -130,10 +138,15 @@ async def test_place_call_payload_sticky_and_answer_xml(sar, rec):
     b = rec.body()
     assert b["to"] == "+918040000001" and b["from"] in sar.caller_ids and b["ring_timeout"] == 25
     assert "token=" in b["answer_url"] and "/voice/sarvam/hangup" in b["hangup_url"]
+    assert b["hangup_on_ring"] == 25 and b["answer_method"] == "POST"
+    assert b["machine_detection"] == "true" and "/voice/sarvam/machine" in b["machine_detection_url"]
+    assert 2000 <= b["machine_detection_time"] <= 10000  # documented range
     xml = await sar.answer_xml({"CallUUID": "call-1"}, leg.key)
     assert 'bidirectional="true"' in xml and "wss://friday.example.in/voice/sarvam/media" in xml
+    assert 'keepCallAlive="true"' in xml and "audio/x-mulaw;rate=8000" in xml
     await asyncio.sleep(0)  # recording started via REST
-    assert any(r.url.path.endswith("/Record/") for r in rec.requests)
+    rec_req = [r for r in rec.requests if r.url.path.endswith("/Record/")]
+    assert rec_req and json.loads(rec_req[0].content)["time_limit"] > 60  # API default is 60 s
     leg2 = await sar.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t2"))
     assert leg2.from_number == leg.from_number
 
@@ -157,10 +170,14 @@ async def test_stream_turns_dtmf_recording_hangup(sar, rec):
     assert (
         dt.url.path.endswith(f"/Call/{leg.provider_call_id}/DTMF/") and rec.body()["digits"] == "2"
     )
+    assert rec.body()["leg"] == "aleg"  # the business we dialled is the A-leg
+    with pytest.raises(ProviderError):  # only 0-9 * # w W are valid (call/dtmf/send-digits)
+        await leg.send_dtmf("12; DROP")
     await asyncio.sleep(0)
     assert await leg.recording_url() == "https://media.vobiz.ai/rec/abc.mp3"
     await leg.hangup()
     assert rec.requests[-1].method == "DELETE"
+    assert rec.requests[-1].url.path == f"/api/v1/Account/MA123/Call/{leg.provider_call_id}/"
     with pytest.raises(CallEnded):
         await leg.listen(1)
 
@@ -170,13 +187,39 @@ async def test_stream_turns_dtmf_recording_hangup(sar, rec):
     [
         ("USER_BUSY", DialStatus.BUSY),
         ("NO_ANSWER", DialStatus.NO_ANSWER),
+        ("ORIGINATOR_CANCEL", DialStatus.NO_ANSWER),
         ("UNALLOCATED_NUMBER", DialStatus.FAILED),
+        ("INVALID_NUMBER", DialStatus.FAILED),
+        ("SERVICE_UNAVAILABLE", DialStatus.FAILED),
+        ("SWITCH_CONGESTION", DialStatus.FAILED),
+        ("NORMAL_CLEARING", DialStatus.NO_ANSWER),  # no AnswerTime: nobody picked up
     ],
 )
 async def test_hangup_causes(sar, cause, expected):
     leg = await sar.place_call(OutboundCallRequest(to_phone="+918040000004", task_id="t"))
     await sar.handle_hangup({"RequestUUID": leg.provider_call_id, "HangupCause": cause}, None)
     assert await leg.wait_for_answer(1) == expected
+
+
+async def test_hangup_answered_and_rejected(sar):
+    leg = await sar.place_call(OutboundCallRequest(to_phone="+918040000004", task_id="t"))
+    await sar.handle_hangup(  # recorded shape: Event=Hangup form fields
+        {
+            "CallUUID": leg.provider_call_id,
+            "Event": "Hangup",
+            "CallStatus": "completed",
+            "HangupCause": "NORMAL_CLEARING",
+            "HangupCauseCode": "4000",
+            "StartTime": "2026-10-08 18:00:00",
+            "AnswerTime": "2026-10-08 18:00:05",
+            "EndTime": "2026-10-08 18:01:00",
+        },
+        leg.key,
+    )
+    assert leg.status == DialStatus.ANSWERED  # (the runner then waits for the stream)
+    rej = await sar.place_call(OutboundCallRequest(to_phone="+918040000005", task_id="t"))
+    await sar.handle_hangup({"CallUUID": rej.provider_call_id, "HangupCause": "CALL_REJECTED"}, None)
+    assert await rej.wait_for_answer(1) == DialStatus.FAILED and rej.block_signal == "rejected"
 
 
 async def test_machine_detection_voicemail(sar):
@@ -193,10 +236,44 @@ async def test_bridge_is_transfer(sar, rec):
     user = await leg.add_participant("+919812345678", announce="Connecting you to Airtel")
     b = rec.body()
     assert b["legs"] == "aleg" and "/voice/sarvam/transfer" in b["aleg_url"]
-    xml = sar.transfer_xml({"to": "+919812345678", "caller": leg.from_number, "say": "Connecting"})
-    assert "<Dial" in xml and "919812345678" in xml
-    await sar.handle_transfer_status({}, user.key)
+    assert b["aleg_method"] == "POST"
+    xml = sar.transfer_xml(
+        {"to": "+919812345678", "caller": leg.from_number, "say": "Connecting", "key": user.key}
+    )
+    assert "<Dial" in xml and "<Number>+919812345678</Number>" in xml
+    assert f'callerId="{leg.from_number}"' in xml and "transfer_events" in xml  # xml/dial
+    await sar.handle_transfer_status({"Event": "DialAnswer"}, user.key)
     assert await user.wait_for_answer(5) == DialStatus.ANSWERED
+
+
+async def test_transfer_declined_by_user(sar):
+    leg = await sar.place_call(OutboundCallRequest(to_phone="+911800000121", task_id="t"))
+    await sar.answer_xml({"CallUUID": leg.provider_call_id}, leg.key)
+    await start(sar, leg, [], {})
+    await leg.wait_for_answer(5)
+    user = await leg.add_participant("+919812345678")
+    await sar.handle_transfer_status({"Event": "Dial", "DialStatus": "no-answer"}, user.key)
+    assert await user.wait_for_answer(5) == DialStatus.NO_ANSWER
+
+
+async def test_recording_delete_and_download_hosts(sar, rec):
+    leg = await sar.place_call(OutboundCallRequest(to_phone="+918040000001", task_id="t"))
+    await sar.answer_xml({"CallUUID": leg.provider_call_id}, leg.key)
+    await asyncio.sleep(0)
+    url = await leg.recording_url()
+    await sar.delete_recording(url)  # id learned from the Record response
+    d = rec.requests[-1]
+    assert d.method == "DELETE" and d.url.path == (
+        "/api/v1/Account/MA123/Recording/11111111-2222-3333-4444-555555555555/"
+    )
+    # a URL with a Recording segment works too; a foreign host never gets our credentials
+    await sar.delete_recording("https://storage.vobiz.ai/api/v1/Recording/abc-123.mp3")
+    assert rec.requests[-1].url.path.endswith("/Recording/abc-123/")
+    with pytest.raises(ProviderError):
+        await sar.delete_recording("https://evil.example.com/Recording/abc")
+    assert await sar.fetch_recording("https://evil.example.com/a.mp3") is None
+    assert await sar.fetch_recording("https://media.vobiz.ai/rec/abc.mp3") is not None
+    assert rec.requests[-1].headers["x-auth-token"] == "tok"
 
 
 async def test_inbound_and_missed(sar, sbus):
@@ -213,7 +290,13 @@ async def test_inbound_and_missed(sar, sbus):
     assert sar.take_inbound("in-1") is not None
     await sar.answer_xml({"CallUUID": "in-2", "From": "+918040000012", "To": "+918031110002"}, None)
     await sar.handle_hangup(
-        {"CallUUID": "in-2", "HangupCause": "ORIGINATOR_CANCEL", "Duration": "4"}, None
+        {
+            "CallUUID": "in-2",
+            "HangupCause": "ORIGINATOR_CANCEL",
+            "StartTime": "2026-10-08 18:00:00",
+            "EndTime": "2026-10-08 18:00:04",
+        },
+        None,
     )
     missed = [e for e in seen if type(e).__name__ == "MissedCallReceived"]
     assert missed and missed[0].provider_call_id == "in-2" and missed[0].ring_seconds == 4

@@ -11,73 +11,112 @@ Friday says. Mode (b) (Sarvam custom-LLM / per-turn webhook) is NOT implemented:
 inverts control of the turn loop and is only worth building if media streaming turns
 out to be unavailable on our number type (open question 1 in docs/SARVAM_QUESTIONS.md).
 
-Wire protocol: Vobiz Voice API + VobizXML (Plivo-compatible). The founder's number
-(+91 80 7158 2175) is a Vobiz number connected to Sarvam, i.e. the direct-Vobiz route.
+Wire protocol: Vobiz Voice API + Vobiz XML (Plivo-like, but NOT identical: see notes).
+Friday talks to Vobiz DIRECTLY with its own Auth ID / Token (the founder's Sarvam-rented
+number can only be driven by Sarvam's hosted agent and is out of scope).
 
-VERIFIED (2026-10-08, via search summaries of the docs; direct fetch was blocked):
-  * Route: Sarvam's own guide "Build a Voice Agent using Vobiz"
-    (docs.sarvam.ai/api/integration/build-voice-agent-with-vobiz) - Vobiz's bidirectional
-    media stream is plain JSON over WebSocket, Sarvam REST for STT/TTS; Vobiz docs
-    (docs.vobiz.ai/solutions/ai-voice-agent) stream raw audio to your WebSocket.
-  * REST: base ``https://api.vobiz.ai/api/v1``; headers ``X-Auth-ID`` / ``X-Auth-Token``;
-    ``POST /Account/{auth_id}/Call/`` {from, to (E.164), answer_url, answer_method} ->
-    ``call_uuid``; ``DELETE /Account/{auth_id}/Call/{call_uuid}`` hangs up (vobiz-ai
-    agent-skills "vobiz-voice-calls"); answer_url returns VobizXML (application/xml).
-  * Stream (vobiz.ai/docs/concepts/streaming-websockets, /docs/xml/stream/audio-formats):
-    ``<Stream bidirectional="true">wss://..</Stream>``; Vobiz -> us: ``start``
-    {start:{callId, streamId, tracks, mediaFormat{encoding, sampleRate}}}, ``media``
-    (base64, 20 ms), ``playedStream`` (checkpoint reached), ``clearedAudio``, ``stop``;
-    us -> Vobiz: ``playAudio`` {streamId, media{contentType, sampleRate, payload}} (raw mono
-    L16 8/16/24 kHz or mu-law 8 kHz, no container), ``checkpoint`` {streamId, name},
-    ``clearAudio`` {streamId}. Inbound <Stream contentType> accepts L16 at 8/16 kHz.
-  * Transfer: Sarvam's Vobiz page ("Call transfer") says Vobiz supports transfer end to
-    end to a PSTN E.164 number or SIP URI -> ``bridge_transfer`` is ON by default.
-  * Call QUEUING must be OFF on the Vobiz account: with queuing on, outbound calls are held
-    and may be marked failed (Sarvam Vobiz connection page).
-STILL UNVERIFIED (kept as TODOs): the mid-call REST bodies - DTMF ``POST /Call/{uuid}/DTMF/``
-and Record ``POST /Call/{uuid}/Record/`` (only the ``/Call/{uuid}/{action}/`` pattern is
-documented); the live-call transfer request (Plivo-style ``legs=aleg`` + ``aleg_url`` here,
-and the ``<Dial><Number>`` XML); per-call hangup_url (likely set on the Vobiz Application);
-L16 byte order; ``keepCallAlive``; machine-detection fields; hangup-cause names.
-  TODO(docs.vobiz.ai API reference: Call -> DTMF / Record / Transfer).
+VERIFIED against the live docs and OpenAPI (vobiz.ai/docs/*.md, vobiz.ai/openapi.json) on
+2026-10-08. Pages cited per item; "live" = checked with read-only calls on the real account.
+  * Auth + base (api-reference/authentication; live): ``https://api.vobiz.ai/api/v1``, headers
+    ``X-Auth-ID`` / ``X-Auth-Token``; path segments are PascalCase (``/Account/{id}/Call/``,
+    a lowercase path is a 401). Live read-only: ``/auth/me``, ``/Account/{id}/balance/INR``,
+    ``/Account/{id}/numbers`` (see vobiz_probe.py and ``friday check --live``).
+  * Make call (call/make-call): ``POST /Account/{id}/Call/`` {from, to, answer_url,
+    answer_method, hangup_url, ring_url, machine_detection*, time_limit, hangup_on_ring} ->
+    200 {api_id, message "Call fired", request_uuid}; ``request_uuid`` == ``call_uuid``. 200
+    means ACCEPTED/QUEUED, not answered. 402 = balance too low, 429 = CPS or concurrency
+    exceeded (trial account: CPS 1, 3 concurrent calls). Answer callback: Event=StartApp,
+    CallUUID, From, To, CallStatus=in-progress. Hangup callback: Event=Hangup, CallStatus
+    =completed, StartTime/AnswerTime/EndTime, HangupCause / HangupCauseCode / HangupCauseName /
+    HangupSource (concepts/callbacks, xml/stream/stream-events, cdr).
+  * Hangup causes (cdr): NORMAL_CLEARING, USER_BUSY, NO_ANSWER, ORIGINATOR_CANCEL,
+    CALL_REJECTED, REJECTED, INVALID_NUMBER, UNALLOCATED_NUMBER, SERVICE_UNAVAILABLE,
+    SERVER_ERROR, MEDIA_TIMEOUT, PROTOCOL_ERROR, NETWORK_OUT_OF_ORDER,
+    DESTINATION_OUT_OF_ORDER, NORMAL_TEMPORARY_FAILURE, SWITCH_CONGESTION, UNKNOWN. Code 4000 =
+    normal, 4010 = "End Of XML Instructions", 6010 = ring timeout (xml/dial).
+  * Stream (xml/stream, concepts/streaming-websockets, xml/stream/stream-events):
+    ``<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">``.
+    Vobiz -> us: ``start`` {start:{callId, streamId, tracks, mediaFormat}}, ``media``
+    (20 ms, base64), ``playedStream`` {name}, ``clearedAudio`` {streamId}. There is NO inbound
+    ``stop`` and NO ``dtmf`` event: the WebSocket CLOSE is the end of stream (the Hangup
+    callback is authoritative). Us -> Vobiz: ``playAudio`` {streamId, media{contentType,
+    sampleRate, payload}} (raw mono, no container; L16 at 8/16/24 kHz or mu-law 8 kHz),
+    ``checkpoint`` {streamId, name}, ``clearAudio`` {streamId}, ``stop`` {streamId}.
+    ``playedStream`` is NOT sent if playback was cleared or failed, so every checkpoint wait has
+    a timeout. Inbound formats: L16 8/16 kHz or mu-law 8 kHz (24 kHz inbound does not connect).
+    We choose mu-law 8 kHz both ways: the docs do not state the L16 byte order, so mu-law avoids
+    the question entirely; ``playAudio`` chunks of 20-60 ms recommended.
+  * DTMF send (call/dtmf/send-digits): ``POST /Call/{uuid}/DTMF/`` {digits "0-9*#wW", leg
+    "aleg"|"bleg"|"both" (default aleg)} -> 202 "digits sent". On a call Friday placed, the
+    called business is the A-leg. DTMF receive: only via the ``<Gather>`` XML verb
+    (xml/gather: InputType, Digits, Speech); the media stream carries no DTMF events, so
+    Friday cannot hear key presses on the stream (it hears speech via STT).
+  * Transfer (call/transfer-call): ``POST /Call/{uuid}/`` {legs "aleg", aleg_url, aleg_method}
+    -> 202; the URL returns ``<Dial callerId="+E164 number we own" timeout=..><Number>+E164
+    </Number></Dial>`` (xml/dial, xml/dial/number). ``<Dial callbackUrl>`` receives DialAnswer /
+    DialConnected / DialHangup events; ``action`` gets DialStatus (completed, busy, failed,
+    cancel, timeout, no-answer). It is a TRANSFER: the stream ends when A-leg is redirected.
+  * Conference (conference/conference-object, xml/conference): conferences exist only by
+    ``<Conference>`` XML on join; REST list/retrieve are known to be unreliable. A 3-way patch
+    with Friday monitoring is therefore possible in principle (REST ``POST /Call/{uuid}/Stream/``
+    can attach a stream to a leg already in a room, ~2 s after ConferenceEnter) but is NOT
+    built; ``bridge_conference`` stays unsupported.
+  * Recording (call/record-calls/start-recording, recording): ``POST /Call/{uuid}/Record/``
+    {time_limit (DEFAULT 60 s!), file_format mp3|wav, record_channel_type, callback_url} ->
+    {recording_id, url}. ``DELETE /Call/{uuid}/Record/`` stops. List/get recordings under
+    ``/Recording/``; DELETE ``/Account/{id}/Recording/{recording_id}/`` -> 204 (OpenAPI
+    ``delete-recording``). Recording URLs are not public: send X-Auth-ID / X-Auth-Token; hosts
+    vary (media/recordings/storage.vobiz.ai) and the real container may differ from the
+    extension. Transcription is English only (unused).
+  * AMD (call/machine-detection): parameters on make-call, not a separate endpoint.
+    ``machine_detection`` "true" (continue) | "hangup", async result to
+    ``machine_detection_url`` with Machine (bool), IfMachine, Event=MachineDetection. The
+    agent should stay silent during the analysis window (docs warn of misclassification when
+    both speak); we use the "Balanced" profile and fall back to "human" when no callback comes.
+  * Hang up (call/hangup-call): ``DELETE /Call/{uuid}/`` -> 204; fires hangup_url.
+  * Applications (applications): an Application bundles answer_url / hangup_url for a NUMBER;
+    needed only for INBOUND calls to a Friday number (point it at /voice/sarvam/inbound and
+    /voice/sarvam/hangup). Outbound calls pass per-call answer/hangup URLs.
+  * Callbacks (concepts/callbacks): HTTPS only, reply 200 within 3 s, retried up to 3 times
+    (handlers are idempotent). Vobiz also signs callbacks (X-Vobiz-Signature-V2/V3, HMAC-SHA256
+    with the Auth Token) when credentials are set on the URL; we additionally authenticate with
+    our own per-call URL tokens. TODO(optional hardening): verify X-Vobiz-Signature-V3.
+  * Account (account/account-object; live): ``features.call_queue`` is TRUE on the founder's
+    trial account and must be turned OFF (Vobiz support / console) before real calls; trial
+    flag ``is_trial_account``; CPS 1, concurrent calls 3; one shared trial number
+    +918065354620; API-streaming rate 0.44 INR/min billed per 60 s; balance INR 25 prepaid.
 
-CAPABILITY MATRIX (S = supported, D = degraded, U = unsupported, ? = unverified API)
-Because there is no fallback provider, anything D/U/? has a defined graceful path; the
-runner reads ``capabilities()`` per call and never pretends.
+NOT YET VERIFIED BY A LIVE CALL (needs the founder's go-ahead, see docs/SARVAM_QUESTIONS.md):
+the exact answer_url form post fields on a real call, that ``from`` accepts "+91..." vs digits,
+whether a trial account may dial arbitrary numbers, STIR/spam labelling of the trial number.
+
+CAPABILITY MATRIX (S = supported, D = degraded, U = unsupported)
+Anything D/U has a defined graceful path; the runner reads ``capabilities()`` per call.
 
   capability                 | status | what we do / degrade to
   ---------------------------|--------|-------------------------------------------------
-  brain decides every turn   | S (?)  | mode (a): we terminate the audio stream. Transport
-                             |        | details unverified (WS events); safety + commit
-                             |        | gates run in OUR runner whatever the transport.
-  DTMF for IVR               | D (?)  | REST DTMF first (body unverified); else in-band tones over
-                             |        | the same stream. If neither works the IVR task
-                             |        | declines BEFORE dialling (NEEDS_USER_VERIFICATION,
-                             |        | collected["unsupported_capability"]="dtmf").
-  inbound call-backs         | S (?)  | answer_url -> <Stream>; InboundCallReceived.
-  missed calls               | S (?)  | hangup_url without a stream -> MissedCallReceived.
+  brain decides every turn   | S      | we terminate the audio stream; safety + commit gates
+                             |        | run in OUR runner whatever the transport.
+  DTMF send (IVR)            | S      | REST DTMF; if the REST call fails, in-band tones over the
+                             |        | stream. Neither -> IVR task declines before dialling.
+  DTMF receive               | U      | no stream event; speech is transcribed instead.
+  inbound call-backs         | S      | Application answer_url -> <Stream>; InboundCallReceived.
+  missed calls               | S      | Hangup callback without a stream -> MissedCallReceived.
   inbound on retired numbers | S      | any dialled number is accepted and reported.
-  many numbers + per-call    | S (?)  | ``from`` per call from request.from_number (the
-  caller ID (number pool)    |        | NumberPool choice); BYO carrier numbers. Rented
-                             |        | numbers may be limited (question 4).
-  recording                  | D (?)  | REST Record; a failure leaves recording_url=None
-                             |        | (the call still succeeds; no local audio kept).
-  amd / voicemail            | S (?)  | machine_detection callback + our classifier.
-  bridge_transfer (patch-in) | D (?)  | ON: Vobiz supports transfer (verified); our request
-                             |        | shape is Plivo-style and unverified. It is a
-                             |        | TRANSFER, not a 3-way. If the REST call fails the
-                             |        | runner keeps the call and the policy ends it with a
-                             |        | call-back pack. Kill switch: ``disable={"bridge_transfer"}``
-                             |        | (Settings.sarvam_disabled_capabilities) -> BRIDGE_USER
-                             |        | is refused, NEEDS_USER_VERIFICATION + call-back pack.
-  bridge_conference / 3-way  | U      | no monitoring after a transfer; same degrade path.
-  concurrency                | ?      | our limiters: slot("telephony") + slot("sarvam")
-                             |        | (Settings.provider_concurrency); real account limit
-                             |        | unknown (question 6).
-  custom_llm_turns (mode b)  | U      | not built (see above).
+  many numbers + per-call    | S      | ``from`` per call from the NumberPool; must be a number on
+  caller ID                  |        | the account (the probe checks this). Trial: 1 shared number.
+  recording                  | S      | REST Record (time_limit set to the call cap) + delete API;
+                             |        | a failure leaves recording_url=None, the call goes on.
+  amd / voicemail            | S      | async machine_detection_url + our audio classifier.
+  bridge_transfer            | S      | REST transfer to <Dial>; Friday leaves the call.
+                             |        | Kill switch: ``disable={"bridge_transfer"}``.
+  bridge_conference / 3-way  | U      | possible with <Conference> but not built.
+  concurrency / CPS          | S      | account: CPS 1, 3 concurrent (trial); 429 -> retryable
+                             |        | ProviderError; our limiters slot("telephony"), slot("sarvam").
+  custom_llm_turns (mode b)  | U      | not built.
 
 Config (core Settings): sarvam_telephony_auth_id / _auth_token / _base_url (default
-https://api.vobiz.ai/api/v1, verified), sarvam_caller_ids (sticky per business).
+https://api.vobiz.ai/api/v1), sarvam_caller_ids (sticky per business).
 """
 
 from __future__ import annotations
@@ -117,12 +156,12 @@ CAPABILITIES = frozenset({
     "bridge_transfer",
 })  # fmt: skip
 UNVERIFIED_CAPABILITIES: frozenset[str] = frozenset()  # nothing is gated on a flag any more
-DEFAULT_BASE_URL = "https://api.vobiz.ai/api/v1"  # TODO(.../deploy/telephony/vobiz)
+DEFAULT_BASE_URL = "https://api.vobiz.ai/api/v1"  # verified (docs + live)
 INBOUND_MESSAGE = (
     "This is Friday, an AI assistant. I called you on behalf of a customer. "
     "I'll call you back shortly. Thank you."
 )
-# Plivo-style hangup causes.  TODO(.../telephony/vobiz): verify cause names.
+# Vobiz CDR hangup causes (vobiz.ai/docs/cdr). Anything else on an unanswered call = no answer.
 _HANGUP = {
     "USER_BUSY": DialStatus.BUSY,
     "BUSY": DialStatus.BUSY,
@@ -130,7 +169,27 @@ _HANGUP = {
     "NO_USER_RESPONSE": DialStatus.NO_ANSWER,
     "ORIGINATOR_CANCEL": DialStatus.NO_ANSWER,
     "UNALLOCATED_NUMBER": DialStatus.FAILED,
+    "INVALID_NUMBER": DialStatus.FAILED,
+    "REJECTED": DialStatus.FAILED,
+    "CALL_REJECTED": DialStatus.FAILED,
+    "SERVICE_UNAVAILABLE": DialStatus.FAILED,
+    "SERVER_ERROR": DialStatus.FAILED,
+    "DESTINATION_OUT_OF_ORDER": DialStatus.FAILED,
+    "NETWORK_OUT_OF_ORDER": DialStatus.FAILED,
+    "NORMAL_TEMPORARY_FAILURE": DialStatus.FAILED,
+    "SWITCH_CONGESTION": DialStatus.FAILED,
+    "MEDIA_TIMEOUT": DialStatus.FAILED,
+    "PROTOCOL_ERROR": DialStatus.FAILED,
 }
+# Balanced AMD profile for AI callers (call/machine-detection).
+_AMD_PROFILE = {
+    "machine_detection_time": 4000,
+    "machine_detection_initial_silence": 4000,
+    "machine_detection_initial_greeting": 2500,
+    "machine_detection_maximum_words": 5,
+    "machine_detection_maximum_speech_length": 4000,
+}
+_DTMF_OK = re.compile(r"^[0-9*#wW]+$")
 SendText = Callable[[str], Awaitable[None]]
 
 
@@ -139,14 +198,30 @@ def sarvam_token(secret: str, scope: str) -> str:
 
 
 def stream_xml(ws_url: str, *, extra: str = "") -> str:
-    # VERIFIED (vobiz.ai/docs/concepts/streaming-websockets, /docs/xml/stream/audio-formats):
-    # bidirectional="true" is required for playAudio / checkpoint / clearAudio; the <Stream>
-    # contentType sets the INBOUND format - L16 at 8 or 16 kHz is supported (24 kHz inbound
-    # does not connect). TODO(unverified): keepCallAlive attribute and mu-law inbound.
+    # VERIFIED (vobiz.ai/docs/xml/stream, /concepts/streaming-websockets): bidirectional="true"
+    # is required for playAudio / checkpoint / clearAudio; keepCallAlive="true" holds the call
+    # on the stream; contentType sets the INBOUND format (mu-law 8 kHz, L16 8/16 kHz; never
+    # 24 kHz). Mu-law avoids the undocumented L16 byte order.
     return (
         f'<Response>{extra}<Stream bidirectional="true" keepCallAlive="true" '
-        f'contentType="audio/x-l16;rate=8000">{escape(ws_url)}</Stream></Response>'
+        f'contentType="audio/x-mulaw;rate=8000">{escape(ws_url)}</Stream></Response>'
     )
+
+
+def _ring_seconds(params: Mapping[str, str]) -> float:
+    """Ring time of an unanswered inbound call: ``Duration`` if sent, else EndTime - StartTime
+    (local ``yyyy-MM-dd HH:mm:ss`` per the hangup callback docs)."""
+    if params.get("Duration"):
+        with contextlib.suppress(ValueError):
+            return float(params["Duration"])
+    from datetime import datetime
+
+    with contextlib.suppress(KeyError, ValueError):
+        fmt = "%Y-%m-%d %H:%M:%S"
+        start = datetime.strptime(params["StartTime"], fmt)
+        end = datetime.strptime(params["EndTime"], fmt)
+        return max(0.0, (end - start).total_seconds())
+    return 0.0
 
 
 class SarvamCallLeg(TwilioCallLeg):
@@ -158,6 +233,7 @@ class SarvamCallLeg(TwilioCallLeg):
         super().__init__(tel, **kw)  # type: ignore[arg-type]
         self.tel_s = tel
         self._close: Callable[[], Awaitable[None]] | None = None
+        self.max_duration_s = 1800
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -178,7 +254,7 @@ class SarvamCallLeg(TwilioCallLeg):
         if self.in_encoding == "audio/x-mulaw":
             pcm = ulaw_to_pcm16(raw)
             rate = 8000
-        else:  # L16 (little-endian signed 16-bit; TODO(vobiz docs): confirm byte order)
+        else:  # L16 signed 16-bit; byte order undocumented, so we request mu-law (stream_xml)
             pcm, rate = raw, self.in_rate
         if rate != 8000:
             pcm = resample_pcm16(pcm, rate, 8000)
@@ -223,9 +299,12 @@ class SarvamCallLeg(TwilioCallLeg):
         self._check_live()
         if not self.provider_call_id:
             raise ProviderError("sarvam", "no call id for DTMF")
+        if not digits or not _DTMF_OK.match(digits):
+            raise ProviderError("sarvam", "DTMF digits must be 0-9 * # w W")
         try:
+            # call/dtmf/send-digits: leg aleg = the party Friday dialled (the business).
             await self.tel_s.rest(
-                "POST", f"/Call/{self.provider_call_id}/DTMF/", {"digits": digits}
+                "POST", f"/Call/{self.provider_call_id}/DTMF/", {"digits": digits, "leg": "aleg"}
             )
         except ProviderError as e:
             # Degrade: in-band DTMF tones over the bidirectional stream.
@@ -235,8 +314,9 @@ class SarvamCallLeg(TwilioCallLeg):
             await self._play(pcm16_to_ulaw(dtmf_pcm16(digits, 8000)))
 
     async def add_participant(self, phone: str, *, announce: str | None = None) -> SarvamCallLeg:
-        """Transfer (no conference): the business leg is redirected to XML that dials
-        the user from the same number. Friday cannot monitor afterwards."""
+        """Transfer (no conference): the business leg (A-leg) is redirected to XML that dials
+        the user from the same number (call/transfer-call: legs=aleg + aleg_url). Friday cannot
+        monitor afterwards."""
         self._check_live()
         key = new_id()
         user = SarvamCallLeg(
@@ -330,6 +410,7 @@ class SarvamTelephony:
         self.legs: dict[str, SarvamCallLeg] = {}
         self.by_sid: dict[str, SarvamCallLeg] = {}
         self.inbound_legs: dict[str, SarvamCallLeg] = {}
+        self._recording_ids: dict[str, str] = {}  # recording url -> Vobiz recording_id
         # VERIFIED (Vobiz API skills / Sarvam Vobiz guide): every request carries the
         # Auth ID and Auth Token (Vobiz console -> Voice -> Voice Applications -> Overview)
         # as X-Auth-ID / X-Auth-Token headers (not HTTP Basic).
@@ -341,9 +422,15 @@ class SarvamTelephony:
         )
 
     def _own_recording(self, url: str) -> bool:
+        """Recording hosts vary (media / recordings / storage .vobiz.ai, vobiz.ai/docs/recording/
+        download-recording); credentials only ever go to https hosts under the API's own domain."""
         base = urlparse(self._http._client.base_url.__str__())
         u = urlparse(url)
-        return u.scheme == "https" and bool(u.hostname) and u.hostname == base.hostname
+        host = (u.hostname or "").lower()
+        root = ".".join((base.hostname or "").lower().split(".")[-2:])
+        return u.scheme == "https" and bool(host) and (host == base.hostname or (
+            bool(root) and (host == root or host.endswith("." + root))
+        ))
 
     async def fetch_recording(self, url: str) -> bytes | None:
         if not self._own_recording(url):  # never send our credentials to another host
@@ -351,15 +438,23 @@ class SarvamTelephony:
         return (await self._http.request("GET", url)).content
 
     async def delete_recording(self, url: str) -> None:
-        """SECURITY-14. TODO(docs.sarvam.ai/conversations/deploy/telephony/vobiz): confirm
-        the Recording delete endpoint; Plivo-style ``DELETE /Account/{id}/Recording/{rid}/``."""
-        m = re.search(r"/Recording/([0-9A-Za-z\-]+)", url)
-        if not m or not self._own_recording(url):
+        """SECURITY-14. VERIFIED (openapi ``delete-recording``): ``DELETE /Account/{id}/
+        Recording/{recording_id}/`` -> 204. The id comes from the Record response
+        (``recording_id``), else from a ``/Recording/{id}`` URL, else from a UUID file name."""
+        if not self._own_recording(url):
             raise ProviderError("sarvam", "not a recording of this account")
+        rid = self._recording_ids.get(url)
+        if not rid:
+            m = re.search(r"/Recording/([0-9A-Za-z\-]+)", url) or re.search(
+                r"/([0-9a-fA-F]{8}-[0-9a-fA-F-]{27})(?:\.\w+)?(?:\?|$)", url
+            )
+            rid = m.group(1) if m else None
+        if not rid:
+            raise ProviderError("sarvam", "cannot tell the recording id from its URL")
         try:
-            await self.rest("DELETE", f"/Recording/{m.group(1)}/", None)
+            await self.rest("DELETE", f"/Recording/{rid}/", None)
         except ProviderError as e:
-            if "HTTP 404" not in str(e):
+            if "HTTP 404" not in str(e):  # already gone = erased
                 raise
 
     def capabilities(self) -> frozenset[str]:
@@ -404,24 +499,29 @@ class SarvamTelephony:
             language=request.language,
         )
         self.legs[key] = leg
-        # TODO(.../telephony/vobiz): Instant Outbound / Call API field names.
+        leg.max_duration_s = request.max_duration_s
+        # VERIFIED (call/make-call). 200 = accepted and queued, not answered. ``ring_timeout``
+        # appears in the docs' request example; ``hangup_on_ring`` is the documented field.
         body = await self.rest(
             "POST",
             "/Call/",
             {
-                "from": from_number,  # E.164; must be a Vobiz number we own / verified caller ID
-                "to": request.to_phone,  # E.164, e.g. +91...
+                "from": from_number,  # E.164; must be a number on this Vobiz account
+                "to": request.to_phone,  # E.164 (single destination; "<" separates bulk)
                 "answer_url": self.url("answer", key),
                 "answer_method": "POST",
                 "hangup_url": self.url("hangup", key),
                 "hangup_method": "POST",
                 "ring_timeout": request.ring_timeout_s,
-                "time_limit": request.max_duration_s + 1800,
+                "hangup_on_ring": request.ring_timeout_s,
+                "time_limit": request.max_duration_s + 1800,  # safety cap after answer
                 "machine_detection": "true" if request.metadata.get("role") != "user" else "false",
                 "machine_detection_url": self.url("machine", key),
+                "machine_detection_method": "POST",
+                **_AMD_PROFILE,
             },
         )
-        sid = body.get("call_uuid") or body.get("request_uuid") or body.get("CallUUID")
+        sid = body.get("request_uuid") or body.get("call_uuid") or body.get("CallUUID")
         if not sid:
             raise ProviderError("sarvam", "no call uuid in response")
         leg.provider_call_id = str(sid)
@@ -475,9 +575,16 @@ class SarvamTelephony:
 
     async def _start_recording(self, leg: SarvamCallLeg) -> None:
         try:
-            # TODO(.../telephony/vobiz): Record API path + response field ("url").
-            body = await self.rest("POST", f"/Call/{leg.provider_call_id}/Record/", {})
+            # VERIFIED (call/record-calls/start-recording): time_limit defaults to 60 s, so set
+            # it to the call cap; response has recording_id + url (auth needed to download).
+            body = await self.rest(
+                "POST",
+                f"/Call/{leg.provider_call_id}/Record/",
+                {"time_limit": leg.max_duration_s + 60, "file_format": "mp3"},
+            )
             leg.recording = body.get("url") or body.get("recording_url")
+            if leg.recording and body.get("recording_id"):
+                self._recording_ids[leg.recording] = str(body["recording_id"])
             leg.record_expected = True
             if leg.recording:
                 leg._recording_event.set()
@@ -488,30 +595,35 @@ class SarvamTelephony:
         leg = self._leg(params, key)
         if (
             leg is not None
-            and str(params.get("Machine", "")).lower() == "true"
+            and str(params.get("Machine", "")).lower() == "true"  # Event=MachineDetection
             and leg.status is None
         ):
             leg.status = DialStatus.VOICEMAIL
             leg._status_event.set()
 
     async def handle_hangup(self, params: Mapping[str, str], key: str | None) -> None:
+        """hangup_url: Event=Hangup (the authoritative end-of-call signal; StopStream is not
+        sent on caller hangup). Fields: HangupCause(+Code/Name/Source), StartTime, AnswerTime,
+        EndTime (call/make-call, concepts/callbacks)."""
         leg = self._leg(params, key)
         if leg is None:
             return
         cause = str(params.get("HangupCause") or params.get("HangupCauseName") or "").upper()
+        cause = cause.replace(" ", "_")
         streamed = leg.stream_sid is not None
+        answered = streamed or bool(params.get("AnswerTime"))
         if leg.status is None:
             leg.block_signal = block_signal(
                 params.get("SipResponseCode"), cause.replace("_", " ")
-            ) or ("rejected" if cause == "CALL_REJECTED" else None)
+            ) or ("rejected" if cause in ("CALL_REJECTED", "REJECTED") else None)
             if leg.block_signal:
                 leg.status = DialStatus.FAILED
             elif leg.listen_only and cause == "NORMAL_CLEARING":
                 leg.status = DialStatus.ANSWERED
-            else:
-                leg.status = _HANGUP.get(
-                    cause, DialStatus.NO_ANSWER if not streamed else DialStatus.ANSWERED
-                )
+            elif cause in _HANGUP:
+                leg.status = _HANGUP[cause]
+            else:  # NORMAL_CLEARING / 4010 / UNKNOWN: it was a call iff someone answered
+                leg.status = DialStatus.ANSWERED if answered else DialStatus.NO_ANSWER
             leg._status_event.set()
         if params.get("RecordUrl"):
             leg.recording = params["RecordUrl"]
@@ -524,24 +636,47 @@ class SarvamTelephony:
                     provider_call_id=leg.provider_call_id,
                     from_phone=leg.to_phone,
                     to_number=leg.from_number,
-                    ring_seconds=float(params.get("Duration") or 0),
+                    ring_seconds=_ring_seconds(params),
                     reason="short_ring",
                 )
             )
 
     def transfer_xml(self, params: Mapping[str, str]) -> str:
+        """XML the A-leg is redirected to (xml/dial, xml/dial/number). ``callerId`` must be a
+        number we own; ``callbackUrl`` reports DialAnswer / DialConnected / DialHangup."""
         to, caller, say = params.get("to", ""), params.get("caller", ""), params.get("say", "")
-        speak = f'<Speak voice="WOMAN" language="en-IN">{escape(say)}</Speak>' if say else ""
+        key = params.get("key", "")
+        speak = f'<Speak voice="WOMAN">{escape(say)}</Speak>' if say else ""
+        events = (
+            f" callbackUrl={quoteattr(self.url('transfer_events', key))}"
+            ' callbackMethod="POST"'
+            if key
+            else ""
+        )
         return (
-            f"<Response>{speak}<Dial callerId={quoteattr(caller)}>"
-            f"<Number>{escape(to.lstrip('+'))}</Number></Dial></Response>"
+            f'<Response>{speak}<Dial callerId={quoteattr(caller)} timeout="45"{events}>'
+            f"<Number>{escape(to if to.startswith('+') else '+' + to)}</Number></Dial></Response>"
         )
 
     async def handle_transfer_status(self, params: Mapping[str, str], key: str | None) -> None:
+        """``<Dial callbackUrl>`` events: DialAnswer / DialConnected -> the user picked up;
+        DialHangup / action DialStatus busy|failed|no-answer|timeout|cancel -> they did not."""
         leg = self.legs.get(key or "")
-        if leg is not None and leg.status is None:
+        if leg is None or leg.status is not None:
+            return
+        event = str(params.get("Event", ""))
+        dial = str(params.get("DialStatus", "")).lower()
+        if event in ("", "DialAnswer", "DialConnected") or dial == "completed":
             leg.status = DialStatus.ANSWERED
-            leg._status_event.set()
+        elif dial == "busy":
+            leg.status = DialStatus.BUSY
+        elif dial in ("no-answer", "timeout", "cancel"):
+            leg.status = DialStatus.NO_ANSWER
+        elif dial == "failed":
+            leg.status = DialStatus.FAILED
+        else:
+            return  # e.g. a DialHangup after an answer: nothing to change
+        leg._status_event.set()
 
     async def handle_stream_message(
         self,
@@ -551,7 +686,7 @@ class SarvamTelephony:
         key: str | None = None,
         close: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
-        # TODO(.../telephony/vobiz): event names start/media/dtmf/playedStream/stop.
+        # VERIFIED event names: start / media / playedStream / clearedAudio (no stop, no dtmf).
         event = msg.get("event")
         if event == "start":
             start = msg.get("start", {})
@@ -582,7 +717,7 @@ class SarvamTelephony:
             leg.on_media(msg.get("media", {}).get("payload", ""))
         elif event == "playedStream":
             leg.on_mark(msg.get("name", ""))
-        elif event == "stop":
+        elif event == "stop":  # not sent by Vobiz (the WS close is); harmless if it ever is
             leg.on_stream_stop()
 
     async def _claim_guard(self, leg: SarvamCallLeg) -> None:

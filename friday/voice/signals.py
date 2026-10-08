@@ -5,8 +5,10 @@ health score. The runner turns a signal into ``CallResult.error = "call blocked 
 (dial_status FAILED), which Backend B's engine maps to ``NumberOutcome.BLOCKED/REJECTED``.
 SIP codes: 603 Decline -> rejected; 403 Forbidden, 607 Unwanted, 608 Rejected by
 intermediary (spam analytics) -> blocked.
+Vobiz (verified, vobiz.ai/docs/cdr): ``HangupCause`` values CALL_REJECTED / REJECTED map to
+"rejected"; the hangup callback has no SIP code, so spam/block text in the cause is matched.
 TODO(verify per provider docs): Twilio ``SipResponseCode`` on the status callback,
-Exotel call-details ``Reason``, Vobiz/Plivo ``HangupCauseName``.
+Exotel call-details ``Reason``.
 """
 
 from __future__ import annotations
