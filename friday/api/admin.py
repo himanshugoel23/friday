@@ -129,7 +129,9 @@ def _add_livecall_routes(router: APIRouter, c: Container, require_admin: Any) ->
         if state["busy"]:  # one call at a time, even before the lock file is taken
             raise HTTPException(status_code=409, detail="a test call is already in progress")
         if body.max_seconds > HARD_MAX_SECONDS:
-            raise HTTPException(status_code=422, detail=f"max_seconds is at most {HARD_MAX_SECONDS}")
+            raise HTTPException(
+                status_code=422, detail=f"max_seconds is at most {HARD_MAX_SECONDS}"
+            )
         state["busy"] = True
 
         async def go() -> dict[str, Any]:

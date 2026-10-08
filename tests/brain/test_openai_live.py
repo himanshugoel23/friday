@@ -22,7 +22,7 @@ from friday.core.config import Settings
 from friday.core.container import Container
 from friday.core.models import CallActionType, CallOutcome, Language, TaskType
 
-from .conftest import business_brief, make_ctx, transcript
+from .conftest import business_brief, transcript
 from .test_interpret import CASES
 from .test_policy import care_brief
 
