@@ -15,10 +15,10 @@ Close PowerShell and open a new one so the tools are found.
 
 ## 2. Get the code
 ```powershell
-git clone -b claude/friday-phase-1 <the repo address you were given> friday
+git clone -b claude/friday-phase-1 https://github.com/himanshugoel23/friday friday
 cd friday
 ```
-(No Git? Download the ZIP of the branch `claude/friday-phase-1`, unzip it, and `cd` into the folder.)
+(Git will ask you to sign in to GitHub in a browser window the first time, because the repository is private. No Git? On github.com/himanshugoel23/friday choose the branch `claude/friday-phase-1`, then Code, Download ZIP, unzip it, and `cd` into the folder.)
 
 ```powershell
 uv sync
