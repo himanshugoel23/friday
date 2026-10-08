@@ -103,3 +103,33 @@ def test_role_components_and_scale_wiring(settings):
     assert isinstance(c.job_queue, MemoryJobQueue)
     assert c.get("outbox").queue is c.job_queue
     assert c.factory_path("number_pool").startswith("friday.tasks.number_pool")
+
+
+def test_object_store_component_and_pool_settings(settings, monkeypatch, tmp_path):
+    import friday.db.session as sess
+
+    c = Container(settings.model_copy(update={"media_dir": str(tmp_path)}))
+    assert c.factory_path("object_store") == FACTORIES["object_store"]["*"]
+    assert c.is_available("object_store") and c.object_store is not None
+    assert "object_store" in c.role_components(["voice"])
+    assert "object_store" in c.role_components(["proactive"])
+
+    seen: dict = {}
+
+    class FakeDatabase:
+        def __init__(self, url, **kw):
+            seen.update(kw)
+
+    monkeypatch.setattr(sess, "Database", FakeDatabase)
+    pooled = Container(
+        settings.model_copy(
+            update={"db_pool_size": 3, "db_max_overflow": 4, "db_pool_timeout_s": 2.5}
+        )
+    )
+    pooled.db  # noqa: B018
+    assert seen["pool_size"] == 3 and seen["max_overflow"] == 4 and seen["pool_timeout_s"] == 2.5
+
+
+def test_all_role_components_are_implemented(settings):
+    c = Container(settings)
+    assert c.missing_role_components(["api", "task", "voice", "proactive"]) == []

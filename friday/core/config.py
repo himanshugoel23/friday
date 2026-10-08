@@ -590,10 +590,10 @@ class Settings(BaseSettings):
                 problems += [f"missing {k}" for k in missing]
         elif tel != "simulator":
             need |= self._telephony_needs(tel)
-        if tel in ("sarvam", "routed") and not (self.sarvam_caller_ids or self.friday_numbers):
-            if tel == "sarvam" or "sarvam" in self.telephony_route:
-                problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
-        if self.is_live and not self.object_store_url:  # S-6: recordings never on local disk in live
+        uses_sarvam = tel == "sarvam" or (tel == "routed" and "sarvam" in self.telephony_route)
+        if uses_sarvam and not (self.sarvam_caller_ids or self.friday_numbers):
+            problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
+        if self.is_live and not self.object_store_url:  # S-6: no local-disk recordings in live
             problems.append("missing FRIDAY_OBJECT_STORE_URL (s3://bucket/prefix) for recordings")
         if self.resolve_stt() == "sarvam" or self.resolve_tts() == "sarvam":
             need["SARVAM_API_KEY"] = self.sarvam_api_key

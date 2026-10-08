@@ -42,7 +42,7 @@ def test_live_mode_reports_missing_credentials():
     s = make(mode="live")
     problems = s.live_problems()
     assert "missing ANTHROPIC_API_KEY" in problems
-    assert "missing TWILIO_AUTH_TOKEN" in problems
+    assert "missing SARVAM_TELEPHONY_AUTH_TOKEN" in problems  # Sarvam-only live telephony
     assert "missing WHATSAPP_ACCESS_TOKEN" in problems
     assert any("FRIDAY_SECRET_KEY" in p for p in problems)
 

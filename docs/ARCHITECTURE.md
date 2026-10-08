@@ -459,6 +459,17 @@ Autoscaling signals: queue depth per kind/priority (JobQueue.depth), concurrent 
 per voice worker, p95 turn latency, webhook ack latency, provider 429s.
 ```
 
+**Role wiring (`friday/api/runtime.py`).** `Runtime.start()` starts, per role in
+`FRIDAY_ROLES`: `task` → the `inbound.message`/`message.send` worker loop + the task
+engine (`task.step`, `task.scheduled`); `voice` → `friday.voice.worker.build_voice_worker(c)`,
+which claims `call.place` and runs it via `task_engine.handle_job` (the runtime sets
+`engine.claim_calls = False`, so only the voice worker places calls); `proactive` →
+the proactive engine plus a daily retention loop (`repos.retention.run`, once per IST
+day across replicas); `batch` → reserved; `api` → webhooks only. Standalone processes:
+`friday serve` (API + roles) or `friday worker --roles voice`. Live telephony is
+Sarvam-only (`FRIDAY_TELEPHONY_PROVIDER=sarvam`); the Exotel/Twilio failover router is
+opt-in (`routed`). Inbound-call events stay in the process hosting the provider webhook.
+
 **One codebase, several roles.** `FRIDAY_ROLES=api|task|voice|proactive|batch` (CSV).
 `Container.role_components()` lists what a process wires (`ROLE_COMPONENTS`).
 `JOB_ROUTES` maps job kinds to the consuming role. The simulator and tests run all

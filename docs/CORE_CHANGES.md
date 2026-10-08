@@ -297,3 +297,29 @@ All voice work compiles against merged core; these are follow-ups, each with a l
 6. **Job kind `call.inbound`** is routed to the voice role in `JOB_ROUTES` but `TaskEngine.handle_job`
    only knows `call.place`; `VoiceWorker` therefore claims only `call.place` (inbound calls arrive as bus
    events + `take_inbound`).
+
+---
+
+## 2026-10-08 — Wave 2 integration pass (EM)
+**Voice Engineer, Stage 3 wave 2**
+| # | Request | Status |
+|---|---|---|
+| 1 | Sarvam-only default: `telephony_route` default `["sarvam"]`, `auto` → `"sarvam"`, `sarvam_verified_capabilities` | **Merged.** `resolve_telephony()` returns `sarvam` for `auto` in live. `routed` is explicit opt-in. `.env.example` sets `FRIDAY_TELEPHONY_PROVIDER=sarvam`. `live_problems()` requires `SARVAM_TELEPHONY_AUTH_ID/TOKEN` and a caller-ID pool (`FRIDAY_NUMBERS` or `SARVAM_CALLER_IDS`). |
+| 2 | `object_store` in FACTORIES and voice role | **Merged** (+ proactive role, `Container.object_store`). Live also requires `FRIDAY_OBJECT_STORE_URL`. |
+| 3a | `safety.looks_like_commitment` | **Merged** (moved from `friday/voice/commit.py`, which re-exports it). `friday/brain/guards.py` still has its own copy: the AI Engineer should import the core one. |
+| 3b | `CallAction.slot_at` | **Merged.** The voice `slot_of` reads it first and falls back to `collected["slot_at"]`. |
+| 4 | `RecordingTelephony` Protocol (`delete_recording`) | **Merged** as its own Protocol, not on `InboundTelephony` (not every provider has inbound). |
+| 5 | `CallResult.carrier_signal` | **Merged** (`"blocked"` / `"rejected"` / None). Engine's `_number_outcome` can switch from string matching to this field. |
+| 6 | Job kind `call.inbound` | **Rejected.** No consumer exists. Inbound calls arrive as `InboundCallReceived` bus events plus `take_inbound` in the process that hosts the webhook (role `api`). `JOB_ROUTES` keeps the name reserved for a cross-process design. |
+
+**Backend A**
+| Request | Status |
+|---|---|
+| `build_object_store(settings)` | **Merged** as FACTORIES `object_store` → `build_object_store_component`. |
+| Pool settings to `Database` | **Merged.** `Container.db` passes `db_pool_size`, `db_max_overflow`, `db_pool_timeout_s` explicitly. |
+
+**Role wiring (`friday/api/runtime.py`, `friday/tasks/engine.py`, `friday/cli.py`)**
+* `Runtime.start` starts loops per `Settings.roles`: `task` → inbound/message-send worker loop + task engine; `voice` → `build_voice_worker(c)`; `proactive` → proactive engine + a daily retention loop (`repos.retention.run`, once per IST day via the idempotency key); `batch` → reserved (logged); `api` → none.
+* `TaskEngine.claim_calls` (default `True`) is set to `False` by the runtime when a voice worker owns `call.place`, so the engine no longer claims it. A voice-only process builds the engine only for `handle_job`.
+* New `friday worker --roles voice,task`: background roles without the HTTP server (SIGTERM drains).
+* `friday check` lists roles and the components each role needs. In live mode it prints every missing or unsafe setting by name and exits 1.

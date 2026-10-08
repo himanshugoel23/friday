@@ -274,6 +274,7 @@ class Container:
     geocoder = property(lambda self: self.get("geocoder"))
     hotels = property(lambda self: self.get("hotels"))
     number_pool = property(lambda self: self.get("number_pool"))
+    object_store = property(lambda self: self.get("object_store"))
     job_queue = property(lambda self: self.get("job_queue"))
     outbox = property(lambda self: self.get("outbox"))
     lock = property(lambda self: self.get("lock"))
