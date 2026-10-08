@@ -18,9 +18,9 @@ Owner: Backend Engineer A.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from friday.core.clock import Clock
 from friday.db.repositories._base import SecretBox
@@ -114,15 +114,22 @@ class Repositories:
     pin_locks: PinLockRepo
     numbers: NumberRepo  # caller-ID pool state (NP-1)
     purger: DataPurger
+    retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
 
 def make_repositories(
-    db: Database, clock: Clock | None, secret_key: str, *, previous_keys: Sequence[str] = ()
+    db: Database,
+    clock: Clock | None,
+    secret_key: str,
+    *,
+    previous_keys: Sequence[str] = (),
+    store_factory: Callable[[], Any] | None = None,
+    telephony_factory: Callable[[], Any] | None = None,
 ) -> Repositories:
     """``secret_key`` keys the identifier SecretBox (HKDF, purpose-labelled);
     ``previous_keys`` stay readable after a rotation (SECURITY-13)."""
     box = SecretBox(secret_key, previous=previous_keys)
-    return Repositories(
+    repos = Repositories(
         db=db,
         users=UserRepo(db, clock),
         profiles=ProfileRepo(db, clock),
@@ -145,6 +152,17 @@ def make_repositories(
         numbers=NumberRepo(db, clock),
         purger=DataPurger(db, clock),
     )
+    from friday.db.retention import RetentionService
+
+    if store_factory is None:
+        from friday.core.config import Settings
+        from friday.db.objectstore import build_object_store
+
+        def store_factory() -> Any:  # dev/test default: local media dir
+            return build_object_store(Settings())
+
+    repos.retention = RetentionService(repos, store_factory, telephony_factory)
+    return repos
 
 
 def build_repositories(c: Container) -> Repositories:
@@ -152,4 +170,19 @@ def build_repositories(c: Container) -> Repositories:
     # SECURITY-30: a dedicated field key when configured; the dev fallback is the app
     # secret, which SecretBox separates from the PIN pepper / index key by HKDF label.
     key = s.field_key.get_secret_value() if s.field_key else s.secret_key.get_secret_value()
-    return make_repositories(c.db, c.clock, key)
+    from friday.core.container import ComponentNotAvailable
+    from friday.db.objectstore import build_object_store
+
+    def telephony() -> Any:
+        try:
+            return c.get("telephony")
+        except ComponentNotAvailable:
+            return None
+
+    return make_repositories(
+        c.db,
+        c.clock,
+        key,
+        store_factory=lambda: build_object_store(s),
+        telephony_factory=telephony,
+    )

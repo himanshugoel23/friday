@@ -115,7 +115,7 @@ class S3ObjectStore:
         )
 
     def lifecycle_rule(self, days: int) -> dict[str, Any]:
-        """Bucket lifecycle = recording retention (apply with put_bucket_lifecycle_configuration)."""
+        """Bucket lifecycle = recording retention (put_bucket_lifecycle_configuration)."""
         return {
             "Rules": [
                 {

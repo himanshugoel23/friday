@@ -54,7 +54,9 @@ async def reencrypt_columns(
                     plain = value  # legacy plaintext row -> encrypt now
                 token = cipher.encrypt(plain, aad=col_type.aad)
                 cond = [c == getattr(row, c.name) for c in pk]
-                await s.execute(update(table).where(*cond).values({col_name: type_coerce(token, Text)}))
+                await s.execute(
+                    update(table).where(*cond).values({col_name: type_coerce(token, Text)})
+                )
                 done += 1
                 if done % batch == 0:
                     await s.flush()

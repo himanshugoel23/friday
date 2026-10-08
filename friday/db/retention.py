@@ -79,7 +79,11 @@ async def process_pending_deletions(
 
 
 async def expire_recordings(
-    repos: Repositories, now: datetime, *, store: ObjectStore, telephony: Any = None,
+    repos: Repositories,
+    now: datetime,
+    *,
+    store: ObjectStore,
+    telephony: Any = None,
     days: int = RECORDING_RETENTION_DAYS,
 ) -> dict[str, int]:
     cutoff = now - timedelta(days=days)
@@ -116,16 +120,20 @@ async def purge_preconsent_users(
             ConsentRow.kind == ConsentKind.TERMS_PRIVACY.value, ConsentRow.granted.is_(True)
         )
         ids = (
-            await s.execute(
-                select(UserRow.id).where(
-                    UserRow.status.in_(
-                        [UserStatus.ONBOARDING.value, UserStatus.WAITLISTED.value]
-                    ),
-                    UserRow.created_at < cutoff,
-                    UserRow.id.not_in(consented),
+            (
+                await s.execute(
+                    select(UserRow.id).where(
+                        UserRow.status.in_(
+                            [UserStatus.ONBOARDING.value, UserStatus.WAITLISTED.value]
+                        ),
+                        UserRow.created_at < cutoff,
+                        UserRow.id.not_in(consented),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     for uid in ids:
         await repos.purger.purge_user(uid)
     return len(ids)
@@ -144,15 +152,46 @@ async def delete_ephemeral_places(
 
 
 async def run_retention(
-    repos: Repositories, now: datetime, *, store: ObjectStore, telephony: Any = None,
-    recording_days: int = RECORDING_RETENTION_DAYS, preconsent_days: int = PRECONSENT_RETENTION_DAYS,
+    repos: Repositories,
+    now: datetime,
+    *,
+    store: ObjectStore,
+    telephony: Any = None,
+    recording_days: int = RECORDING_RETENTION_DAYS,
+    preconsent_days: int = PRECONSENT_RETENTION_DAYS,
 ) -> dict[str, int]:
-    out = await expire_recordings(
-        repos, now, store=store, telephony=telephony, days=recording_days
-    )
+    out = await expire_recordings(repos, now, store=store, telephony=telephony, days=recording_days)
     out["preconsent_users"] = await purge_preconsent_users(repos, now, days=preconsent_days)
     out["ephemeral_places"] = await delete_ephemeral_places(repos, now)
     out["pending_deletions"] = await process_pending_deletions(
         repos, store=store, telephony=telephony
     )
     return out
+
+
+class RetentionService:
+    """``repos.retention.run(now, recording_days, preconsent_days)`` (Backend B's daily job).
+
+    The object store and telephony provider are resolved lazily so building the
+    repository bundle never needs them."""
+
+    def __init__(self, repos: Repositories, store_factory: Any, telephony_factory: Any = None):
+        self._repos = repos
+        self._store_factory = store_factory
+        self._telephony_factory = telephony_factory
+
+    async def run(
+        self,
+        now: datetime,
+        recording_days: int = RECORDING_RETENTION_DAYS,
+        preconsent_days: int = PRECONSENT_RETENTION_DAYS,
+    ) -> dict[str, int]:
+        telephony = self._telephony_factory() if self._telephony_factory else None
+        return await run_retention(
+            self._repos,
+            now,
+            store=self._store_factory(),
+            telephony=telephony,
+            recording_days=recording_days,
+            preconsent_days=preconsent_days,
+        )

@@ -61,7 +61,9 @@ class NumberRepo(Repo):
         values["health"] = number.health.model_dump(mode="json")
         async with self.db.session() as s:
             existing = (
-                await s.execute(select(FridayNumberRow).where(FridayNumberRow.phone == number.phone))
+                await s.execute(
+                    select(FridayNumberRow).where(FridayNumberRow.phone == number.phone)
+                )
             ).scalar_one_or_none()
             if existing is not None and existing.id != number.id:
                 number.id = existing.id
@@ -187,10 +189,15 @@ class NumberRepo(Repo):
     ) -> DncEntry:
         async with self.db.session() as s:
             key = phone_index(phone)
-            row = (await s.execute(select(DncRow).where(DncRow.phone_hmac == key))).scalar_one_or_none()
+            row = (
+                await s.execute(select(DncRow).where(DncRow.phone_hmac == key))
+            ).scalar_one_or_none()
             if row is None:
                 row = DncRow(
-                    phone_hmac=key, phone=phone, reason=reason, number_phone=number_phone,
+                    phone_hmac=key,
+                    phone=phone,
+                    reason=reason,
+                    number_phone=number_phone,
                     at=self.now(),
                 )
                 s.add(row)
@@ -206,5 +213,7 @@ class NumberRepo(Repo):
 
     async def list_dnc(self, *, limit: int = 500) -> list[DncEntry]:
         async with self.db.session() as s:
-            rows = (await s.execute(select(DncRow).order_by(DncRow.at.desc()).limit(limit))).scalars()
+            rows = (
+                await s.execute(select(DncRow).order_by(DncRow.at.desc()).limit(limit))
+            ).scalars()
             return [DncEntry.model_validate(row_dict(r)) for r in rows]

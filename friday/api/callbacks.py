@@ -180,14 +180,10 @@ class CallbackService:
             log.info("unmatched inbound call from %s (ops)", mask_phone(match.from_phone))
             handled = await self._engine_call(("handle_unknown_caller",), match, contact)
         elif answered:
-            handled = await self._engine_call(
-                ("handle_business_callback",), match, contact
-            )
+            handled = await self._engine_call(("handle_business_callback",), match, contact)
         else:
             # The engine logs unmatched missed calls itself (no call-back, no details).
-            handled = await self._engine_call(
-                ("handle_missed_call",), match, contact
-            )
+            handled = await self._engine_call(("handle_missed_call",), match, contact)
         if handled:
             await self.repos.calls.mark_handled(contact.id)
         return match, contact
@@ -203,9 +199,7 @@ class CallbackService:
             channel=msg.channel.value,
             provider_ref=msg.provider_message_id,
         )
-        if await self._engine_call(
-            ("handle_business_message",), msg, match
-        ):
+        if await self._engine_call(("handle_business_message",), msg, match):
             await self.repos.calls.mark_handled(contact.id)
         return match
 

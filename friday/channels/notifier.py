@@ -374,7 +374,9 @@ class Notifier:  # implements core.interfaces.Notifier
                 for e in await self.repos.audit.list_for_user(person.owner_user_id, limit=500)
                 if e.action == "consent.optin_requested" and e.subject_id == person.id
             ]
-            too_soon = bool(sent) and self.clock.now() - min(e.at for e in sent) < OPT_IN_REMINDER_AFTER
+            too_soon = (
+                bool(sent) and self.clock.now() - min(e.at for e in sent) < OPT_IN_REMINDER_AFTER
+            )
             if not reminder or len(sent) >= 2 or too_soon:
                 return SendReceipt(message_id=new_id(), ok=False, error="already pending")
         tpl = TemplateRef(

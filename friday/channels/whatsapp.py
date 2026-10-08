@@ -408,7 +408,9 @@ class WhatsAppCloudChannel:
                         raise ProviderError("whatsapp", "media too large")
                     chunks.append(chunk)
         except httpx.HTTPError as e:
-            raise ProviderError("whatsapp", f"media download: {type(e).__name__}", retryable=True) from e
+            raise ProviderError(
+                "whatsapp", f"media download: {type(e).__name__}", retryable=True
+            ) from e
         return MediaBlob(data=b"".join(chunks), mime=ctype.split(";")[0].strip())
 
     async def aclose(self) -> None:

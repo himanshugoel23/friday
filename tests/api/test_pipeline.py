@@ -525,7 +525,9 @@ async def test_question_answers_owner_and_state_checked(pipeline, channel, engin
     """SECURITY-9: another user's q: button, or a question on a finished task, is ignored."""
     alice = await onboard(pipeline, channel)
     task = await _task(pipeline, alice)
-    q = MidCallQuestion(task_id=task.id, text="6pm?", options=["Yes", "No"], asked_at=pipeline.clock.now())
+    q = MidCallQuestion(
+        task_id=task.id, text="6pm?", options=["Yes", "No"], asked_at=pipeline.clock.now()
+    )
     await pipeline.repos.tasks.add_question(q)
     bob = await pipeline.repos.users.add(
         User(phone="+919800000999", status=UserStatus.ACTIVE, onboarding_step=OnboardingStep.DONE)
@@ -534,13 +536,23 @@ async def test_question_answers_owner_and_state_checked(pipeline, channel, engin
 
     n = len(engine.calls)
     await pipeline.handle(
-        InboundMessage(channel="simulator", from_phone=bob.phone, kind=MessageKind.BUTTON_REPLY,
-                       text="Yes", button_id=question_button_id(q.id, 0))
+        InboundMessage(
+            channel="simulator",
+            from_phone=bob.phone,
+            kind=MessageKind.BUTTON_REPLY,
+            text="Yes",
+            button_id=question_button_id(q.id, 0),
+        )
     )
     assert await pipeline.repos.tasks.get_answer(q.id) is None and len(engine.calls) == n
     await pipeline.repos.tasks.set_status(task.id, TaskStatus.COMPLETED)
     await pipeline.handle(
-        InboundMessage(channel="simulator", from_phone=alice.phone, kind=MessageKind.BUTTON_REPLY,
-                       text="Yes", button_id=question_button_id(q.id, 0))
+        InboundMessage(
+            channel="simulator",
+            from_phone=alice.phone,
+            kind=MessageKind.BUTTON_REPLY,
+            text="Yes",
+            button_id=question_button_id(q.id, 0),
+        )
     )
     assert await pipeline.repos.tasks.get_answer(q.id) is None

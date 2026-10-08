@@ -27,6 +27,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -612,7 +613,9 @@ class CallMemoryRow(IdMixin, Base):
     business_id: Mapped[str | None] = mapped_column(
         String(32), ForeignKey("businesses.id", ondelete="SET NULL")
     )
-    business_phone: Mapped[str] = mapped_column(_enc("call_memory", "business_phone"), nullable=False)
+    business_phone: Mapped[str] = mapped_column(
+        _enc("call_memory", "business_phone"), nullable=False
+    )
     business_phone_hmac: Mapped[str] = _hmac_col(nullable=False)
     friday_number: Mapped[str | None] = mapped_column(String(20), index=True)
     direction: Mapped[str] = mapped_column(String(10), default="outbound", nullable=False)
@@ -645,7 +648,9 @@ class InboundContactRow(IdMixin, Base):
         String(32), ForeignKey(_USER_FK, ondelete="CASCADE"), index=True
     )
     candidate_task_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
-    note: Mapped[str | None] = mapped_column(_enc("inbound_contacts", "note"))  # caller's message (unmatched: name/purpose)
+    note: Mapped[str | None] = mapped_column(
+        _enc("inbound_contacts", "note")
+    )  # caller's message (unmatched: name/purpose)
     handled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
@@ -715,4 +720,70 @@ class DncRow(IdMixin, Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
 
 
+# -------------------------------------------------------------------------- durable queue (S-2)
+
+
+class JobRow(IdMixin, Base):
+    """Durable job queue (SKIP LOCKED claim on Postgres). ``payload`` is encrypted: it
+    can carry inbound message text. One LIVE (queued/claimed) job per ``dedupe_key``."""
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        Index("ix_jobs_claim", "status", "priority", "due_at"),
+        Index(
+            "uq_jobs_live_dedupe",
+            "dedupe_key",
+            unique=True,
+            postgresql_where=text("status IN ('queued','claimed')"),
+            sqlite_where=text("status IN ('queued','claimed')"),
+        ),
+    )
+
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(_enc_json("jobs", "payload"), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    due_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    dedupe_key: Mapped[str | None] = mapped_column(String(200))
+    partition_key: Mapped[str | None] = mapped_column(String(64))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=8, nullable=False)
+    status: Mapped[str] = mapped_column(String(10), default="queued", nullable=False)
+    claimed_by: Mapped[str | None] = mapped_column(String(80))
+    lease_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    last_error: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class IdempotencyKeyRow(Base):
+    """Webhook/provider de-duplication (S-1)."""
+
+    __tablename__ = "idempotency_keys"
+
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False, index=True)
+
+
 ALL_TABLES = sorted(Base.metadata.tables)
+
+
+# Direct ORM inserts (tests, scripts) that skip the repositories still get their blind
+# index: derive ``*_hmac`` from the plaintext phone before the row is written.
+def _fill_hmac(clear: str, hmac_col: str):
+    def listener(_mapper, _conn, target) -> None:  # noqa: ANN001
+        value = getattr(target, clear, None)
+        if value and not getattr(target, hmac_col, None):
+            from friday.db.repositories._base import phone_index
+
+            setattr(target, hmac_col, phone_index(value))
+
+    return listener
+
+
+for _row, _clear, _hm in (
+    (UserRow, "phone", "phone_hmac"),
+    (PersonRow, "phone", "phone_hmac"),
+    (MessageRow, "phone", "phone_hmac"),
+    (CallMemoryRow, "business_phone", "business_phone_hmac"),
+    (InboundContactRow, "from_phone", "from_phone_hmac"),
+):
+    event.listen(_row, "before_insert", _fill_hmac(_clear, _hm))

@@ -44,7 +44,9 @@ class PersonRepo(Repo):
         """All circle entries with this phone (across owners) - inbound from a
         circle member (opt-in replies)."""
         async with self.db.session() as s:
-            rows = (await s.execute(select(PersonRow).where(PersonRow.phone_hmac == phone_index(phone)))).scalars()
+            rows = (
+                await s.execute(select(PersonRow).where(PersonRow.phone_hmac == phone_index(phone)))
+            ).scalars()
             return [_person(r) for r in rows]
 
     async def upsert(self, person: Person) -> Person:

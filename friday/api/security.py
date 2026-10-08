@@ -76,9 +76,7 @@ class PinHasher:
         self._legacy = tuple(_b(p) for p in legacy if p)
         # ``fast`` lowers argon2 cost for tests only.
         self._ph = (
-            PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
-            if fast
-            else PasswordHasher()
+            PasswordHasher(time_cost=1, memory_cost=8, parallelism=1) if fast else PasswordHasher()
         )
 
     @staticmethod
@@ -89,7 +87,7 @@ class PinHasher:
         return self._ph.hash(self._peppered(self._pepper, pin))
 
     def check(self, pin_hash: str | None, pin: str) -> str | None:
-        """"current" / "legacy" (matched an old pepper) / None."""
+        """ "current" / "legacy" (matched an old pepper) / None."""
         if not pin_hash:
             return None
         for label, pepper in (("current", self._pepper), *(("legacy", p) for p in self._legacy)):

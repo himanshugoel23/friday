@@ -216,19 +216,34 @@ async def test_fetch_media_refuses_foreign_hosts_and_big_files():
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
         if request.url.path.endswith("/EVIL"):
-            return httpx.Response(200, json={"url": "https://attacker.example/x", "mime_type": "audio/ogg"})
+            return httpx.Response(
+                200, json={"url": "https://attacker.example/x", "mime_type": "audio/ogg"}
+            )
         if request.url.path.endswith("/BIG"):
-            return httpx.Response(200, json={"url": "https://lookaside.fbsbx.com/big", "mime_type": "audio/ogg"})
+            return httpx.Response(
+                200, json={"url": "https://lookaside.fbsbx.com/big", "mime_type": "audio/ogg"}
+            )
         if request.url.path.endswith("/HTML"):
             return httpx.Response(200, json={"url": "https://lookaside.fbsbx.com/h"})
         if request.url.path == "/big":
-            return httpx.Response(200, content=b"x" * 10, headers={"content-length": str(17 * 1024 * 1024)})
+            return httpx.Response(
+                200, content=b"x" * 10, headers={"content-length": str(17 * 1024 * 1024)}
+            )
         if request.url.path == "/h":
             return httpx.Response(200, content=b"<html>", headers={"content-type": "text/html"})
         return httpx.Response(404)
 
-    ch = WhatsAppCloudChannel(access_token="TOKEN", phone_number_id="PNID", transport=httpx.MockTransport(handler))
-    for ref in ("EVIL", "http://lookaside.fbsbx.com/x", "https://attacker.example/x", "BIG", "HTML", "../../x"):
+    ch = WhatsAppCloudChannel(
+        access_token="TOKEN", phone_number_id="PNID", transport=httpx.MockTransport(handler)
+    )
+    for ref in (
+        "EVIL",
+        "http://lookaside.fbsbx.com/x",
+        "https://attacker.example/x",
+        "BIG",
+        "HTML",
+        "../../x",
+    ):
         with pytest.raises(ProviderError):
             await ch.fetch_media(ref)
     assert all(r.url.host != "attacker.example" for r in seen)

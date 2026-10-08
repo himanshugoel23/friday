@@ -54,7 +54,9 @@ class DataPurger(Repo):
         with only a phone HMAC; drop evidence text, message id and the person link."""
         user = await s.get(UserRow, user_id)
         n = 0
-        for row in (await s.execute(select(ConsentRow).where(ConsentRow.user_id == user_id))).scalars():
+        for row in (
+            await s.execute(select(ConsentRow).where(ConsentRow.user_id == user_id))
+        ).scalars():
             if row.person_id:
                 person = await s.get(PersonRow, row.person_id)
                 row.phone_hmac = person.phone_hmac if person else None

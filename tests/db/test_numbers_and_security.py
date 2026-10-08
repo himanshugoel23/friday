@@ -1,3 +1,4 @@
+# ruff: noqa: ASYNC240
 """NP-1 repos, key rotation, KMS provider, object store, retention, consent receipts."""
 
 from __future__ import annotations
@@ -47,8 +48,13 @@ async def _raw(db, table: str) -> str:
 
 
 async def test_number_pool_round_trip(repos, clock, db):
-    n = FridayNumber(phone="+918000000001", provider="simulator", city="Bengaluru", circle="KA",
-                     health=NumberHealth(calls=10, answered=6, score=0.8))
+    n = FridayNumber(
+        phone="+918000000001",
+        provider="simulator",
+        city="Bengaluru",
+        circle="KA",
+        health=NumberHealth(calls=10, answered=6, score=0.8),
+    )
     await repos.numbers.upsert(n)
     got = await repos.numbers.get(n.phone)
     assert got.health.answer_rate == 0.6 and got.circle == "KA"
@@ -70,7 +76,10 @@ async def test_number_pool_round_trip(repos, clock, db):
     assert [r.outcome for r in recent][0] == NumberOutcome.NO_ANSWER
     since = clock.now() - timedelta(hours=1)
     assert await repos.numbers.count_outcomes(n.phone, since=since) == 3
-    assert await repos.numbers.count_outcomes(n.phone, since=since, outcomes=[NumberOutcome.ANSWERED]) == 1
+    assert (
+        await repos.numbers.count_outcomes(n.phone, since=since, outcomes=[NumberOutcome.ANSWERED])
+        == 1
+    )
     assert BIZ not in await _raw(db, "number_outcomes")
 
     assert not await repos.numbers.is_dnc(BIZ)
@@ -91,17 +100,21 @@ async def test_phones_encrypted_and_looked_up_by_blind_index(repos, db):
 
 
 async def test_field_key_rotation_reencrypts(repos, db, clock):
-    from friday.db.rotation import reencrypt_columns, reencrypt_identifiers
     from friday.db.repositories._base import SecretBox
+    from friday.db.rotation import reencrypt_columns, reencrypt_identifiers
 
     old_key, new_key, idx = b"o" * 32, b"n" * 32, b"i" * 32
     set_field_cipher(FieldCipher(LocalKeyProvider({"k1": old_key}, index_key=idx)))
     try:
         u = await repos.users.add(User(phone="+919800000005"))
-        await repos.places.upsert(Place(owner_user_id=u.id, label="Home", address_text="12 MG Road"))
+        await repos.places.upsert(
+            Place(owner_user_id=u.id, label="Home", address_text="12 MG Road")
+        )
         assert ":k1:" in await _raw(db, "places")
         set_field_cipher(
-            FieldCipher(LocalKeyProvider({"k2": new_key, "k1": old_key}, current="k2", index_key=idx))
+            FieldCipher(
+                LocalKeyProvider({"k2": new_key, "k1": old_key}, current="k2", index_key=idx)
+            )
         )
         counts = await reencrypt_columns(db)
         assert counts.get("places.address_text") == 1
@@ -113,7 +126,9 @@ async def test_field_key_rotation_reencrypts(repos, db, clock):
 
     from friday.core.models import AccountIdentifier
 
-    ident = await repos.identifiers.upsert(AccountIdentifier(user_id=u.id, label="acct", value="99887766"))
+    ident = await repos.identifiers.upsert(
+        AccountIdentifier(user_id=u.id, label="acct", value="99887766")
+    )
     rotated = make_repositories(db, clock, "new-secret", previous_keys=["test-secret"])
     assert (await rotated.identifiers.get(ident.id)).value == "99887766"
     assert await reencrypt_identifiers(db, SecretBox("new-secret", previous=["test-secret"])) == 1
@@ -130,7 +145,9 @@ def test_kms_provider_with_fake_unwrap(monkeypatch, settings):
     from friday.db.kms import build_kms_key_provider
 
     dek = b"d" * 32
-    monkeypatch.setenv("FRIDAY_KMS_WRAPPED_KEYS", json.dumps({"kms1": base64.b64encode(b"wrapped").decode()}))
+    monkeypatch.setenv(
+        "FRIDAY_KMS_WRAPPED_KEYS", json.dumps({"kms1": base64.b64encode(b"wrapped").decode()})
+    )
     s = settings.model_copy(update={"field_key_id": "arn:aws:kms:ap-south-1:1:key/x"})
     calls = []
 
@@ -148,7 +165,7 @@ def test_kms_provider_with_fake_unwrap(monkeypatch, settings):
         build_kms_key_provider(Container(settings), unwrap=unwrap)
 
 
-async def test_object_store_local_and_s3(tmp_path):
+async def test_object_store_local_and_s3(tmp_path):  # noqa: ASYNC240
     from friday.db.objectstore import LocalObjectStore, S3ObjectStore, delete_recording
 
     store = LocalObjectStore(tmp_path / "rec")
@@ -160,8 +177,9 @@ async def test_object_store_local_and_s3(tmp_path):
     assert outside.exists()
     assert await delete_recording(url, store=store)
     assert not Path(url[7:]).exists()
-    with pytest.raises(ValueError):
-        await store.put("../../etc/passwd", b"", content_type="text/plain") or (_ for _ in ()).throw(ValueError())
+    # path traversal is flattened into the store root
+    esc = await store.put("../../etc/passwd.txt", b"x", content_type="text/plain")
+    assert Path(esc[7:]).resolve().is_relative_to((tmp_path / "rec").resolve())
 
     class FakeS3:
         def __init__(self):
@@ -203,23 +221,41 @@ async def test_object_store_required_in_live(settings):
         build_object_store(settings.model_copy(update={"mode": "live"}))
 
 
-async def test_retention_job(repos, clock, db, tmp_path):
+async def test_retention_job(repos, clock, db, tmp_path):  # noqa: ASYNC240
     from friday.db.objectstore import LocalObjectStore
     from friday.db.retention import add_pending_deletion, pending_deletions, run_retention
 
     store = LocalObjectStore(tmp_path)
-    u = await repos.users.add(User(phone="+919800000011", status=UserStatus.ACTIVE, created_at=clock.now()))
+    u = await repos.users.add(
+        User(phone="+919800000011", status=UserStatus.ACTIVE, created_at=clock.now())
+    )
     await repos.consents.add(Consent(user_id=u.id, kind=ConsentKind.TERMS_PRIVACY, granted=True))
-    task = await repos.tasks.add(Task(requester_user_id=u.id, type=TaskType.BOOKING,
-                                      spec=TaskSpec(type=TaskType.BOOKING, goal="x")))
+    task = await repos.tasks.add(
+        Task(
+            requester_user_id=u.id,
+            type=TaskType.BOOKING,
+            spec=TaskSpec(type=TaskType.BOOKING, goal="x"),
+        )
+    )
     rec = await store.put("old.wav", b"RIFF", content_type="audio/wav")
     tr = Transcript()
     tr.add(Speaker.CALLEE, "old words")
-    await repos.tasks.save_call(CallResult(task_id=task.id, provider="sim", to_phone=BIZ,
-                                           dial_status=DialStatus.ANSWERED, outcome=CallOutcome.SUCCESS,
-                                           transcript=tr, recording_url=rec, started_at=clock.now()))
+    await repos.tasks.save_call(
+        CallResult(
+            task_id=task.id,
+            provider="sim",
+            to_phone=BIZ,
+            dial_status=DialStatus.ANSWERED,
+            outcome=CallOutcome.SUCCESS,
+            transcript=tr,
+            recording_url=rec,
+            started_at=clock.now(),
+        )
+    )
     lurker = await repos.users.add(User(phone="+919800000012", created_at=clock.now()))
-    await repos.places.upsert(Place(owner_user_id=u.id, label="pin", ephemeral=True, created_at=clock.now()))
+    await repos.places.upsert(
+        Place(owner_user_id=u.id, label="pin", ephemeral=True, created_at=clock.now())
+    )
     await add_pending_deletion(repos, "https://provider.example/rec/1")
 
     clock.advance(timedelta(days=31).total_seconds())
@@ -238,15 +274,39 @@ async def test_retention_job(repos, clock, db, tmp_path):
 async def test_consent_receipt_kept_without_pii(repos, db):
     """SECURITY-33."""
     u = await repos.users.add(User(phone="+919800000021"))
-    dad = await repos.people.upsert(Person(owner_user_id=u.id, name="Ramesh", phone="+919811111122",
-                                           contact_consent=PersonConsent.OPTED_IN))
-    await repos.consents.add(Consent(user_id=u.id, kind=ConsentKind.TERMS_PRIVACY, granted=True,
-                                     evidence_text="I agree - Rahul"))
-    await repos.consents.add(Consent(user_id=u.id, person_id=dad.id, kind=ConsentKind.BENEFICIARY_CONTACT,
-                                     granted=True, evidence_text="haan"))
+    dad = await repos.people.upsert(
+        Person(
+            owner_user_id=u.id,
+            name="Ramesh",
+            phone="+919811111122",
+            contact_consent=PersonConsent.OPTED_IN,
+        )
+    )
+    await repos.consents.add(
+        Consent(
+            user_id=u.id,
+            kind=ConsentKind.TERMS_PRIVACY,
+            granted=True,
+            evidence_text="I agree - Rahul",
+        )
+    )
+    await repos.consents.add(
+        Consent(
+            user_id=u.id,
+            person_id=dad.id,
+            kind=ConsentKind.BENEFICIARY_CONTACT,
+            granted=True,
+            evidence_text="haan",
+        )
+    )
     await repos.purger.purge_user(u.id)
     receipts = await repos.consents.list_for_user(u.id)
     assert len(receipts) == 2
     assert all(r.evidence_text is None and r.person_id is None for r in receipts)
     raw = await _raw(db, "consents")
     assert "Rahul" not in raw and "haan" not in raw and "+9198" not in raw
+
+
+async def test_repos_retention_run_facade(repos, clock):
+    out = await repos.retention.run(clock.now() + timedelta(days=40), 30, 7)
+    assert set(out) >= {"recordings", "call_turns", "preconsent_users", "pending_deletions"}

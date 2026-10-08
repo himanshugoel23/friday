@@ -185,7 +185,10 @@ class MessageRepo(Repo):
             row = (
                 await s.execute(
                     select(MessageRow)
-                    .where(MessageRow.phone_hmac == phone_index(phone), MessageRow.direction == "outbound")
+                    .where(
+                        MessageRow.phone_hmac == phone_index(phone),
+                        MessageRow.direction == "outbound",
+                    )
                     .order_by(MessageRow.at.desc())
                     .limit(1)
                 )
@@ -197,7 +200,10 @@ class MessageRepo(Repo):
             row = (
                 await s.execute(
                     select(MessageRow)
-                    .where(MessageRow.phone_hmac == phone_index(phone), MessageRow.direction == "inbound")
+                    .where(
+                        MessageRow.phone_hmac == phone_index(phone),
+                        MessageRow.direction == "inbound",
+                    )
                     .order_by(MessageRow.at.desc())
                     .limit(1)
                 )

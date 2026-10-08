@@ -385,9 +385,7 @@ class InboundPipeline:
         if self.onboarding.awaiting_pin(user):
             return True
         pending = await self.state.get_pending(user.id, self.clock.now())
-        if pending is not None and pending.kind == "pin":
-            return True
-        return False
+        return pending is not None and pending.kind == "pin"
 
     async def _log_inbound(self, user: User, msg: InboundMessage, *, redact: bool) -> None:
         logged = msg.model_copy(update={"text": REDACTED}) if redact and msg.text else msg
@@ -793,7 +791,9 @@ class InboundPipeline:
                 return new_phone != existing.phone
         if interp.intent in (Intent.NEW_TASK, Intent.TASK_UPDATE) and interp.task_spec:
             d = interp.task_spec.delegation
-            return d.granted and (d.max_price_inr is None or d.max_price_inr >= STEP_UP_DELEGATION_INR)
+            return d.granted and (
+                d.max_price_inr is None or d.max_price_inr >= STEP_UP_DELEGATION_INR
+            )
         return False
 
     async def freeze_sensitive_actions(self, user: User, *, reason: str) -> None:
