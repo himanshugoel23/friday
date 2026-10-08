@@ -43,8 +43,8 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
             text=s(
                 f"Alert: {who or 'Your family member'} may need attention: {detail}. If it's an "
                 f"emergency, call 112/108.",
-                f"Alert: {who or 'Aapke family member'} ko dhyan chahiye: {detail}. Emergency ho toh "
-                f"112/108.",
+                f"Alert: {who or 'Aapke family member'} ko dhyan chahiye: {detail}. "
+                f"Emergency ho toh 112/108.",
             ),
             buttons=[
                 _b("call_now", "Call them now"),

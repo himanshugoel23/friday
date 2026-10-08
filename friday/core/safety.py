@@ -259,3 +259,53 @@ def check_commit(
     if d.scope and decision is not None and decision not in d.scope:
         reasons.append(f"decision '{decision}' not in the delegated scope")
     return SafetyCheck(allowed=not reasons, reasons=reasons)
+
+
+# ------------------------------------------------------------------ commitment detector
+# SECURITY-3: the model's own ``commits_booking`` flag is never trusted. Anything that
+# *sounds* like confirming a booking / order / price is treated as a commitment and must
+# pass ``check_commit``. (Moved from friday/voice/commit.py; brain/guards.py keeps its
+# own copy until the AI Engineer switches to this one.)
+
+_PHRASES = (
+    "i confirm", "please confirm the", "confirm the booking", "book it", "book kar dijiye",
+    "book kar do", "confirm kar dijiye", "confirm kijiye", "pakka kar", "lock kar",
+    "go ahead and book", "please book", "place the order", "order kar dijiye",
+    "rakh lijiye", "reserve kar", "reserve the", "reserved",
+)  # fmt: skip
+_COMMIT_VERB = re.compile(
+    r"\b(reserve|reserved|book|booked|confirm|confirmed|final|finali[sz]e|lock|pakka|done|"
+    r"kar dijiye|rakh lijiye|fix)\b|बुक|कन्फर्म|पक्का|फाइनल",
+    re.I,
+)
+_SLOT = re.compile(
+    r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm|baje|bje|o'?clock)\b|"
+    r"\b(?:today|tomorrow|kal|aaj|slot|monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
+    r"sat|sun)\b|₹\s*\d|\brs\.?\s*\d|\b\d+\s*(?:rupees|rupaye)\b|बजे|कल|आज|स्लॉट",
+    re.I,
+)
+_NOT_A_COMMIT = (
+    "call back", "callback", "confirm karke", "se confirm", "confirm with", "check with",
+    "checking with", "like to book", "want to book", "chahiye tha", "what slots",
+    "kaunse slot", "available", "kya aap", "could you", "can you", "kar sakte",
+    "will confirm", "baad mein", "get back", "check karke", "hold kar", "share this",
+    "bata ke", "after checking", "wapas call", "phir call", "puchh", "pooch", "पूछकर",
+    "वापस कॉल",
+)  # fmt: skip
+
+
+def _norm(text: str) -> str:
+    return unicodedata.normalize("NFKC", text).lower()
+
+
+def looks_like_commitment(text: str | None) -> bool:
+    """True when ``text`` reads as confirming a booking/order/price. When unsure and the
+    text contains a commit verb next to a slot/price, we treat it as a commitment."""
+    if not text:
+        return False
+    t = _norm(text)
+    if any(p in t for p in _PHRASES):
+        return True
+    if any(p in t for p in _NOT_A_COMMIT):
+        return False
+    return bool(_COMMIT_VERB.search(t) and _SLOT.search(t))

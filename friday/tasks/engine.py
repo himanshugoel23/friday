@@ -268,12 +268,17 @@ class TaskEngine:
         """Caller-ID NumberPool (NP-2)."""
         return self._opt("number_pool")
 
+    # False when a VoiceWorker (friday.voice.worker) owns ``call.place`` in this process
+    # (set by the API runtime); standalone / tests keep the engine claiming calls itself.
+    claim_calls: bool = True
+
     def _kinds(self) -> tuple[str, ...]:
         """Job kinds this process consumes (JOB_ROUTES x Settings.roles)."""
         return tuple(
             k
             for k in (JOB_STEP, JOB_SCHEDULED, JOB_CALL)
             if self.settings.has_role(JOB_ROUTES.get(k, "task"))
+            and (k != JOB_CALL or self.claim_calls)
         )
 
     async def _enqueue(

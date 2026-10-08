@@ -2,9 +2,26 @@
 
 * builds the inbound pipeline and the call-back service (bus subscriptions);
 * serialises inbound messages per sender phone (ordering, no races);
-* starts/stops the task engine queue workers and the proactive loop if those
-  components exist (duck-typed: ``start()``/``stop()``, or ``run()`` as a task);
+* starts the background loops of the process ROLES (``Settings.roles``; one codebase,
+  several deployments - ARCHITECTURE §10.3):
+
+  =========  ==========================================================================
+  api        webhooks + callbacks (always wired); no loops of its own
+  task       inbound.message / message.send worker loop + the task engine (step /
+             scheduled jobs, exactly-once timers)
+  voice      ``friday.voice.worker.build_voice_worker(c)``: claims ``call.place`` and runs
+             it through ``task_engine.handle_job`` (the engine does NOT claim calls when a
+             voice worker owns them: ``engine.claim_calls = False``)
+  proactive  the proactive engine (its tick runs the daily retention job) plus a
+             retention loop so ``repos.retention.run`` also runs when proactive is off
+  batch      reserved: no ``batch.*`` consumers exist yet (logged)
+  =========  ==========================================================================
+
 * re-checks the ops cost alert after every finished call.
+
+Inbound-call bus events (InboundCallReceived / MissedCallReceived) are published in the
+process that hosts the provider webhook (role api) and consumed there; cross-process
+delivery would need the ``call.inbound`` job kind (not implemented - see CORE_CHANGES).
 """
 
 from __future__ import annotations
@@ -33,7 +50,7 @@ from friday.db.repositories._base import phone_index
 log = get_logger(__name__)
 
 CONSUMED_KINDS = ("inbound.message", "message.send")
-BACKGROUND_COMPONENTS = ("task_engine", "proactive")
+RETENTION_POLL_S = 900.0  # real-time cadence; the job itself runs once per IST day
 
 
 async def _maybe_await(value: Any) -> Any:
@@ -61,11 +78,51 @@ class Runtime:
         self.callbacks.subscribe()
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         if background:
-            if self.c.settings.has_role("task"):
-                self._tasks.append(asyncio.create_task(self.worker_loop(), name="friday-worker"))
-            for name in BACKGROUND_COMPONENTS:
-                await self._start_component(name)
+            await self._start_roles()
         self.running = True
+
+    async def _start_roles(self) -> None:
+        s = self.c.settings
+        voice_worker = self._build_voice_worker() if s.has_role("voice") else None
+        if s.has_role("task"):
+            self._tasks.append(asyncio.create_task(self.worker_loop(), name="friday-worker"))
+            await self._start_component("task_engine")
+        if voice_worker is not None:
+            await voice_worker.start()
+            self._started.append(voice_worker)
+        if s.has_role("proactive"):
+            await self._start_component("proactive")
+            self._tasks.append(asyncio.create_task(self.retention_loop(), name="friday-retention"))
+        if s.has_role("batch"):
+            log.info("role batch: no batch.* job consumers are registered yet")
+        log.info("runtime started for roles %s", ",".join(s.roles))
+
+    def _build_voice_worker(self) -> Any | None:
+        """The voice role owns ``call.place``: the engine in this process stops claiming it."""
+        engine = self._component("task_engine")
+        try:
+            from friday.voice.worker import build_voice_worker
+
+            worker = build_voice_worker(self.c)
+        except Exception:  # noqa: BLE001 - fall back to the engine claiming calls itself
+            log.exception("voice worker not available; the task engine will place calls")
+            return None
+        if engine is not None:
+            engine.claim_calls = False
+        return worker
+
+    async def retention_loop(self) -> None:
+        """SECURITY-32: ``repos.retention.run`` once per IST day (exactly once across
+        replicas via the idempotency store inside ``RetentionJob.run_daily``)."""
+        from friday.proactive.retention import RetentionJob
+
+        job = RetentionJob(self.c)
+        while True:
+            try:
+                await job.run_daily(self.c.clock.now())
+            except Exception:  # noqa: BLE001
+                log.exception("retention run failed")
+            await asyncio.sleep(RETENTION_POLL_S)
 
     async def _start_component(self, name: str) -> None:
         try:

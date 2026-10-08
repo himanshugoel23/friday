@@ -112,6 +112,7 @@ __all__ = [
     "IdempotencyStore",
     "InboundCallRunner",
     "InboundTelephony",
+    "RecordingTelephony",
     "JobQueue",
     "KeyProvider",
     "Notifier",
@@ -469,6 +470,15 @@ class InboundTelephony(Protocol):
 
     def take_inbound(self, provider_call_id: str) -> CallLeg | None:
         """Claim a parked inbound leg announced by ``InboundCallReceived``."""
+        ...
+
+
+@runtime_checkable
+class RecordingTelephony(Protocol):
+    """Providers that can erase a recording they host (SECURITY-14 erasure / retention)."""
+
+    async def delete_recording(self, url: str) -> None:
+        """Raises ProviderError on failure (caller retries)."""
         ...
 
 

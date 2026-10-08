@@ -119,6 +119,8 @@ FACTORIES: dict[str, dict[str, str]] = {
         "postgres": "friday.db.idempotency:build_pg_idempotency",
     },
     # --- field encryption keys (SECURITY-12): local in dev, KMS envelope in live
+    # --- recordings / media object storage (Backend A): S3 in live, local dir in dev
+    "object_store": {"*": "friday.db.objectstore:build_object_store_component"},
     "key_provider": {
         "local": "friday.core.crypto:build_local_key_provider",
         "kms": "friday.db.kms:build_kms_key_provider",
@@ -140,8 +142,12 @@ ROLE_COMPONENTS: dict[str, tuple[str, ...]] = {
     "voice": (
         "repos", "brain", "telephony", "stt", "tts", "audio_classifier", "call_runner",
         "voice_router", "number_pool", "job_queue", "cache", "rate_limiter", "notifier",
+        "object_store", "task_engine",
     ),
-    "proactive": ("repos", "brain", "proactive", "notifier", "job_queue", "outbox", "lock"),
+    "proactive": (
+        "repos", "brain", "proactive", "notifier", "job_queue", "outbox", "lock", "idempotency",
+        "object_store",
+    ),
     "batch": ("repos", "brain", "llm", "document_extractor", "job_queue", "cache"),
 }  # fmt: skip
 
@@ -241,7 +247,14 @@ class Container:
         if self._db is None:
             from friday.db.session import Database
 
-            self._db = Database(self.settings.database_url, echo=self.settings.db_echo)
+            s = self.settings
+            self._db = Database(
+                s.database_url,
+                echo=s.db_echo,
+                pool_size=s.db_pool_size,
+                max_overflow=s.db_max_overflow,
+                pool_timeout_s=s.db_pool_timeout_s,
+            )
         return self._db
 
     def override_db(self, db: Any) -> None:
@@ -292,6 +305,10 @@ class Container:
                 if comp not in out:
                     out.append(comp)
         return out
+
+    def missing_role_components(self, roles: list[str] | None = None) -> list[str]:
+        """Components the roles need whose factory module isn't importable (startup check)."""
+        return [comp for comp in self.role_components(roles) if not self.is_available(comp)]
 
     def install_field_cipher(self) -> None:
         """Install the process-wide FieldCipher for EncryptedText/EncryptedJSON columns."""

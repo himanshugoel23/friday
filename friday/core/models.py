@@ -1466,6 +1466,10 @@ class CallAction(_Model):
     # True if ``text`` confirms a booking/commitment to the business. The runner
     # refuses such an action unless the brief allows it (brief.can_commit(answers)).
     commits_booking: bool = False
+    # Resolved start of the slot being confirmed (aware UTC) - lets the runner check a
+    # delegation WINDOW with ``safety.check_commit(slot_at=...)``. Replaces the old
+    # ``collected["slot_at"]`` ISO string convention (still read as a fallback).
+    slot_at: datetime | None = None
     leave_after_bridge: bool = True  # BRIDGE_USER
     max_hold_s: int | None = None  # WAIT_ON_HOLD (None -> brief.max_hold_s)
     care: CareOutcome | None = None  # latest care details captured (ticket no, agent...)
@@ -1628,6 +1632,8 @@ class CallResult(_Model):
     hold_seconds: int = 0  # time spent in hold-listening mode (no LLM cost)
     cost_inr_est: float = 0.0  # telephony + STT/TTS + LLM estimate (internal only)
     from_number: str | None = None  # Friday caller-ID used
+    # Typed provider/carrier signal for number health: "blocked" | "rejected" | None.
+    carrier_signal: str | None = None
     # cost components (founder cost rule 7/8; also published as CallCostReport)
     telephony_seconds: float = 0.0
     stt_seconds: float = 0.0

@@ -369,9 +369,8 @@ def onboarding_turn(
                 )
             ), None
         code = f"FRI-{m.group(1).upper()}"
-        return advance(
-            S.NAME, c.say(en="You're in.", hinglish="Aap andar ho.", playful_tail=" 🎉"), invite_code=code
-        ), None
+        welcome = c.say(en="You're in.", hinglish="Aap andar ho.", playful_tail=" 🎉")
+        return advance(S.NAME, welcome, invite_code=code), None
     if step == S.NAME:
         name = _extract_name(text)
         if not name:
