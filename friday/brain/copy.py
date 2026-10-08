@@ -24,20 +24,32 @@ def pick(
     return en
 
 
-def toned(text: str, tone: Tone | str | None, *, playful_tail: str = " 😄") -> str:
-    """FORMAL: no emoji, no exclamation; PLAYFUL: a light emoji at the end;
-    FRIENDLY (default): unchanged."""
+_SERIOUS = re.compile(
+    r"\b(consent|agree|terms|pin|otp|password|delete|erase|ticket|complaint|refund|112|108|"
+    r"unwell|dizzy|medicine|dawai|doctor|clinic|health|tabiyat|alert|warning|verify|"
+    r"verification|emergency|scam|fraud|privacy|data)\b|सहमत|दवाई",
+    re.I,
+)
+
+
+def is_serious(text: str) -> bool:
+    """Consent, PIN/OTP, health, customer care, crises: never any emoji."""
+    return bool(_SERIOUS.search(text))
+
+
+def toned(text: str, tone: Tone | str | None, *, playful_tail: str = "") -> str:
+    """Calm by default (JARVIS / F.R.I.D.A.Y.): FRIENDLY and FORMAL carry no emoji;
+    FORMAL also drops exclamation marks. PLAYFUL gets at most the one emoji the caller
+    asked for via ``playful_tail`` (an occasional light touch), never on serious topics."""
     tone = Tone(tone) if tone else Tone.FRIENDLY
+    out = _EMOJI.sub("", text)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    out = re.sub(r" +\n", "\n", out).strip()
     if tone == Tone.FORMAL:
-        out = _EMOJI.sub("", text)
-        out = out.replace("!", ".").replace("..", ".")
-        out = re.sub(r"[ \t]{2,}", " ", out)
-        return re.sub(r" +\n", "\n", out).strip()
-    if tone == Tone.PLAYFUL:
-        if _EMOJI.search(text[-4:]):
-            return text
-        return text.rstrip() + playful_tail
-    return text
+        return out.replace("!", ".").replace("..", ".")
+    if tone == Tone.PLAYFUL and playful_tail and not is_serious(out):
+        return out.rstrip() + playful_tail
+    return out
 
 
 def say(
@@ -47,7 +59,7 @@ def say(
     en: str,
     hinglish: str | None = None,
     hi: str | None = None,
-    playful_tail: str = " 😄",
+    playful_tail: str = "",
 ) -> str:
     return toned(pick(lang, en=en, hinglish=hinglish, hi=hi), tone, playful_tail=playful_tail)
 

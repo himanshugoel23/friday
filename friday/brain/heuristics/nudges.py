@@ -41,9 +41,9 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
             send=True,
             reason="safety alert",
             text=s(
-                f"⚠ {who or 'Your family member'} may need attention: {detail}. If it's an "
+                f"Alert: {who or 'Your family member'} may need attention: {detail}. If it's an "
                 f"emergency, call 112/108.",
-                f"⚠ {who or 'Aapke family member'} ko dhyan chahiye: {detail}. Emergency ho toh "
+                f"Alert: {who or 'Aapke family member'} ko dhyan chahiye: {detail}. Emergency ho toh "
                 f"112/108.",
             ),
             buttons=[
@@ -112,7 +112,7 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
         return NudgeOut(
             send=True,
             reason="routine due",
-            text=s(f"{since} ✂️{usual}", f"{since} ✂️{usual}"),
+            text=s(f"{since}.{usual}", f"{since}.{usual}"),
             buttons=[_b("book", "Book it"), _b("later", "Not now"), _b("stop", "Stop these")],
         )
     if k == NudgeKind.RECURRING_DUE:
@@ -142,8 +142,8 @@ def judge(ctx: ConversationContext, cand: NudgeCandidate) -> NudgeOut:
             send=True,
             reason="opt-in briefing",
             text=s(
-                f"Good morning{', ' + name if name else ''} ☀️\n{lines}",
-                f"Good morning{', ' + name if name else ''} ☀️\n{lines}",
+                f"Good morning{', ' + name if name else ''}.\n{lines}",
+                f"Good morning{', ' + name if name else ''}.\n{lines}",
             ),
             buttons=[_b("ok", "Thanks"), _b("details", "Details"), _b("stop", "Stop briefing")],
         )

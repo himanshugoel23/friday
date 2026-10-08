@@ -103,6 +103,7 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
+STEP_UP_DELEGATION_INR = 5000  # delegations at/above this need the PIN
 _PROFILE_FIELDS = {"name", "city", "language", "tone", "morning_briefing", "briefing_hour_ist"}
 
 
@@ -676,6 +677,7 @@ class FridayBrain:
             out.requires_pin
             or intent == Intent.DELETE_DATA
             or any(a.level == AutonomyLevel.ACT_AUTOMATICALLY for a in autonomy)
+            or self._sensitive_read(ctx, intent, person, spec, msg)
         )
         return Interpretation(
             intent=intent,
@@ -694,8 +696,37 @@ class FridayBrain:
             profile_updates=profile_updates,
             autonomy_updates=autonomy,
             requires_pin=requires_pin,
+            forget_fact_ids=[i for i in out.forget_fact_ids if i in {f.id for f in ctx.facts}],
             confidence=min(max(out.confidence, 0.0), 1.0),
         )
+
+    @staticmethod
+    def _sensitive_read(
+        ctx: ConversationContext,
+        intent: Intent,
+        person: Person | None,
+        spec: TaskSpec | None,
+        msg: InboundMessage,
+    ) -> bool:
+        """SECURITY-23 step-up: a hijacked chat must not read or exfiltrate the user's
+        circle, addresses, identifiers or notes, re-point a circle member's phone, export
+        data, or hand Friday a large/unbounded decision without the PIN."""
+        if intent == Intent.QUERY_MEMORY:
+            return True
+        if has_any(norm(msg.text), ("export my data", "download my data", "send me all my data")):
+            return True
+        if intent == Intent.ADD_PERSON and person is not None and person.phone:
+            same = [
+                p
+                for p in ctx.people
+                if norm(p.name) == norm(person.name)
+                or (person.relation and p.relation == person.relation)
+            ]
+            return any(p.phone and p.phone != person.phone for p in same)
+        if spec is not None and spec.delegation.granted:
+            cap = spec.delegation.max_price_inr
+            return cap is None or cap >= STEP_UP_DELEGATION_INR
+        return False
 
     def _fact(self, ctx: ConversationContext, f, msg: InboundMessage) -> Fact:
         person_id = resolve(ctx, f.about_person_ref).person_id if f.about_person_ref else None

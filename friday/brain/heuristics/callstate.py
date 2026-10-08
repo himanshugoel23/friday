@@ -109,6 +109,18 @@ DO_NOT_CALL = (
     "call mat karna",
     "stop calling",
 )
+PRIVATE_NUMBER = (
+    "personal number",
+    "private number",
+    "not a business",
+    "yeh ghar ka number",
+    "ghar ka number hai",
+    "yeh personal number",
+    "personal phone",
+    "this is my home",
+    "i am not a shop",
+    "main koi dukaan nahi",
+)
 WRONG_NUMBER = ("wrong number", "galat number", "wrong no", "no such", "yeh woh nahi")
 CALL_LATER = (
     "call later",

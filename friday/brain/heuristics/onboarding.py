@@ -373,7 +373,7 @@ def onboarding_turn(
             ), None
         code = f"FRI-{m.group(1).upper()}"
         return advance(
-            S.NAME, c.say(en="You're in 🎉", hinglish="Aap andar ho 🎉"), invite_code=code
+            S.NAME, c.say(en="You're in.", hinglish="Aap andar ho.", playful_tail=" 🎉"), invite_code=code
         ), None
     if step == S.NAME:
         name = _extract_name(text)
@@ -455,8 +455,8 @@ def onboarding_turn(
         if digits in WEAK_PINS or len(set(digits)) == 1:
             return again(
                 c.say(
-                    en="That one's a bit easy to guess 😄 Pick another 4 digits?",
-                    hinglish="Thoda easy hai 😄 Koi aur 4 digits?",
+                    en="That PIN is easy to guess. Pick another 4 digits.",
+                    hinglish="Yeh guess karna aasaan hai. Koi aur 4 digits?",
                 )
             ), None
         return advance(

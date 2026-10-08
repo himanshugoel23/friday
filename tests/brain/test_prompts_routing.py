@@ -63,15 +63,18 @@ async def test_tone_switch_changes_fake_output(brain):
 # ------------------------------------------------------------------ routing & budgets
 
 
-def test_router_defaults_never_opus(brain_settings, monkeypatch):
+def test_router_defaults_never_opus(brain_settings):
     r = ModelRouter(brain_settings)
     assert r.model_for("call_turn") == SONNET
     for p in ("interpret", "extract", "judge_nudge", "summarize", "compare",
               "shortlist_reasons", "translate"):
         assert r.model_for(p) == HAIKU
     assert r.model_for("interpret", escalate=True) == OPUS
-    monkeypatch.setenv("FRIDAY_LLM_MODEL_CALL_TURN", HAIKU)
-    assert ModelRouter(brain_settings).model_for("call_turn") == HAIKU
+    custom = brain_settings.model_copy(
+        update={"llm_models": {**brain_settings.llm_models, "call_turn": HAIKU}}
+    )
+    assert ModelRouter(custom).model_for("call_turn") == HAIKU  # Settings.model_for drives it
+    assert brain_settings.model_for("call_turn") == SONNET
 
 
 def test_task_budget_downgrades(brain_settings):

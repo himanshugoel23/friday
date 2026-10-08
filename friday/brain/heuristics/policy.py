@@ -49,6 +49,7 @@ from .callstate import (
     MED_SKIPPED,
     PAYMENT_WORDS,
     POSITIVE_WORDS,
+    PRIVATE_NUMBER,
     VERIFY_WORDS,
     WAIT_WORDS,
     WRONG_NUMBER,
@@ -194,6 +195,13 @@ def next_action(
     ):
         return _verification(tn)
 
+    # SECURITY-22: a do-not-call request or "this is a private number" is honoured at once,
+    # in every flow (inbound, IVR-agent, check-in, ...) and flagged for the pool-wide DNC list.
+    if last_is_newest and last:
+        stop = _dnc_or_private(tn, lt)
+        if stop is not None:
+            return stop
+
     if ib is not None:
         action = _inbound(tn, ib)
         if action is not None:
@@ -258,17 +266,38 @@ def _system_turn(tn: Turn) -> CallActionOut | None:
     return None
 
 
-def _universal(tn: Turn, lt: str) -> CallActionOut | None:
-    st, b = tn.st, tn.b
+def _dnc_or_private(tn: Turn, lt: str) -> CallActionOut | None:
     if has_any(lt, DO_NOT_CALL):
         return tn.hangup(
             tn.t(
-                en="Understood, sorry for the trouble. Have a good day.",
-                hinglish="Ji samajh gayi, takleef ke liye maafi. Aapka din achha rahe.",
+                en="Understood, sorry for the trouble. We won't call this number again.",
+                hinglish="Ji samajh gayi, takleef ke liye maafi. Is number pe dobara call nahi "
+                "karenge.",
             ),
             CallOutcome.DECLINED,
-            collected=[KV(key="do_not_call", value="true")],
+            collected=[
+                KV(key="do_not_call", value="true"),
+                KV(key="dnc_request", value="1"),
+            ],
         )
+    if has_any(lt, PRIVATE_NUMBER) and tn.b.target.kind == TargetKind.BUSINESS:
+        return tn.hangup(
+            tn.t(
+                en="I'm sorry, I called the wrong kind of number. I won't call again.",
+                hinglish="Maaf kijiye, galat number pe call lag gaya. Dobara call nahi karungi.",
+            ),
+            CallOutcome.DECLINED,
+            collected=[
+                KV(key="private_individual", value="1"),
+                KV(key="dnc_request", value="1"),
+                KV(key="wrong_number", value="true"),
+            ],
+        )
+    return None
+
+
+def _universal(tn: Turn, lt: str) -> CallActionOut | None:
+    st, b = tn.st, tn.b
     if has_any(lt, WRONG_NUMBER):
         return tn.hangup(
             tn.t(
@@ -819,8 +848,8 @@ def _booking(tn: Turn) -> CallActionOut:
             tn.t(
                 en=f"Thank you. I'll confirm with {tn.name} and call you back in 10-15 minutes. "
                 f"Could you hold {slot_txt} till then?",
-                hinglish=f"Shukriya ji. Main {tn.name} ji se confirm karke 10-15 minute mein call back "
-                f"karti hoon. Tab tak {slot_txt} hold kar sakte hain?",
+                hinglish=f"Shukriya ji. Main {tn.name} ji se confirm karke 10-15 minute mein "
+                f"call back karti hoon. Tab tak {slot_txt} hold kar sakte hain?",
                 hi=f"शुक्रिया जी। मैं {tn.name} जी से कन्फ़र्म करके 10-15 मिनट में कॉल बैक करती हूँ। "
                 f"तब तक {slot_txt} रख सकते हैं?",
             )
@@ -1079,13 +1108,14 @@ def _notify(tn: Turn) -> CallActionOut:
     st, b = tn.st, tn.b
     reply = st.reply_text()
     ref = b.reference or b.approved_terms
+    ref_txt = f" ({ref})" if ref else ""
     if not st.friday:
         if b.task_type == TaskType.RECONFIRM:
             return tn.say(
                 tn.t(
-                    en=f"I'm calling to reconfirm {tn.who}'s booking{' (' + ref + ')' if ref else ''}"
+                    en=f"I'm calling to reconfirm {tn.who}'s booking{ref_txt}"
                     f" - {b.goal}. Is it still on?",
-                    hinglish=f"{tn.who} ki booking{' (' + ref + ')' if ref else ''} reconfirm karni "
+                    hinglish=f"{tn.who} ki booking{ref_txt} reconfirm karni "
                     f"thi - {b.goal}. Kya booking pakki hai?",
                 )
             )
@@ -1468,7 +1498,8 @@ def _warm_transfer(tn: Turn) -> CallActionOut:
             CallActionType.BRIDGE_USER,
             tn.t(
                 en=f"Thank you. I'm connecting {tn.name} to you now, one moment.",
-                hinglish=f"Shukriya ji. Main abhi {tn.name} ji ko call pe jod rahi hoon, ek minute.",
+                hinglish=f"Shukriya ji. Main abhi {tn.name} ji ko call pe jod rahi hoon, "
+                f"ek minute.",
             ),
             leave_after_bridge=True,
         )

@@ -190,6 +190,7 @@ class InterpretOut(Wire):
     profile: ProfileUpdatesOut | None = None
     autonomy: list[AutonomyOut] = []
     requires_pin: bool = False
+    forget_fact_ids: list[str] = []
     confidence: float = 0.9
 
 

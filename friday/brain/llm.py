@@ -1,7 +1,7 @@
 """Anthropic implementation of ``LLMClient`` (official ``anthropic`` SDK, async).
 
-* Default model ``Settings.llm_model`` (claude-opus-5-5); live call turns pass
-  ``Settings.llm_fast_model`` (claude-haiku-5-5).
+* Models are routed per purpose by the brain (``Settings.model_for``); ``llm_model`` /
+  ``llm_fast_model`` are only the fallbacks when a caller passes no ``model``.
 * ``json_schema`` -> structured outputs (``output_config.format``); the brain
   passes schemas already made strict by ``friday.brain.schemas.strict_schema``.
 * ``attachments`` -> image / PDF / plain-text content blocks (menus, quote photos).

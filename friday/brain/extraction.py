@@ -142,4 +142,4 @@ class LLMDocumentExtractor:
 
 
 def build_document_extractor(c: Container) -> LLMDocumentExtractor:
-    return LLMDocumentExtractor(c.llm, model=c.settings.llm_fast_model)
+    return LLMDocumentExtractor(c.llm, model=c.settings.model_for("extract"))

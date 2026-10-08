@@ -1550,9 +1550,9 @@ def _settings(c: _Ctx, text: str) -> InterpretOut | None:
     ):
         prof.tone, reply = Tone.FORMAL, "Understood. I will keep it formal."
     elif has_any(t, ("be playful", "playful", "be casual", "casual raho", "more fun", "be funny")):
-        prof.tone, reply = Tone.PLAYFUL, "Done! Playful mode on 😄"
+        prof.tone, reply = Tone.PLAYFUL, "Done. Playful mode on."
     elif has_any(t, ("be friendly", "normal tone")):
-        prof.tone, reply = Tone.FRIENDLY, "Back to my usual self 🙂"
+        prof.tone, reply = Tone.FRIENDLY, "Back to my usual self."
     lang_map = (("hinglish", Language.HINGLISH), ("hindi", Language.HI), ("english", Language.EN))
     if (
         has_any(
@@ -1679,7 +1679,7 @@ def _settings(c: _Ctx, text: str) -> InterpretOut | None:
         return None
     return InterpretOut(
         intent=Intent.SETTINGS,
-        reply=c.say(en=reply),
+        reply=c.say(en=reply, playful_tail=" 😄" if prof.tone == Tone.PLAYFUL else ""),
         profile=prof,
         autonomy=autonomy,
         requires_pin=requires_pin,
@@ -2117,11 +2117,10 @@ def _forget(c: _Ctx, text: str) -> InterpretOut | None:
     what = m.group(1)
     words = [w for w in re.findall(r"[a-z]{3,}", what) if w not in {"the", "date", "my"}]
     matched = [f for f in c.ctx.facts if any(w in norm(f.key + " " + f.value) for w in words)]
-    facts = [FactOut(kind=f.kind, key=f.key, value=f.value) for f in matched]
     shown = matched[0].value if matched else what
     return InterpretOut(
-        intent=Intent.SETTINGS,
-        facts=facts,
+        intent=Intent.FORGET,
+        forget_fact_ids=[f.id for f in matched],
         confidence=0.7,
         reply=c.say(
             en=f'Forget "{shown}"? I\'ll also stop related reminders.',
@@ -2410,8 +2409,9 @@ def interpret(ctx: ConversationContext, msg: InboundMessage) -> InterpretOut:
         return InterpretOut(
             intent=Intent.SMALL_TALK,
             reply=c.say(
-                en=f"Hey{' ' + greet if greet else ''}! What can I take off your plate today?",
-                hinglish=f"Hi{' ' + greet if greet else ''}! Aaj kya kaam karun aapke liye?",
+                en=f"Hello{' ' + greet if greet else ''}. What shall I take care of?",
+                hinglish=f"Hi{' ' + greet if greet else ''}. Aaj kya karun aapke liye?",
+                playful_tail=" 🙂",
             ),
         )
     task = _newest(_open(ctx, TaskStatus.NEEDS_INFO))

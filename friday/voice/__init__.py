@@ -5,11 +5,13 @@ Owner: Voice Engineer.
 Factories (core/container.py FACTORIES):
   simulator.py            build_simulated_telephony(c) - simworld personas, IVR trees, hold
                           queues, conference, inbound call-backs / missed calls, alt numbers
-  telephony/twilio.py     build_twilio(c)  - Media Streams, conference bridge (international)
-  telephony/exotel.py     build_exotel(c)  - Voicebot stream, transfer bridge (India fallback)
-  telephony/sarvam.py     build_sarvam_telephony(c) - Vobiz/Sarvam media stream (India primary;
-                          not yet in FACTORIES - see docs/CORE_CHANGES.md)
-  telephony/routing.py    RoutedTelephony: Sarvam > Exotel > Twilio, per-call capability fallback
+  telephony/twilio.py     build_twilio(c)  - Media Streams, conference bridge (disabled by default)
+  telephony/exotel.py     build_exotel(c)  - Voicebot stream, transfer bridge (disabled by default)
+  telephony/sarvam.py     build_sarvam_telephony(c) - THE live provider (Sarvam only for now;
+                          capability matrix + degrade paths in its docstring)
+  telephony/routing.py    RoutedTelephony (explicit opt-in); default route = Sarvam only
+  worker.py               VoiceWorker: claims call.place jobs with capacity, call pinning,
+                          lease heartbeat, graceful drain (S-9)
   telephony/plivo.py      stub
   stt/{fake,sarvam,deepgram}.py   build_*_stt(c)
   tts/{fake,sarvam,elevenlabs}.py build_*_tts(c);  tts/cache.py pre-rendered fixed lines

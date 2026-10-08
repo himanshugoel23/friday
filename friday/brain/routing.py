@@ -7,16 +7,11 @@
 * Deterministic inputs never reach a model at all (see ``interpret`` fast path,
   hold / learned-IVR shortcuts in ``next_call_action``, rule-first nudges).
 
-Per-purpose overrides, until core grows Settings fields (proposed in
-docs/CORE_CHANGES.md): env ``FRIDAY_LLM_MODEL_<PURPOSE>`` (e.g.
-``FRIDAY_LLM_MODEL_CALL_TURN=claude-haiku-5-5``), ``FRIDAY_LLM_ESCALATION_MODEL``,
-``FRIDAY_LLM_TASK_TOKEN_BUDGET``; or ``Settings.llm_models`` / ``llm_task_token_budget``
-once they exist.
+Per-purpose models come from ``Settings.model_for(purpose)`` (env ``FRIDAY_LLM_MODELS``).
 """
 
 from __future__ import annotations
 
-import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -62,46 +57,33 @@ DEFAULT_TASK_TOKEN_BUDGET = 60_000
 
 @dataclass
 class ModelRouter:
-    """Precedence: explicit constructor args > env ``FRIDAY_LLM_MODEL_<PURPOSE>`` >
-    ``Settings.llm_models`` / ``llm_escalation_model`` / ``llm_task_token_budget`` >
-    module defaults."""
+    """Routing is ``Settings.model_for(purpose)`` (``llm_models`` / ``llm_default_purpose_model``
+    / ``llm_escalation_model``) and ``Settings.llm_task_token_budget``. Constructor args
+    override per instance (tests); module defaults apply when no Settings are given."""
 
     settings: Settings | None = None
     overrides: dict[str, str] = field(default_factory=dict)
     escalation_model: str | None = None
     task_token_budget: int | None = None
-    default_model: str | None = None
     _used: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     _alerted: set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         s = self.settings
-        models = dict(DEFAULT_MODELS)
-        models.update(getattr(s, "llm_models", None) or {})
-        for purpose in list(models):
-            env = os.environ.get(f"FRIDAY_LLM_MODEL_{purpose.upper()}")
-            if env:
-                models[purpose] = env
-        self.overrides = {**models, **self.overrides}
-        self.default_model = (
-            self.default_model or getattr(s, "llm_default_purpose_model", None) or HAIKU
-        )
-        self.escalation_model = (
-            self.escalation_model
-            or os.environ.get("FRIDAY_LLM_ESCALATION_MODEL")
-            or getattr(s, "llm_escalation_model", None)
-            or OPUS
-        )
+        if self.escalation_model is None:
+            self.escalation_model = s.llm_escalation_model if s else OPUS
         if self.task_token_budget is None:
-            budget = os.environ.get("FRIDAY_LLM_TASK_TOKEN_BUDGET") or getattr(
-                s, "llm_task_token_budget", None
-            )
-            self.task_token_budget = int(budget) if budget else DEFAULT_TASK_TOKEN_BUDGET
+            self.task_token_budget = s.llm_task_token_budget if s else DEFAULT_TASK_TOKEN_BUDGET
 
     def model_for(self, purpose: str, *, task_id: str | None = None, escalate: bool = False) -> str:
         if escalate:
             return self.escalation_model  # type: ignore[return-value]
-        model = self.overrides.get(purpose) or self.default_model or HAIKU
+        if purpose in self.overrides:
+            model = self.overrides[purpose]
+        elif self.settings is not None:
+            model = self.settings.model_for(purpose)
+        else:
+            model = DEFAULT_MODELS.get(purpose, HAIKU)
         if task_id and self.over_budget(task_id):
             return CHEAPER.get(model, model)
         return model

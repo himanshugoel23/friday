@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from friday.core.models import ConversationContext, Direction, Person, Place
+from friday.core.models import ConversationContext, Direction, Person, Place, ref_button_id
 
 from ..schemas import AliasOut, ButtonOut, ResolutionOut
 from ..textutil import has_any, norm, truncate_title
@@ -260,7 +260,8 @@ def resolve(ctx: ConversationContext, text: str) -> ResolutionOut:
             out.ambiguous = True
             out.clarification = "Who is this for? " + " or ".join(p.name for p, _ in hits[:3]) + "?"
             out.buttons = [
-                ButtonOut(id=f"r:person:{p.id}", title=truncate_title(p.name)) for p, _ in hits[:3]
+                ButtonOut(id=ref_button_id("person", p.id), title=truncate_title(p.name))
+                for p, _ in hits[:3]
             ]
             return out
     pronoun = has_any(t, PRONOUN_WORDS)
@@ -306,7 +307,7 @@ def resolve(ctx: ConversationContext, text: str) -> ResolutionOut:
         labels = [pl.label for pl in candidates[:3]]
         out.clarification = " or ".join(labels) + "?"
         out.buttons = [
-            ButtonOut(id=f"r:place:{pl.id}", title=truncate_title(pl.label))
+            ButtonOut(id=ref_button_id("place", pl.id), title=truncate_title(pl.label))
             for pl in candidates[:3]
         ]
     if out.place_id is None and not out.ambiguous:

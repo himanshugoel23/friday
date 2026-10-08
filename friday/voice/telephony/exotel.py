@@ -1,4 +1,5 @@
-"""Exotel telephony - PRIMARY live provider for India (coordinator decision 2026-10-07).
+"""Exotel telephony - DISABLED BY DEFAULT (founder decision 2026-10-08: live calling is
+Sarvam only for now; enable with telephony_provider=exotel or an explicit route).
 
 Indian ExoPhones give better answer rates and route business call-backs to us; Twilio is
 the fallback / international provider.

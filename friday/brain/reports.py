@@ -34,6 +34,7 @@ from friday.core.models import (
     TaskType,
     TemplateRef,
     VendorInteraction,
+    choice_button_id,
 )
 
 from .copy import first_name, say
@@ -120,8 +121,8 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
     if result.care and result.care.ticket_number:
         details.append(KV(key="ticket", value=result.care.ticket_number))
 
-    def s(en: str, hinglish: str | None = None) -> str:
-        return say(lang, tone, en=en, hinglish=hinglish)
+    def s(en: str, hinglish: str | None = None, playful_tail: str = "") -> str:
+        return say(lang, tone, en=en, hinglish=hinglish, playful_tail=playful_tail)
 
     out = result.outcome
     # ---------------------------------------------------------------- inbound / call-backs
@@ -159,9 +160,9 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
         if alert:
             return SummaryOut(
                 summary=s(
-                    f'⚠ {who} sounded unwell: "{alert}". I told them I\'d '
+                    f'Alert: {who} sounded unwell: "{alert}". I told them I\'d '
                     f"let you know right away. If it gets worse, call 112/108.",
-                    f'⚠ {who} ki tabiyat theek nahi lagi: "{alert}". Maine '
+                    f'Alert: {who} ki tabiyat theek nahi lagi: "{alert}". Maine '
                     f"kaha main turant aapko bataungi. Zyada ho toh 112/108.",
                 ),
                 details=details,
@@ -169,7 +170,7 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
                 next_steps=["Call them now", "Call their doctor", "Listen to recording"],
             )
         return SummaryOut(
-            summary=s(f"{who} check-in ☀️ {body}.", f"{who} check-in ☀️ {body}."),
+            summary=s(f"{who} check-in: {body}.", f"{who} check-in: {body}."),
             details=details,
             next_steps=["Listen", "OK"],
         )
@@ -182,8 +183,9 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
             )
             return SummaryOut(
                 summary=s(
-                    f"Booked ✅ {biz}: {terms}. I'll remind you before.",
-                    f"Ho gaya ✅ {biz}: {terms}. Pehle yaad dila dungi.",
+                    f"Booked: {biz}, {terms}. I'll remind you before.",
+                    f"Ho gaya: {biz}, {terms}. Pehle yaad dila dungi.",
+                    playful_tail=" ✅",
                 ),
                 details=details,
                 next_steps=["Reschedule", "Cancel booking"],
@@ -194,9 +196,9 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
             promise = f" · {c.promised_text}" if c and c.promised_text else ""
             return SummaryOut(
                 summary=s(
-                    f"Done ✅ {biz}: ticket {ticket}{promise}. I'll follow up "
+                    f"Done: {biz}, ticket {ticket}{promise}. I'll follow up "
                     f"if it isn't resolved by then.",
-                    f"Ho gaya ✅ {biz}: ticket {ticket}{promise}. Tab tak "
+                    f"Ho gaya: {biz}, ticket {ticket}{promise}. Tab tak "
                     f"resolve nahi hua toh follow-up karungi.",
                 ),
                 details=details,
@@ -208,8 +210,8 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
             price_comma = f", {amt}" if amt else ""
             return SummaryOut(
                 summary=s(
-                    f"Found it ✅ {biz} has {task.spec.item or 'it'} in stock{price_at}.",
-                    f"Mil gaya ✅ {biz} ke paas {task.spec.item or 'yeh'} hai{price_comma}.",
+                    f"Found it. {biz} has {task.spec.item or 'it'} in stock{price_at}.",
+                    f"Mil gaya. {biz} ke paas {task.spec.item or 'yeh'} hai{price_comma}.",
                 ),
                 details=details,
                 next_steps=["Order for delivery", "Done"],
@@ -243,7 +245,7 @@ def summary_text(ctx: ConversationContext, task: Task, result: CallResult) -> Su
         return SummaryOut(
             summary="\n".join([head, *answers[:6]])
             if answers
-            else s(f"Done ✅ {biz} - {task.spec.goal}.", f"Ho gaya ✅ {biz} - {task.spec.goal}."),
+            else s(f"Done: {biz}, {task.spec.goal}.", f"Ho gaya: {biz}, {task.spec.goal}."),
             details=details,
             next_steps=["Book it", "Done"],
         )
@@ -719,11 +721,13 @@ def compare_text(ctx: ConversationContext, parent: Task, ranked: list[Quote]) ->
 def comparison_buttons(parent: Task, ranked: list[Quote]) -> list[ReplyButton]:
     n = 3 if len(ranked) <= 2 else 2
     buttons = [
-        ReplyButton(id=f"c:{parent.id}:{i}", title=truncate_title(f"Book {q.business_name}"))
+        ReplyButton(
+            id=choice_button_id(parent.id, i), title=truncate_title(f"Book {q.business_name}")
+        )
         for i, q in enumerate(ranked[: min(n, len(ranked))])
     ]
     if len(buttons) < 3:
-        buttons.append(ReplyButton(id=f"c:{parent.id}:none", title="None of these"))
+        buttons.append(ReplyButton(id=choice_button_id(parent.id, None), title="None of these"))
     return buttons[:3]
 
 
@@ -823,7 +827,7 @@ def shortlist(
         if used_before:
             reason_bits.append("you've used them before")
         if bad_past:
-            reason_bits.append("⚠ bad experience last time")
+            reason_bits.append("bad experience last time")
         if pos and cand.review_snippets:
             snippet = next(
                 (r for r in cand.review_snippets if any(w in r.lower() for w in pos)),
@@ -831,7 +835,7 @@ def shortlist(
             )
             reason_bits.append(f'"{snippet[:60]}"')
         if neg:
-            reason_bits.append(f"⚠ reviews mention {neg[0].rstrip('g')}")
+            reason_bits.append(f"reviews mention {neg[0].rstrip('g')}")
         if cand.distance_km is not None:
             reason_bits.append(f"{cand.distance_km:.1f} km")
         scored.append((round(score, 4), cand.name, cand, ", ".join(reason_bits)))

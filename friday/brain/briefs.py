@@ -282,7 +282,7 @@ def build_call_brief(
     )
 
     identifiers = [
-        i for i in getattr(ctx, "identifiers", []) or [] if i.id in spec.approved_identifier_ids
+        i for i in ctx.identifiers if i.id in spec.approved_identifier_ids
     ]
     user_phone = None
     if (

@@ -273,3 +273,27 @@ can now be removed (owners in docs/TASKS.md §Stage 3).
 - Security config: SECURITY-17/26/30. `AccountIdentifier` value check (SECURITY-31). Log redaction (SECURITY-26).
 - Caller-ID pool contracts: `FridayNumber`, `NumberStatus`, `NumberHealth`, `NumberLimits`, `NumberChoice`, `NumberOutcome`, the `NumberPool` Protocol and `number_*` settings.
 - Scale-out: `core.scale` (`JobQueue`, `Outbox`, `DistributedLock`, `Cache`, `RateLimiter`, `IdempotencyStore` plus in-memory impls), role settings, `ROLE_COMPONENTS` / `JOB_ROUTES` in the container.
+
+## 2026-10-08 — Voice Engineer, Stage 3 wave 2 (Sarvam-only, security, scale)
+All voice work compiles against merged core; these are follow-ups, each with a local workaround.
+1. **Telephony default = Sarvam only (founder 2026-10-08).** `Settings.telephony_route` default should
+   be `["sarvam"]` and `resolve_telephony()` `auto` -> `"sarvam"` (not `routed`). Until then the routed
+   builder (`friday/voice/telephony/routing.py::default_route`) uses Sarvam only unless
+   `telephony_provider="routed"` (then `telephony_route` is honoured) or `exotel`/`twilio` is selected.
+   Add `sarvam_verified_capabilities: CsvList = []` (e.g. `bridge_transfer`) - read with `getattr` today.
+2. **`object_store` component** (`friday.db.objectstore:build_object_store_component`) is not in
+   `FACTORIES`. The runner calls `c.get("object_store")` (None if absent -> recordings keep the provider
+   URL; simulator `file://` kept). Add it to FACTORIES and to `ROLE_COMPONENTS["voice"]`.
+3. **`safety.looks_like_commitment(text)`** (SECURITY-3): voice carries its own copy in
+   `friday/voice/commit.py` so it never imports `friday.brain`; please move one detector into core and
+   have both import it. Also `CallAction` has no field for the resolved slot start, so the runner reads
+   `collected["slot_at"]` (ISO-8601) and `collected["decision"]` ("slot,price") for `check_commit` -
+   propose `CallAction.slot_at: datetime | None`.
+4. **`TelephonyProvider.delete_recording(url)`** (SECURITY-14) is implemented on every voice provider
+   (raises `ProviderError` on failure); add it to `InboundTelephony`/a `RecordingTelephony` Protocol.
+5. **Provider signals**: `CallResult.collected["provider_signal"] = "blocked"|"rejected"` and
+   `CallResult.error` containing "blocked"/"rejected" (what `engine._number_outcome` reads today). A typed
+   `CallResult.carrier_signal: str | None` would remove the string matching.
+6. **Job kind `call.inbound`** is routed to the voice role in `JOB_ROUTES` but `TaskEngine.handle_job`
+   only knows `call.place`; `VoiceWorker` therefore claims only `call.place` (inbound calls arrive as bus
+   events + `take_inbound`).
