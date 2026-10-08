@@ -112,11 +112,6 @@ async def test_call_transcript_encrypted_at_rest(repos, clock, db) -> None:
     assert "Insulin" not in await _raw_dump(db, "call_turns")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="SECURITY-13: one key derived by SHA-256 from FRIDAY_SECRET_KEY, no key id / "
-    "versioning, so keys cannot be rotated (needs KMS envelope encryption + MultiFernet)",
-)
 async def test_identifier_key_rotation(repos, clock, db) -> None:
     from friday.db.repositories._base import SecretBox
 

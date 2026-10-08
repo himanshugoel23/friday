@@ -18,6 +18,7 @@ Owner: Backend Engineer A.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -102,8 +103,12 @@ class Repositories:
     purger: DataPurger
 
 
-def make_repositories(db: Database, clock: Clock | None, secret_key: str) -> Repositories:
-    box = SecretBox(secret_key)
+def make_repositories(
+    db: Database, clock: Clock | None, secret_key: str, *, previous_keys: Sequence[str] = ()
+) -> Repositories:
+    """``secret_key`` keys the identifier SecretBox (HKDF, purpose-labelled);
+    ``previous_keys`` stay readable after a rotation (SECURITY-13)."""
+    box = SecretBox(secret_key, previous=previous_keys)
     return Repositories(
         db=db,
         users=UserRepo(db, clock),
@@ -127,4 +132,8 @@ def make_repositories(db: Database, clock: Clock | None, secret_key: str) -> Rep
 
 
 def build_repositories(c: Container) -> Repositories:
-    return make_repositories(c.db, c.clock, c.settings.secret_key.get_secret_value())
+    s = c.settings
+    # SECURITY-30: a dedicated field key when configured; the dev fallback is the app
+    # secret, which SecretBox separates from the PIN pepper / index key by HKDF label.
+    key = s.field_key.get_secret_value() if s.field_key else s.secret_key.get_secret_value()
+    return make_repositories(c.db, c.clock, key)
