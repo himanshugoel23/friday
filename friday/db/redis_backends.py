@@ -24,9 +24,13 @@ if TYPE_CHECKING:
     from friday.core.container import Container
 
 PREFIX = "friday:"
-RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
+RELEASE = (
+    "if redis.call('get', KEYS[1]) == ARGV[1] "
+    "then return redis.call('del', KEYS[1]) else return 0 end"
+)
 BUCKET = """
-local rate, cap, cost, now = tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3]), tonumber(ARGV[4])
+local rate, cap = tonumber(ARGV[1]), tonumber(ARGV[2])
+local cost, now = tonumber(ARGV[3]), tonumber(ARGV[4])
 local d = redis.call('hmget', KEYS[1], 't', 'ts')
 local tokens = tonumber(d[1]) or cap
 local ts = tonumber(d[2]) or now
