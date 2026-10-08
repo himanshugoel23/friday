@@ -38,7 +38,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from friday.core.templates import default_whatsapp_names
 
 Mode = Literal["simulator", "live"]
-LLMProviderName = Literal["auto", "anthropic", "fake"]
+LLMProviderName = Literal["auto", "anthropic", "openai", "fake"]
 TelephonyProviderName = Literal[
     "auto", "simulator", "routed", "sarvam", "twilio", "exotel", "plivo"
 ]
@@ -70,6 +70,34 @@ DEFAULT_LLM_MODELS: dict[str, str] = {
     "translate": "claude-haiku-5-5",
     "sim_business": "claude-haiku-5-5",
     "call_turn": "claude-sonnet-5-5",
+}
+
+# OpenAI (GPT) routing, used when the resolved LLM provider is "openai". Same cost rule: the
+# cheap model for every light job, the same cheap model with LOW reasoning for live call turns
+# (latency), the bigger model only on explicit escalation. See docs/LIVE_TEST_WINDOWS.md.
+OPENAI_LIGHT_MODEL = "gpt-5.4-mini"
+OPENAI_ESCALATION_MODEL = "gpt-5.4"
+DEFAULT_OPENAI_MODELS: dict[str, str] = {
+    p: OPENAI_LIGHT_MODEL for p in DEFAULT_LLM_MODELS
+}  # incl. call_turn
+# reasoning_effort per purpose (GPT-5 family only): none | minimal | low | medium | high.
+DEFAULT_OPENAI_REASONING: dict[str, str] = {"call_turn": "low"}
+# ESTIMATES to verify against https://openai.com/api/pricing: USD per 1M tokens as
+# [input, cached input, output]. Used only for internal INR cost logging, never shown to users.
+DEFAULT_OPENAI_PRICES_USD_PER_MTOK: dict[str, list[float]] = {
+    "gpt-5.4-nano": [0.20, 0.02, 1.25],
+    "gpt-5.4-mini": [0.75, 0.075, 4.50],
+    "gpt-5.4-pro": [30.0, 30.0, 180.0],
+    "gpt-5.4": [2.50, 0.25, 15.0],
+    "gpt-5.5": [5.0, 0.50, 30.0],
+    "gpt-5-nano": [0.05, 0.005, 0.40],
+    "gpt-5-mini": [0.25, 0.025, 2.0],
+    "gpt-5": [1.25, 0.125, 10.0],
+    "gpt-4.1-nano": [0.10, 0.025, 0.40],
+    "gpt-4.1-mini": [0.40, 0.10, 1.60],
+    "gpt-4.1": [2.0, 0.50, 8.0],
+    "gpt-4o-mini": [0.15, 0.075, 0.60],
+    "gpt-4o": [2.50, 1.25, 10.0],
 }
 
 
@@ -139,7 +167,27 @@ class Settings(BaseSettings):
     llm_escalation_model: str = "claude-opus-5-5"  # ONLY on explicit escalation
     llm_task_token_budget: int = 60_000  # per task; over budget -> cheaper model + alert
     llm_prompt_caching: bool = True
-    llm_batch_enabled: bool = True  # Batch API for non-real-time work
+    llm_batch_enabled: bool = True  # Batch API for non-real-time work (Anthropic only)
+
+    # OpenAI (GPT) as an alternative brain: FRIDAY_LLM_PROVIDER=openai, or auto with only
+    # OPENAI_API_KEY set. Anthropic settings above are untouched.
+    openai_api_key: SecretStr | None = Field(
+        default=None, validation_alias=_alias("OPENAI_API_KEY", "FRIDAY_OPENAI_API_KEY")
+    )
+    openai_models: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_OPENAI_MODELS))
+    openai_default_purpose_model: str = OPENAI_LIGHT_MODEL  # purpose not in openai_models
+    openai_escalation_model: str = OPENAI_ESCALATION_MODEL  # ONLY on explicit escalation
+    openai_reasoning_effort: dict[str, str] = Field(
+        default_factory=lambda: dict(DEFAULT_OPENAI_REASONING)
+    )
+    openai_default_reasoning_effort: str = "none"  # purposes not in openai_reasoning_effort
+    openai_timeout_s: float = 30.0  # non-live-call purposes (total budget incl. retries)
+    openai_call_turn_timeout_s: float = 8.0  # live call turn: then the brain degrades gracefully
+    openai_max_retries: int = 2  # 429 / 5xx / connection, exponential backoff within the budget
+    openai_prices_usd_per_mtok: dict[str, list[float]] = Field(
+        default_factory=lambda: {k: list(v) for k, v in DEFAULT_OPENAI_PRICES_USD_PER_MTOK.items()}
+    )  # ESTIMATES: [input, cached input, output] per model prefix
+    openai_usd_to_inr: float = 84.0
 
     # ------------------------------------------------------------------ telephony (voice)
     telephony_provider: TelephonyProviderName = "auto"
@@ -480,7 +528,12 @@ class Settings(BaseSettings):
 
     # ================================================================== helpers
     def model_for(self, purpose: str, *, escalate: bool = False) -> str:
-        """Model for an LLM purpose (founder routing). Never Opus unless ``escalate``."""
+        """Model for an LLM purpose (founder routing). Never Opus (or the bigger GPT) unless
+        ``escalate``. Follows the resolved provider: GPT names when it is ``openai``."""
+        if self.resolve_llm() == "openai":
+            if escalate:
+                return self.openai_escalation_model
+            return self.openai_models.get(purpose, self.openai_default_purpose_model)
         if escalate:
             return self.llm_escalation_model
         return self.llm_models.get(purpose, self.llm_default_purpose_model)
@@ -617,10 +670,29 @@ class Settings(BaseSettings):
             return "FRIDAY_PUBLIC_BASE_URL must not be localhost (use the tunnel address)"
         return None
 
-    def resolve_llm(self) -> Literal["anthropic", "fake"]:
+    def resolve_llm(self) -> Literal["anthropic", "openai", "fake"]:
+        """auto: Anthropic if its key is set, else OpenAI if its key is set, else the fake in
+        simulator mode. Live mode with neither key resolves to Anthropic so ``live_problems``
+        reports the missing key (it never silently falls back to the fake)."""
         if self.llm_provider != "auto":
             return self.llm_provider
-        return "anthropic" if (self.is_live or self.anthropic_api_key) else "fake"
+        if self.anthropic_api_key:
+            return "anthropic"
+        if self.openai_api_key:
+            return "openai"
+        return "anthropic" if self.is_live else "fake"
+
+    def llm_key_name(self) -> str | None:
+        """Env name of the key the resolved LLM provider needs (names only, never values)."""
+        names = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+        return names.get(self.resolve_llm())
+
+    def llm_key_configured(self) -> bool:
+        return bool(
+            {"anthropic": self.anthropic_api_key, "openai": self.openai_api_key}.get(
+                self.resolve_llm()
+            )
+        )
 
     def resolve_stt(self) -> Literal["fake", "sarvam", "deepgram"]:
         if self.stt_provider != "auto":
@@ -713,7 +785,13 @@ class Settings(BaseSettings):
         problems: list[str] = []
         need: dict[str, object] = {}
         if self.resolve_llm() == "anthropic":
-            need["ANTHROPIC_API_KEY"] = self.anthropic_api_key
+            if self.llm_provider == "auto" and not self.anthropic_api_key:
+                # either provider's key satisfies the LLM requirement (auto picks the one set)
+                problems.append("missing ANTHROPIC_API_KEY (or OPENAI_API_KEY): an LLM key")
+            else:
+                need["ANTHROPIC_API_KEY"] = self.anthropic_api_key
+        elif self.resolve_llm() == "openai":
+            need["OPENAI_API_KEY"] = self.openai_api_key
         tel = self.resolve_telephony()
         if tel == "routed":
             route = self.telephony_route or ["twilio"]

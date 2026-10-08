@@ -40,6 +40,7 @@ FACTORIES: dict[str, dict[str, str]] = {
     # --- AI Engineer (friday/brain/)
     "llm": {
         "anthropic": "friday.brain.llm:build_anthropic_llm",
+        "openai": "friday.brain.openai_llm:build_openai_llm",
         "fake": "friday.brain.fake_llm:build_fake_llm",
     },
     "brain": {"*": "friday.brain.service:build_brain"},

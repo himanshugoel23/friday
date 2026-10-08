@@ -63,7 +63,7 @@ def to_document(out: ExtractOut) -> ExtractedDocument:
 class LLMDocumentExtractor:
     def __init__(self, llm: LLMClient, model: str | None = "claude-haiku-5-5") -> None:
         self.llm = llm
-        self.model = model  # Haiku by default (cost rule 1)
+        self.model = model  # cheap model by default (cost rule 1)
         self._pending: dict[str, dict] = {}
 
     async def extract(

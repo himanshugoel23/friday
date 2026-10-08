@@ -32,9 +32,17 @@ from friday.core.models import (
 NOW = datetime(2026, 10, 7, 10, 0, tzinfo=IST)  # Wed 7 Oct 2026, 10:00 IST
 
 
+@pytest.fixture(autouse=True)
+def _no_llm_keys_in_env(monkeypatch):
+    """Offline tests must resolve ``auto`` to the fake whatever the developer exported."""
+    for k in ("OPENAI_API_KEY", "FRIDAY_OPENAI_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+
+
 @pytest.fixture
 def brain_settings() -> Settings:
-    return Settings(_env_file=None, mode="simulator", env="test", anthropic_api_key=None)
+    return Settings(_env_file=None, mode="simulator", env="test", anthropic_api_key=None,
+                    openai_api_key=None)
 
 
 @pytest.fixture

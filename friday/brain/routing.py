@@ -50,8 +50,8 @@ MAX_TOKENS: dict[str, int] = {
     "call_turn": 400,
 }
 EFFORT: dict[str, str] = {p: "low" for p in DEFAULT_MODELS}
-# cheaper model when a task is over its token budget
-CHEAPER: dict[str, str] = {SONNET: HAIKU, OPUS: SONNET}
+# cheaper model when a task is over its token budget (GPT: the escalation model -> the light one)
+CHEAPER: dict[str, str] = {SONNET: HAIKU, OPUS: SONNET, "gpt-5.4": "gpt-5.4-mini"}
 DEFAULT_TASK_TOKEN_BUDGET = 60_000
 
 
@@ -71,7 +71,7 @@ class ModelRouter:
     def __post_init__(self) -> None:
         s = self.settings
         if self.escalation_model is None:
-            self.escalation_model = s.llm_escalation_model if s else OPUS
+            self.escalation_model = s.model_for("", escalate=True) if s else OPUS
         if self.task_token_budget is None:
             self.task_token_budget = s.llm_task_token_budget if s else DEFAULT_TASK_TOKEN_BUDGET
 
