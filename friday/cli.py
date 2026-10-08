@@ -4,6 +4,7 @@
     uv run friday initdb    # create tables in FRIDAY_DATABASE_URL
     uv run friday serve     # run the API (needs friday.api.app:create_app)
     uv run friday worker --roles voice,task   # background roles without the HTTP server
+    uv run friday pause [--resume|--status]   # kill switch (no calls / nudges)
     uv run friday init-env | doctor | livecall --to +91... [--simulate]   # laptop live test
     uv run friday chat      # local WhatsApp simulator chat (needs friday.channels.cli:main)
     uv run friday loadtest --users 1000 --calls 200   # S-11 load test on the simulator
@@ -23,6 +24,7 @@ import sys
 from friday.core.config import Settings
 from friday.core.container import FACTORIES, Container
 from friday.core.logging import setup_logging
+from friday.pause import install_pause_guard, is_paused, pause_status, set_paused
 
 
 def _check(settings: Settings) -> int:
@@ -47,6 +49,8 @@ def _check(settings: Settings) -> int:
     problems = settings.live_problems()
     if not problems:
         print("live configuration: OK")
+        for note in settings.optional_feature_notes():
+            print(f"  optional, disabled: {note}")
         return 1 if missing else 0
     print(f"\nLIVE CONFIGURATION INCOMPLETE - {len(problems)} problem(s); Friday will not start:")
     for p in problems:
@@ -56,11 +60,29 @@ def _check(settings: Settings) -> int:
     return 1
 
 
+def _pause(settings: Settings, *, resume: bool, status_only: bool) -> int:
+    if not status_only:
+        set_paused(settings, on=not resume)
+    print(f"kill switch: {pause_status(settings)}")
+    if status_only:
+        return 3 if is_paused(settings) else 0
+    if resume:
+        if settings.paused:
+            print("FRIDAY_PAUSED=true is still set in the environment: change it and restart.")
+            return 1
+        print("Resumed: queued calls and nudges continue now.")
+        return 0
+    print("Paused: no new calls or nudges. Inbound messages still get a polite notice.")
+    print("Calls already in progress finish normally. Undo with: friday pause --resume")
+    return 0
+
+
 async def _worker(settings: Settings) -> None:
     from friday.api.runtime import Runtime
 
     c = Container(settings)
     runtime = Runtime(c)
+    install_pause_guard(c)
     await runtime.start(background=True)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -352,6 +374,9 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--live", action="store_true", help="also run the read-only Vobiz probe")
     sub.add_parser("initdb")
     sub.add_parser("serve")
+    pause = sub.add_parser("pause", help="kill switch: stop outbound calls and proactive messages")
+    pause.add_argument("--resume", action="store_true", help="switch the kill switch OFF")
+    pause.add_argument("--status", action="store_true", help="only show the current state")
     worker = sub.add_parser("worker", help="run background roles without the HTTP server")
     worker.add_argument("--roles", default=None, help="api,task,voice,proactive,batch (CSV)")
     sub.add_parser("chat")
@@ -407,12 +432,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "initdb":
         asyncio.run(_initdb(settings))
         return 0
+    if args.cmd == "pause":
+        return _pause(settings, resume=args.resume, status_only=args.status)
     if args.cmd == "serve":
         import uvicorn
 
-        uvicorn.run(
-            "friday.api.app:create_app", factory=True, host=settings.host, port=settings.port
-        )
+        from friday.api.app import create_app
+
+        container = Container(settings)
+        install_pause_guard(container)  # wraps instance methods; no-op until `friday pause`
+        uvicorn.run(create_app(container), host=settings.host, port=settings.port)
+        asyncio.run(container.aclose())
         return 0
     if args.cmd == "worker":
         if args.roles:

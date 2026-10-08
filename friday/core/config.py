@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -48,7 +49,7 @@ GeocoderProviderName = Literal["auto", "simulator", "google"]
 HotelProviderName = Literal["auto", "simulator", "expedia_rapid"]
 BackendName = Literal["auto", "memory", "postgres", "redis"]
 WorkerRole = Literal["api", "task", "voice", "proactive", "batch"]
-ProfileName = Literal["default", "pilot"]
+ProfileName = Literal["default", "pilot", "beta"]
 ALL_ROLES: tuple[str, ...] = ("api", "task", "voice", "proactive", "batch")
 
 # Comma-separated OR JSON list in env: FRIDAY_NUMBERS=+9180...,+9122...
@@ -89,6 +90,10 @@ class Settings(BaseSettings):
     # needs only telephony + Sarvam + LLM + the secrets/keys + an https public URL;
     # WhatsApp/SMS/hotels/directory fall back to simulators and recordings stay off.
     # ``default`` keeps every production requirement. See docs/LIVE_TEST_WINDOWS.md.
+    # ``beta`` (FRIDAY_PROFILE=beta): small private-beta production (docs/DEPLOY_AWS.md). Live mode
+    # requires LLM, Sarvam, Vobiz + caller IDs, Google Places, WhatsApp Cloud, an https public URL,
+    # all keys/secrets and the admin token; Expedia hotels, MSG91/DLT SMS and the object store are
+    # OPTIONAL (hotels -> simulator, SMS -> off, recordings stay OFF without an object store).
     profile: ProfileName = "default"
     # Pilot safety: the ONLY numbers `friday livecall` may dial (E.164, CSV). Default empty.
     pilot_allowed_numbers: CsvList = Field(default_factory=list)
@@ -365,6 +370,14 @@ class Settings(BaseSettings):
     cost_alert_inr_per_user_month: float = 1500.0  # ops alert threshold (logs/event)
     pin_max_attempts: int = 5
     admin_phones: list[str] = Field(default_factory=list)  # bootstrap users, skip invite
+    # Bearer token for /admin/* (the admin router also reads FRIDAY_ADMIN_TOKEN from os.environ).
+    admin_token: SecretStr | None = None
+
+    # ------------------------------------------------------------------ kill switch
+    # ``friday pause`` (friday/pause.py): stops outbound calls + proactive messages at once.
+    # Paused when FRIDAY_PAUSED=true OR the flag file exists (shared volume => all containers).
+    paused: bool = False
+    pause_file: str = "./var/PAUSED"
 
     # ------------------------------------------------------------------ security keys
     # SECURITY-30: separate keys per purpose. In dev each falls back to
@@ -456,6 +469,8 @@ class Settings(BaseSettings):
     def _pilot_no_recordings(self) -> Settings:
         if self.profile == "pilot":  # pilot: recordings are never persisted
             self.call_record = False
+        elif self.profile == "beta" and not self.object_store_url:
+            self.call_record = False  # beta: recordings only with an object store (S-6)
         return self
 
     # ================================================================== helpers
@@ -510,6 +525,32 @@ class Settings(BaseSettings):
     @property
     def is_pilot(self) -> bool:
         return self.profile == "pilot"
+
+    @property
+    def is_beta(self) -> bool:
+        return self.profile == "beta"
+
+    def beta_expedia_configured(self) -> bool:
+        return bool(self.expedia_rapid_api_key and self.expedia_rapid_shared_secret)
+
+    def beta_msg91_configured(self) -> bool:
+        return bool(self.msg91_auth_key and self.dlt_entity_id)
+
+    def optional_feature_notes(self) -> list[str]:
+        """Beta only: which OPTIONAL features are off and what happens instead."""
+        if not self.is_beta:
+            return []
+        notes = []
+        if self.resolve_hotels() == "simulator":
+            notes.append(
+                "hotels: OFF (no Expedia keys) - hotel tasks run on the SIMULATOR and book "
+                "nothing real; do not offer them to testers"
+            )
+        if self.resolve_sms() == "fake":
+            notes.append("SMS: OFF (no MSG91/DLT) - WhatsApp is the only text channel")
+        if not self.object_store_url:
+            notes.append("recordings: OFF (no FRIDAY_OBJECT_STORE_URL) - nothing is recorded")
+        return notes
 
     def public_url_problem(self) -> str | None:
         """Why ``public_base_url`` cannot receive provider webhooks (None == fine)."""
@@ -567,6 +608,8 @@ class Settings(BaseSettings):
         # book() has real-world side effects -> real provider only in live mode.
         if not self.is_live or (self.is_pilot and self.hotel_provider == "auto"):
             return "simulator"
+        if self.is_beta and self.hotel_provider == "auto":  # optional in beta
+            return "expedia_rapid" if self.beta_expedia_configured() else "simulator"
         return "expedia_rapid" if self.hotel_provider == "auto" else self.hotel_provider
 
     def resolve_telephony(
@@ -608,6 +651,8 @@ class Settings(BaseSettings):
     def resolve_sms(self) -> Literal["fake", "msg91"]:
         if not self.is_live or (self.is_pilot and self.sms_provider == "auto"):
             return "fake"
+        if self.is_beta and self.sms_provider == "auto":  # optional in beta
+            return "msg91" if self.beta_msg91_configured() else "fake"
         return "msg91" if self.sms_provider == "auto" else self.sms_provider
 
     def live_problems(self) -> list[str]:
@@ -632,7 +677,7 @@ class Settings(BaseSettings):
         if uses_sarvam and not (self.sarvam_caller_ids or self.friday_numbers):
             problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
         # S-6: no local-disk recordings in live (the pilot never records)
-        if self.is_live and not self.is_pilot and not self.object_store_url:
+        if self.is_live and not self.is_pilot and not self.is_beta and not self.object_store_url:
             problems.append("missing FRIDAY_OBJECT_STORE_URL (s3://bucket/prefix) for recordings")
         if self.resolve_stt() == "sarvam" or self.resolve_tts() == "sarvam":
             need["SARVAM_API_KEY"] = self.sarvam_api_key
@@ -656,7 +701,7 @@ class Settings(BaseSettings):
         if self.resolve_sms() == "msg91":
             need |= {"MSG91_AUTH_KEY": self.msg91_auth_key, "DLT_ENTITY_ID": self.dlt_entity_id}
         problems += [f"missing {k}" for k, v in need.items() if not v]
-        if self.is_live and self.is_pilot and (msg := self.public_url_problem()):
+        if self.is_live and (self.is_pilot or self.is_beta) and (msg := self.public_url_problem()):
             problems.append(msg)
         if self.is_live and self.secret_key.get_secret_value() == _DEV_SECRET:
             problems.append("FRIDAY_SECRET_KEY must be set in live mode")
@@ -675,6 +720,15 @@ class Settings(BaseSettings):
                 problems.append("missing FRIDAY_INDEX_KEY (blind-index HMAC key)")
             if self.log_level.upper() == "DEBUG":  # SECURITY-26
                 problems.append("FRIDAY_LOG_LEVEL=DEBUG is not allowed in live mode")
+        if self.is_live and self.is_beta:
+            if not self.admin_token and not os.environ.get("FRIDAY_ADMIN_TOKEN"):
+                problems.append("missing FRIDAY_ADMIN_TOKEN (protects /admin/health)")
+            if not self.database_url.startswith("postgresql"):
+                problems.append("FRIDAY_DATABASE_URL must be PostgreSQL (postgresql+asyncpg://)")
+            if not self.invite_only:
+                problems.append("FRIDAY_INVITE_ONLY must stay true in the beta")
+            if self.whatsapp_provider == "simulator" or self.telephony_provider == "simulator":
+                problems.append("beta must not pin a simulator provider in live mode")
         return problems
 
 
