@@ -1,5 +1,5 @@
 #!/bin/bash
-# Friday: Lightsail "launch script" (Ubuntu 24.04). Paste this whole file into the
+# Friday: first-boot server script (Ubuntu 24.04; Lightsail, DigitalOcean, Vultr, any VPS). Paste this whole file into the
 # "Add launch script" box when you create the instance (Lightsail > Create instance).
 # It runs once, as root, at first boot. It contains NO secrets and does NOT download Friday itself
 # (the repository is private; follow docs/DEPLOY_AWS.md step 7 afterwards).
@@ -22,6 +22,9 @@ if ! swapon --show | grep -q /swapfile; then
   swapon /swapfile
   echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
+
+# Non-AWS providers (DigitalOcean, Vultr...) log in as root and have no 'ubuntu' user: create it
+id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo ubuntu
 
 # Docker (official repository)
 install -m 0755 -d /etc/apt/keyrings

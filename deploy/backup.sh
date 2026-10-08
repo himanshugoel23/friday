@@ -12,6 +12,7 @@
 #   AWS_ACCESS_KEY_ID=...            # IAM user "friday-backup" (policy in docs/DEPLOY_AWS.md)
 #   AWS_SECRET_ACCESS_KEY=...
 #   AWS_DEFAULT_REGION=ap-south-1
+#   BACKUP_ENDPOINT_URL=https://blr1.digitaloceanspaces.com   # only for non-AWS S3-compatible storage
 #   HEALTHCHECK_URL=                 # optional: a "dead man's switch" URL pinged only on success
 #
 # Does NOT back up /etc/friday/.env (it holds the encryption keys): keep an offline copy yourself.
@@ -47,8 +48,8 @@ mv "$file.partial" "$file"; chmod 600 "$file"
 ok "dump $(basename "$file") ($((size / 1024)) KiB) verified"
 
 say "uploading to s3://$BACKUP_BUCKET/postgres/"
-aws s3 cp "$file" "s3://$BACKUP_BUCKET/postgres/$(basename "$file")" --sse AES256 --only-show-errors
-aws s3api head-object --bucket "$BACKUP_BUCKET" --key "postgres/$(basename "$file")" >/dev/null
+aws ${BACKUP_ENDPOINT_URL:+--endpoint-url "$BACKUP_ENDPOINT_URL"} s3 cp "$file" "s3://$BACKUP_BUCKET/postgres/$(basename "$file")" --only-show-errors
+aws ${BACKUP_ENDPOINT_URL:+--endpoint-url "$BACKUP_ENDPOINT_URL"} s3api head-object --bucket "$BACKUP_BUCKET" --key "postgres/$(basename "$file")" >/dev/null
 ok "uploaded and confirmed"
 
 # keep the newest N local copies
