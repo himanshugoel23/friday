@@ -85,7 +85,12 @@ FOUR_DIGITS_RE = re.compile(r"(?<!\d)\d{4}(?!\d)")
 PIN_TOKEN_STRIP_RE = re.compile(r"\[PIN\]|[\s.,!?;:]+", re.I)
 # Task states in which a mid-call / approval question may be answered (SECURITY-9).
 ANSWERABLE_STATUSES = frozenset(
-    {TaskStatus.AWAITING_USER, TaskStatus.AWAITING_APPROVAL, TaskStatus.CALLING}
+    {
+        TaskStatus.AWAITING_USER,
+        TaskStatus.AWAITING_APPROVAL,
+        TaskStatus.AWAITING_CHOICE,  # QA BUG-3: comparison choice taps were swallowed
+        TaskStatus.CALLING,
+    }
 )
 PROFILE_FIELDS = {
     "name",
