@@ -36,6 +36,11 @@ stream from Vobiz and the question Friday asks you on WhatsApp mid-call all live
 the **same** process. Splitting them across containers breaks mid-call questions. That is fine for a
 beta and is the main thing to redesign when you scale (section 15).
 
+**Hard limit for now:** live-call state, the Vobiz media WebSocket and mid-call questions are held in
+memory, so the `voice`, `task` and `api` roles must run in **ONE process per VM** (the compose `split`
+profile is disabled). Do not run two `api` containers or add a second VM behind a load balancer: a
+call's audio and its mid-call question would land in different processes and fail. A restart cuts live calls.
+
 ---
 
 ## 1. Create the AWS account safely (30 min)
@@ -202,7 +207,7 @@ Fill every `CHANGE_ME`:
 | `GOOGLE_PLACES_API_KEY` | Google Cloud -> APIs & Services -> Credentials (enable *Places API (New)* and *Geocoding API*; restrict the key to the server IP; set a budget) |
 | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET` | Meta developers -> your app -> WhatsApp (use a permanent System User token) |
 
-Leave the "OPTIONAL" section empty to keep hotels, SMS and call recordings **off**.
+Leave the "OPTIONAL" section empty to keep hotels, SMS and call recordings **off**. Off means disabled, never simulated: hotel tasks use the direct-call path only (users are told live rates are not available), SMS is skipped (WhatsApp or a call-back is used), and `friday check` lists each disabled feature. Also set `FRIDAY_TERMS_URL`, `FRIDAY_PRIVACY_URL` and `FRIDAY_GRIEVANCE_EMAIL` (required).
 
 **Back up the keys.** Print the file once to a screen you control, copy it into your password manager
 as a secure note, and close the screen: `sudo cat /etc/friday/.env`. In particular `FRIDAY_FIELD_KEY`:
@@ -435,3 +440,9 @@ managed databases. Plan with your engineer (this is a project of days, not hours
 
 The `worker-task` and `worker-voice` services in `deploy/docker-compose.prod.yml` (profile `split`) are the
 starting point for that design; do not turn them on for the single VM.
+
+**What must change before scale-out** (engineering project): (1) sticky routing by call id so a call's
+media WebSocket and webhooks always reach the process that owns it (load balancer rule on the `?w=` worker id);
+(2) move live-call state and mid-call questions out of process memory into shared state (Redis or Postgres:
+call sessions, pending questions, answer delivery), so any process can accept the user's WhatsApp answer and
+hand it to the process holding the call; (3) only then enable the `split` profile and run more than one voice worker.

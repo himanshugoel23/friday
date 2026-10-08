@@ -212,6 +212,12 @@ engine: hotels.search(stay) + directory reviews → brain.shortlist
 No payments; no scraping.
 ```
 
+Without Expedia keys (live), the `hotels` component is disabled, never simulated: `hotels.search` is
+skipped, the user is told live rates are not available, and the flow is directory -> call the property ->
+ask availability and rate -> ask the user before booking (DIRECT_HOLD). The same "disabled, not simulated"
+rule applies to SMS (notifier skips it) in live mode; only the pilot profile or an explicit provider pin may
+use simulators, and pilot simulated results carry `[SIMULATED]`.
+
 ### 3.6 Proactive loop
 
 ```
@@ -424,6 +430,12 @@ Verified caller name (CNAP, Truecaller for Business) is recorded per number
   verify token and DEBUG logging. The root handler redacts phone numbers and drops SQL parameters.
 
 ### 10.3 Deployment & scaling
+
+> **Current limit (beta): one process per VM.** Live-call state, the media WebSocket and mid-call
+> questions are in-memory, so `voice`, `task` and `api` run in ONE process (the compose `split` profile is
+> disabled). The diagram below is the TARGET. To get there: sticky routing by call id (media WS and
+> webhooks to the owning worker), and shared state (Redis/Postgres) for call sessions, pending mid-call
+> questions and answer delivery. See docs/DEPLOY_AWS.md section 15.
 
 Target: 100k+ users, 1,000+ concurrent live calls, webhook bursts; no lost tasks,
 no duplicate calls, no double-sent messages.
