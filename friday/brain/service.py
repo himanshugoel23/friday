@@ -77,6 +77,7 @@ from .copy import first_name
 from .heuristics.callstate import is_hold, normalize_transcript
 from .heuristics.interpret import draft_missing
 from .heuristics.lexicon import DELEGATION_PHRASES, SECRET_WORDS
+from .heuristics.onboarding import LegalLinks
 from .heuristics.onboarding import onboarding_turn as _onboarding
 from .heuristics.references import canonical_relation, resolve
 from .inbound import InboundCallBrief, InboundContext, RelatedTask
@@ -800,7 +801,9 @@ class FridayBrain:
     async def onboarding_turn(
         self, ctx: ConversationContext, step: OnboardingStep, message: InboundMessage | None
     ) -> OnboardingTurn:
-        turn, draft = _onboarding(ctx, step, message)
+        turn, draft = _onboarding(
+            ctx, step, message, LegalLinks.from_settings(self.settings)
+        )
         if draft is not None:
             turn.first_task = draft_to_spec(
                 draft, ctx, (message.text if message else "") or "", self.settings

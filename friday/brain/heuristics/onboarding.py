@@ -9,7 +9,9 @@ handles consent and the PIN, so it must be predictable). The brain proposes
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
+from friday.core.config import Settings
 from friday.core.models import (
     ConversationContext,
     InboundMessage,
@@ -31,6 +33,41 @@ from .interpret import _Ctx, draft_task
 from .references import relation_word_in
 
 S = OnboardingStep
+
+
+@dataclass(frozen=True)
+class LegalLinks:
+    """Where the consent message points: terms, privacy policy, Grievance Officer contact
+    (``Settings.terms_url`` / ``privacy_url`` / ``grievance_email`` / ``grievance_name``).
+    Unset values are simply left out; nothing is invented."""
+
+    terms_url: str | None = None
+    privacy_url: str | None = None
+    grievance_email: str | None = None
+    grievance_name: str | None = None
+
+    @classmethod
+    def from_settings(cls, s: Settings) -> LegalLinks:
+        return cls(s.terms_url, s.privacy_url, s.grievance_email, s.grievance_name)
+
+    def lines(self, lang: Language) -> str:
+        """Short plain lines (no emoji) in the user's language, '' when nothing is set."""
+        terms, privacy = ("शर्तें", "प्राइवेसी") if lang == Language.HI else ("Terms", "Privacy")
+        who = {
+            Language.HI: "शिकायत या सवाल",
+            Language.HINGLISH: "Shikayat ya sawaal",
+        }.get(lang, "Questions or complaints")
+        out = []
+        if self.terms_url:
+            out.append(f"{terms}: {self.terms_url}")
+        if self.privacy_url:
+            out.append(f"{privacy}: {self.privacy_url}")
+        if self.grievance_email:
+            contact = " - ".join(x for x in (self.grievance_name, self.grievance_email) if x)
+            out.append(f"{who}: {contact}")
+        return "\n".join(out)
+
+
 INVITE_RE = re.compile(r"\bfri[\s-]*([a-z0-9]{6})\b", re.I)
 WEAK_PINS = {
     "1234",
@@ -123,6 +160,7 @@ def _b(id_: str, title: str) -> ReplyButton:
 
 def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
     name = c.name
+    legal: LegalLinks = getattr(c, "legal", None) or LegalLinks()
     if step == S.INVITE_CODE:
         return (
             c.say(
@@ -156,15 +194,32 @@ def prompt_for(c: _Ctx, step: OnboardingStep) -> tuple[str, list[ReplyButton]]:
             'appointment is confirmed for Saturday, 11 AM."',
         ), [_b("ob:tone:playful", "Playful"), _b("ob:tone:formal", "Formal")]
     if step == S.CONSENT:
+        def _with_links(body: str, lang: Language, question: str) -> str:
+            links = legal.lines(lang)
+            return f"{body}\n{links}\n{question}" if links else f"{body}\n{question}"
+
         return c.say(
-            en="I store your details (name, city, tasks, call recordings) in India, only to do "
-            'your tasks. Say "delete everything" anytime to erase them. On every call I '
-            "say I'm an AI. Terms: https://friday.example/terms\nAre you 18+ and do you "
-            "agree?",
-            hinglish="Main aapki details (naam, city, tasks, call recordings) India mein "
-            'store karti hoon, sirf aapke kaam ke liye. "delete everything" bolke kabhi bhi '
-            "mita sakte ho. Har call pe main batati hoon ki main AI hoon. Terms: "
-            "https://friday.example/terms\nKya aap 18+ ho aur agree karte ho?",
+            en=_with_links(
+                "I store your details (name, city, tasks, call recordings) in India, only to do "
+                'your tasks. Say "delete everything" anytime to erase them. On every call I '
+                "say I'm an AI.",
+                Language.EN,
+                "Are you 18+ and do you agree?",
+            ),
+            hinglish=_with_links(
+                "Main aapki details (naam, city, tasks, call recordings) India mein store "
+                'karti hoon, sirf aapke kaam ke liye. "delete everything" bolke kabhi bhi mita '
+                "sakte ho. Har call pe main batati hoon ki main AI hoon.",
+                Language.HINGLISH,
+                "Kya aap 18+ ho aur agree karte ho?",
+            ),
+            hi=_with_links(
+                "मैं आपकी जानकारी (नाम, शहर, काम, कॉल रिकॉर्डिंग) भारत में सिर्फ़ आपके काम के लिए "
+                'रखती हूँ। कभी भी "delete everything" कहकर इसे मिटा सकते हैं। हर कॉल पर मैं बताती '
+                "हूँ कि मैं AI हूँ।",
+                Language.HI,
+                "क्या आपकी उम्र 18+ है और आप सहमत हैं?",
+            ),
         ), [_b("ob:consent:yes", "I agree"), _b("ob:consent:no", "Not now")]
     if step == S.PIN:
         return c.say(
@@ -338,9 +393,13 @@ def _places(ctx: ConversationContext, msg: InboundMessage) -> list[Place]:
 
 
 def onboarding_turn(
-    ctx: ConversationContext, step: OnboardingStep, message: InboundMessage | None
+    ctx: ConversationContext,
+    step: OnboardingStep,
+    message: InboundMessage | None,
+    legal: LegalLinks | None = None,
 ) -> tuple[OnboardingTurn, TaskDraft | None]:
     c = _Ctx(ctx)
+    c.legal = legal  # type: ignore[attr-defined]  # consent message links (prompt_for)
     if message is None:
         reply, buttons = prompt_for(c, step)
         return OnboardingTurn(reply=reply, buttons=buttons, next_step=step), None

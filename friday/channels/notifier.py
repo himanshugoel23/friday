@@ -187,7 +187,7 @@ class Notifier:  # implements core.interfaces.Notifier
             and msg.business_id is None
             and msg.user_id
         ):
-            await self._sms_fallback(msg)
+            await self._fallback_or_flag(msg)
         return receipt
 
     async def _phone_may_receive(self, msg: OutboundMessage, opt_in_request: bool) -> bool:
@@ -229,6 +229,26 @@ class Notifier:  # implements core.interfaces.Notifier
                 "buttons": [],
             }
         )
+
+    async def _fallback_or_flag(self, msg: OutboundMessage) -> None:
+        """WhatsApp failed: try SMS; with no SMS provider (or SMS failing) nothing is recorded
+        as sent and the failure is surfaced loudly so someone can call the user back."""
+        receipt = await self._sms_fallback(msg)
+        if receipt is not None and receipt.ok:
+            return
+        why = "sms_off" if self.sms is None else "sms_failed"
+        log.error(
+            "undeliverable: no channel reached user %s (message %s, %s); a call-back is needed",
+            msg.user_id,
+            msg.id,
+            why,
+        )
+        try:
+            await self.repos.audit.log(
+                "message.undeliverable", user_id=msg.user_id, subject_id=msg.id, reason=why
+            )
+        except Exception:  # pragma: no cover - flagging must not break sending
+            log.exception("could not audit undeliverable message %s", msg.id)
 
     async def _sms_fallback(self, msg: OutboundMessage) -> SendReceipt | None:
         if self.sms is None:
@@ -338,7 +358,7 @@ class Notifier:  # implements core.interfaces.Notifier
             and msg.business_id is None
             and msg.user_id
         ):
-            await self._sms_fallback(msg)
+            await self._fallback_or_flag(msg)
         raise RuntimeError(f"delivery failed: {receipt.error}")
 
     async def _refuse(self, msg: OutboundMessage, reason: str) -> SendReceipt:

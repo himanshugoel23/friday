@@ -30,6 +30,8 @@ def beta(**kw) -> Settings:
         whatsapp_verify_token="a-random-verify-token",
         secret_key="s" * 32, pin_pepper="p", field_key="f", index_key="i",
         admin_token="adm",
+        terms_url="https://friday.example.in/terms", privacy_url="https://friday.example.in/privacy",
+        grievance_email="grievance@friday.example.in",
     )
     base.update(kw)
     return Settings(**base)
@@ -38,11 +40,11 @@ def beta(**kw) -> Settings:
 def test_beta_complete_config_is_ok_without_optional_features():
     s = beta()
     assert s.live_problems() == []
-    assert s.resolve_hotels() == "simulator" and s.resolve_sms() == "fake"
+    assert s.resolve_hotels() == "off" and s.resolve_sms() == "off"  # disabled, never simulated
     assert s.resolve_whatsapp() == "cloud" and s.resolve_directory() == "google_places"
     assert s.call_record is False  # no object store -> recordings off
     notes = " ".join(s.optional_feature_notes())
-    assert "hotels" in notes and "SMS" in notes and "recordings" in notes
+    assert "hotel live rates: OFF" in notes and "SMS: OFF" in notes and "recordings" in notes
 
 
 def test_beta_names_exactly_what_is_missing():
@@ -53,6 +55,7 @@ def test_beta_names_exactly_what_is_missing():
         pin_pepper=None, index_key=None, field_key=None,
         whatsapp_verify_token="friday-dev-verify", public_base_url="http://localhost:8000",
         database_url="sqlite+aiosqlite:///./x.db",
+        terms_url=None, privacy_url=None, grievance_email=None,
     ).live_problems()
     text = "\n".join(p)
     for needle in (
@@ -60,6 +63,7 @@ def test_beta_names_exactly_what_is_missing():
         "GOOGLE_PLACES_API_KEY", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID",
         "WHATSAPP_APP_SECRET", "WHATSAPP_VERIFY_TOKEN", "FRIDAY_ADMIN_TOKEN", "FRIDAY_PIN_PEPPER",
         "FRIDAY_INDEX_KEY", "FRIDAY_FIELD_KEY", "https", "PostgreSQL",
+        "FRIDAY_TERMS_URL", "FRIDAY_PRIVACY_URL", "FRIDAY_GRIEVANCE_EMAIL",
     ):
         assert needle in text, needle
     for optional in ("EXPEDIA", "MSG91", "DLT_ENTITY_ID", "OBJECT_STORE"):
