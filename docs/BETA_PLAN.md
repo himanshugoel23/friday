@@ -88,12 +88,21 @@ Template: `deploy/env.production.example`. Never commit secrets.
 
 ## 6. Open items / next steps
 
-- [x] D9 decided (Anthropic, see above); [ ] confirm `call_turn` token budget and quality in the first live calls.
-- [ ] Provision the server; first `update.sh` + `smoke_test.sh` run; fix what breaks (O-17).
+Verified in the sandbox (2026-10-08): full pytest 1209 passed / 28 skipped, `ruff check` clean, image builds and boots,
+Alembic migrations reach head `0003_task_role` on Postgres 16, contract tests 52/52 on real Postgres + Redis, compose
+file validates. Not verifiable from the sandbox: the repo Dockerfile (ghcr.io blocked; works via `deploy/build_sandbox.sh`),
+the full compose stack (Docker Hub rate limit), live providers, SSH to a server (outbound port 22 blocked).
+
+- [x] D9 decided (Anthropic); [ ] confirm `call_turn` token budget (`max_tokens=400`) and quality in the first live calls.
+- [x] Docker image built and smoke-checked; [x] migrations verified on Postgres; [x] tests and lint green (commit `505d4aa`).
+- [x] Hosting: AWS accounts blocked by org SCPs (D12); server provider TBD (DigitalOcean Bangalore recommended).
+- [ ] **Free trial call (D13): follow `docs/TRIAL_CODESPACES.md`** - needs Anthropic + Sarvam keys and an upgraded Vobiz account with a number.
+- [ ] Provision the real server; first `update.sh` + `smoke_test.sh` run; fix what breaks (O-17).
 - [ ] Meta: verification, templates submitted, test number wired to the webhook.
-- [ ] Vobiz: upgrade, number, queuing off, answer/hangup URLs, questions sent.
-- [ ] First live call to the founder's phone (day 1 milestone).
+- [ ] Vobiz: upgrade, number, queuing off, answer/hangup URLs, questions sent (`SARVAM_QUESTIONS.md`).
+- [ ] First live call to the founder's phone (day 1 milestone) and the day 2 repeat runs.
 - [ ] Legal pages, vendor terms, verified care numbers, on-call person.
+- [ ] Rotate all keys that were ever pasted in chats; set spend limits.
 - [ ] Possible later work: a real user-facing voice channel (voice onboarding/approvals) if a calls-only product is wanted.
 
 ## 7. Log
@@ -101,3 +110,4 @@ Template: `deploy/env.production.example`. Never commit secrets.
 - 2026-10-08: reviewed repo state and docs; decisions D1-D11; Docker image built and smoke-checked in the sandbox.
 - 2026-10-09: AWS blocked by organization SCPs on both provided accounts; switched hosting to an India-region VPS (D12).
 - 2026-10-09: added the free Codespaces trial guide (D13); next: get Vobiz upgraded + keys, run the first live call.
+- 2026-10-09: status refresh of section 6; repo in sync with origin/claude/friday-phase-1.
