@@ -202,6 +202,7 @@ async def doctor(settings: Settings, env_path: Path | None = None,
                 out("  [FIX]  the Vobiz issues listed above need fixing before a real call")
             else:
                 ok("Vobiz account looks ready")
+            await _doctor_inbound_link(settings, out)
         except Exception as e:  # noqa: BLE001
             bad(f"could not read the Vobiz account: {e}")
     else:
@@ -220,6 +221,29 @@ async def doctor(settings: Settings, env_path: Path | None = None,
     out("Everything looks ready." if problems == 0
         else f"{problems} thing(s) to fix before a live test call (see [FIX] above).")
     return 0 if problems == 0 else 1
+
+
+async def _doctor_inbound_link(settings: Settings, out: Callable[[str], None]) -> None:
+    """Read-only: which Vobiz application the front-door number rings today."""
+    from friday.voice.telephony.vobiz_app import VobizAppManager
+
+    number = (settings.sarvam_caller_ids or settings.friday_numbers or [None])[0]
+    if not number or not settings.sarvam_telephony_auth_token:
+        return
+    mgr = VobizAppManager(
+        settings.sarvam_telephony_auth_id or "",
+        settings.sarvam_telephony_auth_token.get_secret_value(),
+        base_url=settings.sarvam_telephony_base_url,
+    )
+    try:
+        app = await mgr.current_link(number)
+        what = f"application {app}" if app else "no application"
+        out(f"  Inbound: {number} rings {what} today. `friday listen` points it at Friday while "
+            "it runs and puts it back afterwards.")
+    except Exception as e:  # noqa: BLE001
+        out(f"  Inbound: could not read the link of {number} ({type(e).__name__})")
+    finally:
+        await mgr.aclose()
 
 
 # ------------------------------------------------------------------------------ livecall

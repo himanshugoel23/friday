@@ -1,13 +1,26 @@
 #!/bin/bash
 # One command for the free Codespaces trial: starts the temporary public address (Cloudflare quick tunnel),
-# writes it into .env, runs the read-only checks, then places the test call to YOUR allowed number.
-# Usage: bash deploy/codespace_call.sh [--simulate]
+# writes it into .env, runs the read-only checks, then
+#   (default)  places the test call to YOUR allowed number, or
+#   --listen   the FRONT DOOR: links your Vobiz number to Friday, so YOU call Friday's number and
+#              talk to her; Ctrl+C stops and puts the number's previous link back.
+# Usage: bash deploy/codespace_call.sh [--simulate] [--listen [--simulate]]
 set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.local/bin:$PATH"
 [ -f .env ] || uv run friday init-env
 
-if [ "${1:-}" = "--simulate" ]; then
+LISTEN=0; SIMULATE=0
+for arg in "$@"; do
+  case "$arg" in
+    --listen) LISTEN=1 ;;
+    --simulate) SIMULATE=1 ;;
+    *) echo "Unknown option: $arg (use --simulate, --listen, or --listen --simulate)"; exit 1 ;;
+  esac
+done
+
+if [ "$SIMULATE" = 1 ]; then
+  if [ "$LISTEN" = 1 ]; then exec uv run friday listen --simulate; fi
   exec uv run friday livecall --to +910000000000 --simulate
 fi
 
@@ -66,6 +79,15 @@ for line in lines:
 if not done: out.append(f"FRIDAY_PUBLIC_BASE_URL={url}")
 open(".env", "w", encoding="utf-8").write("\n".join(out) + "\n")
 PY
+
+if [ "$LISTEN" = 1 ]; then
+  # `friday listen` starts Friday, runs the read-only checks against the live address, links the
+  # Vobiz number, prints "Call +91... now", and restores the previous link when you press Ctrl+C.
+  uv run friday listen
+  rc=$?
+  echo "If the number is still linked to the old address, run: uv run friday listen --restore"
+  exit $rc
+fi
 
 echo "Running the read-only checks..."
 uv run friday doctor || { echo "Fix what doctor lists above, then run this command again."; exit 1; }

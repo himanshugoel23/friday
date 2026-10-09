@@ -94,15 +94,22 @@ async def test_a_failed_restore_tells_the_founder_how_to_fix_it(tmp_path):
                             applications=[{"app_id": "777", "app_name": "old"}])
     mgr = VobizAppManager("MA_T", "tok", transport=fake.transport, state_path=tmp_path / "s.json")
     out: list[str] = []
-    async with inbound_link(mgr, "https://x.trycloudflare.com", "+918065354620", "s" * 32, out.append):
+    link = inbound_link(mgr, "https://x.trycloudflare.com", "+918065354620", "s" * 32, out.append)
+    async with link:
         fake.fail[("POST", "/application")] = 500
     assert any("friday listen --restore" in x for x in out)
     assert (tmp_path / "s.json").exists()
 
 
 def test_transcript_file_masks_the_number_and_redacts_secrets(tmp_path):
-    from friday.core.models import (CallDirection, CallerKind, CallOutcome, CallResult, DialStatus,
-                                    Speaker)
+    from friday.core.models import (
+        CallDirection,
+        CallerKind,
+        CallOutcome,
+        CallResult,
+        DialStatus,
+        Speaker,
+    )
     from friday.voice.frontdoor import FrontDoorSummary
     from friday.voice.text import redact_secrets
 

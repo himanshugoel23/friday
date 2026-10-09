@@ -22,6 +22,12 @@ In `friday chat` type as the user. `1`/`2`/`3` tap the buttons, `/pin 12.97,77.6
 `/voice <words>` sends a voice note, `/contact +91...` a contact card, `/as <phone>` switches sender,
 `/call <phone>` makes a business ring back. Try: `Looks Unisex Salon mein haircut book karo kal shaam`.
 
+**The front door (people call Friday):** `uv run friday listen --simulate` runs a whole inbound flow offline
+(a new caller is onboarded by voice and asks for a haircut, the same person calls again, a stranger is
+politely refused, a simulated Vobiz account is linked and restored). For real, see
+`docs/FRONT_DOOR.md` and `docs/TRIAL_CODESPACES.md`: `bash deploy/codespace_call.sh --listen`, then call
+your Vobiz number from your own phone.
+
 ## Modes
 
 | | `FRIDAY_MODE=simulator` (default) | `FRIDAY_MODE=live` |
@@ -85,6 +91,7 @@ the container (`friday/core/container.py`); one codebase, several deployments.
 | `docs/LAUNCH_CHECKLIST.md` | what to do to run the first live pilot |
 | `docs/BETA_PLAN.md` | phase-1 beta decisions (calls + WhatsApp, no SMS), 3-day plan, progress log |
 | `docs/TRIAL_CODESPACES.md` | free first live call from a browser (Codespaces + tunnel, pilot profile) |
+| `docs/FRONT_DOOR.md` | people calling Friday's number: flows, limits, safety, cost, Vobiz setup, what is not built |
 | `tests/e2e/README.md` | e2e suites and simworld coverage table |
 | `tests/contracts/` | contract kit for JobQueue / Lock / Cache / RateLimiter / Idempotency |
 

@@ -334,3 +334,18 @@ sarvam_stt_keyterms: CsvList = []        # <= 50 domain terms (saaras:v4 only)
 ```
 Workaround in place: the TTS adapter reads `Settings.sarvam_tts_model` if present, else the env var `FRIDAY_SARVAM_TTS_MODEL`, else `bulbul:v3`. A non-female or legacy v2 speaker (the current `anushka` default) is replaced by `ritu`, so nothing breaks before core changes. `friday/cli.py` got a tiny `friday check --live` flag (read-only Vobiz account probe, `friday.voice.telephony.vobiz_probe`).
 Also for ops: `.env.example` should say `FRIDAY_SARVAM_CALLER_IDS` must be numbers ON the Vobiz account (trial: `+918065354620`); `friday check --live` flags a mismatch.
+
+## 2026-10-09 — Front door: people calling Friday's number (Voice / Backend)
+Additive only; merged by the same change (`friday/core` stayed backwards compatible, no signature changed).
+
+| # | Change | Where |
+|---|---|---|
+| 1 | `CallMode.FRONT_DOOR = "front_door"`: a person calls Friday's number and talks to Friday (the safety checks in `core.safety` use a `CallBrief` in this mode for what Friday says) | `core/models.py` |
+| 2 | `CallerKind` (`user` / `business` / `unknown`): result of the caller classification on every answered inbound call | `core/models.py` |
+| 3 | `Settings.pilot_block_business_calls: bool \| None` (None = automatic: pilot profile AND live mode), `Settings.pilot_blocks_business_calls` and `Settings.pilot_dial_blocked(phone)`: in a live pilot the engine refuses to phone any number not in `FRIDAY_PILOT_ALLOWED_NUMBERS` | `core/config.py` |
+| 4 | `Settings.frontdoor_*`: `enabled`, `open_signup`, `pilot_max_call_s` (180), `max_call_s` (300), `per_caller_per_hour` (3), `per_caller_per_day` (10), `global_per_hour` (40), `max_silences` (3), `max_concurrent`, `spend_cap_inr`, `result_callbacks` | `core/config.py` |
+
+Not core, but behaviour changes other owners should know about:
+* `SarvamTelephony.handle_stream_message` now publishes `InboundCallReceived` in a background task. The event handler runs the WHOLE call (front door or business call-back); awaiting it inside the WebSocket receive loop meant no media frame could be read until the call was over. Test: `test_inbound_event_handler_does_not_block_the_media_receive_loop`.
+* `TaskEngine` refuses to dial in `_outbound_guard` and `_call` when `settings.pilot_dial_blocked(phone)`: the task fails with `PILOT_NO_REAL_CALLS` ("In this test mode I cannot phone real businesses yet..."). Before this change the pilot allow-list was only enforced by `friday livecall`.
+* `CallbackService.front_door` (set by `Runtime`) classifies answered inbound calls before the business call-back path; "legacy" decisions (business call-memory match, or an unknown caller outside the pilot with `frontdoor_open_signup` off) take the unchanged path.

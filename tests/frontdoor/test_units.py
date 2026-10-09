@@ -105,11 +105,13 @@ def test_consent_needs_an_explicit_yes():
 def test_rights_and_honesty_questions_are_recognised_without_an_llm():
     for t in ("delete everything", "sab delete kar do", "delete my data", "सब डिलीट कर दो"):
         assert fd.wants_delete(t), t
-    for t in ("are you a bot?", "kya aap insaan ho", "is this a robot", "are you human", "bot ho kya"):
+    for t in ("are you a bot?", "kya aap insaan ho", "is this a robot", "are you human",
+              "bot ho kya"):
         assert fd.asks_if_bot(t), t
     for t in ("who are you", "what can you do", "aap kaun ho", "tum kya kar sakti ho"):
         assert fd.asks_who(t), t
-    assert fd.wants_to_end("ok bye") and fd.wants_to_end("that's all") and not fd.wants_to_end("book")
+    assert fd.wants_to_end("ok bye") and fd.wants_to_end("that's all")
+    assert not fd.wants_to_end("book")
 
 
 def test_secrets_are_recognised():

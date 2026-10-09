@@ -77,6 +77,20 @@ in `var\livecalls\`.
 
 **Stop early:** press Ctrl+C in that window (Friday hangs up).
 
+## 7. Call Friday yourself (the front door)
+Instead of Friday phoning you, you phone Friday. Same tunnel, same `.env`:
+```powershell
+uv run friday listen
+```
+Friday starts, runs the checks, links your Vobiz number to herself (the Vobiz application
+`friday-front-door`; she remembers what the number rang before) and prints `Call +91... now`. Call that
+number from your own phone (it must be in `FRIDAY_PILOT_ALLOWED_NUMBERS`). She says she is an AI assistant,
+asks your name the first time (then language and a spoken "haan" to store your details in India), and
+takes a request, reads it back and waits for your yes. Anyone not on the allowed list hears a short polite
+message and is hung up. Ctrl+C stops and puts the number's previous link back; if that failed, run
+`uv run friday listen --restore`. Dry run without a phone: `uv run friday listen --simulate`.
+Details and limits: `docs/FRONT_DOOR.md`.
+
 ## Cost
 Roughly Rs 3-5 per minute in total (Vobiz about Rs 0.44/min plus Sarvam and the AI). A 3 minute test is
 under Rs 15. Friday refuses calls longer than 5 minutes or above the Rs 25 spend cap

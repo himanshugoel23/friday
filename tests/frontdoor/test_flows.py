@@ -22,9 +22,9 @@ from tests.frontdoor.conftest import (
     OWN,
     OWN2,
     STRANGER,
-    ScriptedLeg,
     E,
     H,
+    ScriptedLeg,
     ring,
     said,
     sim_call,
@@ -65,6 +65,7 @@ async def test_result_callback_after_the_task_needs_the_callers_approval():
         rahul = await f.user("+919811100001", "Rahul")
         await sim_call(f, rahul.phone, ["", LOOKS_ASK, "haan", "nahi bas"])
         await f.settle()
+        await f.rt.front_door.results.wait_idle()  # the call-back rings in the background
         placed = [c for c in f.rt.front_door.results.calls if c["placed"]]
         assert [c["stage"] for c in placed] == ["offer"]
         cb = next(x for x in reversed(f.c.telephony.legs) if not x.inbound and x.spoken)
@@ -416,8 +417,10 @@ async def test_mirrors_the_callers_language_turn_by_turn():
         assert caps[0].startswith("I am Friday") and caps[1].startswith("Main Friday hoon")
         assert caps[2].startswith("I am Friday")
         # a one-word 'haan' does not flip the language by itself
-        leg2 = ScriptedLeg([("who are you exactly, please tell me", E), ("haan", H), ("who are you", E),
-                            ("bye", E)])
+        leg2 = ScriptedLeg(
+            [("who are you exactly, please tell me", E), ("haan", H), ("who are you", E),
+             ("bye", E)]
+        )
         await ring(f, "+919811100001", leg2)
         caps2 = [x for x in leg2.texts if "personal assistant" in x.lower()]
         assert all(x.startswith("I am Friday") for x in caps2)
@@ -473,5 +476,41 @@ async def test_brain_text_is_made_speakable(monkeypatch, reply):
         await ring(f, "+919811100001", leg)
         spoken = " ".join(leg.texts)
         assert "😀" not in spoken and "http" not in spoken and "**" not in spoken
+    finally:
+        await f.close()
+
+
+# ------------------------------------------------------------------ result call-backs
+async def test_result_callback_rules_window_allow_list_and_wording():
+    from datetime import datetime
+
+    from friday.core.clock import IST
+    from friday.core.models import Task, TaskResult, TaskSpec, TaskType
+
+    f = await start_friday("pilot", (OWN,))
+    try:
+        asha = await f.user(OWN, "Asha")
+        user = await asha.user_row()
+        spec = TaskSpec(type=TaskType.ENQUIRY, goal="Ask Looks about hours")
+        task = Task(requester_user_id=user.id, type=TaskType.ENQUIRY, spec=spec,
+                    status=TaskStatus.COMPLETED,
+                    result=TaskResult(success=True, summary="Looks is open until 9 PM today."))
+        await f.c.repos.tasks.add(task)
+        results = f.rt.front_door.results
+
+        f.clock.set(datetime(2026, 1, 5, 23, 30, tzinfo=IST))  # too late to ring anyone
+        assert await results.deliver(task.id, user.id, OWN, "final") is False
+        assert results.calls[-1]["skipped"].startswith("outside")
+        assert not [x for x in f.c.telephony.legs if not x.inbound]
+
+        f.clock.set(datetime(2026, 1, 5, 11, 0, tzinfo=IST))
+        assert await results.deliver(task.id, user.id, OWN, "final") is True
+        leg = next(x for x in f.c.telephony.legs if not x.inbound)
+        text = " ".join(t for t, _ in leg.spoken)
+        assert "ai assistant" in text.lower() and "Looks is open until 9 PM today." in text
+        assert leg.request.metadata["purpose"] == "result_callback"
+
+        assert not f.rt.front_door.callbacks_possible(STRANGER)  # the pilot allow-list applies
+        assert f.rt.front_door.followup_mode(STRANGER) == "none"
     finally:
         await f.close()

@@ -268,6 +268,7 @@ class FrontDoor:
         if self._subscribed:
             self.bus.unsubscribe(TaskStatusChanged, self.results.on_task_status)
             self._subscribed = False
+        self.results.cancel_all()
 
     @property
     def default_language(self) -> Language:
@@ -1100,6 +1101,15 @@ class ResultCallbacks:
         self.watched: dict[str, tuple[str, str]] = {}  # task id -> (user id, phone)
         self.done: set[tuple[str, str]] = set()
         self.calls: list[dict[str, Any]] = []  # what happened (tests / summary)
+        self._bg: set[asyncio.Future[Any]] = set()
+
+    async def wait_idle(self) -> None:
+        while self._bg:
+            await asyncio.gather(*list(self._bg), return_exceptions=True)
+
+    def cancel_all(self) -> None:
+        for task in list(self._bg):
+            task.cancel()
 
     def watch(self, task_id: str, user_id: str, phone: str) -> None:
         self.watched[task_id] = (user_id, phone)
@@ -1119,8 +1129,14 @@ class ResultCallbacks:
         user_id, phone = self.watched[event.task_id]
         if stage == "final":
             self.watched.pop(event.task_id, None)
+        # The call-back rings a phone for seconds: never hold up the engine's status change.
+        job = asyncio.ensure_future(self._deliver_safely(event.task_id, user_id, phone, stage))
+        self._bg.add(job)
+        job.add_done_callback(self._bg.discard)
+
+    async def _deliver_safely(self, task_id: str, user_id: str, phone: str, stage: str) -> None:
         try:
-            await self.deliver(event.task_id, user_id, phone, stage)
+            await self.deliver(task_id, user_id, phone, stage)
         except Exception:  # noqa: BLE001 - a failed call-back never breaks the task
             log.exception("front door result call-back failed")
 

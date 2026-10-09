@@ -49,6 +49,33 @@ Put keys only in the Codespace `.env` (or Codespaces secrets: repo Settings -> S
 6. The real call: `uv run friday livecall --to +91XXXXXXXXXX` (your own number). Your phone rings from the Vobiz number.
    Expect the AI disclosure first, language mirroring, an honest answer to "are you a bot?". Logs go to `var/livecalls/`.
 
+## The front door: YOU call Friday (`--listen`)
+
+Same Codespace, same tunnel, same `.env`, but the call goes the other way: you ring Friday's Vobiz number
+from your own phone (a number in `FRIDAY_PILOT_ALLOWED_NUMBERS`) and talk to her. Details, limits and
+safety: `FRONT_DOOR.md`.
+
+```bash
+bash deploy/codespace_call.sh --listen      # tunnel + .env + `friday listen`
+```
+It starts Friday, runs the read-only checks against the live address, finds or creates the Vobiz
+application `friday-front-door` (answer and hangup URL = the current tunnel address), links
+`SARVAM_CALLER_IDS[0]` to it (remembering what the number rang before), prints `Call +91... now`, and serves
+calls until you press Ctrl+C. After each call you get a summary (caller masked, outcome, duration,
+languages, estimated cost, transcript file under `var/livecalls/`). On exit the previous link is restored.
+
+* Free dry run, no phone, no network, no cost: `bash deploy/codespace_call.sh --listen --simulate`
+  (or `uv run friday listen --simulate`).
+* If the Codespace died before it could restore the link (the number would ring a dead address): run
+  `uv run friday listen --restore` (or put the old application back in the Vobiz console).
+* What to try: call, listen for the AI disclosure, say your name (first time), "Hindi", "haan", then
+  "Looks Unisex Salon mein haircut book karo kal shaam" (Friday reads it back and waits for your yes).
+  Ask "are you a bot?". In the live pilot Friday says honestly that she cannot phone real businesses yet.
+* Only numbers in `FRIDAY_PILOT_ALLOWED_NUMBERS` are served; anyone else hears one short polite AI-voice
+  message and is hung up (no AI cost). Max 180 s per call, one call at a time, spend cap
+  `FRIDAY_PILOT_MAX_SPEND_INR`.
+* Do not run `friday listen` and `friday livecall` at the same time (one live call at a time).
+
 ## If it fails
 
 * `FRIDAY_PUBLIC_BASE_URL ... https`: paste the current tunnel address. `/health is not reachable`: the tunnel is
