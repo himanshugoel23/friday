@@ -391,6 +391,12 @@ def main(argv: list[str] | None = None) -> int:
     worker.add_argument("--roles", default=None, help="api,task,voice,proactive,batch (CSV)")
     sub.add_parser("chat")
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
+    td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
+    td.add_argument("action", choices=["show", "sync"])
+    say = sub.add_parser("say", help="speak one line in Friday's voice into a WAV file")
+    say.add_argument("text")
+    say.add_argument("--out", default="var/preview/say.wav")
+    say.add_argument("--pace", type=float, default=None, help="0.5-2.0 (default: the setting)")
     sub.add_parser("doctor", help="read-only, free checks for the laptop live test")
     live = sub.add_parser("livecall", help="place ONE real test call to an allow-listed number")
     live.add_argument("--to", required=True, help="your own phone, E.164 e.g. +919812345678")
@@ -444,6 +450,50 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_eval_command(args, Settings)
     settings = Settings()
+    if args.cmd == "tts-dict":
+        from friday.voice.tts import pronunciation as pron
+
+        if args.action == "show":
+            words = pron.load()
+            dict_id, version = pron.active(settings.sarvam_pronunciation_dict_id)
+            print(f"{sum(len(w) for w in words.values())} words in {pron.DEFAULT_FILE}")
+            stale = bool(version) and version != pron.digest(words)
+            print(f"synced dictionary id: {dict_id or 'none yet (run: friday tts-dict sync)'}"
+                  f"{'  (file changed since: sync again)' if stale else ''}")
+            return 0
+        if not settings.sarvam_api_key:
+            print("SARVAM_API_KEY is not set")
+            return 2
+        try:
+            r = pron.sync(settings.sarvam_api_key.get_secret_value())
+        except (RuntimeError, ValueError, OSError) as e:
+            print(f"FAILED: {e}")
+            return 1
+        print(f"{r['action']} dictionary {r['dict_id']} ({r['words']} words). "
+              "Restart Friday to use it.")
+        return 0
+    if args.cmd == "say":
+        import asyncio as _aio
+        from pathlib import Path as _P
+
+        from friday.core.models import Language
+        from friday.voice.tts.sarvam import build_sarvam_tts
+
+        class _C:  # build_sarvam_tts only reads .settings
+            pass
+
+        _c = _C()
+        _c.settings = settings
+        tts = build_sarvam_tts(_c)  # type: ignore[arg-type]
+        voice = tts.voice_for(Language.HINGLISH)
+        if args.pace:
+            voice = voice.model_copy(update={"speaking_rate": args.pace})
+        clip = _aio.run(tts.synthesize(args.text, Language.HINGLISH, voice=voice))
+        out = _P(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(clip.data)
+        print(f"wrote {out} (pace {voice.speaking_rate}, dictionary {tts.dict_id or 'none'})")
+        return 0
     setup_logging(settings.log_level, settings.log_json)
     if args.cmd == "review":
         from friday.quality.cli import run_review_command

@@ -54,7 +54,10 @@ class CachedTTS:
         return self.inner.voice_for(language)
 
     def _key(self, text: str, language: Language, voice: VoiceProfile) -> str:
+        ver = getattr(self.inner, "dict_version", "") or ""
         raw = f"{self.name}|{voice.voice_id}|{language.value}|{voice.speaking_rate}|{text}"
+        if ver:  # a changed pronunciation dictionary must not replay audio made with the old one
+            raw += f"|dict:{ver}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def _disk(self, key: str) -> Path | None:

@@ -346,6 +346,7 @@ class Settings(BaseSettings):
         default=None, validation_alias=_alias("SARVAM_API_KEY", "FRIDAY_SARVAM_API_KEY")
     )
     sarvam_tts_speaker: str = "anushka"
+    sarvam_pronunciation_dict_id: str | None = None  # else var/tts/dict_id.json
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")
     )

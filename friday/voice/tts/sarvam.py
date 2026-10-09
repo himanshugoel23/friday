@@ -113,8 +113,12 @@ class SarvamTTS:
         sample_rate: int = 8000,
         base_url: str = SARVAM_BASE_URL,
         transport: httpx.AsyncBaseTransport | None = None,
+        dict_id: str | None = None,
+        dict_version: str = "",
     ) -> None:
         self.catalog = catalog
+        self.dict_id = dict_id  # Sarvam pronunciation dictionary (bulbul:v3), see pronunciation.py
+        self.dict_version = dict_version  # part of the audio-cache key
         self.model = model
         self.temperature = temperature
         if sample_rate not in SAMPLE_RATES:
@@ -160,6 +164,8 @@ class SarvamTTS:
         }
         if self.temperature is not None:
             body["temperature"] = self.temperature
+        if self.dict_id and model.startswith("bulbul:v3"):
+            body["dict_id"] = self.dict_id
         return body
 
     async def synthesize(
@@ -207,4 +213,10 @@ def build_sarvam_tts(c: Container) -> SarvamTTS:
     if not is_v4(model) and not is_female_speaker(default, model):
         default = DEFAULT_FEMALE_SPEAKER
     catalog = VoiceCatalog("sarvam", s, {}, default)
-    return SarvamTTS(s.sarvam_api_key.get_secret_value(), catalog, model=model)
+    from friday.voice.tts.pronunciation import active
+
+    dict_id, dict_version = active(getattr(s, "sarvam_pronunciation_dict_id", None))
+    return SarvamTTS(
+        s.sarvam_api_key.get_secret_value(), catalog, model=model,
+        dict_id=dict_id, dict_version=dict_version,
+    )
