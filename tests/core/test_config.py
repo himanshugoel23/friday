@@ -41,7 +41,7 @@ def test_keys_enable_pure_compute_providers_but_never_side_effects_in_simulator(
 def test_live_mode_reports_missing_credentials():
     s = make(mode="live")
     problems = s.live_problems()
-    assert "missing ANTHROPIC_API_KEY" in problems
+    assert any(p.startswith("missing ANTHROPIC_API_KEY") for p in problems)  # or OPENAI_API_KEY
     assert "missing SARVAM_TELEPHONY_AUTH_TOKEN" in problems  # Sarvam-only live telephony
     assert "missing WHATSAPP_ACCESS_TOKEN" in problems
     assert any("FRIDAY_SECRET_KEY" in p for p in problems)

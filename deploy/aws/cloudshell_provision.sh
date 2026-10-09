@@ -1,5 +1,11 @@
+#!/usr/bin/env bash
+# Paste into AWS CloudShell (console bottom-left). Creates the Friday server in Mumbai. Safe to re-run.
+set -euo pipefail
+R=ap-south-1; N=friday-prod; K=friday-prod; IPN=friday-ip
+L() { aws lightsail --region $R "$@"; }
+cat > /tmp/launch.sh <<'LAUNCH'
 #!/bin/bash
-# Friday: first-boot server script (Ubuntu 24.04; Lightsail, DigitalOcean, Vultr, any VPS). Paste this whole file into the
+# Friday: Lightsail "launch script" (Ubuntu 24.04). Paste this whole file into the
 # "Add launch script" box when you create the instance (Lightsail > Create instance).
 # It runs once, as root, at first boot. It contains NO secrets and does NOT download Friday itself
 # (the repository is private; follow docs/DEPLOY_AWS.md step 7 afterwards).
@@ -22,9 +28,6 @@ if ! swapon --show | grep -q /swapfile; then
   swapon /swapfile
   echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
-
-# Non-AWS providers (DigitalOcean, Vultr...) log in as root and have no 'ubuntu' user: create it
-id ubuntu >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo ubuntu
 
 # Docker (official repository)
 install -m 0755 -d /etc/apt/keyrings
@@ -53,3 +56,11 @@ ufw --force enable
 dpkg-reconfigure -f noninteractive unattended-upgrades || true
 
 date -u +"bootstrap finished %Y-%m-%dT%H:%M:%SZ" > /var/log/friday-bootstrap.done
+LAUNCH
+L get-key-pair --key-pair-name $K >/dev/null 2>&1 || { L create-key-pair --key-pair-name $K --query privateKeyBase64 --output text > ~/$K.pem; chmod 600 ~/$K.pem; echo "key saved in CloudShell: ~/$K.pem"; }
+L get-instance --instance-name $N >/dev/null 2>&1 || L create-instances --instance-names $N --availability-zone ${R}a --blueprint-id ubuntu_24_04 --bundle-id medium_3_0 --key-pair-name $K --user-data file:///tmp/launch.sh --add-ons 'addOnType=AutoSnapshot,autoSnapshotAddOnRequest={snapshotTimeOfDay=21:30}' >/dev/null
+until [ "$(L get-instance-state --instance-name $N --query state.name --output text 2>/dev/null)" = running ]; do sleep 5; done
+L get-static-ip --static-ip-name $IPN >/dev/null 2>&1 || L allocate-static-ip --static-ip-name $IPN >/dev/null
+L attach-static-ip --static-ip-name $IPN --instance-name $N >/dev/null 2>&1 || true
+L put-instance-public-ports --instance-name $N --port-infos fromPort=22,toPort=22,protocol=tcp fromPort=80,toPort=80,protocol=tcp fromPort=443,toPort=443,protocol=tcp fromPort=443,toPort=443,protocol=udp >/dev/null
+echo "DONE. Static IP: $(L get-static-ip --static-ip-name $IPN --query staticIp.ipAddress --output text)"
