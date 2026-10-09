@@ -379,6 +379,9 @@ class PlaybookPolicy:
         # ---- first turn: the step after the runner's disclosure
         if not st.started:
             st.started = True
+            st.last_friday = next(
+                (t.text for t in reversed(turns) if t.speaker == Speaker.FRIDAY), ""
+            )
             return self._enter(c, pb.start, say=[])
 
         if reply_turn is None and not silent:
@@ -583,6 +586,8 @@ class PlaybookPolicy:
     ) -> CallAction:
         pb, st = c.pb, c.st
         parts = [t for _l, t in say]
+        if ask and not parts and not pb.steps[step].ask:
+            return CallAction(type=CallActionType.WAIT)  # nothing to ask here: wait for her answer
         if ask:
             parts += [t for _l, t in self._lines(pb, pb.steps[step].ask, c)]
         if ask or count_ask:

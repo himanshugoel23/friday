@@ -20,6 +20,18 @@ OK = ["Theek hai"]  # answers S6
 
 # (id, replies, brief kwargs, expected outcome id, branch keys it must hit, text it must contain)
 SCENARIOS = [
+    # ---- S0 (the identity question; these scenarios are driven WITHOUT the usual IDENT prefix)
+    ("s0_yes", ["Haan ji"], {}, None, {"S0.YES"}, "do minute baat ho sakti hai"),
+    ("s0_continue", ["Haan boliye"], {}, None, {"S0.CONTINUE"}, "Main Rahul ji ki assistant hoon"),
+    ("s0_ack", ["Shukriya"], {}, None, {"S0.ACK"}, "do minute baat ho sakti hai"),
+    ("s0_no", ["Nahi, yeh Meena parlour hai"], {}, "WRONG_NUMBER", {"S0.NO"}, "galat number"),
+    ("s0_who", ["Kaun bol raha hai?"], {}, None, {"S0.WHO_IS_THIS"}, "Main Friday hoon, ek AI assistant. Kya meri baat"),
+    ("s0_repeat", ["Sorry, phir se boliye?"], {}, None, {"S0.ASKS_REPEAT"}, "Kya meri baat"),
+    ("s0_robot", ["Robot hai kya?"], {}, None, {"S0.ARE_YOU_BOT"}, "main AI hoon, insaan nahi"),
+    ("s0_busy", ["Abhi busy hoon, baad mein call karo"], {}, "CALL_BACK_LATER", {"defaults.BUSY_LATER"}, "baad mein call"),
+    ("s0_wrong", ["Galat number hai"], {}, "WRONG_NUMBER", {"defaults.WRONG_NUMBER"}, "galat number"),
+    ("s0_dnc", ["Dobara call mat karna"], {}, "REFUSED", {"defaults.STOP_CALLING"}, "dobara call nahi"),
+    ("s0_rude", ["Faltu tang mat karo"], {}, "REFUSED", {"defaults.RUDE"}, "pareshan karne"),
     # ---- S1
     ("s1_yes", ["Haan"], {}, None, {"S1.YES"}, "Slot milega"),
     ("s1_continue", ["Haan boliye"], {}, None, {"S1.CONTINUE"}, "Slot milega"),
@@ -105,7 +117,7 @@ SCENARIOS = [
                          ids=[s[0] for s in SCENARIOS])
 async def test_branch(sid, replies, kw, outcome, keys, text):
     brief = make_brief(**kw)
-    run = await drive(replies, brief=brief)
+    run = await drive(replies, brief=brief, ident=not sid.startswith("s0_"))
     assert keys <= run.keys, f"{sid}: branches hit {sorted(run.keys)}"
     assert text.lower() in run.all_text().lower(), f"{sid}: said {run.said}"
     if outcome:
@@ -126,8 +138,8 @@ async def test_conditional_alternatives_are_all_reached():
     """Each alternative of a conditional branch (SLOT_FREE with/without a time, price known or
     not, the four read-back variants, ...) is taken by some scripted conversation."""
     seen: set[str] = set()
-    for _sid, replies, kw, *_ in SCENARIOS:
-        run = await drive(replies, brief=make_brief(**kw))
+    for sid, replies, kw, *_ in SCENARIOS:
+        run = await drive(replies, brief=make_brief(**kw), ident=not sid.startswith("s0_"))
         seen |= {t for t in run.said}
     joined = " | ".join(seen)
     for needle in (

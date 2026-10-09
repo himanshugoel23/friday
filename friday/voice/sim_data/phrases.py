@@ -237,6 +237,8 @@ KW_BYE = ("bye", "dhanyavaad", "dhanyawad", "thank you", "thanks", "shukriya", "
           "goodbye", "alvida", "have a nice day", "नमस्कार")  # fmt: skip
 # scripted calls (friday/playbooks): permission ask, number read-back, advance/policy question
 KW_PERMISSION = ("do minute", "2 minute", "le sakti hoon", "minute milenge")
+# scripted calls: the identity question "Kya meri baat <salon> se ho rahi hai?"
+KW_IDENTITY = ("meri baat", "baat ho rahi hai", "se ho rahi hai")
 KW_READBACK = ("sahi?", "matlab ")
 KW_ADVANCE_Q = ("advance ya", "cancellation policy")
 KW_CALLBACK = ("call back", "callback", "call-back", "wapas call", "phir se call", "get back",

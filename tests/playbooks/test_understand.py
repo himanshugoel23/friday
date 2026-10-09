@@ -170,7 +170,7 @@ async def test_cost_one_small_call_per_turn_with_no_reasoning():
     policy = PlaybookPolicy(understander=BrainUnderstander(brain), llm_mode="always")
     run = await drive(FULL, brief=make_brief(), policy=policy)
     assert run.outcome == "SLOT_OFFERED"
-    replies = len(FULL)
+    replies = len(FULL) + 1  # + the identity answer
     assert len(llm.meta) == replies  # exactly one model call per salon reply, never two
     assert all(p == "call_turn" and tok <= 200 and eff == "low" for p, tok, eff in llm.meta)
     assert run.state.llm_calls == replies

@@ -6,7 +6,7 @@ Why: a call that follows a script is predictable. Friday's words never change by
 
 What stays the same for every playbook (enforced in code, not in the file):
 
-* The AI disclosure is the first thing said, always.
+* The AI disclosure is the first thing said, always. It is short and ends in one question; Friday then waits for the answer.
 * Friday never confirms or books unless the user delegated the decision ("any slot 5-7 pm under 800, you decide") AND the offer fits those limits. Otherwise she says she will call back after approval.
 * She never says OTP, PIN, card or password words, and never agrees to an advance or a payment.
 * If the other side says "don't call again", the call ends politely and the number is blocked for good.
@@ -17,7 +17,7 @@ The one place an AI model is used: **understanding what the salon just said** (a
 
 ## The salon playbook
 
-`friday/playbooks/data/salon_booking.yaml` implements the founder draft in `docs/playbooks/salon_booking.md` (S1 to S7, S2b, S3b, confusion handling, outcomes). Two small extras: `S2t` ("Kitne baje ka?" when she says yes without a time) and `S3r` (the read-back "Matlab 400 rupaye... Sahi?").
+`friday/playbooks/data/salon_booking.yaml` implements the founder draft in `docs/playbooks/salon_booking.md` (S0 to S7, S2b, S3b, confusion handling, outcomes). The call opens with a short disclosure that ends in one question ("Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat {business_name} se ho rahi hai?"); step `S0` then speaks nothing and just waits for the salon's answer (yes goes to S1 "Main Rahul ji ki assistant hoon, unki appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"; wrong name ends the call politely; "kaun bol raha hai?" gets a one-line answer). Two small extras: `S2t` ("Kitne baje ka?" when she says yes without a time) and `S3r` (the read-back "Matlab 400 rupaye... Sahi?").
 
 A task uses it automatically when it is a **booking** at a business whose category is salon / parlour / barber / spa, or whose request mentions haircut / facial / waxing and so on, **and** the task says when ("kal shaam"). Anything else keeps the normal AI-driven call. A confirmation call-back (after the user approved) is never scripted.
 
@@ -87,7 +87,7 @@ What a branch can do (exactly one of): `goto: S3` (or `goto: "@route"`), `outcom
 * any line with OTP, PIN, CVV, card, password, Aadhaar or UPI words;
 * any line in Devanagari (lines must be Roman-script Hinglish), longer than 240 characters, or that claims to be human;
 * any line that claims a booking or confirmation ("confirm ho gaya", "booked", "pakka") outside the one delegated-commit line. "Abhi kuch confirm nahi kiya" and "confirm karke call back karti hoon" are fine because they say the opposite;
-* a disclosure that does not say Friday is an AI; a step nobody can reach; an outcome called BOOKED that is not the delegated commit.
+* a disclosure that does not say Friday is an AI; a step with no `ask` (only the `start` step may, it just waits, and the disclosure must then end in a question); a step nobody can reach; an outcome called BOOKED that is not the delegated commit.
 
 **Booking is special.** Only one line can book (`commit: true`), only in the single `final` step named `commit_step`, and only when the user delegated AND the code-level check passes. If the runner's check says no, Friday falls back to "approval ke baad call karti hoon" automatically.
 
@@ -105,7 +105,7 @@ uv run friday playbook dry-run salon_booking --update-baseline     # accept the 
 uv run friday playbook dry-run salon_booking --save-transcripts var/playbooks
 ```
 
-No phone, no network, no AI key, no cost. The real call runner and the real playbook engine talk to simulated salons defined in `friday/playbooks/data/salon_booking.personas.yaml`: friendly with a free slot, busy, puts her on hold (and never comes back), "kaun bol raha hai?", "robot hai?", pure Hindi, price over budget, asks for an advance, no slot then two alternatives, noisy line, rude and hangs up, asks for the customer's number, wrong number, asks for an OTP, asks not to be called again, delegated booking... To add a persona, add an entry to that file: it lists what she answers to each line (by line id, so it keeps working when you change the wording).
+No phone, no network, no AI key, no cost. The real call runner and the real playbook engine talk to simulated salons defined in `friday/playbooks/data/salon_booking.personas.yaml`: friendly with a free slot, busy, puts her on hold (and never comes back), "kaun bol raha hai?", "robot hai?", pure Hindi, price over budget, asks for an advance, no slot then two alternatives, noisy line, rude and hangs up, asks for the customer's number, wrong number, asks for an OTP, asks not to be called again, delegated booking... To add a persona, add an entry to that file: it lists what she answers to each line (by line id, so it keeps working when you change the wording). The identity question is the line id `disclosure` (also `s0_who`, `s0_repeat`); a persona that does not list it answers "Haan ji, boliye".
 
 ### Reading the table
 
@@ -150,6 +150,8 @@ uv run friday livecall --playbook salon_booking --simulate --yes --to +919000000
 ```
 
 Every existing guard applies: the number must be in `FRIDAY_PILOT_ALLOWED_NUMBERS`, the spend cap and the maximum length apply, only one call at a time, you must type YES. A test call has no delegation, so it can never book. `--on-behalf-of` is the first name Friday says ("Rahul ji ki AI assistant"). Your second phone plays the salon: say the awkward things (busy, "robot hai?", a price over budget, "dobara call mat karna") and read the transcript in `var/livecalls/`.
+
+Voice pace: `FRIDAY_TTS_SPEAKING_RATE` (default 1.0, see `.env.example`) sets how fast Friday speaks; pick it by listening to audio samples before changing it.
 
 Cost control: fixed lines are pre-rendered into the speech cache while the phone rings; lines with a price or a time are spoken sentence by sentence. The AI model is asked about a reply only when the offline rules are unsure (`FRIDAY_PLAYBOOKS_LLM_MODE=auto`, the default; `always`, `never`). It is one small request (purpose `call_turn`, a few tokens out).
 

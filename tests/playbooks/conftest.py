@@ -123,6 +123,7 @@ async def drive(
     block_commit: bool = False,
     step_s: float = 6.0,
     max_actions: int = 40,
+    ident: bool = True,
 ) -> Run:
     """Play ``replies`` (what the salon says, in order) into the policy.
 
@@ -143,7 +144,9 @@ async def drive(
     def add(speaker: Speaker, text: str, **kw: Any) -> None:
         tr.add(speaker, text, at=now(), **kw)
 
-    queue = list(replies)
+    # the disclosure ends in the identity question ("Kya meri baat X se ho rahi hai?"); unless a
+    # test drives that step itself (ident=False), the salon first answers it with a plain yes
+    queue = (["Haan ji"] if ident else []) + list(replies)
     add(Speaker.CALLEE, greeting, audio_class=AudioClass.HUMAN)
     add(Speaker.FRIDAY, brief.disclosure())
     for _ in range(max_actions):

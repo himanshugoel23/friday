@@ -424,7 +424,13 @@ def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
     for sid, step in pb.steps.items():
         w = f"steps.{sid}"
         if not step.final and not step.ask:
-            problems.append(f"{w}: a step must ask something (or be final)")
+            if sid != pb.start:
+                problems.append(f"{w}: a step must ask something (or be final)")
+            elif pb.disclosure in pb.lines and "?" not in pb.text(pb.disclosure):
+                problems.append(
+                    f"{w}: the start step may ask nothing only when the disclosure line itself "
+                    "ends in a question (Friday then waits for the answer)"
+                )
         for item in step.ask:
             need_line(f"{w}.ask", _ref(item))
             if isinstance(item, LineRef):

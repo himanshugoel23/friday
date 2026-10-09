@@ -7,6 +7,8 @@
 #   hold_s + then : she puts Friday on hold for hold_s seconds, then says `then`.
 #   hangup        : she says it and puts the phone down.
 #   silence       : nothing is heard.
+# The identity question (the disclosure line, key `disclosure`; also `s0_who`, `s0_repeat`) is
+# answered "Haan ji, boliye" unless the persona lists a reply for it.
 # `expect.outcome` is the playbook outcome this persona should lead to (checked by the dry run).
 
 version: 1
@@ -28,6 +30,27 @@ personas:
       s3_ask: "Haircut 400 rupaye lagega, lagbhag 30 minute"
       s3_readback: "Haan sahi"
       s5_ask: "Koi advance nahi lagta"
+      s6_ask: "Theek hai ji"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: wrong_salon_name
+    title: Wrong salon name at the identity question ("yeh Meena parlour hai")
+    greeting: "Hello?"
+    replies:
+      disclosure: "Nahi, yeh Meena parlour hai"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: asks_who_first
+    title: Asks "kaun bol raha hai?" before answering the identity question
+    greeting: "Hello?"
+    replies:
+      disclosure: "Kaun bol raha hai?"
+      s0_who: "Haan ji, yahi Looks Salon hai, boliye"
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan sahi"
+      s5_ask: "Koi advance nahi"
       s6_ask: "Theek hai ji"
     expect: {outcome: SLOT_OFFERED}
 

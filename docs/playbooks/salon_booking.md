@@ -20,8 +20,19 @@ salon asks to stop or says not to call again (DNC).
 
 ## Steps
 
-### S1 Greeting + disclosure (fixed, pre-recorded)
-- "Namaste, main Friday hoon, {user_first_name} ji ki AI assistant. Kya main do minute le sakti hoon?"
+### Opening: disclosure + identity question (fixed, pre-recorded; spoken by the call runner)
+- "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat {business_name} se ho rahi hai?"
+- Short on purpose: she says she is an AI, asks ONE question, and stops. She never runs on into the next sentence.
+
+### S0 Wait for the identity answer (nothing is spoken here)
+- Friday waits for the salon's reply. Silence -> "Sorry, ek baar phir?" (normal unclear handling).
+- Branches: yes / "haan boliye" / ack -> S1. "Nahi, yeh Meena parlour hai" / wrong number ->
+  "Maaf kijiye, galat number lag gaya. Shukriya." -> E_WRONG_NUMBER. "Kaun bol raha hai?" -> "Main Friday hoon,
+  ek AI assistant. Kya meri baat {business_name} se ho rahi hai?" and wait again. "Robot hai?" -> "Haan, main AI
+  hoon, insaan nahi. ..." -> S1. Busy / do not call / rude: the standard closes.
+
+### S1 Who she is calling for + two minutes
+- "Main {user_first_name} {honorific} ki assistant hoon, unki appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
 - Recording notice (only if call recording is on, see decisions): "Yeh call quality ke liye record ho sakta hai."
 - Branches: yes / "bolo" -> S2. "Busy / baad mein" -> E_RETRY_LATER. "Kaun?" / "Kya?" -> repeat S1 once, shorter.
   "Robot hai?" -> "Haan, main AI hoon, insaan nahi. {user_first_name} ji ke liye booking check kar rahi hoon." -> S2.

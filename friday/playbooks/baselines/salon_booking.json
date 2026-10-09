@@ -93,6 +93,19 @@
       "score": 1.0,
       "turns": 9
     },
+    "asks_who_first": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 9
+    },
     "busy_call_later": {
       "checks": {
         "expected_outcome": true,
@@ -313,6 +326,19 @@
       "outcome": "WRONG_NUMBER",
       "score": 1.0,
       "turns": 3
+    },
+    "wrong_salon_name": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "WRONG_NUMBER",
+      "score": 1.0,
+      "turns": 2
     },
     "yes_without_time": {
       "checks": {

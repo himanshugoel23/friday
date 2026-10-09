@@ -47,7 +47,7 @@ async def test_salon_booking_task_gets_a_scripted_brief(brain):
     assert brief.playbook_inputs["user_first_name"] == "Ankit"
     assert brief.playbook_inputs["service"] == "haircut"
     assert brief.playbook_inputs["date_window"] == "kal shaam"
-    assert brief.disclosure() == "Hello, kya main salon se baat kar rahi hoon? Mera naam Friday hai, main Ankit ji ki AI assistant hoon."  # noqa: E501
+    assert brief.disclosure() == "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat salon se ho rahi hai?"  # noqa: E501
     assert not brief.can_commit([])
 
 
@@ -172,8 +172,14 @@ def test_livecall_playbook_simulated_end_to_end(tmp_path):
     text = "\n".join(out)
     assert rc == 0 and "salon_booking" in text and "cannot book" in text
     transcript = next(tmp_path.glob("livecall-*.txt")).read_text(encoding="utf-8")
-    assert "Hello, kya main salon se baat kar rahi hoon? Mera naam Friday hai, main Rahul ji ki AI assistant hoon." in transcript  # noqa: E501
+    assert "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat salon se ho rahi hai?" in transcript  # noqa: E501
     assert "Playbook      : salon_booking -> outcome=SLOT_OFFERED" in text
+    # the shared simulated business answers the identity question naturally, then the next line
+    lines = transcript.splitlines()
+    k = next(i for i, ln in enumerate(lines) if "Kya meri baat salon se ho rahi hai?" in ln)
+    assert lines[k + 1].startswith("CALLEE") and "Haan ji, sahi hai" in lines[k + 1]
+    assert "Main Rahul ji ki assistant hoon" in lines[k + 2]
+    assert "Haan ji, boliye" in lines[k + 3]  # "Kya abhi do minute baat ho sakti hai?"
 
 
 def test_livecall_playbook_keeps_every_guard(tmp_path):

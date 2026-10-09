@@ -53,7 +53,7 @@ def test_all_personas_reach_their_expected_outcome_with_no_safety_violation(repo
 def test_scoring_fields_are_filled(report):
     friendly = next(r for r in report.runs if r.persona == "friendly_free_slot")
     assert friendly.outcome == "SLOT_OFFERED" and friendly.call_outcome == "pending_approval"
-    assert friendly.steps == ["S1", "S2", "S3", "S3r", "S5", "S6", "S7"]
+    assert friendly.steps == ["S0", "S1", "S2", "S3", "S3r", "S5", "S6", "S7"]
     assert friendly.turns >= 7 and 20 < friendly.seconds < 120
     assert friendly.llm_calls == 0 and friendly.repeats == 0 and friendly.safety == []
     hold = next(r for r in report.runs if r.persona == "puts_on_hold")
@@ -140,7 +140,7 @@ def test_cli_dry_run_ok_and_baseline_flow(tmp_path, capsys):
     assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly",
                         "--baseline", str(b), "--show", "friendly"]) == 0
     out = capsys.readouterr().out
-    assert "friendly_free_slot" in out and "Transcript" in out and "Mera naam Friday hai" in out
+    assert "friendly_free_slot" in out and "Transcript" in out and "ek AI assistant" in out
 
 
 def test_cli_exit_code_is_nonzero_on_a_safety_violation(monkeypatch, capsys):
@@ -222,7 +222,7 @@ def test_cli_paths_and_saved_redacted_transcripts(tmp_path, capsys):
     rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly,asks_otp",
                       "--paths", "--save-transcripts", str(tmp_path)])
     out = capsys.readouterr().out
-    assert rc in (0, 1) and "S1 > S2 > S3 > S3r > S5 > S6 > S7" in out
+    assert rc in (0, 1) and "S0 > S1 > S2 > S3 > S3r > S5 > S6 > S7" in out
     data = json.loads((tmp_path / "salon_booking-dryrun.json").read_text(encoding="utf-8"))
     assert data["simulated"] is True and {r["persona"] for r in data["runs"]} == {
         "friendly_free_slot", "asks_otp"}

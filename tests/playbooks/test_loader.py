@@ -100,7 +100,7 @@ def test_list_playbooks_reports_status(tmp_path, raw):
          "exactly one of"),
         (lambda d: d.update({"language": "english"}), "language must be 'hinglish'"),
         (lambda d: d.update({"version": 2}), "unsupported or missing version"),
-        (lambda d: d.update({"start": "S0"}), "start step"),
+        (lambda d: d.update({"start": "S99"}), "start step"),
         (lambda d: d["steps"].update(
             {"S9": {"ask": ["s1_ask"], "branches": {"YES": {"goto": "S1"}}}}), "unreachable"),
         (lambda d: d["outcomes"]["NO_SLOT"].update({"call_outcome": "success"}),
@@ -153,3 +153,17 @@ def test_negated_confirmation_lines_are_allowed(raw):
     d = copy.deepcopy(raw)
     d["lines"]["thanks"] = "Abhi kuch confirm nahi kiya, approval ke baad call karti hoon."
     assert validate_data(d)
+
+
+def test_only_the_start_step_may_ask_nothing(raw):
+    data = copy.deepcopy(raw)
+    assert "ask" not in data["steps"]["S0"]  # the identity step waits for the salon's answer
+    validate_data(data)  # fine as shipped
+    data["steps"]["S2"]["ask"] = []
+    assert "must ask something" in problems_of(data)
+
+
+def test_a_silent_start_step_needs_a_disclosure_that_asks_the_question(raw):
+    data = copy.deepcopy(raw)
+    data["lines"]["disclosure"] = "Hello, main Friday, ek AI assistant, baat kar rahi hoon."
+    assert "disclosure line itself ends in a question" in problems_of(data)

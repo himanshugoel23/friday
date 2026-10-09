@@ -459,7 +459,9 @@ class BusinessAgent(_Agent):
                 return parts + [("ok", {})]  # just the disclosure
             return parts + self._care(low, text, is_bye)
 
-        if contains_any(low, P.KW_PERMISSION) and not contains_any(low, P.KW_PRICE + P.KW_SLOT):
+        if contains_any(low, P.KW_IDENTITY) and not contains_any(low, P.KW_PRICE + P.KW_SLOT):
+            return parts + [("yes", {})]  # "Haan ji, sahi hai": yes, this is the business
+        if contains_any(low, P.KW_PERMISSION) and not contains_any(low, P.KW_PRICE):
             return parts + [("ok", {})]
         if contains_any(low, P.KW_READBACK):
             return parts + [("yes", {})]

@@ -48,9 +48,12 @@ confusion:
   close: bye_unclear
 
 lines:
-  disclosure: "Hello, kya main {business_name} se baat kar rahi hoon? Mera naam Friday hai, main {user_first_name} {honorific} ki AI assistant hoon."
+  # short on purpose: she says she is an AI, asks ONE identity question and then waits (step S0)
+  disclosure: "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat {business_name} se ho rahi hai?"
+  s0_who: "Main Friday hoon, ek AI assistant. Kya meri baat {business_name} se ho rahi hai?"
+  s0_repeat: "Kya meri baat {business_name} se ho rahi hai?"
   recording_notice: "Yeh call quality ke liye record ho sakta hai."
-  s1_ask: "{user_first_name} {honorific} ko appointment book karwani hai, usi ke regarding aapko call kiya hai. Kya abhi do minute baat ho sakti hai?"
+  s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
   s1_short: "Main Friday hoon, AI assistant. {user_first_name} {honorific} ke liye ek chhota sa sawaal tha. Do minute milenge?"
   ai_yes: "Haan, main AI hoon, insaan nahi. {user_first_name} {honorific} ke liye booking check kar rahi hoon."
   who_short: "Main Friday hoon, {user_first_name} {honorific} ki AI assistant."
@@ -111,11 +114,23 @@ defaults:
   ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
   ASKS_CUSTOMER_PHONE: {say: [s6_no_number], repeat: true, max_uses: 2}
 
-start: S1
+start: S0
 commit_step: S7
 
 steps:
-  S1:   # greeting follows the runner's disclosure
+  S0:   # identity check. The runner's disclosure (code) already asked "Kya meri baat X se ho rahi
+        # hai?"; nothing is asked here, Friday just WAITS for the answer (only the start step may
+        # have no ask). Silence goes to the normal "Sorry, ek baar phir?" handling.
+    branches:
+      YES: {goto: S1}
+      CONTINUE: {goto: S1}
+      ACK: {goto: S1}
+      NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+      WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
+      ASKS_REPEAT: {say: [s0_repeat], stay: true, max_uses: 2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S1}
+
+  S1:   # who she is calling for, and may she have two minutes
     ask:
       - {line: recording_notice, when: [recording, first_ask]}
       - s1_ask

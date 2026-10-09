@@ -226,6 +226,7 @@ class PersonaLeg:
         self.hold_left = 0.0
         self.hold_then: str | None = None
         self._greeted = False
+        self._identity_asked = False
         self.status = DialStatus.ANSWERED
 
     # ---- dial
@@ -253,8 +254,11 @@ class PersonaLeg:
         self.spoken.append((text, ids, hit))
         await self.clock.sleep(max(1.0, len(text.split()) * 0.4))
         question = [i for i in ids if i not in ("disclosure",)]
+        if not question and "disclosure" in ids and not self._identity_asked:
+            self._identity_asked = True  # the first time only (a re-disclosure after a hold
+            question = ["disclosure"]  # is answered together with the question that follows)
         if not question:
-            return  # the disclosure alone: she does not answer it
+            return
         qid = question[-1]
         if qid.startswith("bye") or qid in ("s2b_none", "thanks", "s7_close", "s7_close_noprice",
                                               "s7_commit"):
@@ -283,6 +287,8 @@ class PersonaLeg:
                 return val
         if qid == "sorry" and self.prev_q in self.persona.replies:
             return self._pick_reply(self.prev_q)  # repeat the earlier answer, clearer
+        if qid in ("disclosure", "s0_who", "s0_repeat"):
+            return "Haan ji, boliye"  # the identity question: by default she says yes
         return self.persona.default
 
     def _queue(self, reply: Any) -> None:

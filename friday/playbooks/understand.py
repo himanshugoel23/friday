@@ -385,7 +385,7 @@ def heuristic(reply: str, *, step: str = "", known: dict[str, Any] | None = None
         return _u(Intent.ACK)
     if _HELLO.match(t):
         return _u(Intent.UNCLEAR)
-    if _GREETING_OPEN.match(t) and step in ("S1", ""):
+    if _GREETING_OPEN.match(t) and step in ("S0", "S1", ""):
         return _u(Intent.CONTINUE, confident=False)
     if _QUESTION.search(t):
         return _u(Intent.ASKS_OFFTOPIC, confident=False)
