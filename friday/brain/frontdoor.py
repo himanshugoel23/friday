@@ -54,12 +54,12 @@ LINES: dict[str, dict[Language, str]] = {
     "hello_known": {  # {name}
         _L.EN: "{name}. What do you need?",
         _L.HINGLISH: "{name} ji, bataiye, kya karna hai?",
-        _L.HI: "{name} जी, बताइए, मैं आपकी क्या मदद कर सकती हूँ?",
+        _L.HI: "{name} जी, बताइए।",
     },
     "hello_known_noname": {
         _L.EN: "What do you need?",
-        _L.HINGLISH: "Bataiye, main aapki kya madad kar sakti hoon?",
-        _L.HI: "बताइए, मैं आपकी क्या मदद कर सकती हूँ?",
+        _L.HINGLISH: "Bataiye.",
+        _L.HI: "बताइए।",
     },
     "ask_name_again": {
         _L.EN: "Sorry, I missed that. What is your name?",
@@ -107,7 +107,7 @@ LINES: dict[str, dict[Language, str]] = {
     "consent_ok": {  # {name}
         _L.EN: "Thanks, {name}. What do you need?",
         _L.HINGLISH: "Shukriya, {name}. Kya chahiye?",
-        _L.HI: "शुक्रिया, {name}। आज मैं आपकी क्या मदद कर सकती हूँ?",
+        _L.HI: "शुक्रिया, {name}। अब बताइए, क्या करना है?",
     },
     "consent_declined": {
         _L.EN: "Understood. I have not saved anything. You are welcome to call again. Goodbye.",
@@ -293,9 +293,9 @@ LINES: dict[str, dict[Language, str]] = {
     },
     # --- result call-backs (Friday rings the caller back)
     "cb_update": {  # {name}
-        _L.EN: "{name}, here is an update on your request.",
-        _L.HINGLISH: "{name}, aapki request ka update yeh hai.",
-        _L.HI: "{name}, आपकी रिक्वेस्ट का अपडेट यह है।",
+        _L.EN: "{name}, Friday again. I have news.",
+        _L.HINGLISH: "{name}, Friday hoon. Khabar aayi hai.",
+        _L.HI: "{name}, Friday बोल रही हूँ। ख़बर आई है।",
     },
     "cb_offer_whatsapp": {
         _L.EN: "Nothing is confirmed yet. I have sent you the details on WhatsApp to approve.",
