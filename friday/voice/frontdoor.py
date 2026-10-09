@@ -499,7 +499,7 @@ class FrontDoorSession:
             direction=CallDirection.INBOUND,
             to_phone=phone,
             dial_status=DialStatus.ANSWERED,
-            outcome=CallOutcome.FAILED,
+            outcome=CallOutcome.SUCCESS,  # set explicitly when anything else happens
             from_number=to_number,
             started_at=self.started,
             answered_at=self.started,
@@ -615,8 +615,6 @@ class FrontDoorSession:
         end = self.clock.now()
         r.ended_at = end
         seconds = (end - self.started).total_seconds()
-        if r.outcome == CallOutcome.FAILED and not r.error:
-            r.outcome = CallOutcome.SUCCESS
         billed = getattr(self.leg, "tts_billed_chars", None)
         r.tts_chars = self.tts_chars
         r.tts_billed_chars = int(billed) if isinstance(billed, int) else self.tts_dynamic_chars
@@ -656,6 +654,8 @@ class FrontDoorSession:
         self.ended = True
         self.end_reason = reason
         self.result.outcome = outcome
+        if outcome == CallOutcome.FAILED:
+            self.result.error = reason
         with contextlib.suppress(CallEnded):
             await self.say(fd_copy.line(key, self.lang))
         await self._hangup()

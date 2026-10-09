@@ -288,6 +288,7 @@ async def test_inbound_and_missed(sar, sbus):
     sbus.subscribe(Event, on)
     await sar.answer_xml({"CallUUID": "in-1", "From": "+918040000001", "To": "+918031110001"}, None)
     await start(sar, sar.by_sid["in-1"], [], {}, call_id="in-1")
+    await asyncio.sleep(0.01)  # the event is published in the background (see test below)
     ev = [e for e in seen if type(e).__name__ == "InboundCallReceived"][0]
     assert ev.from_phone == "+918040000001" and ev.to_number == "+918031110001"
     assert sar.take_inbound("in-1") is not None
@@ -303,6 +304,30 @@ async def test_inbound_and_missed(sar, sbus):
     )
     missed = [e for e in seen if type(e).__name__ == "MissedCallReceived"]
     assert missed and missed[0].provider_call_id == "in-2" and missed[0].ring_seconds == 4
+
+
+async def test_inbound_event_handler_does_not_block_the_media_receive_loop(sar, sbus):
+    """The handler of InboundCallReceived runs the whole call (front door / call-back). If the
+    start message awaited it, no media frame could be read until the call was over."""
+    release = asyncio.Event()
+    entered = asyncio.Event()
+
+    async def long_call(e):
+        entered.set()
+        await release.wait()
+
+    from friday.core.events import InboundCallReceived
+
+    sbus.subscribe(InboundCallReceived, long_call)
+    await sar.answer_xml({"CallUUID": "in-9", "From": "+918040000001", "To": "+918031110001"}, None)
+    state: dict = {}
+    await asyncio.wait_for(
+        start(sar, sar.by_sid["in-9"], [], state, call_id="in-9"), timeout=1.0
+    )  # returns although the handler is still running
+    await asyncio.wait_for(entered.wait(), timeout=1.0)
+    assert not release.is_set() and state["leg"].stream_sid == "s-1"
+    release.set()
+    await sar.aclose()
 
 
 def test_router_sarvam_endpoints_and_auth(sar):
