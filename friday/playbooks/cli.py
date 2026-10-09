@@ -1,4 +1,5 @@
-"""``friday playbook list | validate <name> | dry-run <name>`` (wired from friday/cli.py).
+"""``friday playbook list | validate <name> | dry-run <name> | draft <type> | promote <type>``
+(wired from friday/cli.py).
 
     friday playbook list
     friday playbook validate salon_booking
@@ -7,6 +8,9 @@
     friday playbook dry-run salon_booking --show friendly_free_slot   print one transcript
     friday playbook dry-run salon_booking --brain               through the (fake) LLM path
     friday playbook dry-run salon_booking --update-baseline     accept these scores
+    friday playbook types                                       business types we can draft
+    friday playbook draft clinic_appointment [--live] [--rounds 3] [--out DIR]   (offline author)
+    friday playbook promote clinic_appointment                  typed confirmation, never automatic
 
 Exit codes: 0 fine, 1 a check failed / regression vs the baseline, 2 a SAFETY VIOLATION (or the
 playbook is invalid / cannot run).
@@ -37,6 +41,24 @@ def register(sub: Any) -> None:
     dry.add_argument("--paths", action="store_true", help="print the steps each persona visited")
     dry.add_argument("--save-transcripts", default=None, metavar="DIR",
                      help="write redacted simulated transcripts to DIR")
+    draft = psub.add_parser(
+        "draft", help="OFFLINE script author: draft a playbook for a new business type")
+    draft.add_argument("business_type", help="e.g. clinic_appointment (see: friday playbook types)")
+    draft.add_argument("--live", action="store_true",
+                       help="use the real LLM (costs money; needs an LLM key); "
+                            "default: offline template")
+    draft.add_argument("--rounds", type=int, default=3, metavar="N",
+                       help="max improvement rounds after the first draft (default 3)")
+    draft.add_argument("--out", default=None, metavar="DIR",
+                       help="drafts folder (default var/playbook_drafts); files go in DIR/<type>/")
+    draft.add_argument("--max-tokens", type=int, default=None,
+                       help="--live only: max output tokens per model call (default 14000)")
+    promote = psub.add_parser(
+        "promote", help="copy a reviewed draft into friday/playbooks/data (typed confirmation)")
+    promote.add_argument("business_type")
+    promote.add_argument("--from", dest="drafts", default=None, metavar="DIR",
+                         help="drafts folder (default var/playbook_drafts)")
+    psub.add_parser("types", help="the business types the script author knows")
 
 
 def run_command(args: argparse.Namespace) -> int:
@@ -80,7 +102,12 @@ def run_command(args: argparse.Namespace) -> int:
 
     if cmd == "dry-run":
         return _dry_run(args)
-    print("Usage: friday playbook list | validate <name> | dry-run <name>")
+    if cmd in ("draft", "promote", "types"):
+        from friday.playbooks.authoring import cli as authoring_cli
+
+        return authoring_cli.run(cmd, args)
+    print("Usage: friday playbook list | validate <name> | dry-run <name> | draft <type> | "
+          "promote <type> | types")
     return 2
 
 

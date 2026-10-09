@@ -1,0 +1,459 @@
+# Knowledge about Indian business types, used by the SCRIPT-AUTHOR (friday playbook draft ...).
+#
+# This file is read only OFFLINE, while a new playbook is being drafted. It is never read during
+# a call and never decides what Friday says on a call. Read it like a briefing note: "what does
+# the person who picks up the phone at a <business type> usually say and do?"
+#
+# Each business type has:
+#   title, task_type          what the playbook is called, which task type will use it
+#   who_answers               who normally picks up
+#   typical_opening           how the phone is answered (the first words Friday hears)
+#   caller_questions          what THEY normally ask a caller (Friday must be ready for these)
+#   quotes                    what they quote on the phone (units, usual ranges, "visit karke")
+#   wont_say_on_phone         things they will not say on the phone
+#   surprises                 awkward-but-common things: each becomes a simulated business
+#                             ("persona") in the dry run. at = which Friday line it answers,
+#                             say = what they say, then = what they say if Friday asks again,
+#                             expect = the playbook outcome the call should still reach
+#   hangup_behaviour          how they end a call
+#   language_mix              how they speak
+#   template                  hints for the OFFLINE template generator (no model needed)
+#
+# All Hinglish text is Roman script. Prices are rough, typical Indian-city (tier 1/2) numbers.
+
+version: 1
+
+business_types:
+
+  clinic_appointment:
+    title: Clinic / doctor appointment
+    task_type: booking
+    who_answers: "Receptionist or compounder at the front desk; in a small clinic the doctor's assistant or even the doctor's wife. Often fielding patients in person at the same time."
+    typical_opening:
+      - "Hello, Sharma Clinic, boliye."
+      - "Hello, clinic."
+      - "Ji, Dr Mehta ka clinic."
+    caller_questions:
+      - "Patient ka naam aur umar kya hai?"
+      - "Pehle kabhi aaye hain? Koi purani file hai?"
+      - "Kya problem hai, bukhar, pet dard, ya routine checkup?"
+      - "Kaun sa time chahiye, subah ya shaam?"
+      - "Aapka number kya hai, confirm karne ke liye?"
+    quotes:
+      price_units: "consultation fees per visit, rupaye"
+      typical_range: "300 se 800 rupaye; specialist 600 se 1200"
+      not_on_phone: "tests, injection, procedure ka kharcha: 'doctor dekhne ke baad batayenge'"
+    wont_say_on_phone:
+      - "Doctor ki personal availability ya chhutti ka karan"
+      - "Kisi patient ki report ya diagnosis"
+      - "Medicine ya treatment ka salah phone par"
+    surprises:
+      - {id: doctor_busy, title: "Doctor patient dekh rahe hain, baad mein call karo", at: s2_ask, say: "Doctor sahab abhi patient dekh rahe hain, thodi der baad call kijiye", expect: CALL_BACK_LATER}
+      - {id: token_system, title: "Token system, no fixed appointment", at: s2_ask, say: "Token system hai, aap aa jaiye, number lag jayega", then: ["Shaam ko 5 baje tak aa jaiye"], expect: SLOT_OFFERED}
+      - {id: whatsapp_fees, title: "Asks to take fees on WhatsApp", at: s3_ask, say: "WhatsApp pe bhej do", then: ["Consultation 500 rupaye hai, 15 minute"], expect: SLOT_OFFERED}
+      - {id: booking_amount, title: "Wants a booking amount in advance", at: s5_ask, say: "Haan 200 rupaye booking amount dena padega", expect: SLOT_OFFERED}
+      - {id: hold_for_doctor, title: "Puts Friday on hold to ask the doctor", at: s2_ask, say: "Ek minute hold kijiye, doctor se poochh kar batati hoon", hold_s: 25, then: ["Haan ji, kal shaam 6 baje ka slot hai"], expect: SLOT_OFFERED}
+    hangup_behaviour: "Short 'Theek hai ji, dhanyavaad' and the line is cut, often before the caller finishes saying thanks."
+    language_mix: "Hindi-English mix; medical words in English (appointment, fees, doctor, token); numbers often in English."
+    template:
+      noun: clinic
+      wrong_kind: medical store
+      service_default: doctor appointment
+      business_default: clinic
+      person_label: doctor
+      price_word: "Consultation"
+      price_inr: 500
+      duration_min: 15
+      slot_reply: "Haan kal shaam 6 baje ka slot free hai"
+      alt_reply: "Kal subah 11 baje ya dopahar 2 baje ho jayega"
+      full_reply: "Kal to doctor ka poora din full hai"
+      select:
+        task_types: [booking, healthcare]
+        categories: [clinic, doctor, physician, general physician, gp, hospital]
+        keywords: [clinic, doctor, consultation, checkup, physician]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki doctor appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ke liye {service} chahiye, {date_window}. Slot milega?"
+        s3_ask: "Doctor ki consultation fees kitni hai, aur kitna time lagega?"
+        s4_ask: "Agar {stylist_pref} available hon to behtar hoga, warna koi bhi doctor chalega?"
+        s5_ask: "Koi booking amount ya cancellation policy hai?"
+
+  restaurant_table:
+    title: Restaurant table booking
+    task_type: booking
+    who_answers: "Captain, host or cashier; at busy times the phone rings for long and the person is shouting over kitchen noise. Small places: the owner himself."
+    typical_opening:
+      - "Hello, Spice Garden, boliye."
+      - "Namaste, restaurant."
+      - "Haan ji, bataiye."
+    caller_questions:
+      - "Kitne log honge?"
+      - "Kis time aayenge, aur kitni der ke liye?"
+      - "Veg ya non-veg? Koi occasion hai, birthday?"
+      - "Naam aur number bataiye."
+      - "Ground floor chahiye ya upar?"
+    quotes:
+      price_units: "per head approx, rupaye; or 'minimum bill'"
+      typical_range: "400 se 1200 rupaye per head; fine dining 2000+"
+      not_on_phone: "Exact bill, kyunki menu aur order par depend karta hai; buffet ka rate weekend par alag"
+    wont_say_on_phone:
+      - "Peak time par table ka pakka wada (sirf 'aa jaiye, dekh lenge')"
+      - "Kisi specific table ki guarantee"
+    surprises:
+      - {id: walk_in_only, title: "Only walk-in, no phone booking", at: s2_ask, say: "Booking nahi lete, walk-in hi hai, aap aa jaiye", then: ["Haan raat 8 baje table mil jayegi"], expect: SLOT_OFFERED}
+      - {id: call_back_rush, title: "Rush hour, asks to call back", at: s2_ask, say: "Abhi bahut rush hai, thodi der baad call kijiye", expect: CALL_BACK_LATER}
+      - {id: whatsapp_menu, title: "Says WhatsApp pe menu bhej do", at: s3_ask, say: "WhatsApp pe bhej do", then: ["Lagbhag 800 rupaye per head padega"], expect: SLOT_OFFERED}
+      - {id: booking_amount, title: "Asks a booking amount for a big group", at: s5_ask, say: "Haan 500 rupaye booking amount lagega, adjust ho jayega", expect: SLOT_OFFERED}
+      - {id: hold_ask_manager, title: "Holds while asking the manager", at: s2_ask, say: "Hold kijiye, manager se poochh kar batata hoon", hold_s: 30, then: ["Haan raat 8 baje ka slot hai"], expect: SLOT_OFFERED}
+    hangup_behaviour: "Abrupt. 'Ok ji' and gone, or hands the phone to someone else mid-sentence."
+    language_mix: "Heavy Hinglish; English for 'table', 'booking', 'veg', 'non-veg', 'buffet'; very fast speech."
+    template:
+      noun: restaurant
+      wrong_kind: sweet shop
+      service_default: table for 4
+      business_default: restaurant
+      person_label: captain
+      price_word: "Lagbhag"
+      price_unit: "rupaye per head"
+      price_inr: 800
+      duration_min: null
+      slot_reply: "Haan kal raat 8 baje ka table free hai"
+      alt_reply: "Kal raat 7 baje ya 9 baje ho jayega"
+      full_reply: "Kal raat ko to full hai"
+      select:
+        task_types: [booking]
+        categories: [restaurant, cafe, dhaba, dining, bar]
+        keywords: [restaurant, table, dinner, lunch, cafe, dining]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki table booking ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ke liye {service} chahiye, {date_window}. Table milegi?"
+        s3_ask: "Per head approx kitna padega?"
+        s3_readback_price: "Matlab {price_inr} rupaye per head. Sahi?"
+        s3_readback_range_price: "Matlab {price_inr} rupaye tak per head. Sahi?"
+        s4_ask: "Agar {stylist_pref} wali jagah mil jaye to behtar hoga, warna koi bhi chalega?"
+        s5_ask: "Koi booking amount ya cancellation policy hai?"
+
+  car_service:
+    title: Car service / repair garage
+    task_type: booking
+    who_answers: "Service advisor or the garage owner; mechanics shouting in the background. Authorised service centres have a front-desk executive who reads a script."
+    typical_opening:
+      - "Hello, Sai Motors, boliye."
+      - "Haan ji, garage."
+      - "Hello, service centre."
+    caller_questions:
+      - "Kaun si gaadi hai, model aur saal?"
+      - "Petrol hai ya diesel?"
+      - "Kitne kilometre chal chuki hai?"
+      - "Kya dikkat hai, ya sirf routine service?"
+      - "Gaadi kab la rahe hain, drop karenge ya wait?"
+    quotes:
+      price_units: "package rupaye (periodic service), parts alag"
+      typical_range: "Hatchback basic service 2500 se 5000; SUV 4000 se 9000"
+      not_on_phone: "Repair ka estimate: 'gaadi dekh ke hi bata payenge'; parts ka rate bina inspection ke nahi"
+    wont_say_on_phone:
+      - "Final bill bina gaadi dekhe"
+      - "Kitne din lagenge, jab tak diagnosis na ho"
+      - "Warranty claim ka faisla"
+    surprises:
+      - {id: visit_to_quote, title: "Price only after seeing the car", at: s3_ask, say: "Gaadi dekh ke visit karke batayenge, phone pe nahi bata sakte", expect: SLOT_OFFERED}
+      - {id: price_depends, title: "Depends on the model and parts", at: s3_ask, say: "Price depend karta hai, parts lagenge to alag", expect: SLOT_OFFERED}
+      - {id: parts_advance, title: "Wants an advance for parts", at: s5_ask, say: "Haan parts ke liye 1000 rupaye advance dena padega", expect: SLOT_OFFERED}
+      - {id: callback_advisor, title: "Service advisor is busy", at: s2_ask, say: "Advisor abhi busy hai, thodi der baad call karo", expect: CALL_BACK_LATER}
+      - {id: whatsapp_estimate, title: "Wants to send the estimate on WhatsApp", at: s3_ask, say: "WhatsApp pe bhej do", then: ["Basic service 3500 rupaye lagega"], expect: SLOT_OFFERED}
+    hangup_behaviour: "Distracted; says 'haan ji' and the line goes dead, or passes the phone to a mechanic."
+    language_mix: "Hindi with English nouns (service, clutch, brake pad, oil, AC); regional accent; loud background."
+    template:
+      noun: garage
+      wrong_kind: tyre shop
+      service_default: car service
+      business_default: garage
+      person_label: advisor
+      price_word: "Basic service"
+      price_inr: 3500
+      duration_min: null
+      slot_reply: "Haan kal subah 10 baje ka slot free hai"
+      alt_reply: "Kal 10 baje ya dopahar 2 baje ho jayega"
+      full_reply: "Kal to garage full hai"
+      select:
+        task_types: [booking]
+        categories: [garage, car service, mechanic, workshop, service centre, car repair]
+        keywords: [car service, garage, mechanic, oil change, car repair, servicing]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki gaadi ki service ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ki gaadi ke liye {service} chahiye, {date_window}. Slot milega?"
+        s3_ask: "{service} ka approx kitna lagega?"
+        s4_ask: "Agar {stylist_pref} dekh sakein to behtar hoga, warna koi bhi advisor chalega?"
+        s5_ask: "Koi advance ya cancellation policy hai?"
+
+  home_services:
+    title: Plumber / electrician (home visit)
+    task_type: booking
+    who_answers: "The tradesperson himself, on a job with tools in hand, or a small dispatcher who calls the worker. Calls often cut and drop in basements and lifts."
+    typical_opening:
+      - "Haan ji, boliye."
+      - "Hello, Raju plumber."
+      - "Hello, bolo."
+    caller_questions:
+      - "Kya kharab hai, tap, pipe, switch, MCB?"
+      - "Kaun se area mein hai, society ka naam?"
+      - "Abhi aana hai ya kal?"
+      - "Pehle photo bhej sakte ho WhatsApp par?"
+      - "Address ka landmark bataiye."
+    quotes:
+      price_units: "visit charge (rupaye), kaam ka rate alag"
+      typical_range: "Visit 200 se 500 rupaye; kaam ka estimate dekh ke"
+      not_on_phone: "Total kaam ka rate: 'visit karke batayenge', kyunki problem dekhni padti hai"
+    wont_say_on_phone:
+      - "Pakka arrival time (traffic aur pichhli job par depend karta hai)"
+      - "Material ka total kharcha bina dekhe"
+    surprises:
+      - {id: visit_charge_first, title: "Visit charge only, rest after inspection", at: s3_ask, say: "Visit karke batayenge, aane ka 300 rupaye lagega", expect: SLOT_OFFERED}
+      - {id: whatsapp_photo, title: "Asks for a photo on WhatsApp", at: s2_ask, say: "WhatsApp pe photo bhej do pehle", then: ["Haan kal shaam 6 baje aa jaunga"], expect: SLOT_OFFERED}
+      - {id: call_back_on_job, title: "On a job, will call back", at: s2_ask, say: "Abhi kaam pe hoon, baad mein call karo", expect: CALL_BACK_LATER}
+      - {id: line_breaks, title: "Poor network, line breaks up", at: s2_ask, say: "kkh... hmm...", then: ["Haan kal shaam 6 baje aa jaunga"], expect: SLOT_OFFERED}
+      - {id: advance_for_material, title: "Wants an advance for material", at: s5_ask, say: "Material ke liye 500 rupaye advance dena padega", expect: SLOT_OFFERED}
+    hangup_behaviour: "Says 'theek hai bhaiya' or just 'haan haan' and cuts; sometimes calls back within a minute from the same number."
+    language_mix: "Colloquial Hindi, little English; local words for parts; numbers in Hindi ('paanch sau')."
+    template:
+      noun: service provider
+      wrong_kind: grocery shop
+      service_default: plumber visit
+      business_default: plumber
+      person_label: mistri
+      price_word: "Visit charge"
+      price_inr: 300
+      duration_min: 45
+      slot_reply: "Haan kal shaam 6 baje aa jaunga"
+      alt_reply: "Kal subah 11 baje ya dopahar 3 baje aa sakta hoon"
+      full_reply: "Kal to poora din full hai"
+      select:
+        task_types: [booking, service_coordination]
+        categories: [plumber, electrician, home service, handyman, carpenter, ac repair]
+        keywords: [plumber, electrician, tap, leak, mcb, fan repair, ac repair, handyman]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unke ghar ke kaam ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ke ghar par {service} chahiye, {date_window}. Aa sakenge?"
+        s3_ask: "Visit charge kitna hai, aur kaam mein kitna time lagega?"
+        s4_ask: "Agar {stylist_pref} aa sakein to behtar hoga, warna koi bhi chalega?"
+        s5_ask: "Koi advance ya material ka alag charge hai?"
+
+  hotel_enquiry:
+    title: Hotel room enquiry
+    task_type: enquiry
+    who_answers: "Front-desk or reservation executive; chain hotels read a script and push the website. Small hotels: the manager or owner, who negotiates."
+    typical_opening:
+      - "Good afternoon, Hotel Sunrise, how may I help you?"
+      - "Hello, Hotel Grand, boliye."
+      - "Reception, namaste."
+    caller_questions:
+      - "Kaun si date se kaun si date tak?"
+      - "Kitne log honge, adults aur bachche?"
+      - "Single, double ya family room?"
+      - "AC ya non-AC? Breakfast chahiye?"
+      - "Aapka naam aur number, taki main details bhej sakun?"
+    quotes:
+      price_units: "per night, rupaye; tax (12 percent GST) alag; breakfast kabhi included"
+      typical_range: "Budget 1200 se 2500; mid-range 3000 se 6000; premium 8000+"
+      not_on_phone: "Peak season / weekend ka rate: 'dates dekh ke'; corporate rate"
+    wont_say_on_phone:
+      - "Room number ya guest list"
+      - "Discount, jab tak caller directly book na kare"
+      - "Pakka hold bina advance ke"
+    surprises:
+      - {id: website_only, title: "Rate on website or WhatsApp", at: s3_ask, say: "WhatsApp pe bhej do number, rate wahi bhej dete hain", then: ["Room 3500 rupaye per night hai, tax alag"], expect: SLOT_OFFERED}
+      - {id: advance_to_hold, title: "Hold needs an advance", at: s5_ask, say: "Haan 1000 rupaye advance dena padega, tabhi room rakhenge", expect: SLOT_OFFERED}
+      - {id: manager_callback, title: "Manager will call back", at: s2_ask, say: "Manager abhi busy hain, thodi der baad call kijiye", expect: CALL_BACK_LATER}
+      - {id: hold_check_rooms, title: "Holds to check availability", at: s2_ask, say: "Ek minute hold kijiye, system check karta hoon", hold_s: 25, then: ["Haan ji, kal ke liye room available hai, shaam 4 baje check-in"], expect: SLOT_OFFERED}
+      - {id: peak_depends, title: "Rate depends on dates", at: s3_ask, say: "Dates ke hisaab se rate badalta hai, price depend karta hai", expect: SLOT_OFFERED}
+    hangup_behaviour: "Polite in English: 'Thank you for calling, have a nice day', or Hindi 'Dhanyavaad'; chain hotels wait for the caller to hang up."
+    language_mix: "English-heavy at chain hotels, Hinglish at small hotels; numbers in English."
+    template:
+      noun: hotel
+      wrong_kind: travel agency
+      service_default: room for 2
+      business_default: hotel
+      person_label: manager
+      price_word: "Room"
+      price_unit: "rupaye per night"
+      price_inr: 3500
+      duration_min: null
+      slot_reply: "Haan kal ke liye room available hai, shaam 4 baje check-in"
+      alt_reply: "Kal shaam 4 baje ya parso subah 11 baje se mil sakta hai"
+      full_reply: "Kal to hotel full hai"
+      select:
+        task_types: [enquiry, hotel_booking]
+        categories: [hotel, lodge, guest house, resort, homestay]
+        keywords: [hotel, room, stay, check-in, night, resort]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unke room ke enquiry ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ke liye {service} chahiye, {date_window}. Room available hai?"
+        s3_ask: "Room ka ek raat ka rate kitna hai?"
+        s3_readback_price: "Matlab {price_inr} rupaye ek raat ke. Sahi?"
+        s3_readback_range_price: "Matlab {price_inr} rupaye tak ek raat ke. Sahi?"
+        s4_ask: "Agar {stylist_pref} type ka room mil jaye to behtar hoga, warna koi bhi chalega?"
+        s5_ask: "Koi advance ya cancellation policy hai?"
+
+  gym_membership:
+    title: Gym / fitness membership enquiry
+    task_type: enquiry
+    who_answers: "Front-desk sales executive or the trainer on duty; sales-minded, tries to get the caller to visit. Small gyms: the owner."
+    typical_opening:
+      - "Hello, Fitness First, boliye."
+      - "Hello, gym."
+      - "Haan ji, bataiye sir."
+    caller_questions:
+      - "Aap kab tak join karna chahte hain?"
+      - "Pehle kabhi gym kiya hai? Koi goal, weight loss ya muscle?"
+      - "Kitne mahine ka plan dekh rahe hain?"
+      - "Aap aa sakte hain visit ke liye? Kab?"
+      - "Naam aur number dijiye, trainer call karega."
+    quotes:
+      price_units: "monthly / quarterly / yearly plan rupaye; joining fee alag"
+      typical_range: "Monthly 1500 se 3500; yearly 9000 se 20000; personal training extra"
+      not_on_phone: "Best offer: 'aap aaiye, offer yahin milega'; trial pass ke terms"
+    wont_say_on_phone:
+      - "Final discounted price (bolte hain 'visit par')"
+      - "Pakka offer jo kal tak valid ho"
+      - "Member list ya trainer ki personal details"
+    surprises:
+      - {id: visit_for_offer, title: "Best price only if you visit", at: s3_ask, say: "Aap aaiye, offer yahin bata denge, phone par nahi bata sakte", expect: SLOT_OFFERED}
+      - {id: whatsapp_plans, title: "Sends plans on WhatsApp", at: s3_ask, say: "WhatsApp pe bhej do", then: ["Monthly 2500 rupaye hai"], expect: SLOT_OFFERED}
+      - {id: joining_fee, title: "Joining fee as an advance", at: s5_ask, say: "Haan 1000 rupaye joining fee lagegi", expect: SLOT_OFFERED}
+      - {id: trainer_callback, title: "Sales person will call back", at: s2_ask, say: "Sales wale sir abhi busy hain, baad mein call kijiye", expect: CALL_BACK_LATER}
+      - {id: walk_in_trial, title: "Walk-in only for a trial", at: s2_ask, say: "Walk-in hi chalta hai, aap aa jaiye trial ke liye", then: ["Haan kal shaam 6 baje aa jaiye"], expect: SLOT_OFFERED}
+    hangup_behaviour: "Friendly but pushy: 'Aap aaiye sir, hum wait karenge', then hangs up after pitching a visit."
+    language_mix: "Hinglish; English fitness words (membership, trial, personal training, cardio); sales-friendly tone."
+    template:
+      noun: gym
+      wrong_kind: sports shop
+      service_default: gym membership
+      business_default: gym
+      person_label: trainer
+      price_word: "Monthly"
+      price_unit: "rupaye per month"
+      price_inr: 2500
+      duration_min: null
+      slot_reply: "Haan kal shaam 6 baje visit ka time free hai"
+      alt_reply: "Kal subah 7 baje ya shaam 5 baje aa sakte hain"
+      full_reply: "Kal to trainer available nahi hai"
+      select:
+        task_types: [enquiry]
+        categories: [gym, fitness, yoga, crossfit, zumba]
+        keywords: [gym, membership, fitness, trainer, workout, yoga]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki gym membership ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ko {service} ke liye visit karna hai, {date_window}. Time milega?"
+        s3_ask: "Membership ka monthly rate kitna hai?"
+        s3_readback_price: "Matlab {price_inr} rupaye mahina. Sahi?"
+        s3_readback_range_price: "Matlab {price_inr} rupaye tak mahina. Sahi?"
+        s4_ask: "Agar {stylist_pref} trainer mil jaye to behtar hoga, warna koi bhi chalega?"
+        s5_ask: "Joining fee ya koi advance hai?"
+
+  dentist_appointment:
+    title: Dentist appointment
+    task_type: booking
+    who_answers: "Dental assistant or receptionist; the dentist is chairside and rarely comes to the phone. Chains read a script, single-doctor clinics improvise."
+    typical_opening:
+      - "Hello, Smile Dental Clinic, boliye."
+      - "Hello, dental clinic."
+      - "Haan ji, doctor ka clinic."
+    caller_questions:
+      - "Kya problem hai, dard, cavity, cleaning, braces?"
+      - "Pehle kabhi aaye hain, koi purani file?"
+      - "Dard abhi hai ya sirf checkup chahiye?"
+      - "Kaun sa time theek rahega, shaam ko zyada bheed hoti hai."
+      - "Naam aur number batao, reminder bhej denge."
+    quotes:
+      price_units: "consultation fees rupaye; treatment ka alag"
+      typical_range: "Consultation 300 se 700; cleaning 800 se 2000; root canal 3000 se 8000; filling 800 se 1500"
+      not_on_phone: "Treatment ka total: 'pehle dekhna padega, X-ray ke baad batayenge'"
+    wont_say_on_phone:
+      - "Treatment ka final kharcha bina dekhe"
+      - "Dard ki dawai ya antibiotics phone par"
+      - "Doctor ka personal number"
+    surprises:
+      - {id: doctor_in_surgery, title: "Doctor is with a patient", at: s2_ask, say: "Doctor sahab abhi patient dekh rahe hain, baad mein call kijiye", expect: CALL_BACK_LATER}
+      - {id: treatment_after_xray, title: "Price only after the X-ray", at: s3_ask, say: "Pehle dekhna padega, visit karke batayenge, phone pe nahi bata sakte", expect: SLOT_OFFERED}
+      - {id: booking_amount, title: "Booking amount for the slot", at: s5_ask, say: "Haan 300 rupaye booking amount lagega, adjust ho jayega", expect: SLOT_OFFERED}
+      - {id: whatsapp_rates, title: "Sends the rate list on WhatsApp", at: s3_ask, say: "WhatsApp pe bhej do", then: ["Consultation 400 rupaye hai, 20 minute"], expect: SLOT_OFFERED}
+      - {id: token_walk_in, title: "Walk-in with token, no appointment", at: s2_ask, say: "Token system hai, aap aa jaiye, number lag jayega", then: ["Shaam 5 baje tak aa jaiye"], expect: SLOT_OFFERED}
+    hangup_behaviour: "Polite and brisk: 'Ok ji, dhanyavaad', the assistant is called away mid-call."
+    language_mix: "Hinglish with English dental words (cleaning, root canal, filling, braces, scaling); numbers in English."
+    template:
+      noun: dental clinic
+      wrong_kind: medical store
+      service_default: dentist appointment
+      business_default: dental clinic
+      person_label: doctor
+      price_word: "Consultation"
+      price_inr: 400
+      duration_min: 20
+      slot_reply: "Haan kal shaam 6 baje ka slot free hai"
+      alt_reply: "Kal subah 11 baje ya dopahar 3 baje ho jayega"
+      full_reply: "Kal to doctor ka poora din full hai"
+      select:
+        task_types: [booking, healthcare]
+        categories: [dentist, dental, dental clinic, orthodontist]
+        keywords: [dentist, dental, tooth, teeth, cavity, root canal, braces]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki dentist appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ke liye {service} chahiye, {date_window}. Slot milega?"
+        s3_ask: "Doctor ki consultation fees kitni hai, aur kitna time lagega?"
+        s4_ask: "Agar {stylist_pref} available hon to behtar hoga, warna koi bhi doctor chalega?"
+        s5_ask: "Koi booking amount ya cancellation policy hai?"
+
+  pharmacy_order:
+    title: Pharmacy / grocery order status
+    task_type: order
+    who_answers: "Counter staff or the shop owner (chemist, kirana). Always serving someone at the counter, so answers in half-sentences and often puts the phone down mid-call to serve."
+    typical_opening:
+      - "Hello, Gupta Medical, boliye."
+      - "Haan ji, medical store."
+      - "Hello, kirana, bolo."
+    caller_questions:
+      - "Kya chahiye, naam batao dawai ka?"
+      - "Prescription hai? Photo bhej do WhatsApp pe."
+      - "Delivery chahiye ya aap aa kar le jaoge?"
+      - "Address kahan ka hai, kitne baje tak chahiye?"
+      - "Pehle order diya tha kya? Kis naam se?"
+    quotes:
+      price_units: "total bill rupaye; MRP par discount (10 se 20 percent on medicines)"
+      typical_range: "Order ka total 200 se 2000 rupaye; delivery charge 0 se 40"
+      not_on_phone: "Total bill jab tak saari items check na ho; kuch dawai 'stock mein nahi hai, mangwani padegi'"
+    wont_say_on_phone:
+      - "Prescription medicines ke alternatives bina doctor ke"
+      - "Kisi customer ki purani purchase history"
+      - "Bina prescription wali dawaiyaan"
+    surprises:
+      - {id: whatsapp_order, title: "Send the list on WhatsApp", at: s2_ask, say: "WhatsApp pe bhej do list", then: ["Haan ready hai, shaam 5 baje tak aa jaiye"], expect: SLOT_OFFERED}
+      - {id: counter_busy, title: "Busy at the counter, call later", at: s2_ask, say: "Abhi bheed hai, thodi der baad call karo", expect: CALL_BACK_LATER}
+      - {id: stock_check_hold, title: "Holds to check the shelf", at: s2_ask, say: "Ek minute hold karo, dekh ke batata hoon", hold_s: 20, then: ["Haan ji, aa jayega, shaam 5 baje tak"], expect: SLOT_OFFERED}
+      - {id: total_after_check, title: "Total only after checking items", at: s3_ask, say: "Total phone pe nahi bata sakte, aap aa jaiye", expect: SLOT_OFFERED}
+      - {id: delivery_charge, title: "Delivery charge as an advance", at: s5_ask, say: "Haan 50 rupaye delivery charge advance lagega", expect: SLOT_OFFERED}
+    hangup_behaviour: "Abrupt: 'Haan theek hai' and the phone is put down, since the next customer is waiting."
+    language_mix: "Hindi with English brand and medicine names; numbers in Hindi or English; background noise of the counter."
+    template:
+      noun: medical store
+      wrong_kind: clothes shop
+      service_default: dawai ka order
+      business_default: medical store
+      person_label: chemist
+      price_word: "Total"
+      price_inr: 640
+      duration_min: null
+      slot_reply: "Haan ready hai, shaam 5 baje tak aa jaiye"
+      alt_reply: "Kal subah 11 baje ya dopahar 2 baje tak ho jayega"
+      full_reply: "Aaj to stock mein nahi hai, nahi ho payega"
+      select:
+        task_types: [order, status_chase]
+        categories: [pharmacy, chemist, medical store, kirana, grocery, general store]
+        keywords: [pharmacy, chemist, medicine, grocery, kirana, order status, dawai]
+      lines:
+        s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unke order ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+        s2_ask: "{user_first_name} {honorific} ka {service} ready hai, {date_window} tak? Kab tak mil jayega?"
+        s3_ask: "Total bill kitna aayega?"
+        s3_readback_price: "Matlab total {price_inr} rupaye. Sahi?"
+        s3_readback_range_price: "Matlab total {price_inr} rupaye tak. Sahi?"
+        s4_ask: "Agar {stylist_pref} wala brand mil jaye to behtar hoga, warna koi bhi chalega?"
+        s5_ask: "Koi advance ya delivery charge hai?"

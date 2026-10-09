@@ -545,6 +545,7 @@ async def run_persona(
         llm_mode=llm_mode,
         recording=recording,
         clock=clock,
+        playbooks={pb.id: pb},  # the playbook under test (it may live outside data/: a draft)
     )
     policy.keep_finished = True
     # fixed lines are pre-rendered by the runner through policy.fixed_lines (as in production)

@@ -142,6 +142,84 @@ Exit codes: `0` fine, `1` a check failed or got worse than the baseline, `2` a s
 
 Dry runs prove the script and the engine, not the real salon's speech. The simulated salons answer with the words you wrote for them; real salons will surprise you. That is what the first live test call and the weekly labelling of real calls (docs/QUALITY_LOOP.md) are for: every surprise becomes a new persona, then a fix.
 
+## Drafting a playbook for a new business type
+
+Writing a playbook by hand is slow. The **script author** drafts one for you, OFFLINE, in a few minutes, so a new business type (clinic, restaurant, garage...) costs a review, not a project. It never runs during a call: on a live call Friday still says only fixed, validated lines, and no model writes her words.
+
+```
+uv run friday playbook types                                  # the business types it knows
+uv run friday playbook draft clinic_appointment               # free, offline, no key, no network
+uv run friday playbook draft clinic_appointment --live        # a real AI model writes it (costs a little)
+uv run friday playbook draft clinic_appointment --rounds 2    # fewer improvement rounds
+uv run friday playbook promote clinic_appointment             # copy a REVIEWED draft into use
+```
+
+### What it does (the loop)
+
+1. **Draft.** It writes the playbook and 20 to 25 simulated businesses ("personas") for the business type, from what we know about how that kind of business answers the phone: who picks up, what they ask, what they quote, what they will not say, and the awkward things (put on hold, "WhatsApp pe bhej do", "doctor busy hai", token system, booking amount, walk-in only). That knowledge is `friday/playbooks/authoring/business_types.yaml`; you can improve it like any text file. Eight types are included: clinic, restaurant table, car service, plumber/electrician, hotel room enquiry, gym membership, dentist, pharmacy/grocery order status.
+2. **Validate.** The same checker as for the salon (`friday playbook validate`) reads the draft. Every problem it finds is sent back to the writer to fix.
+3. **Dry-run.** The draft is rehearsed against its simulated businesses, exactly like `friday playbook dry-run`.
+4. **Patch.** Whatever failed (a reaction the script does not handle, an ending that is not what a sensible script would give, a limit exceeded, a safety problem) is sent back to the writer to patch. Back to step 2, up to `--rounds` times (default 3).
+
+A **safety violation is never waived.** It cannot be marked "accepted"; deleting the simulated business that exposed it does not help either, because every draft must keep the safety tests (a "don't call again", an OTP ask, a wrong number, a rude hang-up, a delegated booking) and the report calls out any that were removed.
+
+Everything goes to a **drafts folder**, never into the real playbooks: `var/playbook_drafts/<business_type>/` (change it with `--out DIR`; pointing it into `friday/playbooks` is refused).
+
+| file | what |
+|---|---|
+| `playbook.yaml` | the draft script |
+| `personas.yaml` | the simulated businesses |
+| `report.md` | the plain-language summary for you (read this first) |
+| `dryrun.txt` | the dry-run table (same columns as in "Reading the table") |
+
+### Offline or `--live`
+
+| | default (offline) | `--live` |
+|---|---|---|
+| who writes it | a fixed template filled with the business type's words | a real AI model, once |
+| cost / key / network | none / none / none | costs money / needs an AI key (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) / yes |
+| result | valid, safe, but generic; the same structure as the salon | richer, more specific to the business; may need patch rounds |
+| improvement rounds | nothing to fix, so normally 0 | the model fixes its own validator errors and failed rehearsals |
+
+`--live` refuses to start without a key, and prints its **budget before it spends anything**: the maximum number of rounds, the maximum number of model calls, the maximum output size per call, and a worst-case cost estimate in rupees. The report states what was actually used. The model is chosen by the cost-routing rule under the purpose `playbook_author` (a bigger model than the background jobs, allowed because it runs once per business type; never Opus, never on a call). Costs are estimates, not bills. Use `--live` when the offline draft is too generic for the business, and always read the result: a model can write a nice-sounding line that is wrong for the business.
+
+### What to review (this is the job)
+
+Open `report.md`. It says, in plain words:
+
+* **Status**: ready for review / needs work / blocked: safety / failed. Only "ready for review" can be promoted, and even that is only a draft.
+* **The steps**: what Friday asks, in order, and how many reactions each step handles.
+* **What failed and what was fixed**, round by round, and anything still failing.
+* **Safety result**: must be clean.
+* **Test changes the model made**: if a patch round changed what a simulated business was expected to do, or removed one, it is listed. Check those: a patch that "fixes" a failure by weakening the test is not a fix.
+* **Lines needing human review**: every line, with the important ones flagged (the AI disclosure, the one line that books, anything about money, advance, booking or confirmation, long lines). Every line of a new draft is new; you read all of them. Things to look for: is it natural Hinglish for that business? Is it too long to say in one breath? Would a real receptionist find it rude, pushy or confusing? Does any line promise something Friday cannot do?
+
+Also open `playbook.yaml` and read the questions Friday asks in order: does the call make sense for this business, and does it stop after the questions that matter? Edit the file freely (fix a line, remove a question). After editing, check it: `uv run friday playbook validate var/playbook_drafts/<type>/playbook.yaml`.
+
+### Listening to audio samples
+
+The lines are text until you hear them. For any line:
+
+```
+uv run friday say "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat Sharma Clinic se ho rahi hai?" --out var/preview/clinic.wav
+```
+
+Fill the `{...}` values yourself (name, business) when you paste a line. Listen to at least the opening, the price question, the read-back and the closing line; use `--pace 0.9` to try a different speed. This uses the real voice and the Sarvam key, so it costs a very small amount per line.
+
+### Promoting a draft
+
+```
+uv run friday playbook promote clinic_appointment
+```
+
+Promote looks at the draft as it is on disk NOW (including your edits) and refuses unless all of this holds: it validates; it keeps all the safety tests; the dry run has **zero safety violations** and every simulated business passes; no playbook with that name exists yet (it never overwrites). Then it asks you to **type the business type name** to confirm; anything else copies nothing, and there is no `--yes` shortcut. On success it copies the playbook and personas to `friday/playbooks/data/`. Then run `uv run friday playbook dry-run <type> --update-baseline`, read the table, and commit the new files.
+
+Promoting does not start any calls. A promoted playbook is used only for calls whose task matches its `select:` (task type and category or keyword), and your first test call with it should go to your own second phone, like the salon (see "Placing a test call with a playbook").
+
+### What this does not prove
+
+The simulated businesses are written by the same author (a template or a model), so they share its blind spots. A clean draft means: the script is valid, safe, and handles the cases we thought of. It does not mean a real receptionist will answer as expected. The first test calls and the weekly labelling of real calls (docs/QUALITY_LOOP.md) remain the real test; every surprise becomes a new persona, then a fix.
+
 ## Placing a test call with a playbook
 
 ```
@@ -171,4 +249,7 @@ Every call is a clean pair: *what the salon said* and *which intent it was*. A r
 | `friday/playbooks/understand.py` | intent understanding (offline rules + the one model call) |
 | `friday/playbooks/slots.py` | numbers, times and prices from Hinglish speech, sanitised |
 | `friday/playbooks/dryrun.py`, `cli.py` | dry runs and `friday playbook ...` |
+| `friday/playbooks/authoring/business_types.yaml` | what we know about each business type (offline use only) |
+| `friday/playbooks/authoring/` | the script author: prompt, offline template, loop, report, promote |
+| `var/playbook_drafts/<type>/` | drafts (never in `data/`; not committed) |
 | `tests/playbooks/` | loader, every branch, approval rule, DNC, hold, Hinglish, scoring, cost |

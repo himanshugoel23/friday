@@ -70,6 +70,9 @@ DEFAULT_LLM_MODELS: dict[str, str] = {
     "translate": "claude-haiku-5-5",
     "sim_business": "claude-haiku-5-5",
     "call_turn": "claude-sonnet-5-5",
+    # OFFLINE one-off: `friday playbook draft --live` (never on a call). A bigger model is fine
+    # because it runs once per business type; the draft is validated and dry-run afterwards.
+    "playbook_author": "claude-sonnet-5-5",
 }
 
 # OpenAI (GPT) routing, used when the resolved LLM provider is "openai". Same cost rule: the
@@ -80,6 +83,7 @@ OPENAI_ESCALATION_MODEL = "gpt-5.4"
 DEFAULT_OPENAI_MODELS: dict[str, str] = {
     p: OPENAI_LIGHT_MODEL for p in DEFAULT_LLM_MODELS
 }  # incl. call_turn
+DEFAULT_OPENAI_MODELS["playbook_author"] = OPENAI_ESCALATION_MODEL  # offline script author
 # reasoning_effort per purpose (GPT-5 family only). gpt-5.4-mini accepts none|low|medium|high
 # ("minimal" is rejected with HTTP 400); "none" is ~0.5-1 s faster than "low" on a call turn.
 DEFAULT_OPENAI_REASONING: dict[str, str] = {"call_turn": "none"}
