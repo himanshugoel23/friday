@@ -105,14 +105,20 @@ def init_env(root: Path | None = None, out: Callable[[str], None] = print) -> in
         text = _set_line(text, k, v)
     target.write_text(text, encoding="utf-8")
     to_fill = ["SARVAM_TELEPHONY_AUTH_ID", "SARVAM_TELEPHONY_AUTH_TOKEN", "SARVAM_API_KEY",
-               "ANTHROPIC_API_KEY", "FRIDAY_PUBLIC_BASE_URL", "FRIDAY_PILOT_ALLOWED_NUMBERS"]
+               "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "FRIDAY_PUBLIC_BASE_URL",
+               "FRIDAY_PILOT_ALLOWED_NUMBERS"]
     to_fill = _blank_names(text, to_fill)
+    llm_keys = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
+    if llm_keys - set(to_fill):  # one brain key is enough: do not ask for the other
+        to_fill = [n for n in to_fill if n not in llm_keys]
     out(f"Created {target}")
     out("Strong random secrets were generated for you (not shown here).")
     out("Open .env in Notepad and fill in these values (the text after the = sign):")
     for n in to_fill:
         out(f"  - {n}")
-    out("Tip: no Anthropic credits? Add the line FRIDAY_LLM_PROVIDER=fake to test only the audio.")
+    out("Brain key: fill ANTHROPIC_API_KEY or OPENAI_API_KEY (either one; leave the other blank).")
+    out("Tip: no Anthropic credits? Fill OPENAI_API_KEY and add FRIDAY_LLM_PROVIDER=openai.")
+    out("Tip: no LLM key at all? Add FRIDAY_LLM_PROVIDER=fake to test only the audio.")
     out(f"The caller ID is already set to the Vobiz trial number {TRIAL_CALLER_ID}.")
     return 0
 
@@ -146,6 +152,15 @@ async def doctor(settings: Settings, env_path: Path | None = None,
     else:
         bad(".env not found. Run: uv run friday init-env")
     out(f"\nSettings: mode={settings.mode}, profile={settings.profile}")
+    llm = settings.resolve_llm()
+    if llm == "fake":
+        out("  LLM brain: fake (scripted replies; set OPENAI_API_KEY or ANTHROPIC_API_KEY)")
+    elif settings.llm_key_configured():
+        ok(f"LLM brain: {llm} ({settings.llm_key_name()} is set; "
+           f"call turns use {settings.model_for('call_turn')})")
+    else:
+        bad(f"LLM brain: {llm} but {settings.llm_key_name()} is empty. Fill ANTHROPIC_API_KEY or "
+            "OPENAI_API_KEY in .env (and FRIDAY_LLM_PROVIDER=openai for GPT)")
     if not settings.is_live:
         bad("FRIDAY_MODE is not 'live' (init-env sets it). Real calls need live mode.")
     live = settings.live_problems() if settings.is_live else []

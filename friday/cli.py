@@ -43,6 +43,12 @@ def _check(settings: Settings) -> int:
             continue
         status = "ok" if c.is_available(component) else "not implemented yet"
         print(f"  {component:20s} {provider:14s} {path:60s} {status}")
+    llm = settings.resolve_llm()
+    if llm != "fake":
+        have = "set" if settings.llm_key_configured() else "NOT SET"
+        print(f"  llm brain: {llm}  key {settings.llm_key_name()} {have}  models: light="
+              f"{settings.model_for('interpret')} call_turn={settings.model_for('call_turn')} "
+              f"escalation={settings.model_for('', escalate=True)}")
     missing = c.missing_role_components()
     if missing:
         print(f"  ! components needed by roles {','.join(settings.roles)} but not implemented: "

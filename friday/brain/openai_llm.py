@@ -66,7 +66,7 @@ _MAX_RETRY_AFTER_S = 2.0
 _NOTES_FORMAT = (
     "\nProvider notes (output format only; the rules above still decide everything):\n"
     "Reply with ONLY the JSON object for the schema. Use null (or []) for fields that do not "
-    "apply (call turns: omit optional fields instead). Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
+    "apply. Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
 )
 _NOTES_CALL_TURN = (
     "Language mirroring: if the last callee turn carries a `language` tag, your `language` MUST "
@@ -80,8 +80,9 @@ _NOTES_INTERPRET = (
     "healthcare, not booking. Asking ONE named business a question (price, hours, availability) "
     "-> enquiry; quote only when the user wants quotes from several businesses to compare. "
     "Finding which shop has an item in stock -> stock_hunt; discovery is for finding "
-    "businesses in general. A vendor/worker who is late or has not turned up -> "
-    "service_coordination; chasing the status of finished/pending work -> status_chase. "
+    "businesses in general. running_late is only when the USER is late. A vendor/worker who "
+    "is late or has not turned up (\"chase him\") -> service_coordination; "
+    "chasing the status of finished/pending work -> status_chase. "
     "Problems with a company's service (telecom, bank, broadband, airline, e-commerce: Airtel, "
     "Jio, ...) -> customer_care; complaint is for a local vendor. A request to regularly call or "
     "check in on a family member -> new_task wellbeing_checkin (not remember).\n"
@@ -229,7 +230,7 @@ class OpenAILLM:
         default_reasoning_effort: str = "none",
         prices: dict[str, Sequence[float]] | None = None,
         usd_to_inr: float = 84.0,
-        relaxed_call_schema: bool = True,
+        relaxed_call_schema: bool = False,
         client: Any | None = None,
     ) -> None:
         from friday.core.config import DEFAULT_OPENAI_PRICES_USD_PER_MTOK

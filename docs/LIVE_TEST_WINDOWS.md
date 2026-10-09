@@ -34,7 +34,12 @@ notepad .env
 Fill in (after the `=`, no spaces or quotes):
 - `SARVAM_TELEPHONY_AUTH_ID` and `SARVAM_TELEPHONY_AUTH_TOKEN` (Vobiz Auth ID / Token)
 - `SARVAM_API_KEY`
-- `ANTHROPIC_API_KEY` (real brain). No Anthropic credits? Add the line `FRIDAY_LLM_PROVIDER=fake`
+- One brain key: `ANTHROPIC_API_KEY` (Claude) **or** `OPENAI_API_KEY` (GPT). `FRIDAY_LLM_PROVIDER=auto`
+  (the default) uses Anthropic if its key is set, else OpenAI if its key is set. No Anthropic
+  credits? Fill only `OPENAI_API_KEY` and add the line `FRIDAY_LLM_PROVIDER=openai`. With GPT the
+  light jobs run on `gpt-5.4-mini`, live call turns on `gpt-5.4-mini` with `low` reasoning
+  (`FRIDAY_OPENAI_REASONING_EFFORT={"call_turn":"low"}`; "none" was faster but followed the call
+  policy worse), and `gpt-5.4` only on escalation. Neither key? Add `FRIDAY_LLM_PROVIDER=fake`
   to test only the audio path (the replies are scripted).
 - `FRIDAY_PILOT_ALLOWED_NUMBERS=+91XXXXXXXXXX` (your own phone)
 

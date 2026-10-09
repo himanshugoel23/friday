@@ -21,6 +21,7 @@ Legend: [ ] open, [x] done in code (tests exist), "Owner" says who must act.
 | 1.6 | **Privacy policy, terms of use and Grievance Officer** (name, email, address, response time) published at real URLs, then set `FRIDAY_TERMS_URL`, `FRIDAY_PRIVACY_URL`, `FRIDAY_GRIEVANCE_EMAIL` (and optionally `FRIDAY_GRIEVANCE_NAME`). The beta refuses to start without the first three; the onboarding consent message shows them in English, Hindi and Hinglish | DPDP Act notice and consent; OPS-4 | Founder + lawyer | [ ] |
 | 1.7 | **Recording and retention decision** (section 6) written down. Default for the beta: no recordings, transcripts kept N days | DPDP / PRD Q4; OPS-8 | Founder + lawyer | [ ] |
 | 1.8 | **Zero-data-retention (ZDR) and data-processing terms requested in writing** from Anthropic, Sarvam and Vobiz (also Meta and Google; they are standard terms). Keep the replies | OPS-2 | Founder | [ ] |
+| 1.8a | **LLM vendor.** If the brain runs on OpenAI (`FRIDAY_LLM_PROVIDER=openai` or only `OPENAI_API_KEY` set), the personal-data processor changes: call transcripts, user notes, identifiers and document images are sent to OpenAI. The privacy policy and the DPA must name OpenAI (not only Anthropic). Request zero data retention, or confirm the API data-retention and no-training terms in writing, before any real user. Until then: test data only. Keep minimising what is sent (the existing minimisation rules still apply: no OTP/PIN, phone numbers masked, compact context) | DPDP Act processor disclosure; OPS-2 | Founder + lawyer | [ ] |
 | 1.9 | **Official customer-care numbers verified**: open `friday/discovery/data/official_numbers.json`, and for every company check the number on its own website or a recent bill; mark the date. Friday refuses to call care lines not on this list, so a wrong entry = calling a stranger | docs/LAUNCH_CHECKLIST.md s.6 last row | Founder + one engineer | [ ] |
 | 1.10 | **Truecaller for Business** (and CNAP where available) registered for the Friday caller number, so businesses see "Friday (AI assistant)" instead of an unknown number | caller-ID reputation | Founder | [ ] |
 | 1.11 | A named **person on call** for the beta (phone reachable) who knows the kill switch; the Grievance Officer mailbox is monitored | incident response | Founder | [ ] |
@@ -139,7 +140,7 @@ Test every template with your own phone before testers join (Meta's template man
 - [ ] Kill-switch drill: `friday pause`, send yourself a WhatsApp message (you get the polite notice, no call is placed), then `friday pause --resume`.
 - [ ] `/etc/friday/.env` offline copy stored; no secret has ever been in chat/git; AWS Budget alert email received a test.
 - [ ] `uv run pytest` and `uv run ruff check .` green on the deployed commit (CI or engineer's machine).
-- [ ] Anthropic, Google and Vobiz spend limits / low-balance alerts are set.
+- [ ] Anthropic / OpenAI (whichever is the brain), Google and Vobiz spend limits / low-balance alerts are set.
 
 ---
 
