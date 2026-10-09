@@ -98,6 +98,14 @@ _PIN_INTENTS = {
     Intent.INVITE,
     Intent.REMEMBER,
 }
+# audio classes that mean nobody is talking to us (the classifier may call odd speech UNKNOWN or
+# IVR_PROMPT; with words in it we still treat it as the caller rather than hang up on a person)
+_NOT_A_PERSON = {
+    AudioClass.HOLD_MUSIC,
+    AudioClass.QUEUE_ANNOUNCEMENT,
+    AudioClass.VOICEMAIL,
+    AudioClass.SILENCE,
+}
 _APPROVAL_INTENTS = {Intent.APPROVE, Intent.REJECT, Intent.CHOOSE, Intent.TASK_UPDATE}
 
 
@@ -556,8 +564,8 @@ class FrontDoorSession:
         self.latency.stt(getattr(self.leg, "last_stt_ms", None))
         if t is None:
             return None
-        if t.audio_class != AudioClass.HUMAN or not (t.text or "").strip():
-            return None  # music / machine noise / empty: treated as silence
+        if t.audio_class in _NOT_A_PERSON or not (t.text or "").strip():
+            return None  # music / voicemail / silence / empty: treated as silence
         text = redact_secrets(t.text or "")
         await self._record(Speaker.CALLEE, text, t.language)
         if t.language and t.language not in self.languages:
