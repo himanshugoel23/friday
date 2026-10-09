@@ -15,11 +15,9 @@ export DEBIAN_FRONTEND=noninteractive
 echo "== 1/6 packages"
 apt-get update -y
 apt-get install -y git curl ca-certificates debian-keyring debian-archive-keyring apt-transport-https gnupg python3 ufw
-if ! command -v caddy >/dev/null; then
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-  curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
-  apt-get update -y && apt-get install -y caddy
-fi
+rm -f /etc/apt/sources.list.d/caddy-stable.list   # the third-party Caddy repo was returning 402; use Ubuntu's own package
+apt-get update -y
+command -v caddy >/dev/null || apt-get install -y caddy
 ufw allow 22/tcp >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw --force enable >/dev/null
 
 echo "== 2/6 service user and code"
