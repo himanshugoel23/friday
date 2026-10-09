@@ -22,8 +22,12 @@ from friday.playbooks.model import get_playbook
 
 REQUESTED = {
     "friendly_free_slot", "busy_call_later", "puts_on_hold", "asks_who", "asks_robot",
-    "pure_hindi", "price_over_budget", "asks_advance", "no_slot_two_alternatives",
-    "noisy_then_clear", "rude_hangs_up", "asks_customer_phone", "wrong_number",
+    "pure_hindi", "price_over_budget_negotiates", "salon_raises_advance",
+    "no_slot_two_alternatives", "noisy_then_clear", "rude_hangs_up", "asks_customer_phone",
+    "wrong_number",
+    # v0.2 (founder feedback): the delegated / not delegated closes and the busy-time paths
+    "books_directly", "price_over_ceiling", "requested_time_busy_offers_other",
+    "no_delegation_free",
 }
 
 
@@ -53,13 +57,15 @@ def test_all_personas_reach_their_expected_outcome_with_no_safety_violation(repo
 def test_scoring_fields_are_filled(report):
     friendly = next(r for r in report.runs if r.persona == "friendly_free_slot")
     assert friendly.outcome == "SLOT_OFFERED" and friendly.call_outcome == "pending_approval"
-    assert friendly.steps == ["S0", "S1", "S2", "S3", "S3r", "S5", "S6", "S7"]
-    assert friendly.turns >= 7 and 20 < friendly.seconds < 120
+    assert friendly.steps == ["S0", "S2", "S3", "S7"]  # intro+availability, price, one-line close
+    assert friendly.turns == 4 and 20 < friendly.seconds < 120
     assert friendly.llm_calls == 0 and friendly.repeats == 0 and friendly.safety == []
     hold = next(r for r in report.runs if r.persona == "puts_on_hold")
     assert hold.repeats >= 1 and hold.seconds > friendly.seconds  # waited, then asked again
-    over = next(r for r in report.runs if r.persona == "price_over_budget")
+    over = next(r for r in report.runs if r.persona == "price_over_budget_negotiates")
     assert "S3b" in over.steps
+    quiet = next(r for r in report.runs if r.persona == "price_over_budget_no_negotiation")
+    assert "S3b" not in quiet.steps  # no discount ask without the owner's instruction
     rude = next(r for r in report.runs if r.persona == "rude_hangs_up")
     assert rude.outcome == "REFUSED" and rude.turns <= 3
     wrong = next(r for r in report.runs if r.persona == "wrong_number")
@@ -69,7 +75,11 @@ def test_scoring_fields_are_filled(report):
 def test_special_outcomes(report):
     by = {r.persona: r for r in report.runs}
     assert by["delegated_booking"].outcome == "BOOKED"
-    assert by["delegated_over_ceiling"].outcome == "SLOT_OFFERED"
+    assert by["books_directly"].outcome == "BOOKED"
+    assert by["price_over_ceiling"].outcome == "SLOT_OFFERED"
+    assert by["salon_raises_advance"].outcome == "SLOT_OFFERED"  # even with a delegation
+    assert by["no_delegation_free"].outcome == "SLOT_OFFERED"
+    assert by["requested_time_busy_no_delegation"].outcome == "SLOT_OFFERED"
     assert by["hold_too_long"].call_outcome == "hold_timeout"
     assert by["never_clear"].outcome == "UNCLEAR"
     assert by["dnc_request"].outcome == "REFUSED"
@@ -222,7 +232,7 @@ def test_cli_paths_and_saved_redacted_transcripts(tmp_path, capsys):
     rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly,asks_otp",
                       "--paths", "--save-transcripts", str(tmp_path)])
     out = capsys.readouterr().out
-    assert rc in (0, 1) and "S0 > S1 > S2 > S3 > S3r > S5 > S6 > S7" in out
+    assert rc in (0, 1) and "S0 > S2 > S3 > S7" in out
     data = json.loads((tmp_path / "salon_booking-dryrun.json").read_text(encoding="utf-8"))
     assert data["simulated"] is True and {r["persona"] for r in data["runs"]} == {
         "friendly_free_slot", "asks_otp"}

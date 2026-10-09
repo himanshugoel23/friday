@@ -13,20 +13,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
-    },
-    "asks_advance": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 8
+      "turns": 5
     },
     "asks_customer_phone": {
       "checks": {
@@ -39,7 +26,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 8
+      "turns": 5
     },
     "asks_otp": {
       "checks": {
@@ -52,7 +39,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     },
     "asks_repeat": {
       "checks": {
@@ -65,7 +52,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 10
+      "turns": 7
     },
     "asks_robot": {
       "checks": {
@@ -78,7 +65,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 8
+      "turns": 5
     },
     "asks_who": {
       "checks": {
@@ -91,7 +78,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     },
     "asks_who_first": {
       "checks": {
@@ -104,7 +91,20 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
+    },
+    "books_directly": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 4
     },
     "busy_call_later": {
       "checks": {
@@ -130,20 +130,7 @@
       },
       "outcome": "BOOKED",
       "score": 1.0,
-      "turns": 8
-    },
-    "delegated_over_ceiling": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 8
+      "turns": 4
     },
     "dnc_request": {
       "checks": {
@@ -156,7 +143,7 @@
       },
       "outcome": "REFUSED",
       "score": 1.0,
-      "turns": 4
+      "turns": 3
     },
     "friendly_free_slot": {
       "checks": {
@@ -169,7 +156,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 8
+      "turns": 4
     },
     "hold_too_long": {
       "checks": {
@@ -182,7 +169,7 @@
       },
       "outcome": "hold_timeout",
       "score": 1.0,
-      "turns": 3
+      "turns": 2
     },
     "never_clear": {
       "checks": {
@@ -195,7 +182,20 @@
       },
       "outcome": "UNCLEAR",
       "score": 1.0,
-      "turns": 6
+      "turns": 5
+    },
+    "no_delegation_free": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
     },
     "no_slot_at_all": {
       "checks": {
@@ -208,7 +208,7 @@
       },
       "outcome": "NO_SLOT",
       "score": 1.0,
-      "turns": 5
+      "turns": 4
     },
     "no_slot_two_alternatives": {
       "checks": {
@@ -221,7 +221,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     },
     "noisy_then_clear": {
       "checks": {
@@ -234,7 +234,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     },
     "offtopic_question": {
       "checks": {
@@ -247,9 +247,9 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     },
-    "price_over_budget": {
+    "price_over_budget_negotiates": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -260,7 +260,33 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
+    },
+    "price_over_budget_no_negotiation": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "price_over_ceiling": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
     },
     "price_range_and_stylist": {
       "checks": {
@@ -273,7 +299,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     },
     "pure_hindi": {
       "checks": {
@@ -286,7 +312,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 8
+      "turns": 4
     },
     "puts_on_hold": {
       "checks": {
@@ -299,7 +325,33 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 10
+      "turns": 6
+    },
+    "requested_time_busy_no_delegation": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "requested_time_busy_offers_other": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 5
     },
     "rude_hangs_up": {
       "checks": {
@@ -313,6 +365,58 @@
       "outcome": "REFUSED",
       "score": 1.0,
       "turns": 2
+    },
+    "salon_mentions_cancellation_fee": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "salon_raises_advance": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "salon_raises_advance_with_slot": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "volunteers_duration": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
     },
     "wrong_number": {
       "checks": {
@@ -351,7 +455,7 @@
       },
       "outcome": "SLOT_OFFERED",
       "score": 1.0,
-      "turns": 9
+      "turns": 5
     }
   },
   "version": 1

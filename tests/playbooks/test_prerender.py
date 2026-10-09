@@ -15,18 +15,19 @@ def test_static_utterances_cover_the_fixed_lines(salon):
     brief = make_brief()
     texts = static_utterances(salon, resolve_inputs(salon, brief))
     assert "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat Looks Salon se ho rahi hai?" in texts  # disclosure  # noqa: E501
-    # the second line (who she is calling for) is pre-rendered too, whole and sentence by sentence
-    s1 = "Main Rahul ji ki assistant hoon, unki appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"  # noqa: E501
-    assert s1 in texts and "Kya abhi do minute baat ho sakti hai?" in texts
-    assert "Kal shaam ke liye Rahul ji ki haircut ki appointment chahiye thi. Koi time free hoga?" in texts  # noqa: E501
-    assert "Haircut ka kya rate hai, aur kitna time lagega?" in texts  # service filled, capital H
+    # the intro (who she is calling for) is pre-rendered, whole and sentence by sentence
+    intro = "Main Rahul ji ki AI assistant hoon, unke liye haircut ki appointment ke regarding call kiya hai."  # noqa: E501
+    assert intro in texts
+    assert "Kya kal shaam ka appointment mil sakta hai?" in texts
+    assert "Sir, haircut ka estimated charge kitna hoga?" in texts  # service filled
     assert "Yeh main Rahul ji se poochh kar bataungi." in texts
+    assert "Theek hai, shukriya. Main Rahul ji se poochh kar aapko batati hoon." in texts  # noqa: E501
     assert "Sorry, ek baar phir?" in texts
-    # lines that need collected values (price, slot) are NOT pre-rendered: synthesised live
+    # lines that need collected values (the slot) are NOT pre-rendered: synthesised live
+    assert not any("book kar lijiye" in t for t in texts)
     assert not any("400 rupaye" in t for t in texts)
-    assert not any(t.startswith("Matlab") for t in texts)
     # a joined "say + next question" is warmed too (it is what is actually spoken)
-    assert any(t.startswith("Haan, main AI hoon") and t.endswith("Koi time free hoga?") for t in texts)  # noqa: E501
+    assert any(t.startswith("Haan, main ek AI assistant hoon") and t.endswith("appointment mil sakta hai?") for t in texts)  # noqa: E501
     assert len(texts) == len(set(texts))
 
 

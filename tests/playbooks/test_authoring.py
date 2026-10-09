@@ -200,7 +200,7 @@ def test_salon_playbook_is_untouched():
     names = sorted(playbook_files())
     assert "salon_booking" in names
     pb = load_playbook(DATA_DIR / "salon_booking.yaml")
-    assert pb.id == "salon_booking" and len(pb.steps) == 12
+    assert pb.id == "salon_booking" and len(pb.steps) == 8
 
 
 # --------------------------------------------------------------------------- the loop
@@ -458,8 +458,10 @@ def test_report_for_a_blocked_draft_says_so(tmp_path):
 # --------------------------------------------------------------------------- the prompt
 def test_prompt_carries_format_rules_and_the_salon_example():
     system = prompt.system_prompt()
-    salon = (DATA_DIR / "salon_booking.yaml").read_text(encoding="utf-8")
-    assert salon in system  # the full salon playbook as the worked example
+    from friday.playbooks.authoring.offline import TEMPLATE_DIR
+
+    salon = (TEMPLATE_DIR / "salon_v1.yaml").read_text(encoding="utf-8")
+    assert salon in system  # the full salon playbook structure as the worked example
     from friday.playbooks.intents import INTENTS
 
     assert all(i in system for i in INTENTS)  # the closed intent set

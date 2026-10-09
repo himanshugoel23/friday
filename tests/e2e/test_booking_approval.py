@@ -19,10 +19,11 @@ async def test_offer_waits_for_user_then_confirmation_callback(friday, rahul):
     assert calls[0].to_phone == LOOKS
     # the business was told Friday will call back, and nothing was committed
     said = " ".join(friday_lines(calls[0])).lower()
-    # scripted salon call (friday/playbooks): "...Abhi kuch confirm nahi kiya, ... se poochh kar
-    # aapko call karti hoon." (the LLM-driven policy said "hold" instead)
-    assert "call back" in said and (
-        "hold" in said or "abhi kuch confirm nahi kiya" in said and "poochh kar" in said
+    # scripted salon call (friday/playbooks): one short close, "Theek hai, shukriya. Main ... se
+    # poochh kar aapko batati hoon." - no recap, no confirmation (the LLM-driven policy said
+    # "call back ... hold" instead)
+    assert ("call back" in said and "hold" in said) or (
+        "poochh kar aapko batati hoon" in said and "confirm" not in said
     )
     assert "committed" not in calls[0].collected
     assert t.approved_terms is None

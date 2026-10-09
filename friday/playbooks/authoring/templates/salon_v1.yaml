@@ -1,12 +1,11 @@
-# Playbook: salon booking (v2). Implements docs/playbooks/salon_booking.md (founder feedback v0.2).
+# FROZEN COPY of the salon script v1 (before founder feedback v0.2). Used ONLY as the structure the
+# offline/live script author builds drafts from. The shipped salon playbook is data/salon_booking.yaml.
+# Playbook: salon booking (v1). Implements docs/playbooks/salon_booking.md (founder draft v0.1).
 #
-# Friday phones a salon for a user, asks if the time is free and what it roughly costs, and ends
-# the call in ONE short line. She books ONLY if the owner delegated the decision (the brief
-# carries a delegation) and the code-level commit check passes; otherwise she says she will ask
-# the user and come back. She never asks about advance/cancellation, never asks how long it
-# takes, never negotiates unless the owner said so, and never schedules extra follow-ups.
-# Every word below is Hinglish (Roman script). The model never writes Friday's words; it only
-# classifies what the salon said.
+# Friday phones a salon for a user, finds out if a slot is free and what it costs, and says she
+# will call back after the user approves. She books ONLY if the user delegated the decision and
+# the code-level commit check passes (BRIEF: approval rule). Every word below is Hinglish
+# (Roman script). The model never writes Friday's words; it only classifies what the salon said.
 #
 # To change what Friday says: edit the text under `lines`. To change the flow: edit `steps`.
 # Run `uv run friday playbook validate salon_booking` after every edit.
@@ -28,17 +27,14 @@ inputs:
   honorific: {default: ji}          # ji / sir / madam: how the caller refers to the user
   business_name: {default: salon}   # "Shreya salon"
   service: {required: true, default: haircut}
-  # when the user wants it. A part of the day ("kal shaam") or one specific time ("aaj shaam 5 baje").
-  # With a specific time, a plain "ho jayega" from the salon means THAT time (no "Kitne baje ka?").
   date_window: {required: true}
-  budget: {}                        # the user's ceiling in rupees (also the booking ceiling)
+  budget: {}
   stylist_pref: {}
   callback_number: {}
-  # OFF unless the owner says so explicitly:
-  negotiate: {default: "no"}        # yes: when over budget, ask once for a lower price
-  explore_options: {default: "no"}  # yes: when busy, ask for two other slots (the owner compares)
+  negotiate: {default: "no"}       # yes only when the owner said so
+  explore_options: {default: "no"}
 
-outputs: [slot_free, offered_slots, slot, price_inr, stylist, advance_needed, outcome]
+outputs: [slot_free, offered_slots, slot, price_inr, duration_min, stylist, advance_needed, outcome]
 
 limits:
   max_duration_s: 180        # whole call
@@ -61,47 +57,52 @@ lines:
   s0_who: "Main Friday hoon, ek AI assistant. Kya meri baat {business_name} se ho rahi hai?"
   s0_repeat: "Kya meri baat {business_name} se ho rahi hai?"
   recording_notice: "Yeh call quality ke liye record ho sakta hai."
-  # said once, right after the identity "yes", together with the availability question (S2)
-  intro: "Main {user_first_name} {honorific} ki AI assistant hoon, unke liye {service} ki appointment ke regarding call kiya hai."
-  ai_yes: "Haan, main ek AI assistant hoon, insaan nahi."
+  s1_ask: "Main {user_first_name} {honorific} ki assistant hoon, unki appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"
+  s1_short: "Main Friday hoon, AI assistant. {user_first_name} {honorific} ke liye ek chhota sa sawaal tha. Do minute milenge?"
+  ai_yes: "Haan, main AI hoon, insaan nahi. {user_first_name} {honorific} ke liye booking check kar rahi hoon."
   who_short: "Main Friday hoon, {user_first_name} {honorific} ki AI assistant."
   bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
   bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
   bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
   bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
   bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
-  s2_ask: "Kya {date_window} ka appointment mil sakta hai?"
+  s2_ask: "{date_window} ke liye {user_first_name} {honorific} ki {service} ki appointment chahiye thi. Koi time free hoga?"
   s2_appt_only: "Appointment ke liye hi poochh rahi hoon."
   s2_ask_time: "Kitne baje ka?"
-  s2b_ask: "Toh kaun sa time free hai?"
-  s2b_ask_two: "Toh kaun se do time free hain?"
+  s2b_ask: "Toh kaun sa time free hai, {date_window} ke aas-paas?"
   s2b_none: "Koi baat nahi, main {user_first_name} {honorific} ko bata dungi. Shukriya."
-  s3_ask: "Sir, {service} ka estimated charge kitna hoga?"
+  s3_ask: "{service} ka kya rate hai, aur kitna time lagega?"
+  s3_readback: "Matlab {price_inr} rupaye, lagbhag {duration_min} minute. Sahi?"
+  s3_readback_price: "Matlab {price_inr} rupaye. Sahi?"
+  s3_readback_range: "Matlab {price_inr} rupaye tak, lagbhag {duration_min} minute. Sahi?"
+  s3_readback_range_price: "Matlab {price_inr} rupaye tak. Sahi?"
   s3b_ask: "{user_first_name} {honorific} ka budget {budget} rupaye hai. Kuch kam ho sakta hai?"
   s4_ask: "Agar {stylist_pref} available ho to unse hi karwana hai, warna koi bhi chalega."
-  # only when the SALON raises an advance / booking amount / cancellation fee: she does not agree
+  s5_ask: "Advance dena padega kya, ya cancellation ka koi charge hai?"
   s5_no_advance: "Advance main abhi nahi de sakti, {user_first_name} {honorific} se poochh kar bataungi."
-  no_number: "{user_first_name} {honorific} ka number main share nahi kar sakti."
-  # the close when she may NOT book: one short line, no recap of price or service
-  s7_close: "Theek hai, shukriya. Main {user_first_name} {honorific} se poochh kar aapko batati hoon."
-  # the ONLY line that books; used only when the owner delegated AND the code-level check passes
+  s6_ask: "Main {user_first_name} {honorific} se poochh kar aapko isi number par call back karti hoon."
+  s6_no_number: "{user_first_name} {honorific} ka number main share nahi kar sakti. Main aapko isi number par call back karti hoon."
+  s7_close: "Theek hai, toh {slot} ka {service}, {price_inr} rupaye. Abhi kuch confirm nahi kiya, {user_first_name} {honorific} se poochh kar aapko call karti hoon. Shukriya."
+  s7_close_noprice: "Theek hai, toh {slot} ka {service}. Abhi kuch confirm nahi kiya, {user_first_name} {honorific} se poochh kar aapko call karti hoon. Shukriya."
+  # the ONLY line that books; used only when the user delegated AND the code-level check passes
   s7_commit:
-    text: "Theek hai, aap {slot} ka book kar lijiye. Thank you."
+    text: "Theek hai, {slot} ke liye book kar dijiye, naam {user_first_name} likhiye."
     commit: true
+  thanks: "Shukriya."
   sorry: "Sorry, ek baar phir?"
   offscript: "Yeh main {user_first_name} {honorific} se poochh kar bataungi."
   no_secrets: "Yeh jaankari main share nahi kar sakti."
 
 routes:
-  # after the price (no read-back): a one-time discount ask ONLY if the owner allowed negotiating
-  # and the price is over the budget; then the stylist preference if there is one; then close
-  after_quote:
-    - {when: [over_budget, may_negotiate], goto: S3b}
-    - {when: [has_stylist_pref], goto: S4}
-    - {goto: S7}
+  # after the price is settled: stylist preference if the user gave one, else the policy question
   after_price:
     - {when: [has_stylist_pref], goto: S4}
-    - {goto: S7}
+    - {goto: S5}
+  # after the read-back "Sahi?": a light, one-time budget ask only if the user allowed it
+  after_readback:
+    - {when: [over_budget, may_negotiate], goto: S3b}
+    - {when: [has_stylist_pref], goto: S4}
+    - {goto: S5}
 
 # every step inherits these unless it lists the same intent itself
 defaults:
@@ -109,19 +110,13 @@ defaults:
   RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
   WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
   BUSY_LATER: {say: [bye_busy], outcome: CALL_BACK_LATER}
-  # the SALON raised an advance / booking amount / cancellation fee at any step: Friday does not
-  # agree, says so in one line and the call ends as a pending offer (never BOOKED)
-  NEEDS_ADVANCE:
-    - {when: [slot_known], say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: SLOT_OFFERED}
-    - {say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: UNCLEAR}
-  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
   ARE_YOU_BOT: {say: [ai_yes], repeat: true}
   WHO_IS_THIS: {say: [who_short], repeat: true, max_uses: 2}
   ASKS_REPEAT: {repeat: true, max_uses: 3}
   HOLD_ON: {hold_s: 60, max_uses: 3}
   ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
   ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
-  ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
+  ASKS_CUSTOMER_PHONE: {say: [s6_no_number], repeat: true, max_uses: 2}
 
 start: S0
 commit_step: S7
@@ -131,37 +126,42 @@ steps:
         # hai?"; nothing is asked here, Friday just WAITS for the answer (only the start step may
         # have no ask). Silence goes to the normal "Sorry, ek baar phir?" handling.
     branches:
-      YES: {goto: S2}
-      CONTINUE: {goto: S2}
-      ACK: {goto: S2}
+      YES: {goto: S1}
+      CONTINUE: {goto: S1}
+      ACK: {goto: S1}
       NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
       WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
       ASKS_REPEAT: {say: [s0_repeat], stay: true, max_uses: 2}
-      ARE_YOU_BOT: {say: [ai_yes], goto: S2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S1}
 
-  S2:   # one intro line, then straight to availability
+  S1:   # who she is calling for, and may she have two minutes
     ask:
       - {line: recording_notice, when: [recording, first_ask]}
-      - {line: intro, when: [first_ask]}
-      - s2_ask
+      - s1_ask
     branches:
-      # she said yes / "ho jayega": the time we asked for is the slot when the task named one
+      YES: {goto: S2}
+      CONTINUE: {goto: S2}
+      ACK: {goto: S2}
+      NO: {say: [bye_busy], outcome: CALL_BACK_LATER}
+      WHO_IS_THIS: {say: [s1_short], stay: true, max_uses: 1}
+      ASKS_REPEAT: {say: [s1_short], stay: true, max_uses: 1}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S2}
+
+  S2:   # availability
+    ask: [s2_ask]
+    branches:
       SLOT_FREE:
         - {when: [slot_known], goto: S3}
         - {goto: S2t}
-      YES:
-        - {when: [has_requested_time], use_requested_time: true, goto: S3}
-        - {goto: S2t}
+      YES: {goto: S2t}
       GIVES_TIME: {goto: S3}
       OFFERS_SLOTS: {goto: S3}
       SLOT_BUSY: {goto: S2b}
       NO: {goto: S2b}
       NEEDS_APPOINTMENT: {say: [s2_appt_only], repeat: true, max_uses: 1}
       CONTINUE: {repeat: true}
-      WHO_IS_THIS: {say: [intro], repeat: true, max_uses: 1}
-      ASKS_REPEAT: {say: [intro], repeat: true, max_uses: 1}
 
-  S2t:  # she said yes but gave no time and the task named none
+  S2t:  # she said yes but gave no time
     ask: [s2_ask_time]
     branches:
       GIVES_TIME: {goto: S3}
@@ -172,10 +172,8 @@ steps:
       SLOT_BUSY: {goto: S2b}
       NO: {goto: S2b}
 
-  S2b:  # the time is busy: ONE alternative time (two only when the owner wants to compare)
-    ask:
-      - {line: s2b_ask_two, when: [explore_options]}
-      - {line: s2b_ask, when: ["!explore_options"]}
+  S2b:  # alternatives
+    ask: [s2b_ask]
     branches:
       OFFERS_SLOTS:
         - {when: [slot_known], goto: S3}
@@ -189,20 +187,34 @@ steps:
       SLOT_BUSY: {say: [s2b_none], outcome: NO_SLOT}
       NO: {say: [s2b_none], outcome: NO_SLOT}
 
-  S3:   # price, asked lightly; nothing about how long it takes; no read-back
+  S3:   # price and duration
     ask: [s3_ask]
     branches:
       GIVES_PRICE:
-        - {when: [price_known], goto: "@after_quote"}
+        - {when: [price_known], goto: S3r}
         - {repeat: true}
       PRICE_RANGE:
-        - {when: [price_known], goto: "@after_quote"}
+        - {when: [price_known], goto: S3r}
         - {repeat: true}
-      PRICE_DEPENDS: {set: {price_note: stylist_dependent}, goto: "@after_price"}
-      REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: "@after_price"}
+      PRICE_DEPENDS: {set: {price_note: stylist_dependent}, goto: S4}
+      REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: S5}
       CONTINUE: {repeat: true}
 
-  S3b:  # over budget AND the owner allowed negotiating: ask once, accept either way
+  S3r:  # read the number back once
+    ask:
+      - {line: s3_readback, when: [duration_known, "!is_range"]}
+      - {line: s3_readback_price, when: ["!duration_known", "!is_range"]}
+      - {line: s3_readback_range, when: [duration_known, is_range]}
+      - {line: s3_readback_range_price, when: ["!duration_known", is_range]}
+    branches:
+      YES: {goto: "@after_readback"}
+      CONTINUE: {goto: "@after_readback"}
+      ACK: {goto: "@after_readback"}
+      NO: {goto: S3}
+      GIVES_PRICE: {repeat: true, max_uses: 2}
+      PRICE_RANGE: {repeat: true, max_uses: 2}
+
+  S3b:  # over budget: ask once, accept either way
     max_visits: 1
     ask: [s3b_ask]
     branches:
@@ -216,18 +228,35 @@ steps:
     skip_when: ["!has_stylist_pref"]
     ask: [s4_ask]
     branches:
-      GIVES_STYLIST: {goto: S7}
-      YES: {goto: S7}
-      NO: {goto: S7}
-      CONTINUE: {goto: S7}
+      GIVES_STYLIST: {goto: S5}
+      YES: {goto: S5}
+      NO: {goto: S5}
+      CONTINUE: {goto: S5}
+      ANY: {goto: S5}
+
+  S5:   # advance / policy
+    ask: [s5_ask]
+    branches:
+      NEEDS_ADVANCE: {say: [s5_no_advance], set: {advance_needed: "yes"}, goto: S6}
+      NO_ADVANCE: {set: {advance_needed: "no"}, goto: S6}
+      NO: {set: {advance_needed: "no"}, goto: S6}
+      BUSY_LATER: {goto: S7}
+      ANY: {goto: S6}
+
+  S6:   # callback line; if she wants a number, only Friday's own is implied ("isi number par")
+    ask: [s6_ask]
+    branches:
+      ASKS_CUSTOMER_PHONE: {say: [s6_no_number], goto: S7}
+      BUSY_LATER: {goto: S7}
       ANY: {goto: S7}
 
-  S7:   # the close: ONE line, nothing asked, nothing recapped. The first matching action runs.
+  S7:   # read-back and close. Nothing is asked; the first matching action runs.
     final: true
     branches:
       ANY:
-        - {when: [can_commit], say: [s7_commit], commit: true, outcome: BOOKED}
-        - {when: [slot_known], say: [s7_close], outcome: SLOT_OFFERED}
+        - {when: [can_commit], say: [s7_commit, thanks], commit: true, outcome: BOOKED}
+        - {when: [slot_known, price_known], say: [s7_close], outcome: SLOT_OFFERED}
+        - {when: [slot_known], say: [s7_close_noprice], outcome: SLOT_OFFERED}
         - {say: [bye_unclear], outcome: UNCLEAR}
 
 outcomes:

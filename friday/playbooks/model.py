@@ -76,6 +76,7 @@ _SAMPLE: dict[str, str] = {
     "date_window": "kal shaam", "budget": "600", "stylist_pref": "Amit",
     "callback_number": "yeh number", "slot": "kal shaam 6 baje", "price_inr": "500",
     "duration_min": "30", "stylist": "Amit", "honorific": "ji", "business_name": "Shreya salon",
+    "negotiate": "no", "explore_options": "no",
 }  # fmt: skip
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 
@@ -121,6 +122,9 @@ class Action(_Strict):
     stay: bool = False  # speak ``say`` only (it already contains the question), stay here
     hold_s: int | None = None  # wait silently (no speech), then re-ask this step
     commit: bool = False  # delegated commit (outcome BOOKED), still gated in code
+    # take the time the task already named as the slot (needs the has_requested_time condition):
+    # "ho jayega" to "aaj shaam 5 baje ka appointment mil sakta hai?" means that time
+    use_requested_time: bool = False
     set: dict[str, str] = Field(default_factory=dict)
     max_uses: int | None = None  # per call; beyond it the branch counts as unhandled
 
@@ -409,6 +413,8 @@ def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
         for k in a.set:
             if k not in SETTABLE:
                 problems.append(f"{where}: cannot set '{k}' (allowed: {sorted(SETTABLE)})")
+        if a.use_requested_time and "has_requested_time" not in a.when:
+            problems.append(f"{where}: use_requested_time needs 'has_requested_time' in its when")
         if a.commit and a.outcome != "BOOKED":
             problems.append(f"{where}: a commit action must end with outcome BOOKED")
         if a.outcome == "BOOKED" and not a.commit:

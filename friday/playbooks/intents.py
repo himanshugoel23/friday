@@ -52,7 +52,9 @@ CONDITIONS: frozenset[str] = frozenset(
         "recording",  # call recording is on (say the notice)
         "has_budget",
         "over_budget",  # price_inr known and above the user's budget
-        "may_negotiate",  # the user allowed asking for a lower price
+        "may_negotiate",  # the owner EXPLICITLY allowed asking for a lower price (default off)
+        "explore_options",  # the owner wants several slots/prices to choose from (default off)
+        "has_requested_time",  # the task already names one specific time ("aaj shaam 5 baje")
         "has_stylist_pref",
         "time_known",  # one concrete time heard
         "slot_known",  # a time or at least one offered time
@@ -80,7 +82,7 @@ SLOT_NAMES: frozenset[str] = frozenset(
 )
 INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",
-     "callback_number", "honorific", "business_name"}
+     "callback_number", "honorific", "business_name", "negotiate", "explore_options"}
 )
 PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {"slot", "price_inr", "duration_min", "stylist"}
 

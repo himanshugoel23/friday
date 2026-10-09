@@ -33,8 +33,9 @@ async def test_delegation_outside_the_price_limit_is_refused_on_the_call(friday,
     calls = await rahul.calls(t)
     assert len(calls) == 1 and calls[0].outcome == CallOutcome.PENDING_APPROVAL
     assert "committed" not in calls[0].collected
-    assert "call back" in " ".join(friday_lines(calls[0])).lower()
-    assert t.approved_terms is None
+    said = " ".join(friday_lines(calls[0])).lower()
+    assert "call back" in said or "poochh kar aapko batati hoon" in said  # scripted close
+    assert "book kar lijiye" not in said and t.approved_terms is None
 
 
 async def test_delegation_never_leaks_into_other_tasks(friday, rahul):

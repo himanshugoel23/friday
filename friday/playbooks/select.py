@@ -143,6 +143,11 @@ def playbook_fields(
         m = re.match(r"\s*stylist\s*[:=]?\s*([A-Za-z]{3,15})\s*$", cons, re.I)
         if m:
             inputs["stylist_pref"] = m.group(1).title()
+        # both are OFF unless the owner's instruction says so in so many words
+        if re.match(r"\s*(negotiate|bargain)\b", cons, re.I):
+            inputs["negotiate"] = "yes"
+        if re.match(r"\s*(explore|compare)[ _-]*(multiple[ _-]*)?options\b", cons, re.I):
+            inputs["explore_options"] = "yes"
     if any(spec.required and not inputs.get(n) for n, spec in pb.inputs.items()):
         return {}  # a required input is unknown: the normal policy handles this call
 
@@ -169,15 +174,25 @@ def playbook_test_brief(
     target_name: str = "Test business (the founder)",
     salon_name: str | None = None,
     honorific: str | None = None,
+    book_now: bool = False,
+    explore_options: bool = False,
+    negotiate: bool = False,
 ) -> Any:
     """A CallBrief for ``friday livecall --playbook``: a normal outbound BOOKING brief with NO
-    delegation and no approval, so the call can only end with "I will call back after approval"."""
+    delegation and no approval, so the call can only end with "I will call back after approval".
+
+    ``book_now`` is the one exception, and an explicit one: it gives the brief a delegation for
+    exactly the requested time (needs a specific time in ``date_window``) and the ``budget_inr``
+    ceiling (required), so Friday may say the single booking line if, and only if, the salon
+    confirms THAT time at a price within the ceiling. The code-level commit check still decides."""
     import secrets
+    from datetime import UTC, datetime, timedelta
 
     from friday.core.models import (
         Budget,
         CallBrief,
         ContactTarget,
+        Delegation,
         TargetKind,
         TaskType,
     )
@@ -198,9 +213,35 @@ def playbook_test_brief(
         inputs["business_name"] = clean_input(salon_name, 40)
     if honorific:
         inputs["honorific"] = clean_input(honorific, 10)
+    if explore_options:
+        inputs["explore_options"] = "yes"
+    if negotiate:
+        inputs["negotiate"] = "yes"
     missing = [n for n, spec in pb.inputs.items() if spec.required and not inputs.get(n)]
     if missing:
         raise PlaybookError([f"missing required input(s): {', '.join(missing)}"], name)
+    delegation = Delegation()
+    if book_now:
+        asked = sl.requested_time(inputs["date_window"])
+        if not asked:
+            raise PlaybookError(
+                ["--book-now needs --when with ONE specific time, e.g. 'aaj shaam 5 baje' "
+                 f"(got '{inputs['date_window']}')"], name)
+        if not budget_inr:
+            raise PlaybookError(
+                ["--book-now needs --budget (the most Friday may agree to, in rupees)"], name)
+        phrase = sl.with_day(asked, sl.find_day(inputs["date_window"]))
+        slot_at = sl.resolve_slot_at(phrase, now=datetime.now(UTC))
+        if slot_at is None:
+            raise PlaybookError([f"cannot work out the time '{phrase}'"], name)
+        delegation = Delegation(
+            granted=True,
+            scope=["slot", "price"],
+            window_start=slot_at - timedelta(minutes=5),
+            window_end=slot_at + timedelta(minutes=5),
+            max_price_inr=int(budget_inr),
+            user_words=f"book {phrase} if free, up to Rs {int(budget_inr)} (test call, --book-now)",
+        )
     shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | {
         k: v for k, v in inputs.items() if v
     }
@@ -222,6 +263,7 @@ def playbook_test_brief(
         playbook=pb.id,
         playbook_inputs=inputs,
         disclosure_text=disclosure,
+        delegation=delegation,
     )
 
 

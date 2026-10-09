@@ -414,6 +414,12 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--stylist", default=None, help="playbook: preferred stylist first name")
     live.add_argument("--salon-name", default=None, help="playbook: e.g. 'Shreya salon'")
     live.add_argument("--honorific", default=None, help="playbook: ji / sir / madam")
+    live.add_argument("--book-now", action="store_true",
+                      help="playbook: let her BOOK (and only that): needs --when with one specific "
+                           "time (e.g. 'aaj shaam 5 baje') and --budget (price ceiling). Without "
+                           "this flag a test call can never book")
+    live.add_argument("--explore-options", action="store_true",
+                      help="playbook: if the time is busy ask for TWO other times (default one)")
     listen = sub.add_parser(
         "listen", help="front door: link the Vobiz number to Friday and answer incoming calls"
     )
@@ -519,7 +525,8 @@ def main(argv: list[str] | None = None) -> int:
             pb_args = {k: v for k, v in (
                 ("service", args.service), ("date_window", args.when),
                 ("budget_inr", args.budget), ("stylist_pref", args.stylist),
-                ("salon_name", args.salon_name), ("honorific", args.honorific)) if v}
+                ("salon_name", args.salon_name), ("honorific", args.honorific),
+                ("book_now", args.book_now), ("explore_options", args.explore_options)) if v}
             if args.on_behalf_of == "the Friday founder":
                 print("REFUSED: a playbook call needs the first name Friday should use: "
                       "add --on-behalf-of Rahul (the name she says in 'Rahul ji ki AI assistant').")

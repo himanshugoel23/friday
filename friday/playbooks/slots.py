@@ -277,6 +277,21 @@ def clean_time(value: object) -> str | None:
     return text if _TIME_OK.match(text) else None
 
 
+def requested_time(text: str | None) -> str | None:
+    """The ONE specific time a task names ("aaj shaam 5 baje" -> "aaj shaam 5 baje"), else None.
+    A range ("shaam 5 se 8 baje ke beech"), two options ("5 ya 6 baje") or just a part of the
+    day ("kal shaam") is not a specific time."""
+    t = normalise(text or "")
+    if not t or re.search(r"\bbeech\b|\btak\b|\bya\b|\bor\b", t):
+        return None
+    if re.search(r"\d\s*(?:baje\s*)?(?:se|to|-)\s*\d", t):
+        return None
+    pts = parse_times(t, limit=3)
+    if len(pts) != 1:
+        return None
+    return clean_time(pts[0].text)
+
+
 def with_day(phrase: str, day: str | None) -> str:
     """Add a day word ("kal") to a clean time phrase that has none."""
     if not day or re.match(r"(aaj|kal|parso) ", phrase):

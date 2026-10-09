@@ -87,6 +87,14 @@ class MissingSlot(KeyError):
     """A line needs a value the call has not collected."""
 
 
+_YES_WORDS = frozenset({"yes", "true", "1", "haan", "y"})
+
+
+def truthy(value: object) -> bool:
+    """An input switched on ("yes"/"true"/"1"); anything else, or nothing, is off."""
+    return str(value or "").strip().lower() in _YES_WORDS
+
+
 def clean_input(value: object, limit: int = 40) -> str:
     """User-provided input values (name, service, date words) -> safe spoken text."""
     s = _SAFE_INPUT.sub("", str(value or "")).strip()
@@ -255,9 +263,16 @@ class PlaybookPolicy:
             "recording": c.recording,
             "has_budget": bool(budget),
             "over_budget": bool(price is not None and budget and price > int(budget)),
+            # asking for a discount needs an EXPLICIT owner instruction (input negotiate: yes);
+            # the brief's NegotiationPolicy alone (its default is "enabled") is not enough
             "may_negotiate": bool(
-                budget and c.brief.negotiation.enabled and c.brief.negotiation.may_ask_discount
+                truthy(c.inputs.get("negotiate"))
+                and budget
+                and c.brief.negotiation.enabled
+                and c.brief.negotiation.may_ask_discount
             ),
+            "explore_options": truthy(c.inputs.get("explore_options")),
+            "has_requested_time": self._requested(c) is not None,
             "has_stylist_pref": bool(c.inputs.get("stylist_pref")),
             "time_known": len(st.times) == 1,
             "slot_known": len(st.times) >= 1,
@@ -269,6 +284,11 @@ class PlaybookPolicy:
             "first_ask": st.asked[st.step] == 0,
         }[key]
         return (not val) if neg else bool(val)
+
+    def _requested(self, c: Ctx) -> str | None:
+        """The one specific time the task already names (None if it only names a part of day)."""
+        t = sl.requested_time(c.inputs.get("date_window"))
+        return sl.with_day(t, sl.find_day(c.inputs.get("date_window", ""))) if t else None
 
     def _all(self, conds: list[str], c: Ctx) -> bool:
         return all(self._cond(x, c) for x in conds)
@@ -432,7 +452,9 @@ class PlaybookPolicy:
     # ------------------------------------------------------------------ applying an intent
     def _merge_slots(self, st: CallState, u: Understanding, day: str | None = None) -> None:
         intent = u.intent
-        if intent in (Intent.SLOT_FREE, Intent.GIVES_TIME, Intent.OFFERS_SLOTS):
+        if intent in (Intent.SLOT_FREE, Intent.GIVES_TIME, Intent.OFFERS_SLOTS) or (
+            intent == Intent.NEEDS_ADVANCE and u.time
+        ):
             times = [t for t in [u.time, *u.alt_times] if t][:2]
             if times:
                 st.times = [sl.with_day(t, day) for t in times]
@@ -479,6 +501,10 @@ class PlaybookPolicy:
         pb, st = c.pb, c.st
         self._merge_slots(st, u, day=sl.find_day(c.inputs.get("date_window", "")))
         intent = u.intent
+        if (intent == Intent.SLOT_FREE or (intent == Intent.NEEDS_ADVANCE and u.slot_free)) and (
+            not st.times
+        ):
+            self._take_requested(c)  # "ho jayega" to a question that named the time
         if st.after_hold:
             st.after_hold = False
             if intent in (  # she is back ("haan boliye", "kya poochh rahi thi?"): ask again
@@ -494,9 +520,18 @@ class PlaybookPolicy:
         st.uses[key] += 1
         return self._run(c, action)
 
+    def _take_requested(self, c: Ctx) -> None:
+        """She said yes to the time we asked for: that time is the slot (never invented)."""
+        req = self._requested(c)
+        if req and not c.st.times:
+            c.st.times = [req]
+            c.st.slot_free = "yes"
+
     def _run(self, c: Ctx, a: Action) -> CallAction:
         pb, st = c.pb, c.st
         st.flags.update({k: v for k, v in a.set.items()})
+        if a.use_requested_time:
+            self._take_requested(c)
         say = self._lines(pb, a.say, c)
         if a.hold_s is not None:
             st.after_hold = True

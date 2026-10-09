@@ -21,8 +21,7 @@ from friday.playbooks.understand import (
 from .conftest import drive, make_brief
 
 OPEN = ["Haan boliye"]
-FULL = OPEN + ["Haan kal shaam 6 baje free hai", "Haircut 400 rupaye, 30 minute", "Haan sahi",
-               "Koi advance nahi", "Theek hai"]
+FULL = ["Haan kal shaam 6 baje free hai", "Haircut 400 rupaye, 30 minute"]
 
 
 @pytest.mark.parametrize(
@@ -66,6 +65,10 @@ FULL = OPEN + ["Haan kal shaam 6 baje free hai", "Haircut 400 rupaye, 30 minute"
         ("S2", "faltu mein tang mat karo", "RUDE"),
         ("S2", "kkh... hmm", "UNCLEAR"),
         ("S2", "", "UNCLEAR"),
+        ("S3", "cancellation charge lagega", "NEEDS_ADVANCE"),
+        ("S2", "pehle booking amount dena hoga", "NEEDS_ADVANCE"),
+        ("S2", "token system hai, aa jaiye", "SLOT_FREE"),  # not a token payment
+        ("S3", "koi advance nahi hai ji", "NO_ADVANCE"),
         ("S3r", "haan sahi hai", "YES"),
         ("S3r", "Yes that's right", "YES"),
         ("S3r", "नहीं", "NO"),
@@ -74,6 +77,14 @@ FULL = OPEN + ["Haan kal shaam 6 baje free hai", "Haircut 400 rupaye, 30 minute"
 )
 def test_heuristic_intents(step, text, intent):
     assert heuristic(text, step=step).intent == intent
+
+
+def test_advance_talk_does_not_swallow_the_time_or_the_price():
+    u = heuristic("Haan kal shaam 6 baje free hai, 200 rupaye advance dena padega", step="S2")
+    assert u.intent == "NEEDS_ADVANCE" and u.time == "kal shaam 6 baje" and u.slot_free is True
+    assert u.price_inr is None  # the 200 is the advance, never the price
+    u = heuristic("Haircut 400 rupaye, koi advance nahi lagta", step="S3")
+    assert u.intent == "GIVES_PRICE" and u.price_inr == 400
 
 
 def test_heuristic_never_returns_an_intent_outside_the_closed_set():
@@ -209,7 +220,7 @@ async def test_garbage_from_the_model_is_unclear_not_a_crash():
     brain, llm = brain_with()
     llm.script("call_turn", *(["this is not json"] * 3))
     policy = PlaybookPolicy(understander=BrainUnderstander(brain), llm_mode="always")
-    run = await drive(OPEN + ["Haan kal shaam 6 baje free hai"], brief=make_brief(), policy=policy)
+    run = await drive(["Haan kal shaam 6 baje free hai"], brief=make_brief(), policy=policy)
     assert "S3" in run.path  # fell back to the rules
 
 

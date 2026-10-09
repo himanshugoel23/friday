@@ -11,12 +11,19 @@ the founder reading every line. ``--live`` asks a real model for a richer one.
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 from typing import Any
 
 import yaml
 
 from friday.playbooks.authoring.knowledge import BusinessType
-from friday.playbooks.model import DATA_DIR, _Loader
+from friday.playbooks.model import _Loader
+
+# the proven state machine the drafts are built from: a frozen copy of the salon script as it was
+# before the founder feedback of v0.2 (templates/salon_v1.yaml). The shipped salon playbook has
+# moved on (no advance/read-back/follow-up steps); drafts for other business types still use this
+# shape until that feedback is applied to the authoring template too.
+TEMPLATE_DIR = Path(__file__).with_name("templates")
 
 MAX_PERSONAS = 25
 HEADER = (
@@ -46,7 +53,7 @@ def dump_yaml(data: Any) -> str:
 
 
 def _salon_raw() -> dict[str, Any]:
-    return yaml.load((DATA_DIR / "salon_booking.yaml").read_text(encoding="utf-8"), Loader=_Loader)  # noqa: S506
+    return yaml.load((TEMPLATE_DIR / "salon_v1.yaml").read_text(encoding="utf-8"), Loader=_Loader)  # noqa: S506
 
 
 def _round50(n: float) -> int:

@@ -117,6 +117,10 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
     for k in ("user_first_name", "service", "date_window", "budget", "stylist_pref"):
         if cfg.get(k) not in (None, ""):
             inputs[k] = str(cfg[k])
+    if cfg.get("negotiation"):  # the owner's explicit instruction to ask for a lower price
+        inputs["negotiate"] = "yes"
+    if cfg.get("explore_options"):
+        inputs["explore_options"] = "yes"
     budget = int(inputs["budget"]) if inputs.get("budget", "").isdigit() else None
     delegation = Delegation()
     if cfg.get("delegation_max_price"):
@@ -260,8 +264,7 @@ class PersonaLeg:
         if not question:
             return
         qid = question[-1]
-        if qid.startswith("bye") or qid in ("s2b_none", "thanks", "s7_close", "s7_close_noprice",
-                                              "s7_commit"):
+        if qid.startswith("bye") or qid in ("s2b_none", "s7_close", "s7_commit", "s5_no_advance"):
             return  # closing lines get no answer
         reply = self._pick_reply(qid)
         if qid != "sorry":

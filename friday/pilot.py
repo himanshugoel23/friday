@@ -371,7 +371,8 @@ async def run_livecall(
     state_dir = state_dir or Path("var") / "livecalls"
     if playbook:
         # scripted call: fixed Hinglish lines, same guards (allow-list, spend cap, no approval
-        # shortcuts: a test call has no delegation, so it can never book)
+        # shortcuts: a test call has no delegation, so it can never book - except with the explicit
+        # --book-now, which delegates exactly the requested time and the --budget ceiling)
         from friday.playbooks.model import PlaybookError
         from friday.playbooks.select import playbook_test_brief
 
@@ -453,8 +454,12 @@ async def run_livecall(
         out("About to place a REAL call:" if not simulate else "About to run a SIMULATED call:")
         out(f"  From      : {from_number or '(simulator)'}")
         out(f"  To        : {to}")
+        book_now = bool((playbook_args or {}).get("book_now"))
         out(f"  Goal      : {goal}" if not playbook else
-            f"  Playbook  : {playbook} (fixed Hinglish script; no delegation, cannot book)")
+            f"  Playbook  : {playbook} (fixed Hinglish script; "
+            + ("--book-now: she WILL book if the requested time is free and the price fits "
+               f"Rs {(playbook_args or {}).get('budget_inr')})" if book_now
+               else "no delegation, cannot book)"))
         out(f"  Max length: {max_seconds} s (hard cap)")
         out(f"  Est. cost : up to about Rs {est}")
         if not yes and ask("Type YES to place the call: ").strip() != "YES":

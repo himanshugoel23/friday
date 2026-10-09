@@ -170,12 +170,15 @@ _PHONE_ASK = _rx(
     r"नंबर\s+(बताइए|बताओ|दीजिए|क्या)",
 )
 _NEG_ADV = _rx(
-    r"(koi\s+)?advance\s+(nahi|nahin|ki\s+zaroorat\s+nahi|ki\s+jarurat\s+nahi|nahi\s+chahiye|"
-    r"nahi\s+lagta|nahi\s+lena)|no\s+advance|without\s+advance|advance\s+ki\s+(zaroorat|jarurat)"
-    r"\s+nahi|koi\s+(deposit|token)\s+nahi|एडवांस\s+नहीं|कोई\s+एडवांस\s+नहीं",
+    r"(koi\s+)?advance\s+(ki\s+(zaroorat|jarurat)\s+)?(nahi|nahin|nai)"
+    r"(\s+(hai|hain|hota|hoga|hogi|lagta|lagega|lagti|chahiye|lena|lete|dena(\s+padega)?))?|"
+    r"no\s+advance|without\s+advance|koi\s+(deposit|token)\s+nahi|"
+    r"एडवांस\s+नहीं|कोई\s+एडवांस\s+नहीं",
 )
 _ADV = _rx(
-    r"advance|\btoken\b|deposit|booking\s+amount|pehle\s+(se\s+)?(payment|paise|pay)|"
+    r"advance|cancel\w*\s+(fee|fees|charge|charges|policy)|"
+    r"\btoken\s+(amount|money|dena|de\s+do|lagega|lagta)|deposit|booking\s+amount|"
+    r"pehle\s+(se\s+)?(payment|paise|pay)|"
     r"pay\s+karna|paisa\s+pehle|एडवांस|टोकन",
 )
 _APPT = _rx(
@@ -318,9 +321,21 @@ def heuristic(reply: str, *, step: str = "", known: dict[str, Any] | None = None
     if _PHONE_ASK.search(t):
         return _u(Intent.ASKS_CUSTOMER_PHONE)
     if _NEG_ADV.search(t):
-        return _u(Intent.NO_ADVANCE, advance_needed=False)
-    if _ADV.search(t) and step in ("S5", "S3r", "S6", ""):
-        return _u(Intent.NEEDS_ADVANCE, advance_needed=True)
+        # "400 rupaye, koi advance nahi": keep what else she said; alone it is NO_ADVANCE
+        rest = _NEG_ADV.sub(" ", raw)
+        rt = sl.normalise(rest)
+        if not re.search(r"\w", rt) or _YES.match(rt) or _ACK.match(rt):
+            return _u(Intent.NO_ADVANCE, advance_needed=False)
+        raw, t = rest, rt
+    if _ADV.search(t):  # the SALON raised an advance / booking amount / cancellation fee
+        ft, _busy = _free_times(raw)
+        return _u(
+            Intent.NEEDS_ADVANCE,
+            advance_needed=True,
+            slot_free=True if (ft or _FREE_SLOT.search(t)) else None,
+            time=ft[0] if ft else None,
+            alt_times=ft[1:3],
+        )
     if _APPT.search(t) and step in ("S2", ""):
         return _u(Intent.NEEDS_APPOINTMENT)
 

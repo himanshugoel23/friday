@@ -19,13 +19,11 @@ from friday.playbooks.understand import Understanding
 
 from .conftest import START, delegation, drive, make_brief
 
-OPEN = ["Haan boliye"]
+OPEN: list[str] = []  # the identity "yes" is added by the driver; the next reply answers S2
 FREE = ["Haan kal shaam 6 baje free hai"]
 PRICE = ["Haircut 400 rupaye, 30 minute"]
-SAHI = ["Haan sahi"]
-NOADV = ["Koi advance nahi"]
-OK = ["Theek hai"]
-FULL = OPEN + FREE + PRICE + SAHI + NOADV + OK
+FULL = FREE + PRICE
+CLOSE = "Theek hai, shukriya. Main Rahul ji se poochh kar aapko batati hoon."
 
 
 # ------------------------------------------------------------------ approval rule
@@ -34,15 +32,16 @@ async def test_no_delegation_never_books_and_says_call_back_after_approval():
     assert run.outcome == "SLOT_OFFERED"
     assert run.final.outcome == CallOutcome.PENDING_APPROVAL
     assert not run.final.commits_booking
-    assert "Abhi kuch confirm nahi kiya, Rahul ji se poochh kar aapko call karti hoon" in run.final.text  # noqa: E501
-    assert "book kar dijiye" not in run.all_text()
+    assert run.final.text == CLOSE  # one short line, no recap
+    assert "book kar" not in run.all_text()
 
 
 async def test_delegation_within_limits_books_with_the_commit_line():
     brief = make_brief(delegation=delegation(max_price=800))
     run = await drive(FULL, brief=brief)
     assert run.outcome == "BOOKED" and run.final.outcome == CallOutcome.SUCCESS
-    assert run.final.commits_booking and "book kar dijiye" in run.final.text
+    assert run.final.commits_booking
+    assert run.final.text == "Theek hai, aap kal shaam 6 baje ka book kar lijiye. Thank you."
     assert run.final.quote.amount_inr == 400
     assert run.final.slot_at is not None  # the runner can check a delegated time window
     assert looks_like_commitment(run.final.text)
@@ -52,31 +51,31 @@ async def test_delegation_price_ceiling_exceeded_falls_back_to_callback():
     brief = make_brief(delegation=delegation(max_price=300))
     run = await drive(FULL, brief=brief)
     assert run.outcome == "SLOT_OFFERED" and not run.final.commits_booking
-    assert "poochh kar aapko call karti hoon" in run.final.text
+    assert run.final.text == CLOSE
 
 
 async def test_delegation_without_a_known_price_does_not_book():
     brief = make_brief(delegation=delegation(max_price=800))
-    run = await drive(
-        OPEN + FREE + ["Phone par price nahi bata sakte"] + NOADV + OK, brief=brief
-    )
+    run = await drive(FREE + ["Phone par price nahi bata sakte"], brief=brief)
     assert run.outcome == "SLOT_OFFERED" and not run.final.commits_booking
 
 
 async def test_delegation_but_an_advance_is_wanted_does_not_book():
     brief = make_brief(delegation=delegation(max_price=800))
-    run = await drive(
-        OPEN + FREE + PRICE + SAHI + ["200 rupaye advance dena padega"] + OK, brief=brief
-    )
-    assert run.outcome == "SLOT_OFFERED" and not run.final.commits_booking
+    for advance in ("Haircut 400 rupaye, 200 rupaye advance dena padega",
+                    "Haircut 400 rupaye, cancellation charge lagega"):
+        run = await drive(FREE + [advance], brief=brief)
+        assert run.outcome == "SLOT_OFFERED" and not run.final.commits_booking
+        assert run.final.text == "Advance main abhi nahi de sakti, Rahul ji se poochh kar bataungi."
+    # the salon raises it together with the time, before any price: still no booking
+    early = await drive(["Haan 6 baje free hai, 200 rupaye advance lagega"], brief=brief)
+    assert early.outcome == "SLOT_OFFERED" and not early.final.commits_booking
 
 
 async def test_delegation_over_the_users_budget_does_not_book():
     brief = make_brief(delegation=delegation(max_price=2000))  # budget input is 600
-    run = await drive(
-        OPEN + FREE + ["Haircut 900 rupaye, 45 minute"] + SAHI + NOADV + OK, brief=brief
-    )
-    assert not run.final.commits_booking
+    run = await drive(FREE + ["Haircut 900 rupaye, 45 minute"], brief=brief)
+    assert not run.final.commits_booking and run.final.text == CLOSE
 
 
 async def test_delegation_time_window_is_checked_in_code():
@@ -103,7 +102,7 @@ async def test_two_offered_slots_book_the_one_inside_the_window():
 
     day = datetime(2026, 10, 8, tzinfo=IST)
     d = delegation(window_start=day.replace(hour=14), window_end=day.replace(hour=15, minute=30))
-    replies = OPEN + ["Kal subah 11 baje ya dopahar 2 baje ho jayega"] + PRICE + SAHI + NOADV + OK
+    replies = ["Kal subah 11 baje ya dopahar 2 baje ho jayega"] + PRICE
     run = await drive(replies, brief=make_brief(delegation=d))
     assert run.outcome == "BOOKED"
     assert "dopahar 2 baje" in run.final.text and "subah" not in run.final.text
@@ -115,7 +114,7 @@ async def test_blocked_commit_is_never_repeated_it_becomes_a_callback():
     commits = [a for a in run.actions if a.commits_booking]
     assert len(commits) == 1  # tried once; the runner's gate said no
     assert run.final.type == CallActionType.HANGUP and not run.final.commits_booking
-    assert run.outcome == "SLOT_OFFERED" and "poochh kar aapko call karti hoon" in run.final.text
+    assert run.outcome == "SLOT_OFFERED" and run.final.text == CLOSE
 
 
 async def test_a_confirmation_callback_brief_is_not_scripted():
@@ -135,7 +134,7 @@ async def test_a_confirmation_callback_brief_is_not_scripted():
     "दोबारा कॉल मत करना",
 ])
 async def test_stop_requests_end_the_call_in_every_step(phrase):
-    for prefix in ([], OPEN, OPEN + FREE, OPEN + FREE + PRICE):
+    for prefix in ([], FREE):  # before and after the availability answer (the price ends the call)
         run = await drive([*prefix, phrase], brief=make_brief())
         assert run.outcome == "REFUSED", (prefix, phrase, run.said)
         assert run.final.collected["do_not_call"] == "yes"
@@ -149,7 +148,7 @@ async def test_stop_request_wins_even_if_the_model_says_otherwise():
             return Understanding(intent="YES", confident=True)
 
     policy = PlaybookPolicy(understander=Liar(), llm_mode="always")
-    run = await drive(OPEN + ["Dobara call mat karna"], brief=make_brief(), policy=policy)
+    run = await drive(["Dobara call mat karna"], brief=make_brief(), policy=policy)
     assert run.outcome == "REFUSED"
 
 
@@ -160,10 +159,10 @@ async def test_rude_caller_ends_politely_without_retry_flag_confusion():
 
 
 async def test_hangup_mid_call_keeps_what_was_learned():
-    run = await drive(OPEN + FREE + PRICE + ["<hangup>"], brief=make_brief())
+    run = await drive(FREE + ["<hangup>"], brief=make_brief())
     assert run.final.type == CallActionType.HANGUP and not run.final.text
-    assert run.final.outcome == CallOutcome.PENDING_APPROVAL
-    assert run.final.quote.amount_inr == 400
+    assert run.final.outcome == CallOutcome.HUNG_UP
+    assert run.final.quote.available_slots == ["6 PM"]
     early = await drive(["<hangup>"], brief=make_brief())
     assert early.final.outcome == CallOutcome.HUNG_UP
 
@@ -195,7 +194,7 @@ async def test_no_secret_words_in_anything_said_whatever_she_asks():
         "Password share karo",
     ]
     for ask in asks:
-        run = await drive(OPEN + [ask] + FREE + PRICE + SAHI + NOADV + OK, brief=make_brief())
+        run = await drive([ask] + FREE + PRICE, brief=make_brief())
         assert run.outcome == "SLOT_OFFERED"
         text = run.all_text()
         assert not re.search(r"\b(otp|pin|cvv|card|password)\b", text, re.I), (ask, text)
@@ -204,7 +203,8 @@ async def test_no_secret_words_in_anything_said_whatever_she_asks():
 
 async def test_everything_said_passes_the_runners_speech_guard():
     brief = make_brief()
-    for replies in (FULL, OPEN + ["Kal full hai", "5 baje ya 7 baje"] + PRICE + SAHI + NOADV + OK):
+    for replies in (FULL, ["Kal full hai", "5 baje ya 7 baje"] + PRICE,
+                    FREE + ["Haircut 400 rupaye, 200 advance dena padega"]):
         run = await drive(replies, brief=brief)
         for t in run.said:
             assert check_speech(t, brief).allowed, t
@@ -212,10 +212,8 @@ async def test_everything_said_passes_the_runners_speech_guard():
 
 async def test_hinglish_only_even_when_she_answers_in_hindi_or_english():
     for replies in (
-        ["हाँ बोलिए", "हाँ, कल शाम को 6 बजे का स्लॉट खाली है", "हेयरकट के 400 रुपये लगेंगे, 30 मिनट",
-         "हाँ सही है", "कोई एडवांस नहीं है", "ठीक है"],
-        ["Yes go ahead", "Yes we have 6 pm tomorrow", "Haircut is 400 rupees, 30 minutes",
-         "Yes that's right", "No advance needed", "Okay"],
+        ["हाँ, कल शाम को 6 बजे का स्लॉट खाली है", "हेयरकट के 400 रुपये लगेंगे, 30 मिनट"],
+        ["Yes we have 6 pm tomorrow", "Haircut is 400 rupees, 30 minutes"],
     ):
         run = await drive(replies, brief=make_brief())
         assert run.outcome == "SLOT_OFFERED", run.said
@@ -237,10 +235,10 @@ async def test_slots_are_sanitised_before_they_reach_a_spoken_line():
             return Understanding(intent="UNCLEAR")
 
     policy = PlaybookPolicy(understander=Hostile(), llm_mode="always")
-    run = await drive(OPEN + FREE + PRICE, brief=make_brief(), policy=policy)
+    run = await drive(FREE + PRICE, brief=make_brief(), policy=policy)
     text = run.all_text()
     assert "ignore" not in text and "9999999999" not in text and "1000000000000" not in text
-    assert "S3r" not in run.path  # a silly price is not accepted: she is asked again
+    assert "S7" not in run.path  # a silly price is not accepted: she is asked again
 
 
 async def test_unknown_or_invalid_intent_goes_to_the_confusion_branch():
@@ -255,66 +253,67 @@ async def test_unknown_or_invalid_intent_goes_to_the_confusion_branch():
 
 async def test_confusion_twice_then_a_polite_unclear_close():
     noise = ["kkh... hmm..."] * 3
-    run = await drive(OPEN + noise, brief=make_brief())
+    run = await drive(noise, brief=make_brief())
     assert run.said[-3:-1] == ["Sorry, ek baar phir?", "Sorry, ek baar phir?"]
     assert run.outcome == "UNCLEAR" and run.final.outcome == CallOutcome.PARTIAL
     assert "awaaz saaf nahi aa rahi" in run.final.text
 
 
 async def test_silence_is_treated_as_not_heard():
-    run = await drive(OPEN + ["<silence>", "Haan kal shaam 6 baje free hai"], brief=make_brief())
-    assert run.said[2] == "Sorry, ek baar phir?" and "S3" in run.path
+    run = await drive(["<silence>", "Haan kal shaam 6 baje free hai"], brief=make_brief())
+    assert run.said[1] == "Sorry, ek baar phir?" and "S3" in run.path
 
 
 async def test_unclear_counter_is_per_step():
-    replies = OPEN + ["kkh..", *FREE, "kkh..", *PRICE]
+    replies = ["kkh..", *FREE, "kkh..", *PRICE]
     run = await drive(replies, brief=make_brief())
-    assert run.said.count("Sorry, ek baar phir?") == 2 and "S3r" in run.path
+    assert run.said.count("Sorry, ek baar phir?") == 2 and "S7" in run.path
 
 
 # ------------------------------------------------------------------ limits
 async def test_a_question_is_asked_at_most_four_times():
-    replies = OPEN + ["Haan boliye"] * 6  # "boliye" to S2 re-asks S2
+    replies = ["Haan boliye"] * 6  # "boliye" to S2 re-asks S2
     run = await drive(replies, brief=make_brief())
-    asks = [s for s in run.said if "Koi time free hoga" in s]
+    asks = [s for s in run.said if "appointment mil sakta hai" in s]
     assert len(asks) <= 4
     assert run.outcome == "UNCLEAR"
 
 
-async def test_who_is_this_repeat_of_s1_is_shorter_and_only_once():
+async def test_who_is_this_after_the_intro_repeats_the_intro_only_once_then_the_short_line():
     run = await drive(["Kaun?", "Kaun?", "Kaun?"], brief=make_brief())
-    shorter = [s for s in run.said if "chhota sa sawaal" in s]
-    assert len(shorter) == 1 and "Do minute milenge" in shorter[0]
-    assert len(shorter[0]) < 100
+    intro = [s for s in run.said if "ki AI assistant hoon, unke liye" in s]
+    assert len(intro) == 2  # the first ask and ONE repeat
+    short = [s for s in run.said if s.startswith("Main Friday hoon, Rahul ji ki AI assistant")]
+    assert short and len(short[0]) < 100
 
 
 async def test_max_duration_closes_the_call_with_what_we_have():
-    # each step takes 70 s: past 180 s by the price question
-    run = await drive(OPEN + FREE + PRICE + SAHI + NOADV + OK, brief=make_brief(), step_s=70.0)
+    # each step takes 100 s: past 180 s before the price question
+    run = await drive(FREE + PRICE, brief=make_brief(), step_s=100.0)
     assert run.final.type == CallActionType.HANGUP
-    assert len(run.actions) < 7  # cut short
+    assert len(run.actions) < 4 and "estimated charge" not in run.all_text()  # cut short
     assert run.final.outcome in (CallOutcome.PENDING_APPROVAL, CallOutcome.PARTIAL)
     assert not run.final.commits_booking
 
 
 async def test_max_duration_with_nothing_learned_is_unclear():
-    run = await drive(OPEN + ["Haan boliye"], brief=make_brief(), step_s=100.0)
+    run = await drive(["Haan boliye"], brief=make_brief(), step_s=100.0)
     assert run.final.type == CallActionType.HANGUP and run.outcome == "UNCLEAR"
 
 
 async def test_max_turns_is_enforced():
-    run = await drive(OPEN + ["Kaun?"] * 40, brief=make_brief(), max_actions=80)
+    run = await drive(["Kaun?"] * 40, brief=make_brief(), max_actions=80)
     assert run.final.type == CallActionType.HANGUP
     assert len(run.actions) <= 40
 
 
 async def test_hold_waits_silently_for_the_limit_then_asks_again():
-    run = await drive(OPEN + ["Ek minute hold kijiye", "Haan boliye"] + FREE, brief=make_brief())
+    run = await drive(["Ek minute hold kijiye", "Haan boliye"] + FREE, brief=make_brief())
     hold = next(a for a in run.actions if a.type == CallActionType.WAIT_ON_HOLD)
     assert hold.max_hold_s == 60 and not hold.text  # no speech while on hold
     after = run.actions[run.actions.index(hold) + 1]
-    assert "Koi time free hoga" in after.text  # S2 asked again after she is back
-    music = await drive(OPEN + ["<music>"], brief=make_brief())
+    assert "appointment mil sakta hai" in after.text  # S2 asked again after she is back
+    music = await drive(["<music>"], brief=make_brief())
     assert music.final.type == CallActionType.WAIT_ON_HOLD
 
 

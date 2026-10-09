@@ -178,8 +178,8 @@ def test_livecall_playbook_simulated_end_to_end(tmp_path):
     lines = transcript.splitlines()
     k = next(i for i, ln in enumerate(lines) if "Kya meri baat salon se ho rahi hai?" in ln)
     assert lines[k + 1].startswith("CALLEE") and "Haan ji, sahi hai" in lines[k + 1]
-    assert "Main Rahul ji ki assistant hoon" in lines[k + 2]
-    assert "Haan ji, boliye" in lines[k + 3]  # "Kya abhi do minute baat ho sakti hai?"
+    assert "Main Rahul ji ki AI assistant hoon" in lines[k + 2]  # intro + availability in one turn
+    assert "appointment mil sakta hai?" in lines[k + 2]
 
 
 def test_livecall_playbook_keeps_every_guard(tmp_path):
@@ -231,3 +231,112 @@ def test_livecall_test_brief_has_no_delegation_and_cannot_book():
                                 max_seconds=120, from_number=None, date_window="kal shaam")
     assert brief.playbook == "salon_booking" and not brief.delegation.granted
     assert not brief.can_commit([]) and brief.max_duration_s == 120
+
+
+# ------------------------------------------------------------------ --book-now
+def test_book_now_builds_a_delegation_for_exactly_the_requested_time_and_ceiling():
+    from friday.playbooks.select import playbook_test_brief
+
+    brief = playbook_test_brief("salon_booking", to="+919812345678", user_first_name="Rahul",
+                                max_seconds=120, from_number=None, date_window="aaj shaam 5 baje",
+                                budget_inr=600, book_now=True)
+    d = brief.delegation
+    assert d.granted and d.max_price_inr == 600 and set(d.scope) == {"slot", "price"}
+    assert d.window_start and d.window_end and (d.window_end - d.window_start).seconds <= 600
+    assert brief.playbook_inputs["date_window"] == "aaj shaam 5 baje"
+    # the code-level check agrees: right time and price pass, anything else does not
+    from friday.core.safety import check_commit
+
+    mid = d.window_start + (d.window_end - d.window_start) / 2
+    assert check_commit(brief, [], amount_inr=500, slot_at=mid, decision="slot").allowed
+    assert not check_commit(brief, [], amount_inr=601, slot_at=mid, decision="price").allowed
+    assert not check_commit(brief, [], amount_inr=500,
+                            slot_at=mid.replace(hour=(mid.hour + 3) % 24)).allowed
+
+
+@pytest.mark.parametrize("kw", [
+    {"date_window": "kal shaam", "budget_inr": 600},  # no specific time
+    {"date_window": "kal shaam 5 se 8 baje ke beech", "budget_inr": 600},  # a range
+    {"date_window": "aaj shaam 5 baje"},  # no price ceiling
+])
+def test_book_now_is_refused_without_a_specific_time_and_a_budget(kw):
+    from friday.playbooks.model import PlaybookError
+    from friday.playbooks.select import playbook_test_brief
+
+    with pytest.raises(PlaybookError) as e:
+        playbook_test_brief("salon_booking", to="+919812345678", user_first_name="Rahul",
+                            max_seconds=120, from_number=None, book_now=True, **kw)
+    assert "--book-now" in " ".join(e.value.problems)
+
+
+def test_without_book_now_even_a_specific_time_and_budget_never_delegate():
+    from friday.playbooks.select import playbook_test_brief
+
+    brief = playbook_test_brief("salon_booking", to="+919812345678", user_first_name="Rahul",
+                                max_seconds=120, from_number=None, date_window="aaj shaam 5 baje",
+                                budget_inr=600)
+    assert not brief.delegation.granted and not brief.can_commit([])
+
+
+def test_cli_book_now_flag_is_refused_without_when_time_or_budget(capsys):
+    from friday.cli import main
+
+    rc = main(["livecall", "--to", "+919812345678", "--playbook", "salon_booking",
+               "--on-behalf-of", "Rahul", "--when", "kal shaam", "--budget", "600",
+               "--book-now", "--simulate", "--yes"])
+    out = capsys.readouterr().out
+    assert rc == 2 and "REFUSED" in out and "specific time" in out
+    rc = main(["livecall", "--to", "+919812345678", "--playbook", "salon_booking",
+               "--on-behalf-of", "Rahul", "--when", "aaj shaam 5 baje",
+               "--book-now", "--simulate", "--yes"])
+    out = capsys.readouterr().out
+    assert rc == 2 and "--budget" in out
+
+
+def _simulated_livecall(tmp_path, **args):
+    from friday.pilot import run_livecall
+
+    out: list[str] = []
+    s = Settings(_env_file=None, database_url=f"sqlite+aiosqlite:///{tmp_path}/t.db",
+                 media_dir=str(tmp_path / "m"))
+    rc = asyncio.run(run_livecall(
+        s, "+919000000000", yes=True, simulate=True, out=out.append, state_dir=tmp_path,
+        on_behalf_of="Rahul", playbook="salon_booking", playbook_args=args))
+    transcript = next(tmp_path.glob("livecall-*.txt")).read_text(encoding="utf-8")
+    return rc, "\n".join(out), transcript
+
+
+def test_book_now_simulated_call_books_only_the_requested_time(tmp_path):
+    # the simulated salon has 4 pm, 6 pm and 7:30 pm and quotes men 400 / women 700
+    rc, text, transcript = _simulated_livecall(
+        tmp_path, date_window="aaj shaam 6 baje", budget_inr=900, book_now=True)
+    assert rc == 0 and "--book-now" in text and "outcome=BOOKED" in text
+    assert transcript.count("book kar lijiye") == 1
+    assert "Theek hai, aap aaj shaam 6 baje ka book kar lijiye. Thank you." in transcript
+
+
+def test_book_now_does_not_book_a_time_the_salon_does_not_have(tmp_path):
+    rc, text, transcript = _simulated_livecall(
+        tmp_path, date_window="aaj shaam 5 baje", budget_inr=900, book_now=True)
+    assert rc == 0 and "outcome=SLOT_OFFERED" in text and "book kar" not in transcript
+
+
+def test_book_now_does_not_book_over_the_ceiling(tmp_path):
+    rc, text, transcript = _simulated_livecall(
+        tmp_path, date_window="aaj shaam 6 baje", budget_inr=500, book_now=True)
+    assert rc == 0 and "outcome=SLOT_OFFERED" in text and "book kar" not in transcript
+
+
+def test_without_book_now_the_same_call_can_never_book(tmp_path):
+    rc, text, transcript = _simulated_livecall(
+        tmp_path, date_window="aaj shaam 6 baje", budget_inr=900)
+    assert rc == 0 and "outcome=SLOT_OFFERED" in text and "book kar" not in transcript
+
+
+def test_call_me_script_takes_an_optional_book_now_argument():
+    from pathlib import Path
+
+    sh = (Path(__file__).parents[2] / "deploy" / "call-me.sh").read_text(encoding="utf-8")
+    assert '"${5:-}"' in sh and "--book-now" in sh and "'book-now'" in sh
+    # without the 5th argument no flag is passed
+    assert 'BOOKFLAG=()' in sh

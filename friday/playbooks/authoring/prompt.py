@@ -14,8 +14,8 @@ import yaml
 
 from friday.core.models import CallOutcome
 from friday.playbooks.authoring.knowledge import BusinessType
+from friday.playbooks.authoring.offline import TEMPLATE_DIR
 from friday.playbooks.intents import CONDITIONS, INPUT_NAMES, INTENTS, PLACEHOLDERS, SETTABLE
-from friday.playbooks.model import DATA_DIR
 
 PLAYBOOK_MARK = "=== PLAYBOOK ==="
 PERSONAS_MARK = "=== PERSONAS ==="
@@ -101,8 +101,8 @@ def _closed_sets() -> str:
 
 
 def _salon_example() -> tuple[str, str]:
-    play = (DATA_DIR / "salon_booking.yaml").read_text(encoding="utf-8")
-    pers = (DATA_DIR / "salon_booking.personas.yaml").read_text(encoding="utf-8")
+    play = (TEMPLATE_DIR / "salon_v1.yaml").read_text(encoding="utf-8")
+    pers = (TEMPLATE_DIR / "salon_v1.personas.yaml").read_text(encoding="utf-8")
     head, _, rest = pers.partition("personas:\n")
     items = re.split(r"(?m)^(?=  - id: )", rest)
     more = "  # ... (more personas in the real file)\n"
