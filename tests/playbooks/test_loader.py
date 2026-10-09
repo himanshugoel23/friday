@@ -151,7 +151,7 @@ def test_all_problems_are_listed_not_just_the_first(raw):
 
 def test_negated_confirmation_lines_are_allowed(raw):
     d = copy.deepcopy(raw)
-    d["lines"]["thanks"] = "Abhi kuch confirm nahi kiya, approval ke baad call karti hoon."
+    d["lines"]["thanks"] = "Abhi kuch confirm nahi kiya, poochh kar aapko call karti hoon."
     assert validate_data(d)
 
 

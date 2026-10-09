@@ -34,15 +34,15 @@ async def test_no_delegation_never_books_and_says_call_back_after_approval():
     assert run.outcome == "SLOT_OFFERED"
     assert run.final.outcome == CallOutcome.PENDING_APPROVAL
     assert not run.final.commits_booking
-    assert "Abhi kuch confirm nahi kiya, approval ke baad call karti hoon" in run.final.text
-    assert "confirm kar dijiye" not in run.all_text()
+    assert "Abhi kuch confirm nahi kiya, Rahul ji se poochh kar aapko call karti hoon" in run.final.text  # noqa: E501
+    assert "book kar dijiye" not in run.all_text()
 
 
 async def test_delegation_within_limits_books_with_the_commit_line():
     brief = make_brief(delegation=delegation(max_price=800))
     run = await drive(FULL, brief=brief)
     assert run.outcome == "BOOKED" and run.final.outcome == CallOutcome.SUCCESS
-    assert run.final.commits_booking and "confirm kar dijiye" in run.final.text
+    assert run.final.commits_booking and "book kar dijiye" in run.final.text
     assert run.final.quote.amount_inr == 400
     assert run.final.slot_at is not None  # the runner can check a delegated time window
     assert looks_like_commitment(run.final.text)
@@ -52,7 +52,7 @@ async def test_delegation_price_ceiling_exceeded_falls_back_to_callback():
     brief = make_brief(delegation=delegation(max_price=300))
     run = await drive(FULL, brief=brief)
     assert run.outcome == "SLOT_OFFERED" and not run.final.commits_booking
-    assert "approval ke baad" in run.final.text
+    assert "poochh kar aapko call karti hoon" in run.final.text
 
 
 async def test_delegation_without_a_known_price_does_not_book():
@@ -115,7 +115,7 @@ async def test_blocked_commit_is_never_repeated_it_becomes_a_callback():
     commits = [a for a in run.actions if a.commits_booking]
     assert len(commits) == 1  # tried once; the runner's gate said no
     assert run.final.type == CallActionType.HANGUP and not run.final.commits_booking
-    assert run.outcome == "SLOT_OFFERED" and "approval ke baad" in run.final.text
+    assert run.outcome == "SLOT_OFFERED" and "poochh kar aapko call karti hoon" in run.final.text
 
 
 async def test_a_confirmation_callback_brief_is_not_scripted():
@@ -276,7 +276,7 @@ async def test_unclear_counter_is_per_step():
 async def test_a_question_is_asked_at_most_four_times():
     replies = OPEN + ["Haan boliye"] * 6  # "boliye" to S2 re-asks S2
     run = await drive(replies, brief=make_brief())
-    asks = [s for s in run.said if "Slot milega" in s]
+    asks = [s for s in run.said if "Koi time free hoga" in s]
     assert len(asks) <= 4
     assert run.outcome == "UNCLEAR"
 
@@ -313,7 +313,7 @@ async def test_hold_waits_silently_for_the_limit_then_asks_again():
     hold = next(a for a in run.actions if a.type == CallActionType.WAIT_ON_HOLD)
     assert hold.max_hold_s == 60 and not hold.text  # no speech while on hold
     after = run.actions[run.actions.index(hold) + 1]
-    assert "Slot milega" in after.text  # S2 asked again after she is back
+    assert "Koi time free hoga" in after.text  # S2 asked again after she is back
     music = await drive(OPEN + ["<music>"], brief=make_brief())
     assert music.final.type == CallActionType.WAIT_ON_HOLD
 
@@ -325,7 +325,7 @@ def test_elapsed_time_helper_sanity():
 def test_negations_are_not_commitments_but_real_confirmations_still_are():
     for ok in (
         "Toh kal shaam 6 baje ke liye haircut, 400 rupaye. Abhi kuch confirm nahi kiya, "
-        "approval ke baad call karti hoon. Shukriya.",
+        "poochh kar aapko call karti hoon. Shukriya.",
         "Main Rahul ji se confirm karke aapko call back karti hoon.",
         "I have not confirmed anything yet, I will call back after approval.",
     ):

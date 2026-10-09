@@ -33,9 +33,9 @@ SCENARIOS = [
     ("s0_dnc", ["Dobara call mat karna"], {}, "REFUSED", {"defaults.STOP_CALLING"}, "dobara call nahi"),
     ("s0_rude", ["Faltu tang mat karo"], {}, "REFUSED", {"defaults.RUDE"}, "pareshan karne"),
     # ---- S1
-    ("s1_yes", ["Haan"], {}, None, {"S1.YES"}, "Slot milega"),
-    ("s1_continue", ["Haan boliye"], {}, None, {"S1.CONTINUE"}, "Slot milega"),
-    ("s1_ack", ["Shukriya"], {}, None, {"S1.ACK"}, "Slot milega"),
+    ("s1_yes", ["Haan"], {}, None, {"S1.YES"}, "Koi time free hoga"),
+    ("s1_continue", ["Haan boliye"], {}, None, {"S1.CONTINUE"}, "Koi time free hoga"),
+    ("s1_ack", ["Shukriya"], {}, None, {"S1.ACK"}, "Koi time free hoga"),
     ("s1_no", ["Nahi abhi nahi"], {}, "CALL_BACK_LATER", {"S1.NO"}, "baad mein call"),
     ("s1_who", ["Kaun bol raha hai?"], {}, None, {"S1.WHO_IS_THIS"}, "Do minute milenge"),
     ("s1_repeat", ["Sorry, phir se boliye?"], {}, None, {"S1.ASKS_REPEAT"}, "Do minute milenge"),
@@ -46,23 +46,23 @@ SCENARIOS = [
     ("dnc", ["Dobara call mat karna"], {}, "REFUSED", {"defaults.STOP_CALLING"}, "dobara call nahi"),
     ("rude", ["Faltu tang mat karo"], {}, "REFUSED", {"defaults.RUDE"}, "pareshan karne"),
     # ---- S2
-    ("s2_slot_free_time", OPEN + FREE, {}, None, {"S2.SLOT_FREE"}, "kitna lagega"),
+    ("s2_slot_free_time", OPEN + FREE, {}, None, {"S2.SLOT_FREE"}, "kya rate hai"),
     ("s2_yes_no_time", OPEN + ["Haan ji"], {}, None, {"S2.YES"}, "Kitne baje ka"),
-    ("s2_offers", OPEN + ["5 baje ya 7 baje ho jayega"], {}, None, {"S2.OFFERS_SLOTS"}, "kitna lagega"),
-    ("s2_busy", OPEN + ["Kal shaam to full hai"], {}, None, {"S2.SLOT_BUSY"}, "Kaun sa samay free"),
-    ("s2_no", OPEN + ["Nahi"], {}, None, {"S2.NO"}, "Kaun sa samay free"),
+    ("s2_offers", OPEN + ["5 baje ya 7 baje ho jayega"], {}, None, {"S2.OFFERS_SLOTS"}, "kya rate hai"),
+    ("s2_busy", OPEN + ["Kal shaam to full hai"], {}, None, {"S2.SLOT_BUSY"}, "kaun sa time free hai"),
+    ("s2_no", OPEN + ["Nahi"], {}, None, {"S2.NO"}, "kaun sa time free hai"),
     ("s2_appointment", OPEN + ["Appointment lena padega, walk-in nahi"], {}, None, {"S2.NEEDS_APPOINTMENT"}, "Appointment ke liye hi"),
-    ("s2_continue", OPEN + ["Haan boliye"], {}, None, {"S2.CONTINUE"}, "Slot milega"),
+    ("s2_continue", OPEN + ["Haan boliye"], {}, None, {"S2.CONTINUE"}, "Koi time free hoga"),
     # ---- S2t
-    ("s2t_time", OPEN + ["Haan ho jayega", "Shaam 5 baje"], {}, None, {"S2t.GIVES_TIME"}, "kitna lagega"),
-    ("s2t_free", OPEN + ["Haan ho jayega", "Haan 5 baje free hai"], {}, None, {"S2t.SLOT_FREE"}, "kitna lagega"),
-    ("s2t_offers", OPEN + ["Haan ho jayega", "5 baje ya 7 baje"], {}, None, {"S2t.OFFERS_SLOTS"}, "kitna lagega"),
-    ("s2t_busy", OPEN + ["Haan ho jayega", "Nahi sab full hai"], {}, None, {"S2t.SLOT_BUSY"}, "Kaun sa samay free"),
-    ("s2t_no", OPEN + ["Haan ho jayega", "Nahi"], {}, None, {"S2t.NO"}, "Kaun sa samay free"),
+    ("s2t_time", OPEN + ["Haan ho jayega", "Shaam 5 baje"], {}, None, {"S2t.GIVES_TIME"}, "kya rate hai"),
+    ("s2t_free", OPEN + ["Haan ho jayega", "Haan 5 baje free hai"], {}, None, {"S2t.SLOT_FREE"}, "kya rate hai"),
+    ("s2t_offers", OPEN + ["Haan ho jayega", "5 baje ya 7 baje"], {}, None, {"S2t.OFFERS_SLOTS"}, "kya rate hai"),
+    ("s2t_busy", OPEN + ["Haan ho jayega", "Nahi sab full hai"], {}, None, {"S2t.SLOT_BUSY"}, "kaun sa time free hai"),
+    ("s2t_no", OPEN + ["Haan ho jayega", "Nahi"], {}, None, {"S2t.NO"}, "kaun sa time free hai"),
     # ---- S2b
-    ("s2b_offers", OPEN + ["Full hai", "5 baje ya 7 baje ho jayega"], {}, None, {"S2b.OFFERS_SLOTS"}, "kitna lagega"),
-    ("s2b_free", OPEN + ["Full hai", "Haan 5 baje free hai"], {}, None, {"S2b.SLOT_FREE"}, "kitna lagega"),
-    ("s2b_time", OPEN + ["Full hai", "Shaam 7 baje"], {}, None, {"S2b.GIVES_TIME"}, "kitna lagega"),
+    ("s2b_offers", OPEN + ["Full hai", "5 baje ya 7 baje ho jayega"], {}, None, {"S2b.OFFERS_SLOTS"}, "kya rate hai"),
+    ("s2b_free", OPEN + ["Full hai", "Haan 5 baje free hai"], {}, None, {"S2b.SLOT_FREE"}, "kya rate hai"),
+    ("s2b_time", OPEN + ["Full hai", "Shaam 7 baje"], {}, None, {"S2b.GIVES_TIME"}, "kya rate hai"),
     ("s2b_busy", OPEN + ["Full hai", "Koi slot nahi"], {}, "NO_SLOT", {"S2b.SLOT_BUSY"}, "bata dungi"),
     ("s2b_no", OPEN + ["Full hai", "Nahi"], {}, "NO_SLOT", {"S2b.NO"}, "bata dungi"),
     # ---- S3
@@ -70,12 +70,12 @@ SCENARIOS = [
     ("s3_range", OPEN + FREE + ["400 se 500 rupaye tak"], {}, None, {"S3.PRICE_RANGE"}, "500 rupaye tak"),
     ("s3_depends", OPEN + FREE + ["Stylist par depend karta hai"], {}, None, {"S3.PRICE_DEPENDS"}, "advance"),
     ("s3_refuses", OPEN + FREE + ["Phone par price nahi bata sakte, aake poochh lo"], {}, None, {"S3.REFUSES_PRICE"}, "advance"),
-    ("s3_continue", OPEN + FREE + ["Haan boliye"], {}, None, {"S3.CONTINUE"}, "kitna lagega"),
+    ("s3_continue", OPEN + FREE + ["Haan boliye"], {}, None, {"S3.CONTINUE"}, "kya rate hai"),
     # ---- S3r
     ("s3r_yes", OPEN + FREE + PRICE + ["Haan"], {}, None, {"S3r.YES"}, "advance"),
     ("s3r_continue", OPEN + FREE + PRICE + ["Haan boliye"], {}, None, {"S3r.CONTINUE"}, "advance"),
     ("s3r_ack", OPEN + FREE + PRICE + ["Thanks"], {}, None, {"S3r.ACK"}, "advance"),
-    ("s3r_no", OPEN + FREE + PRICE + ["Nahi"], {}, None, {"S3r.NO"}, "kitna lagega"),
+    ("s3r_no", OPEN + FREE + PRICE + ["Nahi"], {}, None, {"S3r.NO"}, "kya rate hai"),
     ("s3r_correct", OPEN + FREE + PRICE + ["Nahi 450 rupaye"], {}, None, {"S3r.GIVES_PRICE"}, "450 rupaye"),
     ("s3r_range", OPEN + FREE + PRICE + ["400 se 500 rupaye"], {}, None, {"S3r.PRICE_RANGE"}, "500 rupaye tak"),
     # ---- S3b (over budget, user allowed asking once)
@@ -95,19 +95,19 @@ SCENARIOS = [
     ("s5_no_adv", OPEN + FREE + PRICE + SAHI + NOADV, {}, None, {"S5.NO_ADVANCE"}, "isi number par call back"),
     ("s5_no", OPEN + FREE + PRICE + SAHI + ["Nahi"], {}, None, {"S5.NO"}, "isi number par call back"),
     ("s5_any", OPEN + FREE + PRICE + SAHI + ["Haan policy hai, aake dekh lo"], {}, None, {"S5.ANY"}, "isi number par call back"),
-    ("s5_busy", OPEN + FREE + PRICE + SAHI + ["Abhi busy hoon, baad mein"], {}, "SLOT_OFFERED", {"S5.BUSY_LATER"}, "approval ke baad call karti hoon"),
+    ("s5_busy", OPEN + FREE + PRICE + SAHI + ["Abhi busy hoon, baad mein"], {}, "SLOT_OFFERED", {"S5.BUSY_LATER"}, "poochh kar aapko call karti hoon"),
     # ---- S6 / S7
     ("s6_phone", OPEN + FREE + PRICE + SAHI + NOADV + ["Customer ka number kya hai?"], {}, "SLOT_OFFERED", {"S6.ASKS_CUSTOMER_PHONE"}, "number main share nahi kar sakti"),
     ("s6_any", OPEN + FREE + PRICE + SAHI + NOADV + OK, {}, "SLOT_OFFERED", {"S6.ANY", "S7.ANY"}, "Abhi kuch confirm nahi kiya"),
-    ("s6_busy", OPEN + FREE + PRICE + SAHI + NOADV + ["Abhi busy hoon, baad mein"], {}, "SLOT_OFFERED", {"S6.BUSY_LATER"}, "approval ke baad"),
+    ("s6_busy", OPEN + FREE + PRICE + SAHI + NOADV + ["Abhi busy hoon, baad mein"], {}, "SLOT_OFFERED", {"S6.BUSY_LATER"}, "poochh kar aapko call karti hoon"),
     # ---- defaults in the middle of the call
     ("d_robot", OPEN + ["Aap robot ho?"] + FREE, {}, None, {"defaults.ARE_YOU_BOT"}, "main AI hoon, insaan nahi"),
     ("d_who", OPEN + ["Kaun bol raha hai?"] + FREE, {}, None, {"defaults.WHO_IS_THIS"}, "Main Friday hoon"),
-    ("d_repeat", OPEN + ["Kya? Dobara bolo"] + FREE, {}, None, {"defaults.ASKS_REPEAT"}, "Slot milega"),
+    ("d_repeat", OPEN + ["Kya? Dobara bolo"] + FREE, {}, None, {"defaults.ASKS_REPEAT"}, "Koi time free hoga"),
     ("d_offtopic", OPEN + ["Parking hai kya aapke paas?"] + FREE, {}, None, {"defaults.ASKS_OFFTOPIC"}, "poochh kar bataungi"),
     ("d_secret", OPEN + ["Pehle OTP bata do"] + FREE, {}, None, {"defaults.ASKS_SECRET"}, "share nahi kar sakti"),
     ("d_phone", OPEN + ["Customer ka number kya hai"] + FREE, {}, None, {"defaults.ASKS_CUSTOMER_PHONE"}, "number main share nahi"),
-    ("d_hold", OPEN + ["Ek minute hold kijiye", "Haan boliye"] + FREE, {}, None, {"defaults.HOLD_ON"}, "Slot milega"),
+    ("d_hold", OPEN + ["Ek minute hold kijiye", "Haan boliye"] + FREE, {}, None, {"defaults.HOLD_ON"}, "Koi time free hoga"),
     ("d_busy_mid", OPEN + FREE + ["Abhi busy hoon, thodi der baad call karo"], {}, "CALL_BACK_LATER", {"defaults.BUSY_LATER"}, "baad mein call"),
     ("d_dnc_mid", OPEN + FREE + PRICE + ["Dobara call mat karna"], {}, "REFUSED", {"defaults.STOP_CALLING"}, "dobara call nahi"),
 ]
@@ -147,7 +147,7 @@ async def test_conditional_alternatives_are_all_reached():
         "Matlab 400 rupaye, lagbhag 30 minute. Sahi?",
         "tak, lagbhag",  # range with duration
         "Rahul ji ka budget 600 rupaye hai",  # S3b
-        "Agar Amit available hon",  # S4
+        "Agar Amit available ho",  # S4
     ):
         assert needle in joined, needle
 
@@ -165,7 +165,7 @@ async def test_s3b_only_once_and_only_when_allowed():
     over = OPEN + FREE + ["900 rupaye"] + SAHI
     # user did not allow negotiating: no budget ask, straight to the next question
     no_neg = await drive(over, brief=make_brief(negotiation=False))
-    assert "S3b" not in no_neg.path and "Koi advance" in no_neg.said[-1]
+    assert "S3b" not in no_neg.path and "Advance dena padega" in no_neg.said[-1]
     # allowed: exactly one budget ask, even if she corrects the price afterwards
     neg = await drive(over + ["700 rupaye"] + ["Nahi, 700 hi hai", "Haan"],
                       brief=make_brief(negotiation=True))
@@ -176,7 +176,7 @@ async def test_s3b_only_once_and_only_when_allowed():
 
 async def test_stylist_step_skipped_without_preference():
     run = await drive(OPEN + FREE + ["Stylist par depend karta hai"], brief=make_brief())
-    assert "S4" not in run.path and "Koi advance" in run.said[-1]
+    assert "S4" not in run.path and "Advance dena padega" in run.said[-1]
 
 
 async def test_price_unknown_continues_to_the_close():
@@ -184,7 +184,7 @@ async def test_price_unknown_continues_to_the_close():
         OPEN + FREE + ["Phone par price nahi bata sakte"] + NOADV + OK, brief=make_brief()
     )
     assert run.outcome == "SLOT_OFFERED" and run.final.quote.amount_inr is None
-    assert "rupaye" not in run.final.text and "approval ke baad" in run.final.text
+    assert "rupaye" not in run.final.text and "poochh kar aapko call karti hoon" in run.final.text
 
 
 async def test_outcome_mapping_to_call_outcomes():
@@ -229,7 +229,7 @@ async def test_branches_only_the_model_can_reach():
 
     policy = PlaybookPolicy(understander=Scripted(), llm_mode="always")
     run = await drive(OPEN + ["bas shaam chhe"], brief=make_brief(), policy=policy)
-    assert "S2.GIVES_TIME" in run.keys and "kitna lagega" in run.said[-1]
+    assert "S2.GIVES_TIME" in run.keys and "kya rate hai" in run.said[-1]
 
 
 def test_any_is_the_wildcard_key():

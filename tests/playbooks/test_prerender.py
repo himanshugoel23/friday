@@ -18,15 +18,15 @@ def test_static_utterances_cover_the_fixed_lines(salon):
     # the second line (who she is calling for) is pre-rendered too, whole and sentence by sentence
     s1 = "Main Rahul ji ki assistant hoon, unki appointment ke regarding call kiya hai. Kya abhi do minute baat ho sakti hai?"  # noqa: E501
     assert s1 in texts and "Kya abhi do minute baat ho sakti hai?" in texts
-    assert "Rahul ji ke liye haircut chahiye, kal shaam. Slot milega?" in texts
-    assert "Haircut ka kitna lagega, aur kitna time?" in texts  # service filled, capital H
+    assert "Kal shaam ke liye Rahul ji ki haircut ki appointment chahiye thi. Koi time free hoga?" in texts  # noqa: E501
+    assert "Haircut ka kya rate hai, aur kitna time lagega?" in texts  # service filled, capital H
     assert "Yeh main Rahul ji se poochh kar bataungi." in texts
     assert "Sorry, ek baar phir?" in texts
     # lines that need collected values (price, slot) are NOT pre-rendered: synthesised live
     assert not any("400 rupaye" in t for t in texts)
     assert not any(t.startswith("Matlab") for t in texts)
     # a joined "say + next question" is warmed too (it is what is actually spoken)
-    assert any(t.startswith("Haan, main AI hoon") and t.endswith("Slot milega?") for t in texts)
+    assert any(t.startswith("Haan, main AI hoon") and t.endswith("Koi time free hoga?") for t in texts)  # noqa: E501
     assert len(texts) == len(set(texts))
 
 
