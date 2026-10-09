@@ -1,0 +1,14 @@
+{
+  "name": "Friday live-call trial",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.13-bookworm",
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": { "label": "Friday (local server)", "onAutoForward": "silent" }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": { "files.autoSave": "afterDelay", "terminal.integrated.fontSize": 14 }
+    }
+  }
+}
