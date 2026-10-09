@@ -22,6 +22,9 @@ Started 2026-10-08 ("day 1"). Update the log at the bottom as work lands.
 | D11 | Docker image is built from the repo `Dockerfile` **on the server** (`deploy/update.sh`). The cloud sandbox cannot pull `ghcr.io`, so use `deploy/build_sandbox.sh` there (see s.4). | |
 | D12 | **Hosting: not AWS.** Both AWS accounts available (066899195555, 405449670622) are managed sandbox accounts inside AWS Organizations with an SCP that explicitly denies Lightsail (`AccessDenied ... lightsail:CreateKeyPair ... service control policy`); not suitable and not ours to override. Use an India-region VPS instead (DigitalOcean Bangalore recommended): Ubuntu 24.04, 4 GB / 2 vCPU, `deploy/lightsail-launch.sh` works as first-boot user data (now creates the `ubuntu` user if missing). Backups: `deploy/backup.sh` accepts `BACKUP_ENDPOINT_URL` for S3-compatible storage (e.g. DO Spaces). A fresh standalone AWS account (root sign-in, no organization) remains a valid alternative using `deploy/aws/cloudshell_provision.sh`. |
 | D13 | **Free first live call: GitHub Codespaces + Cloudflare quick tunnel + the `pilot` profile**, no server or laptop needed. Proves the call loop only (not WhatsApp/Postgres/Docker stack). Guide: `docs/TRIAL_CODESPACES.md`. The real beta still needs an India-region server (D12). |
+| D14 | **The front door exists (MVP, pilot profile): people can now ring Friday's number and talk to her** (`friday listen`, `docs/FRONT_DOOR.md`). This supersedes the earlier finding in D2 that no user-facing voice conversation existed. Voice onboarding (name, language, spoken consent), request -> read-back -> spoken yes -> real task, honest pilot refusal to phone real businesses, per-caller/global limits, result call-backs. **No PIN, OTP or approval by voice** (Vobiz has no DTMF inside a media stream), so PIN, approvals and sensitive actions still need WhatsApp. A calls-only product is therefore still not feasible; calls + WhatsApp stays the plan (D2). Real Vobiz application sync and live audio quality are untested. |
+| D15 | **Small-server path (no Docker): `deploy/small-server.sh`** on a DigitalOcean 1 GB Ubuntu 24.04 droplet: Caddy with free HTTPS at `https://<ip-with-dashes>.sslip.io`, systemd service running `friday listen`, secrets typed hidden into `/opt/friday/.env`. Pilot profile only (SQLite, no WhatsApp/Postgres). The Docker + Postgres + Redis compose stack (`deploy/update.sh`) remains the route for the real beta. Codespaces got a devcontainer and `deploy/codespace_call.sh [--listen]` (one command: tunnel, .env, checks, call or front door). |
+| D16 | **GPT brain is now live-tuned** (commit `eebbccc`: interpret 20/20, call turns 10/10; faster turns, minimal reasoning rejected by gpt-5.4-mini so call turns run with none). Since the founder holds OpenAI and Sarvam keys, OpenAI is the practical brain for the trial and pilot; re-decide for the beta on measured cost/quality (D9). If OpenAI is the brain, the DPA/ZDR request must go to OpenAI too (`PRODUCTION_CHECKLIST` 1.8a). |
 
 ## 2. Three-day plan
 
@@ -96,14 +99,15 @@ the full compose stack (Docker Hub rate limit), live providers, SSH to a server 
 - [x] D9 decided (Anthropic); [ ] confirm `call_turn` token budget (`max_tokens=400`) and quality in the first live calls.
 - [x] Docker image built and smoke-checked; [x] migrations verified on Postgres; [x] tests and lint green (commit `505d4aa`).
 - [x] Hosting: AWS accounts blocked by org SCPs (D12); server provider TBD (DigitalOcean Bangalore recommended).
-- [ ] **Free trial call (D13): follow `docs/TRIAL_CODESPACES.md`** - needs Anthropic + Sarvam keys and an upgraded Vobiz account with a number.
+- [x] Front door MVP, small-server installer, Codespaces auto-setup, GPT tuning landed from the parallel session (D14-D16).
+- [ ] **Free trial (D13): follow `docs/TRIAL_CODESPACES.md`** (`bash deploy/codespace_call.sh`, then `--listen` to call Friday yourself) - needs Anthropic + Sarvam keys and an upgraded Vobiz account with a number.
 - [ ] Provision the real server; first `update.sh` + `smoke_test.sh` run; fix what breaks (O-17).
 - [ ] Meta: verification, templates submitted, test number wired to the webhook.
 - [ ] Vobiz: upgrade, number, queuing off, answer/hangup URLs, questions sent (`SARVAM_QUESTIONS.md`).
 - [ ] First live call to the founder's phone (day 1 milestone) and the day 2 repeat runs.
 - [ ] Legal pages, vendor terms, verified care numbers, on-call person.
 - [ ] Rotate all keys that were ever pasted in chats; set spend limits.
-- [ ] Possible later work: a real user-facing voice channel (voice onboarding/approvals) if a calls-only product is wanted.
+- [ ] Front-door gaps (FRONT_DOOR.md s.7): PIN/keypad via `<Gather>`, WhatsApp hand-off, approvals by voice, shared limits, call-back durability; live p95 latency and real Vobiz application sync are unmeasured.
 
 ## 7. Log
 
@@ -112,3 +116,5 @@ the full compose stack (Docker Hub rate limit), live providers, SSH to a server 
 - 2026-10-09: added the free Codespaces trial guide (D13); next: get Vobiz upgraded + keys, run the first live call.
 - 2026-10-09: status refresh of section 6; repo in sync with origin/claude/friday-phase-1.
 - 2026-10-09: founder has Sarvam + OpenAI keys; trial will use OpenAI (D9 exception). Keys live only in the Codespace `.env` / Codespaces secrets, never in chat or the repo.
+- 2026-10-09: pulled 24 commits from the parallel session (front door, small-server, Codespaces, GPT tuning); ruff clean; full pytest on the merged tree: 1328 passed, 28 skipped (Postgres/Redis variants), 0 failed.
+- 2026-10-09: call tone pass: removed help-desk phrasing from front-door hello lines ("bataiye", no "madad"), call-back opener is a touch witty ("Friday again. I have news."), live-call prompt (`CALL_TURN`) now says sound like a sharp aide not a helpdesk and allows at most one dry line on light topics, never on money/health/complaints/care/consent. Consent wording untouched (legal). The prompt change is NOT re-tuned live: re-run `tests/brain/test_openai_live.py` with a key and listen on the first real calls.

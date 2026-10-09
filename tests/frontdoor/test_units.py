@@ -221,3 +221,14 @@ def test_pilot_dial_rule():
     auto = Settings(_env_file=None, mode="live", profile="pilot", llm_provider="fake")
     assert auto.pilot_blocks_business_calls  # automatic in a live pilot
     assert not settings(profile="pilot").pilot_blocks_business_calls  # not in the simulator
+
+
+def test_spoken_lines_do_not_sound_like_a_helpdesk():
+    """Hello and call-back opener lines are short and aide-like, never 'how can I help you'."""
+    from friday.brain import frontdoor as fd
+
+    banned = ("help you", "madad kar sak", "मदद कर सक", "how may i", "is there anything")
+    for key in ("hello_known", "hello_known_noname", "consent_ok", "cb_update"):
+        for lang, text in fd.LINES[key].items():
+            low = text.lower()
+            assert not any(b in low for b in banned), (key, lang, text)
