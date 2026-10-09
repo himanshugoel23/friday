@@ -96,7 +96,7 @@ async def test_a_new_allow_listed_caller_over_the_real_vobiz_leg():
         assert any(r.method == "DELETE" and r.url.path.endswith("/Call/in-1/") for r in rest)
         # greeting and goodbye are pre-rendered (cache hits); the rest of this call was new text
         # (the name lines, and the consent question in Hindi, warmed only for the default language)
-        assert tts.hits >= 2 and tts.misses - warmed <= 4
+        assert tts.hits >= 2 and tts.misses - warmed <= 8  # per-sentence synthesis
         user = await f.c.repos.users.get_by_phone(OWN)
         assert user is not None
     finally:

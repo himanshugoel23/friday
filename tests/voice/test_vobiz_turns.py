@@ -62,3 +62,38 @@ async def test_long_human_speech_is_not_cut_at_six_seconds():
     for f in _frames(8.0, 0.9):
         leg.on_media(f)
     assert leg._segments.empty()  # still one open utterance, waiting for the pause
+
+
+def test_reply_is_split_into_a_few_speakable_sentences():
+    from friday.voice.telephony.sarvam import split_sentences
+
+    assert split_sentences("Done.") == ["Done."]
+    text = "Done. Two options are open for tomorrow. Pick one and I will confirm it."
+    parts = split_sentences(text)
+    assert len(parts) == 2 and parts[0].startswith("Done. Two options")
+    nine = ". ".join(f"Sentence number {i} is here" for i in range(9)) + "."
+    assert len(split_sentences(nine)) == 4
+
+
+async def test_long_reply_streams_sentence_by_sentence_with_one_checkpoint():
+    from friday.core.models import Language
+
+    leg, sent = await _leg()
+
+    async def release():  # the vendor confirms playback of the final checkpoint
+        while True:
+            await asyncio.sleep(0.01)
+            for ev in leg._marks.values():
+                ev.set()
+
+    task = asyncio.ensure_future(release())
+    try:
+        await leg.speak(
+            "Done, I have started on it. I will call you back with an update. Anything else?",
+            Language.EN,
+        )
+    finally:
+        task.cancel()
+    events = [m["event"] for m in sent]
+    assert events.count("playAudio") >= 2 and events.count("checkpoint") == 1
+    assert events[-1] == "checkpoint" and not leg._playing

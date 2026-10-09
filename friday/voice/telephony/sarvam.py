@@ -126,6 +126,7 @@ import base64
 import contextlib
 import json
 import re
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -153,6 +154,7 @@ from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.signals import block_signal
 from friday.voice.telephony.exotel import exotel_token as _token
 from friday.voice.telephony.twilio import FRAME_BYTES, TwilioCallLeg
+from friday.voice.text import strip_fillers
 from friday.voice.tts.cache import cached_tts
 
 log = get_logger(__name__)
@@ -199,6 +201,23 @@ _DTMF_OK = re.compile(r"^[0-9*#wW]+$")
 SendText = Callable[[str], Awaitable[None]]
 
 
+_SENTENCE_END = re.compile(r"(?<=[.?!।])\s+")
+
+
+def split_sentences(text: str, *, min_chars: int = 25, max_parts: int = 4) -> list[str]:
+    """Split a reply into a few speakable chunks (tiny pieces merge into the next)."""
+    parts: list[str] = []
+    for piece in _SENTENCE_END.split(text.strip()):
+        if parts and len(parts[-1]) < min_chars:
+            parts[-1] = f"{parts[-1]} {piece}"
+        else:
+            parts.append(piece)
+    while len(parts) > max_parts:  # never more vendor calls than needed
+        parts[-2] = f"{parts[-2]} {parts[-1]}"
+        parts.pop()
+    return [p for p in parts if p.strip()]
+
+
 def sarvam_token(secret: str, scope: str) -> str:
     return _token(secret, f"sarvam:{scope}")
 
@@ -242,7 +261,7 @@ class SarvamCallLeg(TwilioCallLeg):
         self.max_duration_s = 1800
         # Phone speech has pauses: wait longer before closing an utterance, and do not chop a
         # person mid-sentence (the 6 s cut is only for hold music).
-        self._segmenter.end_silence_ms = 1100
+        self._segmenter.end_silence_ms = 900
         self._segmenter.max_continuous_ms = 20000
         self._playing = False  # Friday's voice is on the line
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
@@ -298,11 +317,41 @@ class SarvamCallLeg(TwilioCallLeg):
             for ev in self._marks.values():  # release the playback wait right away
                 ev.set()
 
+    def _is_prerendered(self, text: str, language: Language) -> bool:
+        tts = self.tel.tts
+        mem = getattr(tts, "_mem", None)
+        if mem is None or not hasattr(tts, "_key"):
+            return False
+        clean = strip_fillers(text)
+        return tts._key(clean, language, tts.voice_for(language)) in mem
+
     async def speak(self, text: str, language: Language) -> None:
         if self._barged and (self._segmenter._active or not self._utterances.empty()):
             return  # she was interrupted and the caller is still talking: do not talk over them
         self._barged = False
-        await super().speak(text, language)
+        parts = split_sentences(strip_fillers(text))
+        if len(parts) < 2 or self._is_prerendered(text, language):
+            await super().speak(text, language)
+            return
+        # Start talking after the FIRST sentence is synthesised, while the rest is still being made.
+        self._check_live()
+        if self.listen_only or self.bridged or self._send is None:
+            raise ProviderError("sarvam", "this leg cannot play audio (bridged / listen-only)")
+        t0 = time.perf_counter()
+        jobs = [asyncio.ensure_future(self._synth(p, language)) for p in parts]
+        self._playing = True
+        try:
+            for n, job in enumerate(jobs):
+                pcm = await job
+                if n == 0:
+                    self.last_tts_ms = (time.perf_counter() - t0) * 1000
+                if self._barged:
+                    break
+                await self._play_audio(pcm16_to_ulaw(pcm), wait=n == len(jobs) - 1)
+        finally:
+            for j in jobs:
+                j.cancel()
+            self._end_playback()
 
     async def listen(self, timeout_s: float) -> Transcription | None:
         t = await super().listen(timeout_s)
@@ -323,17 +372,20 @@ class SarvamCallLeg(TwilioCallLeg):
         try:
             await self._play_audio(ulaw)
         finally:
-            self._playing = False
-            self._loud_run = 0
-            if not self._barged:  # drop what the line picked up of her own voice
-                seg = self._segmenter
-                seg._buf = bytearray()
-                seg._active = False
-                seg._voiced_run = 0
-                seg._silence_ms = 0
-                seg._pre = []
+            self._end_playback()
 
-    async def _play_audio(self, ulaw: bytes) -> None:
+    def _end_playback(self) -> None:
+        self._playing = False
+        self._loud_run = 0
+        if not self._barged:  # drop what the line picked up of her own voice
+            seg = self._segmenter
+            seg._buf = bytearray()
+            seg._active = False
+            seg._voiced_run = 0
+            seg._silence_ms = 0
+            seg._pre = []
+
+    async def _play_audio(self, ulaw: bytes, wait: bool = True) -> None:
         assert self._send is not None
         for i in range(0, len(ulaw), FRAME_BYTES * 10):
             await self._send(
@@ -349,6 +401,8 @@ class SarvamCallLeg(TwilioCallLeg):
                     }
                 )
             )
+        if not wait:  # more of the same reply follows: keep the audio queue full
+            return
         name = f"cp{new_id()[:10]}"
         ev = asyncio.Event()
         self._marks[name] = ev
