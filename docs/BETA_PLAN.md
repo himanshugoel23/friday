@@ -116,4 +116,4 @@ the full compose stack (Docker Hub rate limit), live providers, SSH to a server 
 - 2026-10-09: added the free Codespaces trial guide (D13); next: get Vobiz upgraded + keys, run the first live call.
 - 2026-10-09: status refresh of section 6; repo in sync with origin/claude/friday-phase-1.
 - 2026-10-09: founder has Sarvam + OpenAI keys; trial will use OpenAI (D9 exception). Keys live only in the Codespace `.env` / Codespaces secrets, never in chat or the repo.
-- 2026-10-09: pulled 24 commits from the parallel session (front door, small-server, Codespaces, GPT tuning); ruff clean; full test run on the merged tree not yet recorded (re-run pytest before relying on it).
+- 2026-10-09: pulled 24 commits from the parallel session (front door, small-server, Codespaces, GPT tuning); ruff clean; full pytest on the merged tree: 1328 passed, 28 skipped (Postgres/Redis variants), 0 failed.
