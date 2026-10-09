@@ -410,6 +410,7 @@ class SarvamTelephony:
         self.legs: dict[str, SarvamCallLeg] = {}
         self.by_sid: dict[str, SarvamCallLeg] = {}
         self.inbound_legs: dict[str, SarvamCallLeg] = {}
+        self._bg: set[asyncio.Future[Any]] = set()
         self._recording_ids: dict[str, str] = {}  # recording url -> Vobiz recording_id
         # VERIFIED (Vobiz API skills / Sarvam Vobiz guide): every request carries the
         # Auth ID and Auth Token (Vobiz console -> Voice -> Voice Applications -> Overview)
@@ -705,12 +706,16 @@ class SarvamTelephony:
             if leg.inbound and not leg.claimed and leg.provider_call_id:
                 self.inbound_legs[leg.provider_call_id] = leg
                 asyncio.ensure_future(self._claim_guard(leg))
-                await self._publish(
-                    InboundCallReceived(
-                        provider=self.name,
-                        provider_call_id=leg.provider_call_id,
-                        from_phone=leg.to_phone,
-                        to_number=leg.from_number,
+                # The handler of this event runs the WHOLE call (front door / call-back), so it
+                # must not block this receive loop: Vobiz media frames keep arriving meanwhile.
+                self._spawn(
+                    self._publish(
+                        InboundCallReceived(
+                            provider=self.name,
+                            provider_call_id=leg.provider_call_id,
+                            from_phone=leg.to_phone,
+                            to_number=leg.from_number,
+                        )
                     )
                 )
             return
@@ -724,6 +729,12 @@ class SarvamTelephony:
         elif event == "stop":  # not sent by Vobiz (the WS close is); harmless if it ever is
             leg.on_stream_stop()
 
+    def _spawn(self, coro: Awaitable[Any]) -> None:
+        """Run ``coro`` in the background, keeping a reference so it is not garbage collected."""
+        task = asyncio.ensure_future(coro)
+        self._bg.add(task)
+        task.add_done_callback(self._bg.discard)
+
     async def _claim_guard(self, leg: SarvamCallLeg) -> None:
         await asyncio.sleep(self.inbound_claim_timeout_s)
         if not leg.claimed and not leg.ended:
@@ -735,6 +746,8 @@ class SarvamTelephony:
             await self.bus.publish(event)
 
     async def aclose(self) -> None:
+        for task in list(self._bg):
+            task.cancel()
         await self._http.aclose()
 
 
