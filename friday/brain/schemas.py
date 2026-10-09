@@ -13,6 +13,7 @@ properties required, no defaults / titles / length constraints.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -340,6 +341,28 @@ class BusinessReplyOut(Wire):
     text: str
     language: Language = Language.HINGLISH
     hangup: bool = False
+
+
+class DoorAction(StrEnum):
+    """The CLOSED set of next-actions the front-door model may propose. Code executes them and
+    enforces the order (consent before storing anything, read-back before a task); the model
+    only suggests."""
+
+    CONTINUE = "continue"
+    ASK_CONSENT = "ask_consent"
+    CONFIRM_REQUEST = "confirm_request"
+    START_TASK = "start_task"
+    GOODBYE = "goodbye"
+
+
+class DoorTurnOut(Wire):
+    """One caller turn of the front door: what to say, what was learned, what to do next."""
+
+    say: str = ""
+    action: DoorAction = DoorAction.CONTINUE
+    name: str | None = None
+    language: Language | None = None
+    request: str | None = None
 
 
 # ------------------------------------------------------------------ strict schema

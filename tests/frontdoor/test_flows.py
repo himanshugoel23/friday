@@ -139,10 +139,12 @@ async def test_a_secret_said_on_the_call_never_reaches_the_brain_or_the_transcri
 # ------------------------------------------------------------------ voice onboarding
 async def test_new_allow_listed_caller_is_onboarded_by_voice_without_a_pin(pilot):
     summary, leg = await sim_call(
-        pilot, OWN, ["Asha", "Hindi", "haan", LOOKS_ASK, "haan", "nahi bas"]
+        pilot, OWN, [LOOKS_ASK, "Asha", "haan", "haan", "nahi bas"]
     )
     lines = said(leg)
-    assert "ai assistant" in lines[0].lower() and "naam" in lines[0].lower()
+    # the disclosure and an open question, NOT a form: the name is not asked up front
+    assert "ai assistant" in lines[0].lower() and "naam" not in lines[0].lower()
+    assert "kya karna hai" in lines[0].lower()
     assert not any(re.search(r"\bpin\b", x, re.I) for x in lines)  # a PIN is never asked for
     assert summary.onboarded and summary.kind == CallerKind.UNKNOWN
     user = await pilot.c.repos.users.get_by_phone(OWN)
@@ -155,21 +157,25 @@ async def test_new_allow_listed_caller_is_onboarded_by_voice_without_a_pin(pilot
 
 
 async def test_declining_consent_stores_nothing(pilot):
-    summary, leg = await sim_call(pilot, OWN, ["Asha", "English", "nahi"])
+    summary, leg = await sim_call(pilot, OWN, [LOOKS_ASK, "Asha", "nahi"])
     assert await pilot.c.repos.users.get_by_phone(OWN) is None
-    assert any("I have not saved anything" in x for x in said(leg))
+    assert any("saved anything" in x or "save nahi kiya" in x for x in said(leg))
     assert summary.end_reason == "consent declined"
 
 
 async def test_delete_everything_before_consent_leaves_nothing_behind(pilot):
-    _s, leg = await sim_call(pilot, OWN, ["Asha", "English", "delete everything"], lang=E)
+    _s, leg = await sim_call(
+        pilot, OWN, ["I need a haircut tomorrow", "Asha", "delete everything"], lang=E
+    )
     assert await pilot.c.repos.users.get_by_phone(OWN) is None
     assert any("Nothing about you is stored" in x or "kuch bhi store nahi" in x
                for x in said(leg))
 
 
 async def test_delete_everything_right_after_voice_onboarding_erases_the_account(pilot):
-    _s, leg = await sim_call(pilot, OWN, ["Asha", "English", "haan", "delete everything"], lang=E)
+    _s, leg = await sim_call(
+        pilot, OWN, ["I need a haircut tomorrow", "Asha", "haan", "delete everything"], lang=E
+    )
     user = await pilot.c.repos.users.get_by_phone(OWN)
     assert user is None or user.status == UserStatus.DELETED
     assert any("deleted everything" in x or "delete kar diya" in x for x in said(leg))
@@ -178,8 +184,8 @@ async def test_delete_everything_right_after_voice_onboarding_erases_the_account
 
 async def test_onboarding_copes_with_noise_and_a_language_in_the_middle(pilot):
     leg = ScriptedLeg(
-        [("???", E), ("my name is Priya Nair", E), ("Hindi please", E), ("yes I agree", E),
-         ("who are you exactly please", E), ("bye", E)]
+        [("???", E), ("my name is Priya Nair", E), ("I need a haircut tomorrow evening", E),
+         ("yes I agree", E), ("who are you exactly please", E), ("bye", E)]
     )
     await ring(pilot, OWN, leg)
     user = await pilot.c.repos.users.get_by_phone(OWN)
@@ -193,7 +199,7 @@ async def test_pilot_refuses_real_business_calls_honestly_and_creates_nothing():
     f = await start_friday("pilot", (OWN,), pilot_block_business_calls=True)
     try:
         summary, leg = await sim_call(
-            f, OWN, ["Asha", "English", "haan", LOOKS_ASK, "nahi bas"]
+            f, OWN, [LOOKS_ASK, "Asha", "haan", "nahi bas"]
         )
         assert any("cannot phone real businesses yet" in x or "asli businesses ko call nahi" in x
                    for x in said(leg))
@@ -212,7 +218,7 @@ async def test_the_engine_itself_refuses_to_dial_a_real_business_in_the_pilot():
 
     f = await start_friday("pilot", (OWN,), pilot_block_business_calls=True)
     try:
-        await sim_call(f, OWN, ["Asha", "English", "haan", "bye"])
+        await sim_call(f, OWN, ["haircut book karna hai kal", "Asha", "haan", "bye"])
         user = await f.c.repos.users.get_by_phone(OWN)
         spec = TaskSpec(type=TaskType.ENQUIRY, goal="Ask Looks about hours",
                         business_name="Looks Unisex Salon", business_phone="+918040000001")
@@ -291,7 +297,7 @@ async def test_unknown_caller_outside_the_pilot_keeps_the_take_a_message_path():
 async def test_open_signup_lets_an_unknown_caller_onboard_outside_the_pilot():
     f = await Friday.start(frontdoor_open_signup=True)
     try:
-        summary, _leg = await sim_call(f, "+919845099999", ["Ravi", "English", "nahi"])
+        summary, _leg = await sim_call(f, "+919845099999", [LOOKS_ASK, "Ravi", "nahi"])
         assert summary.kind == CallerKind.UNKNOWN and summary.route == "serve"
     finally:
         await f.close()

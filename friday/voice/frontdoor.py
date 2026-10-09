@@ -32,6 +32,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from friday.brain import frontdoor as fd_copy
+from friday.brain.heuristics import door as door_logic
+from friday.brain.schemas import DoorAction, DoorTurnOut
 from friday.core.clock import Clock, to_ist
 from friday.core.config import Settings
 from friday.core.container import ComponentNotAvailable, Container
@@ -85,6 +87,12 @@ MAX_NAME_TRIES = 3
 MAX_UNCLEAR = 2
 MAX_FAILURES = 2
 WORDS_TO_SWITCH_LANGUAGE = 3
+MAX_TURNS_WITH_REQUEST_BEFORE_CONSENT = 3  # the model cannot chat past the consent moment
+RECENT_TURNS = 6
+DOOR_GOAL = (
+    "find out what they need, learn their name naturally, get consent at a natural moment after "
+    "they have said what they need, then start the task"
+)
 WINDOW_START_HOUR, WINDOW_END_HOUR = 8, 21  # IST: result call-backs only inside this window
 
 # intents whose handling needs the PIN (or is simply not built for voice): never done on a call
@@ -498,6 +506,14 @@ class FrontDoorSession:
         self.unclear = 0
         self.failures = 0
         self.name_tries = 0
+        # conversational door: slots the model fills, the code enforces the order
+        self.conv = bool(fd.settings.frontdoor_conversational)
+        self.request: str | None = None  # the caller's goal so far (memory only until consent)
+        self.open_question: str | None = None  # a question the brain asked about the request
+        self.consent_asked = False
+        self.talk_turns = 0
+        self.request_turns = 0
+        self.caller_said = ""  # lower-cased words the caller really said (anti-hallucination)
         self.pending: dict[str, Any] = {}
         self.expect_more = False
         self.ended = False
@@ -667,14 +683,22 @@ class FrontDoorSession:
         await self.fd._finish(summary, r)
         return summary
 
-    async def _end(self, key: str, reason: str, outcome: CallOutcome = CallOutcome.SUCCESS) -> None:
+    async def _end(
+        self,
+        key: str,
+        reason: str,
+        outcome: CallOutcome = CallOutcome.SUCCESS,
+        *,
+        speak: bool = True,
+    ) -> None:
         self.ended = True
         self.end_reason = reason
         self.result.outcome = outcome
         if outcome == CallOutcome.FAILED:
             self.result.error = reason
-        with contextlib.suppress(CallEnded):
-            await self.say(fd_copy.line(key, self.lang))
+        if speak:
+            with contextlib.suppress(CallEnded):
+                await self.say(fd_copy.line(key, self.lang))
         await self._hangup()
 
     # ------------------------------------------------------------------ conversation
@@ -708,6 +732,10 @@ class FrontDoorSession:
 
     async def _greet(self) -> None:
         if self.user is None:
+            if self.conv:  # no form: disclosure + "what do you need?"; name/consent come naturally
+                self.state = "chat"
+                await self.say(fd_copy.line("greeting_open", self.lang))
+                return
             self.state = "name"
             await self.say(fd_copy.line("greeting_new", self.lang))
             return
@@ -730,6 +758,10 @@ class FrontDoorSession:
                     await warm
             await self.say(personal, fixed=tts is not None)
             self.state = "chat"
+        elif self.conv:  # known number, no consent yet: consent comes after they say what they need
+            await self.say(fd_copy.line("disclosure", self.lang))
+            self.state = "chat"
+            await self.say(fd_copy.line("ask_need", self.lang))
         else:  # known number but no consent yet (e.g. mid-onboarding on WhatsApp)
             await self.say(fd_copy.line("disclosure", self.lang))
             self.state = "consent"
@@ -805,12 +837,19 @@ class FrontDoorSession:
             return
         if fd_copy.consents_yes(text):
             await self._record_consent(text, t)
-            await self.say(fd_copy.line("consent_ok", self.lang, name=self.name or ""))
             self.state = "chat"
+            if self.conv and self.request:  # no more chat: read the goal back at once
+                await self._run_request()
+                return
+            await self.say(fd_copy.line("consent_ok", self.lang, name=self.name or ""))
             return
         if fd_copy.yes_no(text) is False:
             self.name = None  # nothing was ever written
             await self._end("consent_declined", "consent declined", CallOutcome.SUCCESS)
+            return
+        if self.conv and len(text.split()) >= 4:  # they changed the subject / their mind: no yes
+            self.state = "chat"
+            await self._talk(text, t)
             return
         self.unclear += 1
         if self.unclear > MAX_UNCLEAR:
@@ -882,6 +921,9 @@ class FrontDoorSession:
 
     # ------------------------------------------------------------------ chat state
     async def _state_chat(self, text: str, t: Transcription) -> None:
+        if self.conv:
+            await self._talk(text, t)
+            return
         assert self.user is not None
         words = text.split()
         if self.expect_more and (fd_copy.yes_no(text) is False or fd_copy.wants_to_end(text)):
@@ -914,6 +956,9 @@ class FrontDoorSession:
             return
         if len(text.split()) >= 4:  # a new request instead of yes/no
             self.pending, self.state = {}, "chat"
+            if self.conv:
+                await self._talk(text, t)
+                return
             await self._understand(text)
             return
         self.unclear += 1
@@ -922,6 +967,166 @@ class FrontDoorSession:
             await self.say(fd_copy.line("confirm_no", self.lang))
             return
         await self.say(fd_copy.line("confirm_again", self.lang))
+
+
+    # ------------------------------------------------------------------ conversational turn
+    async def _talk(self, text: str, t: Transcription) -> None:
+        """One caller turn of the goal-driven door. The model proposes (say, slots, next-action);
+        THIS code decides what actually happens, whatever it proposed: consent can never be skipped
+        or inferred (only the deterministic yes/no detection on the fixed consent question grants
+        it), nothing is stored before it, a task is created only by a spoken yes to the read-back
+        (``_state_confirm``), and the model's own ``start_task`` is never a start."""
+        words = text.split()
+        if self.expect_more and (fd_copy.yes_no(text) is False or fd_copy.wants_to_end(text)):
+            await self._end("goodbye", "caller finished")
+            return
+        if fd_copy.wants_to_end(text) and len(words) <= 6:
+            await self._end("goodbye", "caller finished")
+            return
+        self.expect_more = False
+        self.talk_turns += 1
+        self.caller_said += " " + text.lower()
+        if self._clear_request(text):
+            # consent is already on file and the words are plainly a request: one call per turn
+            # (the brain's own interpret) instead of a chat model call followed by interpret
+            more = bool(self.open_question and self.request)  # answering the brain's question
+            self.request = f"{self.request}. {text}" if more else text
+            await self._run_request()
+            return
+        out = await self._door_turn(text)
+        self._learn(out, text)
+        action = self._enforce(out.action)
+        if self.request and not self.consented:
+            self.request_turns += 1
+        if action == DoorAction.CONTINUE:
+            if not await self._say_model(out.say):
+                await self.say(fd_copy.line("didnt_catch", self.lang))
+            return
+        if action == DoorAction.ASK_CONSENT:
+            await self._say_model(out.say, allow_question=False)
+            self.consent_asked = True
+            self.state, self.unclear = "consent", 0
+            await self.say(fd_copy.line("ask_consent", self.lang))
+            return
+        if action == DoorAction.GOODBYE:
+            if not await self._say_model(out.say, allow_question=False):
+                await self.say(fd_copy.line("goodbye", self.lang))
+            await self._end("goodbye", "caller finished", speak=False)
+            return
+        await self._run_request()  # CONFIRM_REQUEST (consent is given and there is a request)
+
+    def _clear_request(self, text: str) -> bool:
+        return bool(
+            self.consented
+            and self.user is not None
+            and len(text.split()) >= 4
+            and door_logic.looks_like_request(text)
+            and not fd_copy.asks_who(text)
+        )
+
+    def _enforce(self, proposed: DoorAction) -> DoorAction:
+        """The order constraints, in code. Consent first; nothing without a request."""
+        action = proposed
+        if action == DoorAction.START_TASK:  # only a spoken yes to the read-back starts a task
+            action = DoorAction.CONFIRM_REQUEST
+        if action == DoorAction.CONFIRM_REQUEST and not self.consented:
+            action = DoorAction.ASK_CONSENT
+        if action == DoorAction.ASK_CONSENT and self.consented:
+            action = DoorAction.CONFIRM_REQUEST
+        if action in (DoorAction.CONFIRM_REQUEST, DoorAction.ASK_CONSENT) and not self.request:
+            action = DoorAction.CONTINUE
+        if (
+            action == DoorAction.CONTINUE
+            and self.request
+            and not self.consented
+            and self.request_turns >= MAX_TURNS_WITH_REQUEST_BEFORE_CONSENT
+        ):
+            action = DoorAction.ASK_CONSENT
+        return action
+
+    def _learn(self, out: DoorTurnOut, text: str) -> None:
+        """Take the slots the model reports, but only what the caller can really have said."""
+        if out.name:
+            cleaned = fd_copy.extract_name(out.name)
+            if cleaned and any(w.lower() in self.caller_said for w in cleaned.split()):
+                self.name = cleaned  # held in memory only until the caller consents
+        if out.language is not None:
+            explicit = fd_copy.parse_language_choice(text)
+            if explicit == out.language and explicit in (
+                Language.EN, Language.HI, Language.HINGLISH
+            ):
+                self.lang = explicit
+        if out.request:
+            self.request = redact_secrets(out.request)[: door_logic.MAX_REQUEST]
+            self.open_question = None
+
+    async def _say_model(self, text: str, *, allow_question: bool = True) -> bool:
+        spoken = fd_copy.speakable(text)
+        if not spoken or (not allow_question and "?" in spoken):
+            return False
+        await self.say(spoken, fixed=False)
+        return True
+
+    def _door_payload(self, heard: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        facts = {
+            "goal": DOOR_GOAL,
+            "known": self.user is not None and self.consented,
+            "reply_language": fd_copy.pick_language(self.lang).value,
+            "can_call_businesses": not self.s.pilot_blocks_business_calls,
+        }
+        turns = self.result.transcript.turns[:-1][-RECENT_TURNS:]  # before the line just heard
+        volatile = {
+            "slots": {
+                "name": self.name,
+                "request": self.request,
+                "consented": self.consented,
+                "consent_asked": self.consent_asked,
+                "open_question": self.open_question,
+            },
+            "heard": heard,
+            "recent": [
+                {"who": "friday" if x.speaker == Speaker.FRIDAY else "caller", "text": x.text[:200]}
+                for x in turns
+            ],
+        }
+        return facts, volatile
+
+    async def _door_turn(self, heard: str) -> DoorTurnOut:
+        """ONE model call for this turn (the brain's ``door_turn``); any failure or non-model
+        brain -> the deterministic turn, never an exception."""
+        facts, volatile = self._door_payload(heard)
+        fallback = lambda: door_logic.sanitize(  # noqa: E731
+            door_logic.next_turn({"door": facts, **volatile})
+        )
+        brain = self.fd.brain()
+        turn = getattr(brain, "door_turn", None)
+        if not callable(turn):
+            return fallback()
+        t0 = time.perf_counter()
+        job = asyncio.ensure_future(turn(facts, volatile, self.lang))
+        try:
+            done, _ = await asyncio.wait({job}, timeout=HOLD_AFTER_S)
+            if not done:  # slow turn: a fixed "one moment" clip instead of dead air
+                await self.say(fd_copy.line("hold", self.lang))
+            out = await job
+        except CallEnded:
+            job.cancel()
+            raise
+        except Exception:  # noqa: BLE001
+            log.exception("front door: model turn failed, using the deterministic turn")
+            out = None
+        self.latency.policy((time.perf_counter() - t0) * 1000)
+        self.llm_turns += 1
+        return out if isinstance(out, DoorTurnOut) else fallback()
+
+    async def _run_request(self) -> None:
+        """Consent is given: the brain turns the request into a task proposal and the goal is read
+        back. The task starts only on a spoken yes (``_state_confirm`` -> ``_start_task``)."""
+        request = self.request or ""
+        self.open_question = None
+        await self._understand(request)
+        if self.state != "confirm" and not self.open_question:
+            self.request = None  # answered / refused / unsupported: the next ask starts fresh
 
     # ------------------------------------------------------------------ understanding
     async def _understand(self, text: str) -> None:
@@ -1018,6 +1223,7 @@ class FrontDoorSession:
         if spec.missing:
             # the brain asks the one question it still needs; keep the short reply only
             question = fd_copy.speakable(interp.reply)
+            self.open_question = question or None
             await self.say(question or fd_copy.line("didnt_catch", self.lang), fixed=False)
             return
         if not self.fd.can_dial(spec.business_phone):

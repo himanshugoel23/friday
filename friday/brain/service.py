@@ -74,6 +74,7 @@ from friday.core.models import (
 
 from . import briefs, guards, handlers, reports
 from .copy import first_name
+from .heuristics import door as door_heuristics
 from .heuristics.callstate import is_hold, normalize_transcript
 from .heuristics.interpret import draft_missing
 from .heuristics.lexicon import DELEGATION_PHRASES, SECRET_WORDS
@@ -83,10 +84,12 @@ from .heuristics.references import canonical_relation, resolve
 from .inbound import InboundCallBrief, InboundContext, RelatedTask
 from .ivr import learn_ivr_map, replay_step
 from .prompts import CACHE_BREAK, render_input, system_prompt
+from .prompts.examples import select as select_examples
 from .routing import ModelRouter
 from .schemas import (
     CallActionOut,
     CompareOut,
+    DoorTurnOut,
     InterpretOut,
     NudgeOut,
     ReasonsOut,
@@ -904,6 +907,26 @@ class FridayBrain:
         if learned is not None and "ivr_map" not in action.collected:
             action.collected["ivr_map"] = learned.to_note()
         return action
+
+    async def door_turn(
+        self, facts: dict[str, Any], volatile: dict[str, Any], language: Language
+    ) -> DoorTurnOut:
+        """One turn of the inbound front door: ONE structured-output call (purpose ``call_turn``:
+        the live-call model, tight token cap, short timeout). Returns what to say, the slots
+        learned and a next-action from a closed set. The call loop executes the action and enforces
+        every safety rule; unusable output falls back to the deterministic turn."""
+        merged = {"door": facts, **volatile}
+        scenarios = door_heuristics.scenarios_for(merged)
+        payload = {**volatile, "examples": select_examples(scenarios, language)}
+        out: DoorTurnOut = await self._ask(
+            "call_turn",
+            payload,
+            DoorTurnOut,
+            system=system_prompt("door_turn"),
+            stable={"door": facts},
+            fallback=lambda: door_heuristics.next_turn(merged),  # type: ignore[arg-type,return-value]
+        )
+        return door_heuristics.sanitize(out)
 
     def _call_shortcut(self, brief: CallBrief, transcript: Transcript) -> CallActionOut | None:
         transcript = normalize_transcript(transcript)

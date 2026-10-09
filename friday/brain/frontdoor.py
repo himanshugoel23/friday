@@ -36,6 +36,33 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HINGLISH: "Namaste, main Friday hoon, ek AI assistant.",
         _L.HI: "नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट।",
     },
+    # --- conversational door (docs/FRONT_DOOR.md): the open greeting and the deterministic
+    #     fallback lines used when the model's turn is unusable
+    "greeting_open": {
+        _L.EN: "Hello, this is Friday, an AI assistant. What do you need?",
+        _L.HINGLISH: "Namaste, main Friday hoon, ek AI assistant. Bataiye, kya karna hai?",
+        _L.HI: "नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट। बताइए, क्या करना है?",
+    },
+    "ask_need": {
+        _L.EN: "What do you need?",
+        _L.HINGLISH: "Bataiye, kya karna hai?",
+        _L.HI: "बताइए, क्या करना है?",
+    },
+    "ask_name_natural": {
+        _L.EN: "Noted. And your name?",
+        _L.HINGLISH: "Theek hai. Aapka naam?",
+        _L.HI: "ठीक है। आपका नाम?",
+    },
+    "name_ack": {  # {name}
+        _L.EN: "{name}. What do you need?",
+        _L.HINGLISH: "{name} ji, bataiye, kya karna hai?",
+        _L.HI: "{name} जी, बताइए, क्या करना है?",
+    },
+    "ack_short": {
+        _L.EN: "Understood.",
+        _L.HINGLISH: "Samajh gayi.",
+        _L.HI: "समझ गई।",
+    },
     # --- unknown caller: disclosure + the first question in ONE fixed (pre-rendered) clip
     "greeting_new": {
         _L.EN: (
@@ -457,6 +484,7 @@ PRERENDER_KEYS: tuple[str, ...] = tuple(
 PRERENDER_ALWAYS: tuple[str, ...] = (
     "disclosure",
     "greeting_new",
+    "greeting_open",
     "reject_private",
     "reject_busy",
     "reject_limit",

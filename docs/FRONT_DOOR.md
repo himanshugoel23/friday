@@ -63,6 +63,39 @@ time (`call.blocked_pilot` in the audit log, task fails with that same sentence)
 request to call an allow-listed number (your other phone playing a business) goes through. In the simulator
 profile (`--simulate`, tests) simulated businesses are fine.
 
+## 1b. Conversational door (what changed, what is still fixed)
+
+Founder feedback: "she sounds like a helpline, not an assistant." The fixed order name -> language ->
+consent -> request -> read-back -> yes is replaced (setting `FRIDAY_FRONTDOOR_CONVERSATIONAL`, default on;
+`false` restores the old state machine as a rollback) by a goal-driven conversation:
+
+* **Greeting**: the fixed disclosure plus "what do you need?" (`greeting_open`); no name or language form.
+* **One structured model call per caller turn** (`FridayBrain.door_turn`, purpose `call_turn`, so the live-call
+  model, token cap, timeout and prompt-cache blocks apply; no new vendor code). Input: the goal, slots so far
+  (name, request, consented), the last 6 turns, the persona and 1-3 matching mini-dialogues from
+  `friday/brain/prompts/examples.py` (26 short Hinglish / Hindi / English examples, selected by scenario to keep
+  tokens low). Output: `say` (1-2 short sentences), slots (`name`, `language`, `request`) and an `action` from a
+  closed set: `continue`, `ask_consent`, `confirm_request`, `start_task`, `goodbye`.
+* **Code executes actions and owns the order** (`FrontDoorSession._talk/_enforce`): `ask_consent` and
+  `confirm_request` without a spoken yes become the fixed consent question; `confirm_request` without a request
+  becomes `continue`; the model's `start_task` is never a start (it only leads to the read-back); the model cannot
+  chat past the consent moment (forced after 3 turns with a request); a question in the model's own text before the
+  consent line is dropped; a name the caller never said is ignored; an unsafe sentence is replaced
+  (`check_speech`). Language comes from the STT mirroring (an explicit choice is the only model-set change).
+* Unusable output (bad JSON, unknown action, provider error, no brain) -> the deterministic director
+  (`heuristics/door.py`, also the fake LLM's answer, so the simulator works offline).
+* **Returning callers** skip onboarding and are greeted by name. A plain request from a consented caller goes
+  straight to the brain's `interpret` (one call, no chat call first); other turns use the door model.
+* Cost/latency: new caller: 1 door call on turns before consent, 0 on the consent yes (deterministic), 1 interpret
+  for the read-back. Examples are in the per-turn message (small); persona + rules are the cached prefix.
+
+**Still fixed, on purpose** (the model cannot bypass them): the AI-disclosure clip first; the exact consent
+question and the deterministic yes/no detection (a bare "ji" is not consent; nothing stored before it; no consent
+-> goodbye); read-back of the goal and a spoken yes before `TaskEngine.submit`; "delete everything"; PIN/OTP/CVV
+refusal; "are you a bot" (honesty, 0 LLM); goodbye/silence handling; pilot allow-list, limits, max duration,
+spend cap; the pilot refusal to phone real businesses; no approvals by voice; honest follow-up wording after a task.
+Untested live: the real model's tone and its adherence to the closed action set (tests use the scripted fake).
+
 ## 2. Limits and abuse protection (all before any LLM or TTS spend where possible)
 
 | Control | Default | Setting |

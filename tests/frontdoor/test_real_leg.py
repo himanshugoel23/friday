@@ -44,7 +44,8 @@ async def test_a_new_allow_listed_caller_over_the_real_vobiz_leg():
     sar = SarvamTelephony(
         auth_id="MA123", auth_token="tok", caller_ids=[FRIDAY_NUMBER],
         public_base_url="https://friday.example.in", secret="s3cret",
-        stt=ScriptSTT(["Asha", "Hindi", "haan", "nahi bas"]), tts=tts, bus=f.c.bus,
+        stt=ScriptSTT(["book a haircut for tomorrow evening", "Asha", "haan", "haan", "nahi bas"]),
+        tts=tts, bus=f.c.bus,
         transport=httpx.MockTransport(lambda r: (rest.append(r), httpx.Response(204))[1]),
         inbound_claim_timeout_s=30,
     )
@@ -86,7 +87,7 @@ async def test_a_new_allow_listed_caller_over_the_real_vobiz_leg():
             await wait_for(lambda: len([m for m in sent if m["event"] == "checkpoint"]) > n)
 
         await wait_for(lambda: any(m["event"] == "checkpoint" for m in sent))  # the greeting
-        for _ in range(4):
+        for _ in range(6):
             if leg.ended:
                 break
             await caller_says()

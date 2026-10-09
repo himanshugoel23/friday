@@ -249,6 +249,9 @@ class Settings(BaseSettings):
 
     # ---- front door: people calling Friday's public number (docs/FRONT_DOOR.md)
     frontdoor_enabled: bool = True
+    # Goal-driven, LLM-led conversation behind a fixed safety shell (False = the old fixed order
+    # name -> language -> consent -> request; also the rollback switch). See docs/FRONT_DOOR.md.
+    frontdoor_conversational: bool = True
     # Outside the pilot profile an UNKNOWN caller is only onboarded by voice when this is on;
     # off = the existing "take a message" path for unknown callers.
     frontdoor_open_signup: bool = False

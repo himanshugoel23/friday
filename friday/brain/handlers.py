@@ -25,7 +25,7 @@ from friday.core.models import (
     UserAnswer,
 )
 
-from .heuristics import business, media, nudges, policy, translate
+from .heuristics import business, door, media, nudges, policy, translate
 from .heuristics.interpret import interpret
 from .heuristics.references import resolve
 from .inbound import InboundCallBrief
@@ -50,6 +50,8 @@ def h_resolve(p: dict[str, Any]) -> BaseModel:
 
 
 def h_call_turn(p: dict[str, Any]) -> BaseModel:
+    if p.get("door") is not None:  # the inbound front door's conversational turn
+        return door.next_turn(p)
     speak = p.get("speakable")
     if p.get("transcript_full"):
         transcript = Transcript.model_validate(p["transcript_full"])

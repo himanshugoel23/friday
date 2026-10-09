@@ -19,7 +19,7 @@ from .conftest import make_ctx, msg
 
 SNAP = Path(__file__).parent / "snapshots"
 PURPOSES = ["interpret", "resolve_references", "call_turn", "summarize", "compare",
-            "judge_nudge", "extract", "translate", "shortlist_reasons"]
+            "judge_nudge", "extract", "translate", "shortlist_reasons", "door_turn"]
 
 
 @pytest.mark.parametrize("purpose", PURPOSES)
