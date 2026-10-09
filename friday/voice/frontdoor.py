@@ -383,7 +383,9 @@ class FrontDoor:
         refuse = self.guard.check(key)
         if refuse is None:
             return Decision(route="serve", kind=kind, user_id=user_id)
-        silent = self.guard.note_reject(key)
+        # only a caller over their OWN limit counts towards the silent-drop list; "busy" and the
+        # spend cap are not the caller's fault
+        silent = self.guard.note_reject(key) if refuse == "reject_limit" else False
         return Decision(
             route="reject",
             kind=kind,
@@ -833,7 +835,7 @@ class FrontDoorSession:
         if self.name:
             profile = profile.model_copy(update={"name": self.name})
         pref = fd_copy.pick_language(self.lang)
-        profile = profile.model_copy(update={"language": pref, "preferred_channel": Channel.VOICE})
+        profile = profile.model_copy(update={"language": pref})
         await repos.profiles.save(profile)
         self.profile = profile
         await repos.consents.add(
