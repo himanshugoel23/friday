@@ -107,7 +107,8 @@ async def test_a_crashed_run_can_be_undone_and_a_rerun_keeps_the_original_link(t
 
 
 async def test_restore_never_overwrites_someone_elses_later_change(tmp_path):
-    fake = account(); fake.apps["888"] = {"app_id": "888", "app_name": "mine"}  # noqa: E702
+    fake = account()
+    fake.apps["888"] = {"app_id": "888", "app_name": "mine"}
     mgr = manager(fake, tmp_path)
     link = await mgr.sync(URL, NUMBER, SECRET)
     fake.numbers[NUMBER] = "888"  # the founder re-linked it by hand meanwhile
@@ -167,36 +168,19 @@ async def test_urls_match_what_the_webhook_routes_accept():
         stt=None, tts=None, transport=httpx.MockTransport(lambda r: httpx.Response(200)),
     )
     assert answer == tel.url("inbound")
-    assert hangup == tel.url("hangup").replace("hangup?", "hangup?")  # same token scope "inbound"
+    assert hangup == tel.url("hangup")  # the same token scope, "inbound", for both routes
     assert answer.endswith(sarvam_token(SECRET, "inbound"))
     await tel.aclose()
 
 
 async def test_the_number_is_url_encoded_in_the_attach_path(tmp_path):
-    seen: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(request.url.raw_path.decode())
-        return httpx.Response(200, json={"items": [{"e164": NUMBER}], "objects": []})
-
-    mgr = VobizAppManager("MA_T", "tok", transport=httpx.MockTransport(handler))
-    await mgr.number_entry(NUMBER)
     fake = account()
-    mgr2 = manager(fake, tmp_path)
-    await mgr2.sync(URL, NUMBER, SECRET)
-    # httpx.MockTransport decodes in FakeVobizAccount, so also check the encoded form is sent
     raw: list[str] = []
-    real = fake._handle
 
-    def spy(request):
+    def spy(request: httpx.Request) -> httpx.Response:
         raw.append(request.url.raw_path.decode())
-        return real(request)
+        return fake._handle(request)
 
-    fake2 = account()
-    fake2_handle = fake2._handle
-    mgr3 = VobizAppManager(
-        "MA_T", "tok", transport=httpx.MockTransport(lambda r: (raw.append(r.url.raw_path.decode()),
-                                                                fake2_handle(r))[1])
-    )
-    await mgr3.sync(URL, NUMBER, SECRET)
-    assert any("/numbers/%2B918065354620/application" in p for p in raw)
+    mgr = VobizAppManager("MA_T", "tok", transport=httpx.MockTransport(spy))
+    await mgr.sync(URL, NUMBER, SECRET)
+    assert any(p.endswith("/numbers/%2B918065354620/application") for p in raw)
