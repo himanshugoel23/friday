@@ -188,6 +188,8 @@ class Settings(BaseSettings):
         default_factory=lambda: {k: list(v) for k, v in DEFAULT_OPENAI_PRICES_USD_PER_MTOK.items()}
     )  # ESTIMATES: [input, cached input, output] per model prefix
     openai_usd_to_inr: float = 84.0
+    # call turns: non-strict schema with only the essential keys required (fewer output tokens)
+    openai_relaxed_call_schema: bool = True
 
     # ------------------------------------------------------------------ telephony (voice)
     telephony_provider: TelephonyProviderName = "auto"

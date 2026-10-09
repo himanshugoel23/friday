@@ -66,7 +66,7 @@ _MAX_RETRY_AFTER_S = 2.0
 _NOTES_FORMAT = (
     "\nProvider notes (output format only; the rules above still decide everything):\n"
     "Reply with ONLY the JSON object for the schema. Use null (or []) for fields that do not "
-    "apply. Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
+    "apply (call turns: omit optional fields instead). Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
 )
 _NOTES_CALL_TURN = (
     "Language mirroring: if the last callee turn carries a `language` tag, your `language` MUST "
@@ -75,8 +75,30 @@ _NOTES_CALL_TURN = (
     "type=ask_user pauses the call to ask YOUR USER something. To ask the business a question "
     "(price, inclusions, slots) use type=say.\n"
 )
+_NOTES_INTERPRET = (
+    "Task-type choices (when two fit): doctor/clinic/lab/pharmacy/physio appointments -> "
+    "healthcare, not booking. Asking ONE named business a question (price, hours, availability) "
+    "-> enquiry; quote only when the user wants quotes from several businesses to compare. "
+    "Finding which shop has an item in stock -> stock_hunt; discovery is for finding "
+    "businesses in general. A vendor/worker who is late or has not turned up -> "
+    "service_coordination; chasing the status of finished/pending work -> status_chase. "
+    "Problems with a company's service (telecom, bank, broadband, airline, e-commerce: Airtel, "
+    "Jio, ...) -> customer_care; complaint is for a local vendor. A request to regularly call or "
+    "check in on a family member -> new_task wellbeing_checkin (not remember).\n"
+)
+# Call turns need only these keys (the rest default safely when omitted: commits_booking=false).
+_CALL_TURN_REQUIRED = ("type", "text", "language", "outcome", "commits_booking")
 # Fallback when a model has no row in the price table (a mini-class guess; ESTIMATE).
 _DEFAULT_PRICE = (0.75, 0.075, 4.50)
+
+
+def relax_call_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Call-turn latency: output tokens dominate, and a strict schema forces ~10 null fields.
+    Keep only the essential keys required (the brain's pydantic model defaults the rest)."""
+    out = dict(schema)
+    props = out.get("properties", {})
+    out["required"] = [k for k in _CALL_TURN_REQUIRED if k in props]
+    return out
 
 
 def is_reasoning_model(model: str) -> bool:
@@ -207,6 +229,7 @@ class OpenAILLM:
         default_reasoning_effort: str = "none",
         prices: dict[str, Sequence[float]] | None = None,
         usd_to_inr: float = 84.0,
+        relaxed_call_schema: bool = True,
         client: Any | None = None,
     ) -> None:
         from friday.core.config import DEFAULT_OPENAI_PRICES_USD_PER_MTOK
@@ -220,6 +243,7 @@ class OpenAILLM:
         self.default_reasoning_effort = default_reasoning_effort
         self.prices = prices or DEFAULT_OPENAI_PRICES_USD_PER_MTOK
         self.usd_to_inr = usd_to_inr
+        self.relaxed_call_schema = relaxed_call_schema
         # SDK retries are off: this class retries inside one total budget per request.
         self._client = client or openai.AsyncOpenAI(
             api_key=api_key, timeout=timeout_s, max_retries=0
@@ -368,8 +392,12 @@ class OpenAILLM:
     ) -> LLMResponse:
         model = model or self.default_model
         notes = ""
+        strict = True
+        if json_schema and purpose == "call_turn" and self.relaxed_call_schema:
+            json_schema, strict = relax_call_schema(json_schema), False
         if json_schema:
             notes = _NOTES_FORMAT + (_NOTES_CALL_TURN if purpose == "call_turn" else "")
+            notes += _NOTES_INTERPRET if purpose == "interpret" else ""
         api_messages = self._messages(system, messages, attachments, notes)
         reasoning = self._effort_for(purpose, model, effort)
         cap = max_tokens + (_REASONING_HEADROOM.get(reasoning or "none", 0) if reasoning else 0)
@@ -384,7 +412,7 @@ class OpenAILLM:
         if json_schema:
             kwargs["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": "friday_output", "strict": True, "schema": json_schema},
+                "json_schema": {"name": "friday_output", "strict": strict, "schema": json_schema},
             }
         deadline = time.monotonic() + self._budget_s(purpose)
 
@@ -451,4 +479,5 @@ def build_openai_llm(c: Container) -> OpenAILLM:
         default_reasoning_effort=s.openai_default_reasoning_effort,
         prices=s.openai_prices_usd_per_mtok,
         usd_to_inr=s.openai_usd_to_inr,
+        relaxed_call_schema=s.openai_relaxed_call_schema,
     )
