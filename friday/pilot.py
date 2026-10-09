@@ -128,7 +128,7 @@ async def _get(url: str, headers: dict[str, str] | None = None, wait_s: float = 
 
 
 async def doctor(settings: Settings, env_path: Path | None = None,
-                 out: Callable[[str], None] = print) -> int:
+                 out: Callable[[str], None] = print, *, warn_vobiz_issues: bool = False) -> int:
     problems = 0
 
     def ok(msg: str) -> None:
@@ -142,7 +142,7 @@ async def doctor(settings: Settings, env_path: Path | None = None,
     out("Friday doctor: read-only checks, nothing here costs money or places a call.\n")
     v = sys.version_info
     (ok if v >= (3, 11) else bad)(f"Python {v.major}.{v.minor}.{v.micro}")
-    uv = shutil.which("uv")
+    uv = shutil.which("uv") or (sys.prefix != sys.base_prefix)  # a server runs from its venv
     (ok if uv else bad)("uv is installed" if uv else "uv not found (winget install astral-sh.uv)")
     env_path = env_path or Path(".env")
     if env_path.exists():
@@ -197,7 +197,10 @@ async def doctor(settings: Settings, env_path: Path | None = None,
             out("  Vobiz account (read-only):")
             for line in format_probe(probe).splitlines():
                 out(f"      {line}")
-            if probe["issues"]:
+            if probe["issues"] and warn_vobiz_issues:
+                out("  [WARN] the Vobiz issues listed above do not stop answering calls, "
+                    "but fix them before Friday phones anyone (ask Vobiz to turn call queue off)")
+            elif probe["issues"]:
                 problems += len(probe["issues"])
                 out("  [FIX]  the Vobiz issues listed above need fixing before a real call")
             else:
@@ -212,7 +215,10 @@ async def doctor(settings: Settings, env_path: Path | None = None,
         ok(f"Sarvam is reachable (HTTP {r.status_code})")
     except httpx.HTTPError as e:
         bad(f"Sarvam could not be reached ({type(e).__name__}): check your internet")
-    if shutil.which("cloudflared"):
+    own_https = base.startswith("https://") and "trycloudflare.com" not in base
+    if own_https and settings.public_url_problem() is None:
+        ok("own HTTPS address in use (no tunnel needed)")
+    elif shutil.which("cloudflared"):
         ok("cloudflared (tunnel) is installed")
     else:
         bad("cloudflared not found. Install: winget install Cloudflare.cloudflared "
@@ -780,7 +786,7 @@ async def run_listen(
                     "(is another program using it?).")
                 return 2
             out(f"Friday is serving on port {settings.port}. Running the read-only checks...\n")
-            if await doctor(settings, out=out) != 0:
+            if await doctor(settings, out=out, warn_vobiz_issues=True) != 0:
                 out("\nNot linking the number until the checks above pass.")
                 return 2
         fd = runtime.front_door
