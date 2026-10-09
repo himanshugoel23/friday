@@ -89,7 +89,6 @@ Wants=network-online.target
 User=friday
 WorkingDirectory=$APP
 ExecStart=/home/friday/.local/bin/uv run friday listen
-ExecStopPost=/home/friday/.local/bin/uv run friday listen --restore
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
