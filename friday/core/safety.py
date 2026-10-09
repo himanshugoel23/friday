@@ -290,7 +290,7 @@ _NOT_A_COMMIT = (
     "kaunse slot", "available", "kya aap", "could you", "can you", "kar sakte",
     "will confirm", "baad mein", "get back", "check karke", "hold kar", "share this",
     "bata ke", "after checking", "wapas call", "phir call", "puchh", "pooch", "पूछकर",
-    "वापस कॉल",
+    "वापस कॉल", "confirm nahi", "approval ke baad", "not confirm", "haven't confirmed",
 )  # fmt: skip
 
 

@@ -399,6 +399,13 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--yes", action="store_true", help="skip the typed confirmation")
     live.add_argument("--simulate", action="store_true", help="no network: simulated business")
     live.add_argument("--on-behalf-of", default="the Friday founder")
+    live.add_argument("--playbook", default=None, metavar="NAME",
+                      help="scripted call from friday/playbooks/data (e.g. salon_booking); "
+                           "needs --on-behalf-of FIRSTNAME and --when")
+    live.add_argument("--when", default=None, help="playbook: when, e.g. 'kal shaam'")
+    live.add_argument("--service", default=None, help="playbook: e.g. haircut")
+    live.add_argument("--budget", type=int, default=None, help="playbook: budget in rupees")
+    live.add_argument("--stylist", default=None, help="playbook: preferred stylist first name")
     listen = sub.add_parser(
         "listen", help="front door: link the Vobiz number to Friday and answer incoming calls"
     )
@@ -410,6 +417,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.quality.cli import register as register_quality
 
     register_quality(sub)  # `friday review` / `friday eval` (docs/QUALITY_LOOP.md)
+    from friday.playbooks.cli import register as register_playbooks
+
+    register_playbooks(sub)  # `friday playbook list|validate|dry-run` (docs/PLAYBOOKS.md)
     load = sub.add_parser("loadtest", help="S-11: N users, M concurrent simulated calls")
     load.add_argument("--users", type=int, default=100)
     load.add_argument("--calls", type=int, default=20, help="max concurrent calls in flight")
@@ -423,6 +433,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.pilot import init_env
 
         return init_env()
+    if args.cmd == "playbook":  # offline: never reads .env, never touches the network
+        from friday.playbooks.cli import run_command as run_playbook_command
+
+        return run_playbook_command(args)
     if args.cmd == "eval":  # offline scenarios: never reads .env unless --live
         from friday.quality.cli import run_eval_command
 
@@ -448,11 +462,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "livecall":
         from friday.pilot import run_livecall
 
+        pb_args = None
+        if args.playbook:
+            pb_args = {k: v for k, v in (
+                ("service", args.service), ("date_window", args.when),
+                ("budget_inr", args.budget), ("stylist_pref", args.stylist)) if v}
+            if args.on_behalf_of == "the Friday founder":
+                print("REFUSED: a playbook call needs the first name Friday should use: "
+                      "add --on-behalf-of Rahul (the name she says in 'Rahul ji ki AI assistant').")
+                return 2
         try:
             return asyncio.run(
                 run_livecall(
                     settings, args.to, goal=args.goal, max_seconds=args.max_seconds,
                     yes=args.yes, simulate=args.simulate, on_behalf_of=args.on_behalf_of,
+                    playbook=args.playbook, playbook_args=pb_args,
                 )
             )
         except KeyboardInterrupt:

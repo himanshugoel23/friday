@@ -1607,8 +1607,16 @@ class CallBrief(_Model):
     api_offer: HotelOffer | None = None  # online rate to beat when negotiating
     attempt: int = 1
     max_duration_s: int = 300
+    # Scripted call (friday/playbooks): the playbook id, the values its fixed lines are filled
+    # with, and its own AI-disclosure wording (still always spoken first, by the runner).
+    playbook: str | None = None
+    playbook_inputs: dict[str, str] = Field(default_factory=dict)
+    disclosure_text: str | None = None
 
     def disclosure(self, language: Language | None = None) -> str:
+        # a playbook's own wording (Hinglish only, no switching) - but only if it still says "AI"
+        if self.disclosure_text and "AI" in self.disclosure_text:
+            return self.disclosure_text
         return disclosure_line(self.on_behalf_of, language or self.opening_language)
 
     def can_commit(self, answers: list[UserAnswer]) -> bool:

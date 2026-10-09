@@ -99,7 +99,7 @@ async def test_stock_hunt_reports_a_shop_that_really_has_it(friday, priya):
 async def test_recurring_booking_runs_each_cycle_within_the_standing_delegation(friday, rahul):
     await rahul.say(
         "Looks Unisex Salon mein har mahine ki 5 tareekh ko haircut book karna, "
-        "₹500 tak aap decide karo"
+        "₹800 tak aap decide karo"
     )
     series = await rahul.task()
     assert series.type == TaskType.RECURRING_BOOKING and series.status == TaskStatus.SCHEDULED
@@ -113,7 +113,8 @@ async def test_recurring_booking_runs_each_cycle_within_the_standing_delegation(
     inst = instances[0]
     assert inst.status == TaskStatus.COMPLETED and inst.parent_task_id == series.id
     (call,) = await rahul.calls(inst)
-    # the standing delegation lets this one be confirmed on the call (price <= ₹500)
+    # the standing delegation lets this one be confirmed on the call (price <= ₹800; the salon's
+    # price list is quoted at its upper price, ₹700, so a ₹500 ceiling would call back instead)
     assert call.outcome == CallOutcome.SUCCESS and call.collected.get("committed") == "true"
     series = await friday.c.repos.tasks.get(series.id)
     assert series.status == TaskStatus.SCHEDULED  # next cycle is queued

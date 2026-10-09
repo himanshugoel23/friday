@@ -316,6 +316,11 @@ def print_summary(result: CallResult, transcript_path: Path | None, est: float,
     cost = result.cost_inr_est or est
     out(f"Estimated cost: about Rs {cost:.1f} (upper-bound estimate)")
     out(f"Safety blocks : {'none reported' if not result.error else result.error}")
+    if result.collected.get("playbook"):
+        keys = ("outcome", "slot", "price_inr", "duration_min", "stylist", "advance_needed",
+                "steps")
+        got = ", ".join(f"{k}={result.collected[k]}" for k in keys if result.collected.get(k))
+        out(f"Playbook      : {result.collected['playbook']} -> {got}")
     if transcript_path:
         out(f"Transcript file: {transcript_path}")
 
@@ -359,9 +364,26 @@ async def run_livecall(
     out: Callable[[str], None] = print,
     ask: Callable[[str], str] = input,
     state_dir: Path | None = None,
+    playbook: str | None = None,
+    playbook_args: dict[str, Any] | None = None,
 ) -> int:
     goal = goal or DEFAULT_GOAL
     state_dir = state_dir or Path("var") / "livecalls"
+    if playbook:
+        # scripted call: fixed Hinglish lines, same guards (allow-list, spend cap, no approval
+        # shortcuts: a test call has no delegation, so it can never book)
+        from friday.playbooks.model import PlaybookError
+        from friday.playbooks.select import playbook_test_brief
+
+        try:
+            playbook_test_brief(
+                playbook, to=SIM_BUSINESS, user_first_name=on_behalf_of,
+                max_seconds=max_seconds, from_number=None, **(playbook_args or {}),
+            )
+        except PlaybookError as e:
+            out(f"REFUSED: playbook '{playbook}' cannot run: " + "; ".join(e.problems))
+            return 2
+        settings = settings.model_copy(update={"playbooks_enabled": True})
     if simulate:
         to = SIM_BUSINESS
         settings = settings.model_copy(update={"mode": "simulator", "llm_provider": "fake"})
@@ -431,13 +453,22 @@ async def run_livecall(
         out("About to place a REAL call:" if not simulate else "About to run a SIMULATED call:")
         out(f"  From      : {from_number or '(simulator)'}")
         out(f"  To        : {to}")
-        out(f"  Goal      : {goal}")
+        out(f"  Goal      : {goal}" if not playbook else
+            f"  Playbook  : {playbook} (fixed Hinglish script; no delegation, cannot book)")
         out(f"  Max length: {max_seconds} s (hard cap)")
         out(f"  Est. cost : up to about Rs {est}")
         if not yes and ask("Type YES to place the call: ").strip() != "YES":
             out("Cancelled. No call was placed.")
             return 1
-        brief = build_test_brief(to, goal, max_seconds, from_number, on_behalf_of)
+        if playbook:
+            from friday.playbooks.select import playbook_test_brief
+
+            brief = playbook_test_brief(
+                playbook, to=to, user_first_name=on_behalf_of, max_seconds=max_seconds,
+                from_number=from_number, **(playbook_args or {}),
+            )
+        else:
+            brief = build_test_brief(to, goal, max_seconds, from_number, on_behalf_of)
         runner = c.call_runner
         out("Placing the call... answer your phone and talk. (Ctrl+C hangs up and stops.)")
         call_task = asyncio.create_task(

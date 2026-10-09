@@ -825,6 +825,13 @@ class _Session:
             lines.setdefault(tl, []).append(text)
         if self.care is not None and lang != Language.EN:  # agents after IVR often speak English
             lines.setdefault(Language.EN, []).append(b.disclosure(Language.EN))
+        extra = getattr(self.r._policy, "fixed_lines", None)  # a scripted policy's own fixed lines
+        if extra is not None:
+            try:
+                for plang, texts in extra(b).items():
+                    lines.setdefault(plang, []).extend(texts)
+            except Exception:  # noqa: BLE001 - pre-rendering is best effort
+                log.warning("policy fixed_lines failed on call %s", self.result.call_id)
         return lines
 
     def _start_prerender(self) -> None:
@@ -1140,6 +1147,8 @@ class _Session:
 
     # ================================================================== speech
     def _lang(self) -> Language:
+        if self.brief.playbook:  # scripted calls never switch language (Hinglish only)
+            return Language.HINGLISH
         return self.last_callee_lang or self.brief.opening_language
 
     def _speak_lang(self, wanted: Language) -> Language:
@@ -1615,10 +1624,28 @@ def _optional(c: Container, name: str) -> Any:
         return None
 
 
+def build_scripted_policy(c: Container) -> CallPolicy:
+    """The runner's policy: scripted briefs (``brief.playbook``) walk their playbook, every
+    other brief goes to the LLM-driven brain exactly as before (friday/playbooks)."""
+    from friday.playbooks.engine import PlaybookPolicy, RoutingCallPolicy
+    from friday.playbooks.understand import LazyBrainUnderstander
+
+    return RoutingCallPolicy(
+        lambda: c.brain,
+        PlaybookPolicy(
+            understander=LazyBrainUnderstander(lambda: c.brain),
+            llm_mode=c.settings.playbooks_llm_mode,
+            recording=bool(c.settings.call_record),
+            clock=c.clock,
+        ),
+    )
+
+
 def build_call_runner(c: Container) -> CallRunner:
     """Wires the shared limiter / cache / object store when the container has them."""
     return CallRunner(
         c,
+        policy=build_scripted_policy(c) if c.settings.playbooks_enabled else None,
         rate_limiter=_optional(c, "rate_limiter"),
         cache=_optional(c, "cache"),
         recording_store=_optional(c, "object_store"),

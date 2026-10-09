@@ -308,6 +308,10 @@ class Settings(BaseSettings):
     tasks_max_progress_updates_per_call: int = 3
 
     # call behaviour
+    playbooks_enabled: bool = True  # scripted calls (friday/playbooks) for matching task types
+    # when a scripted call asks the model to classify the other side's reply:
+    # auto = only when the offline rules are unsure (cheapest), always, never (rules only)
+    playbooks_llm_mode: Literal["auto", "always", "never"] = "auto"
     call_record: bool = True
     call_ring_timeout_s: int = 30
     call_max_duration_s: int = 300

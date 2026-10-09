@@ -349,3 +349,19 @@ Not core, but behaviour changes other owners should know about:
 * `SarvamTelephony.handle_stream_message` now publishes `InboundCallReceived` in a background task. The event handler runs the WHOLE call (front door or business call-back); awaiting it inside the WebSocket receive loop meant no media frame could be read until the call was over. Test: `test_inbound_event_handler_does_not_block_the_media_receive_loop`.
 * `TaskEngine` refuses to dial in `_outbound_guard` and `_call` when `settings.pilot_dial_blocked(phone)`: the task fails with `PILOT_NO_REAL_CALLS` ("In this test mode I cannot phone real businesses yet..."). Before this change the pilot allow-list was only enforced by `friday livecall`.
 * `CallbackService.front_door` (set by `Runtime`) classifies answered inbound calls before the business call-back path; "legacy" decisions (business call-memory match, or an unknown caller outside the pilot with `frontdoor_open_signup` off) take the unchanged path.
+
+## 2026-10-09 — Playbooks: scripted calls per business type (docs/PLAYBOOKS.md)
+Additive; nothing existing was renamed or removed.
+
+| # | Change | Where |
+|---|---|---|
+| 1 | `CallBrief.playbook`, `.playbook_inputs`, `.disclosure_text`: the playbook id, the values its fixed lines use, and its own AI-disclosure wording. `CallBrief.disclosure()` returns `disclosure_text` when set (still spoken first, by the runner) | `core/models.py` |
+| 2 | `Settings.playbooks_enabled` (default True), `Settings.playbooks_llm_mode` (`auto` / `always` / `never`) | `core/config.py` |
+| 3 | `core.safety._NOT_A_COMMIT`: added the explicit negations "confirm nahi", "approval ke baad", "not confirm", "haven't confirmed", so the founder's closing line "Abhi kuch confirm nahi kiya, approval ke baad call karti hoon" is not read as a commitment | `core/safety.py` |
+
+Behaviour changes other owners should know about:
+* `build_call_runner` now gives the runner a `RoutingCallPolicy`: a brief with `playbook` set walks the playbook (`friday/playbooks/engine.py`); every other brief goes to `c.brain` exactly as before. Outbound salon BOOKING tasks that name a time (and are not confirmation call-backs) are scripted.
+* `CallRunner` (session.py): `_lang()` is always Hinglish for scripted calls; `_fixed_lines()` also pre-renders `policy.fixed_lines(brief)` if the policy has it. Nothing else in the runner changed.
+* `FridayBrain.understand_reply` (purpose `call_turn`, 160 max tokens): the only model use of a scripted call. `_ask` / `_call` accept an optional `max_tokens`. The fake LLM answers it with the offline rules (`handlers.h_call_turn`).
+* `friday livecall --playbook NAME ...`, `friday playbook list|validate|dry-run`.
+* The simulator's business agent understands three more scripted-call lines (permission ask, number read-back, advance/cancellation question); three e2e tests were adjusted: `test_booking_approval` (scripted wording; a price list with no hint of who it is for, "men 400, women 700", is quoted at the upper price, ₹700), `test_discovery_stock_recurring` (standing delegation ₹800 instead of ₹500 for the same reason) and `test_delegation_midcall_retries` (runs with `playbooks_enabled=False`: a scripted salon call never asks the user mid-call, it calls back after approval).

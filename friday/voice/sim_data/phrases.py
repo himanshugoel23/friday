@@ -24,6 +24,8 @@ PHRASES: dict[Language, dict[str, str]] = {
         "discount": "Okay, for you I can do {price}.",
         "final_price": "{price} is the final price, I can't go lower.",
         "no_discount": "Sorry, our prices are fixed.",
+        "yes": "Yes, that's right.",
+        "no_advance": "No advance is needed.",
         "hold_ok": "Okay, I'll keep it for you for some time.",
         "room_hold": "Okay, I can hold the room for {hours} hours.",
         "room_no_hold": "Sorry, we can't hold rooms without an advance.",
@@ -79,6 +81,8 @@ PHRASES: dict[Language, dict[str, str]] = {
         "discount": "Theek hai, aapke liye {price} kar dete hain.",
         "final_price": "{price} final hai, isse kam nahi hoga.",
         "no_discount": "Sorry, rate fixed hai.",
+        "yes": "Haan ji, sahi hai.",
+        "no_advance": "Koi advance nahi lagta.",
         "hold_ok": "Theek hai, thodi der ke liye rakh leta hoon.",
         "room_hold": "Theek hai, room {hours} ghante ke liye hold kar deta hoon.",
         "room_no_hold": "Sorry, advance ke bina room hold nahi kar sakte.",
@@ -231,6 +235,10 @@ def phrase(language: Language, key: str, **params: object) -> tuple[str, Languag
 KW_HOSTILE_TRIGGER = ("ai assistant", "main friday", "i'm friday", "i am friday", "मैं friday")
 KW_BYE = ("bye", "dhanyavaad", "dhanyawad", "thank you", "thanks", "shukriya", "धन्यवाद",
           "goodbye", "alvida", "have a nice day", "नमस्कार")  # fmt: skip
+# scripted calls (friday/playbooks): permission ask, number read-back, advance/policy question
+KW_PERMISSION = ("do minute", "2 minute", "le sakti hoon", "minute milenge")
+KW_READBACK = ("sahi?", "matlab ")
+KW_ADVANCE_Q = ("advance ya", "cancellation policy")
 KW_CALLBACK = ("call back", "callback", "call-back", "wapas call", "phir se call", "get back",
                "confirm karke", "check karke", "baad mein call", "पूछकर", "पूछ कर", "वापस",
                "call you back", "call karti hoon", "after checking", "confirm with")  # fmt: skip

@@ -454,6 +454,7 @@ class FridayBrain:
         task_id: str | None = None,
         escalate_if: Callable[[Any], bool] | None = None,
         instruction: str = "",
+        max_tokens: int | None = None,
     ) -> Any:
         """Static rules + cached stable data (system) -> volatile payload (message) ->
         structured output. Routed model, tight max_tokens, budget-aware; deterministic
@@ -463,7 +464,9 @@ class FridayBrain:
             sep = CACHE_BREAK if getattr(self.settings, "llm_prompt_caching", True) else "\n"
             system = f"{system}{sep}{render_input(stable, tag='data')}"
         content = render_input(payload, instruction)
-        out = await self._call(purpose, system, content, out_model, task_id=task_id)
+        out = await self._call(
+            purpose, system, content, out_model, task_id=task_id, max_tokens=max_tokens
+        )
         if out is not None and escalate_if is not None and escalate_if(out):
             better = await self._call(
                 purpose, system, content, out_model, task_id=task_id, escalate=True
@@ -482,6 +485,7 @@ class FridayBrain:
         *,
         task_id: str | None,
         escalate: bool = False,
+        max_tokens: int | None = None,
     ) -> Any:
         model = self.router.model_for(purpose, task_id=task_id, escalate=escalate)
         try:
@@ -490,7 +494,7 @@ class FridayBrain:
                 messages=[LLMMessage(role="user", content=content)],
                 purpose=purpose,
                 model=model,
-                max_tokens=self.router.max_tokens(purpose) * (2 if escalate else 1),
+                max_tokens=(max_tokens or self.router.max_tokens(purpose)) * (2 if escalate else 1),
                 effort=self.router.effort(purpose),  # type: ignore[arg-type]
                 json_schema=strict_schema(out_model),
             )
@@ -927,6 +931,25 @@ class FridayBrain:
             fallback=lambda: door_heuristics.next_turn(merged),  # type: ignore[arg-type,return-value]
         )
         return door_heuristics.sanitize(out)
+
+    async def understand_reply(self, payload: dict[str, Any], task_id: str | None = None) -> Any:
+        """Scripted calls (friday/playbooks): classify ONE salon reply into the closed intent
+        set + a few values. Purpose ``call_turn`` (live-call model), tiny output, no reasoning.
+        The model never writes Friday's words. Falls back to the deterministic heuristic."""
+        from friday.playbooks import understand as pbu
+
+        out = await self._ask(
+            "call_turn",
+            payload,
+            pbu.LLMUnderstanding,
+            system=pbu.SYSTEM_PROMPT,
+            task_id=task_id,
+            max_tokens=160,
+            fallback=lambda: pbu.LLMUnderstanding(
+                **pbu.heuristic_from_payload(payload).model_dump(exclude={"confident"})
+            ),
+        )
+        return out.to_understanding()
 
     def _call_shortcut(self, brief: CallBrief, transcript: Transcript) -> CallActionOut | None:
         transcript = normalize_transcript(transcript)

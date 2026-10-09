@@ -19,12 +19,16 @@ async def test_offer_waits_for_user_then_confirmation_callback(friday, rahul):
     assert calls[0].to_phone == LOOKS
     # the business was told Friday will call back, and nothing was committed
     said = " ".join(friday_lines(calls[0])).lower()
-    assert "call back" in said and "hold" in said
+    # scripted salon call (friday/playbooks): "...Abhi kuch confirm nahi kiya, approval ke baad
+    # call karti hoon." (the LLM-driven policy said "hold" instead)
+    assert "call back" in said and ("hold" in said or "approval ke baad" in said)
     assert "committed" not in calls[0].collected
     assert t.approved_terms is None
     # the user sees the offer with tappable options (never an auto-booking)
     offer = rahul.last_msg()
-    assert [b.title for b in offer.buttons][:2] == ["4 PM, ₹400", "6 PM, ₹400"]
+    # the salon lists "men 400, women 700" and the task does not say which: the scripted call
+    # quotes the upper price (never under-quotes; the read-back lets the salon correct it)
+    assert [b.title for b in offer.buttons][:2] == ["4 PM, ₹700", "6 PM, ₹700"]
 
     await rahul.say("2")  # tap "6 PM, ₹400"
     t = await rahul.task()

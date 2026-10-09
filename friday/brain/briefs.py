@@ -361,6 +361,32 @@ def build_call_brief(
         attempt=task.attempts + 1,
         max_duration_s=max_duration,
     )
+    if (
+        inbound is None
+        and target.kind == TargetKind.BUSINESS
+        and not task.approved_terms  # confirmation call-backs stay with the LLM policy
+        and (settings is None or getattr(settings, "playbooks_enabled", True))
+    ):
+        from friday.playbooks.select import playbook_fields
+
+        kwargs.update(
+            playbook_fields(
+                task_type=task.type,
+                category=(business.category if business else None) or spec.category,
+                goal=kwargs["goal"],
+                item=spec.item,
+                when_text=spec.when_text,
+                preferred_times=list(spec.preferred_times),
+                window_start=spec.window_start,
+                window_end=spec.window_end,
+                now=ctx.now,
+                requester_name=requester,
+                beneficiary_name=beneficiary_name,
+                constraints=constraints,
+                budget_max_inr=spec.budget.max_inr if spec.budget else None,
+                enabled=getattr(settings, "playbooks_enabled", True),
+            )
+        )
     if inbound is None:
         return AwaitableCallBrief(**kwargs)
     if not inbound.caller_matches_business:

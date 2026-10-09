@@ -1,0 +1,303 @@
+# Simulated salons for `friday playbook dry-run salon_booking`.
+#
+# Each persona answers what Friday just said. Replies are keyed by the PLAYBOOK LINE ID Friday
+# last spoke (so a persona keeps working when the wording changes). `<line>@<previous line>`
+# answers "Sorry, ek baar phir?" and similar. A list is used in order (the last item repeats).
+# A reply may be a dict: {say, hold_s, then, hangup, silence}.
+#   hold_s + then : she puts Friday on hold for hold_s seconds, then says `then`.
+#   hangup        : she says it and puts the phone down.
+#   silence       : nothing is heard.
+# `expect.outcome` is the playbook outcome this persona should lead to (checked by the dry run).
+
+version: 1
+playbook: salon_booking
+
+brief:               # the simulated task (what the user asked for)
+  user_first_name: Rahul
+  service: haircut
+  date_window: kal shaam
+  budget: 600
+
+personas:
+  - id: friendly_free_slot
+    title: Friendly, slot free, fair price, no advance
+    greeting: "Hello, Looks Salon, boliye."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje ka slot free hai"
+      s3_ask: "Haircut 400 rupaye lagega, lagbhag 30 minute"
+      s3_readback: "Haan sahi"
+      s5_ask: "Koi advance nahi lagta"
+      s6_ask: "Theek hai ji"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: busy_call_later
+    title: Busy, asks to call later
+    greeting: "Hello?"
+    replies:
+      s1_ask: "Abhi bahut busy hoon, thodi der baad call kijiye"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: puts_on_hold
+    title: Puts Friday on hold, then continues
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask:
+        - {say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye, kya poochh rahi thi?"}
+        - "Haan kal shaam 6 baje free hai"
+      s3_ask: "400 rupaye, 30 minute"
+      s3_readback: "Haan sahi hai"
+      s5_ask: "Nahi, koi advance nahi"
+      s6_ask: "Ji theek hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: hold_too_long
+    title: Puts Friday on hold and never comes back
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: {say: "Ek minute ruko", hold_s: 300, then: "Haan boliye"}
+    expect: {call_outcome: hold_timeout}
+
+  - id: asks_who
+    title: Asks "kaun bol raha hai?"
+    greeting: "Hello?"
+    replies:
+      s1_ask: ["Kaun bol raha hai?", "Haan boliye"]
+      s1_short: "Haan boliye"
+      s2_ask: "Haan 6 baje free hai"
+      s3_ask: "Haircut 450 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Ok"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: asks_repeat
+    title: "Did not hear: \"Sorry, phir se boliye?\" at the start and at the question"
+    greeting: "Hello?"
+    replies:
+      s1_ask: ["Sorry, phir se boliye?", "Haan boliye"]
+      s1_short: "Haan boliye"
+      s2_ask: ["Kya? Dobara bolo", "Haan kal shaam 6 baje free hai"]
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Ok"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: asks_robot
+    title: Asks "robot hai?"
+    greeting: "Hello, Looks Salon."
+    replies:
+      s1_ask: "Yeh robot hai kya?"
+      s2_ask: "Haan kal shaam 7 baje ka slot hai"
+      s3_ask: "Haircut 500 rupaye lagega, 30 minute"
+      s3_readback: "Ji sahi"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: pure_hindi
+    title: Answers in pure Hindi (Devanagari); Friday stays in Hinglish
+    greeting: "हेलो, लुक्स सैलून।"
+    replies:
+      s1_ask: "हाँ बोलिए"
+      s2_ask: "हाँ, कल शाम को 6 बजे का स्लॉट खाली है"
+      s3_ask: "हेयरकट के 400 रुपये लगेंगे, लगभग 30 मिनट"
+      s3_readback: "हाँ सही है"
+      s5_ask: "कोई एडवांस नहीं है"
+      s6_ask: "ठीक है"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: price_over_budget
+    title: Price above the budget; she lowers it when asked
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 900 rupaye lagega, 45 minute"
+      s3_readback: "Haan sahi"
+      s3b_ask: "Theek hai, 700 rupaye kar dete hain"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    brief: {negotiation: true}
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: asks_advance
+    title: Wants an advance; Friday does not agree
+    greeting: "Hello, Looks Salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Haan 200 rupaye advance dena padega"
+      s6_ask: "Theek hai, advance bhej dijiye"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: no_slot_two_alternatives
+    title: Nothing at the asked time, offers two other times
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Kal shaam to full hai"
+      s2b_ask: "Kal subah 11 baje ya dopahar 2 baje ho jayega"
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Ji"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: no_slot_at_all
+    title: Fully booked, nothing else
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Kal to full hai"
+      s2b_ask: "Abhi koi slot nahi hai"
+    expect: {outcome: NO_SLOT}
+
+  - id: noisy_then_clear
+    title: Noisy line; clear after "Sorry, ek baar phir?"
+    greeting: "Hello?"
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: ["kkh... hmm...", "Haan kal shaam 6 baje free hai"]
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan sahi"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: never_clear
+    title: Line stays unintelligible
+    greeting: "Hello?"
+    replies:
+      s1_ask: "Haan boliye"
+    default: "kkh... hmm..."
+    expect: {outcome: UNCLEAR}
+
+  - id: rude_hangs_up
+    title: Rude, then hangs up
+    greeting: "Hello?"
+    replies:
+      s1_ask: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+    expect: {outcome: REFUSED}
+
+  - id: dnc_request
+    title: Asks not to be called again
+    stop_request: true
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Dobara call mat karna, number hata do"
+    expect: {outcome: REFUSED}
+
+  - id: asks_customer_phone
+    title: Asks for the customer's phone number
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Customer ka number kya hai?"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: wrong_number
+    title: Not a salon
+    greeting: "Hello?"
+    replies:
+      s1_ask: "Yeh salon nahi hai, aapne galat number lagaya hai"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: yes_without_time
+    title: Says yes without a time, then gives it
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan ho jayega"
+      s2_ask_time: "Shaam ko 5 baje"
+      s3_ask: "Haircut 350 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Ok"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: price_range_and_stylist
+    title: Price range, then a named stylist
+    greeting: "Hello, Looks Salon."
+    brief: {stylist_pref: Amit}
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 400 se 500 rupaye tak lagega, 30 minute"
+      s3_readback: "Haan upar wala hi"
+      s4_ask: "Amit hai, woh kar denge"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: appointment_only
+    title: "Appointment lagta hai, walk-in nahi"
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: ["Appointment lena padega, walk-in nahi hota", "Haan kal shaam 6 baje free hai"]
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Ok"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: offtopic_question
+    title: Asks something off-script (parking), then answers
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: ["Aap kahan se bol rahi hain, parking hai kya?", "Haan kal shaam 6 baje free hai"]
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Ok"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: asks_otp
+    title: Asks Friday for an OTP; she never shares secrets
+    greeting: "Hello, salon."
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: ["Pehle OTP bata dijiye", "Haan kal shaam 6 baje free hai"]
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Ok"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: delegated_booking
+    title: The user delegated; slot and price fit, so Friday books
+    greeting: "Hello, Looks Salon."
+    brief: {delegation_max_price: 800}
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 400 rupaye, 30 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    expect: {outcome: BOOKED}
+
+  - id: delegated_over_ceiling
+    title: The user delegated up to 500; the price is 700, so Friday only offers
+    greeting: "Hello, Looks Salon."
+    brief: {delegation_max_price: 500, negotiation: false, budget: ""}
+    replies:
+      s1_ask: "Haan boliye"
+      s2_ask: "Haan kal shaam 6 baje free hai"
+      s3_ask: "Haircut 700 rupaye, 40 minute"
+      s3_readback: "Haan"
+      s5_ask: "Koi advance nahi"
+      s6_ask: "Theek hai"
+    expect: {outcome: SLOT_OFFERED}

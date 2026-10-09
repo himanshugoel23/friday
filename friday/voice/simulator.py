@@ -459,6 +459,15 @@ class BusinessAgent(_Agent):
                 return parts + [("ok", {})]  # just the disclosure
             return parts + self._care(low, text, is_bye)
 
+        if contains_any(low, P.KW_PERMISSION) and not contains_any(low, P.KW_PRICE + P.KW_SLOT):
+            return parts + [("ok", {})]
+        if contains_any(low, P.KW_READBACK):
+            return parts + [("yes", {})]
+        if contains_any(low, P.KW_ADVANCE_Q):
+            if d.get("asks_advance") and not self.advance_said:
+                self.advance_said = True
+                return parts + [("advance", {"amount": _inr(int(d["asks_advance"] or 500))})]
+            return parts + [("no_advance", {})]
         if contains_any(low, P.KW_CALLBACK):
             if contains_any(low, P.KW_HOLD_REQ) or self.p.slots:
                 parts.append(("hold_ok", {}))

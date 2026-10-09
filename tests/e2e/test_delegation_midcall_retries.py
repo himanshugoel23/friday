@@ -47,6 +47,9 @@ async def test_delegation_never_leaks_into_other_tasks(friday, rahul):
 
 async def test_mid_call_clarification_question_is_relayed_and_answered(friday, rahul):
     """The business is on hold while the user answers a question that arrives on WhatsApp."""
+    # a scripted salon call never asks the user mid-call (it calls back after approval), so this
+    # test of the LLM policy's ask_user path runs with playbooks off
+    friday.c.settings.playbooks_enabled = False
     friday.c.llm.script(
         "call_turn",
         json.dumps(
