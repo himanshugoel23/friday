@@ -514,3 +514,47 @@ async def test_result_callback_rules_window_allow_list_and_wording():
         assert f.rt.front_door.followup_mode(STRANGER) == "none"
     finally:
         await f.close()
+
+
+# ------------------------------------------------------------------ status, cancel, slow brain
+async def test_status_and_cancel_by_voice_use_the_open_task_and_ignore_the_pending_offer():
+    f = await Friday.start(sarvam_caller_ids=["+918065354620"])
+    try:
+        rahul = await f.user("+919811100001", "Rahul")
+        await sim_call(f, rahul.phone, ["", LOOKS_ASK, "haan", "nahi bas"])
+        task = await rahul.task()
+        assert task.status == TaskStatus.AWAITING_APPROVAL  # an offer is waiting on WhatsApp
+
+        _s, leg = await sim_call(f, rahul.phone, ["", "what happened with my request?", "bye"],
+                                 lang=E)
+        assert any("waiting for your approval" in x for x in said(leg))  # not read as an answer
+
+        _s, leg = await sim_call(f, rahul.phone, ["", "cancel", "haan", "bye"])
+        assert any("Isse cancel karun" in x for x in said(leg))  # read back before cancelling
+        assert any("maine isse cancel kar diya" in x for x in said(leg))
+        assert (await rahul.task()).status == TaskStatus.CANCELLED
+    finally:
+        await f.close()
+
+
+async def test_a_slow_brain_gets_a_cached_one_moment_not_dead_air(monkeypatch):
+    import friday.voice.frontdoor as module
+
+    monkeypatch.setattr(module, "HOLD_AFTER_S", 0.01)
+    f = await Friday.start()
+    try:
+        await f.user("+919811100001", "Rahul")
+        real = f.c.brain.interpret
+
+        async def slow(ctx, msg):
+            await asyncio.sleep(0.1)
+            return await real(ctx, msg)
+
+        f.c.brain.interpret = slow
+        leg = ScriptedLeg([("Looks Unisex Salon mein haircut book karo kal shaam", H), ("nahi", H),
+                           ("bye", E)])
+        await ring(f, "+919811100001", leg)
+        assert "Ek second." in leg.texts
+        assert f.rt.front_door.history[-1].p95_ms >= 100  # the slow turn is in the latency report
+    finally:
+        await f.close()

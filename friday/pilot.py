@@ -698,6 +698,7 @@ async def run_listen(
     update: dict[str, Any] = {
         "profile": "pilot", "call_record": False, "max_concurrent_calls": 1,
         "frontdoor_enabled": True, "frontdoor_max_concurrent": 1,
+        "roles": ["api", "task", "voice"],  # no proactive nudges in a listening test
     }
     tmp: Any = None
     mgr: Any
@@ -756,6 +757,9 @@ async def run_listen(
         from friday.api.app import create_app
 
         await c.db.create_all()
+        from friday.pause import install_pause_guard
+
+        install_pause_guard(c)  # `friday pause` also stops what a call starts (as in `serve`)
         app = create_app(c, background=True, fast_pin_hash=True)
         runtime = app.state.runtime
         c.bus.subscribe(FrontDoorCallFinished, on_finished)

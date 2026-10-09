@@ -106,7 +106,13 @@ _NOT_A_PERSON = {
     AudioClass.VOICEMAIL,
     AudioClass.SILENCE,
 }
-_APPROVAL_INTENTS = {Intent.APPROVE, Intent.REJECT, Intent.CHOOSE, Intent.TASK_UPDATE}
+_APPROVAL_INTENTS = {
+    Intent.APPROVE,
+    Intent.REJECT,
+    Intent.CHOOSE,
+    Intent.TASK_UPDATE,
+    Intent.ANSWER_QUESTION,
+}
 
 
 # ================================================================================ data types
@@ -945,7 +951,12 @@ class FrontDoorSession:
         await self._act(interp, msg)
 
     async def _interpret(self, brain: Any, msg: InboundMessage) -> Any:
-        ctx = await self.fd.pipeline.context(self.user)
+        # A pending WhatsApp question (e.g. "Book which?") would make the brain read EVERY
+        # utterance as its answer; approvals are not taken on a call, so the voice turn must not
+        # see it (open tasks stay, so "what happened?" and "cancel" still resolve).
+        ctx = (await self.fd.pipeline.context(self.user)).model_copy(
+            update={"pending_question": None}
+        )
         t0 = time.perf_counter()
         job = asyncio.ensure_future(brain.interpret(ctx, msg))
         done, _ = await asyncio.wait({job}, timeout=HOLD_AFTER_S)
