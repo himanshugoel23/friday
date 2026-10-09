@@ -185,7 +185,7 @@ async def test_policy_never_speaks_before_the_ai_disclosure():
 
 async def test_the_disclosure_says_ai_and_comes_from_the_playbook():
     brief = make_brief()
-    assert brief.disclosure() == "Namaste, main Friday hoon, Rahul ji ki AI assistant."
+    assert brief.disclosure() == "Hello, kya main salon se baat kar rahi hoon? Mera naam Friday hai, main Rahul ji ki AI assistant hoon."  # noqa: E501
     assert "AI" in brief.disclosure()
 
 
@@ -343,4 +343,4 @@ def test_a_disclosure_override_must_still_say_ai():
     brief = make_brief(disclosure_text="Namaste, main Friday hoon.")
     assert "AI" in brief.disclosure()  # the override is ignored: the standard disclosure is used
     ok = make_brief()
-    assert ok.disclosure() == "Namaste, main Friday hoon, Rahul ji ki AI assistant."
+    assert ok.disclosure() == "Hello, kya main salon se baat kar rahi hoon? Mera naam Friday hai, main Rahul ji ki AI assistant hoon."  # noqa: E501

@@ -406,6 +406,8 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--service", default=None, help="playbook: e.g. haircut")
     live.add_argument("--budget", type=int, default=None, help="playbook: budget in rupees")
     live.add_argument("--stylist", default=None, help="playbook: preferred stylist first name")
+    live.add_argument("--salon-name", default=None, help="playbook: e.g. 'Shreya salon'")
+    live.add_argument("--honorific", default=None, help="playbook: ji / sir / madam")
     listen = sub.add_parser(
         "listen", help="front door: link the Vobiz number to Friday and answer incoming calls"
     )
@@ -466,7 +468,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.playbook:
             pb_args = {k: v for k, v in (
                 ("service", args.service), ("date_window", args.when),
-                ("budget_inr", args.budget), ("stylist_pref", args.stylist)) if v}
+                ("budget_inr", args.budget), ("stylist_pref", args.stylist),
+                ("salon_name", args.salon_name), ("honorific", args.honorific)) if v}
             if args.on_behalf_of == "the Friday founder":
                 print("REFUSED: a playbook call needs the first name Friday should use: "
                       "add --on-behalf-of Rahul (the name she says in 'Rahul ji ki AI assistant').")

@@ -146,8 +146,11 @@ def playbook_fields(
     if any(spec.required and not inputs.get(n) for n, spec in pb.inputs.items()):
         return {}  # a required input is unknown: the normal policy handles this call
 
+    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | {
+        k: v for k, v in inputs.items() if v
+    }
     disclosure = re.sub(
-        r"\{([a-z_]+)\}", lambda m: inputs.get(m.group(1), ""), pb.text(pb.disclosure)
+        r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), pb.text(pb.disclosure)
     )
     return {"playbook": pb.id, "playbook_inputs": inputs, "disclosure_text": disclosure}
 
@@ -164,6 +167,8 @@ def playbook_test_brief(
     budget_inr: int | None = None,
     stylist_pref: str | None = None,
     target_name: str = "Test business (the founder)",
+    salon_name: str | None = None,
+    honorific: str | None = None,
 ) -> Any:
     """A CallBrief for ``friday livecall --playbook``: a normal outbound BOOKING brief with NO
     delegation and no approval, so the call can only end with "I will call back after approval"."""
@@ -189,11 +194,18 @@ def playbook_test_brief(
         inputs["budget"] = str(int(budget_inr))
     if stylist_pref:
         inputs["stylist_pref"] = clean_input(stylist_pref, 20)
+    if salon_name:
+        inputs["business_name"] = clean_input(salon_name, 40)
+    if honorific:
+        inputs["honorific"] = clean_input(honorific, 10)
     missing = [n for n, spec in pb.inputs.items() if spec.required and not inputs.get(n)]
     if missing:
         raise PlaybookError([f"missing required input(s): {', '.join(missing)}"], name)
+    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | {
+        k: v for k, v in inputs.items() if v
+    }
     disclosure = re.sub(
-        r"\{([a-z_]+)\}", lambda m: inputs.get(m.group(1), ""), pb.text(pb.disclosure)
+        r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), pb.text(pb.disclosure)
     )
     return CallBrief(
         task_id=f"livecall-{secrets.token_hex(4)}",

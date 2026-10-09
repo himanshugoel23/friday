@@ -47,7 +47,7 @@ async def test_salon_booking_task_gets_a_scripted_brief(brain):
     assert brief.playbook_inputs["user_first_name"] == "Ankit"
     assert brief.playbook_inputs["service"] == "haircut"
     assert brief.playbook_inputs["date_window"] == "kal shaam"
-    assert brief.disclosure() == "Namaste, main Friday hoon, Ankit ji ki AI assistant."
+    assert brief.disclosure() == "Hello, kya main salon se baat kar rahi hoon? Mera naam Friday hai, main Ankit ji ki AI assistant hoon."  # noqa: E501
     assert not brief.can_commit([])
 
 
@@ -172,7 +172,7 @@ def test_livecall_playbook_simulated_end_to_end(tmp_path):
     text = "\n".join(out)
     assert rc == 0 and "salon_booking" in text and "cannot book" in text
     transcript = next(tmp_path.glob("livecall-*.txt")).read_text(encoding="utf-8")
-    assert "Namaste, main Friday hoon, Rahul ji ki AI assistant." in transcript
+    assert "Hello, kya main salon se baat kar rahi hoon? Mera naam Friday hai, main Rahul ji ki AI assistant hoon." in transcript  # noqa: E501
     assert "Playbook      : salon_booking -> outcome=SLOT_OFFERED" in text
 
 

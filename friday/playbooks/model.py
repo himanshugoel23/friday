@@ -75,7 +75,7 @@ _SAMPLE: dict[str, str] = {
     "user_first_name": "Rahul", "service": "haircut", "for_whom": "Rahul",
     "date_window": "kal shaam", "budget": "600", "stylist_pref": "Amit",
     "callback_number": "yeh number", "slot": "kal shaam 6 baje", "price_inr": "500",
-    "duration_min": "30", "stylist": "Amit",
+    "duration_min": "30", "stylist": "Amit", "honorific": "ji", "business_name": "Shreya salon",
 }  # fmt: skip
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 

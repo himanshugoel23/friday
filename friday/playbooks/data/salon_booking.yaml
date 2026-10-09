@@ -22,6 +22,8 @@ select:
 
 inputs:
   user_first_name: {required: true}
+  honorific: {default: ji}          # ji / sir / madam: how the caller refers to the user
+  business_name: {default: salon}   # "Shreya salon"
   service: {required: true, default: haircut}
   date_window: {required: true}
   budget: {}
@@ -46,42 +48,42 @@ confusion:
   close: bye_unclear
 
 lines:
-  disclosure: "Namaste, main Friday hoon, {user_first_name} ji ki AI assistant."
+  disclosure: "Hello, kya main {business_name} se baat kar rahi hoon? Mera naam Friday hai, main {user_first_name} {honorific} ki AI assistant hoon."
   recording_notice: "Yeh call quality ke liye record ho sakta hai."
-  s1_ask: "Kya main do minute le sakti hoon?"
-  s1_short: "Main Friday hoon, AI assistant. {user_first_name} ji ke liye ek chhota sa sawaal tha. Do minute milenge?"
-  ai_yes: "Haan, main AI hoon, insaan nahi. {user_first_name} ji ke liye booking check kar rahi hoon."
-  who_short: "Main Friday hoon, {user_first_name} ji ki AI assistant."
+  s1_ask: "{user_first_name} {honorific} ko appointment book karwani hai, usi ke regarding aapko call kiya hai. Kya abhi do minute baat ho sakti hai?"
+  s1_short: "Main Friday hoon, AI assistant. {user_first_name} {honorific} ke liye ek chhota sa sawaal tha. Do minute milenge?"
+  ai_yes: "Haan, main AI hoon, insaan nahi. {user_first_name} {honorific} ke liye booking check kar rahi hoon."
+  who_short: "Main Friday hoon, {user_first_name} {honorific} ki AI assistant."
   bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
   bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
   bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
   bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
   bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
-  s2_ask: "{user_first_name} ji ke liye {service} chahiye, {date_window}. Slot milega?"
+  s2_ask: "{user_first_name} {honorific} ke liye {service} chahiye, {date_window}. Slot milega?"
   s2_appt_only: "Appointment ke liye hi poochh rahi hoon."
   s2_ask_time: "Kitne baje ka?"
   s2b_ask: "Kaun sa samay free hai {date_window} ke aas-paas?"
-  s2b_none: "Koi baat nahi, main {user_first_name} ji ko bata dungi. Shukriya."
+  s2b_none: "Koi baat nahi, main {user_first_name} {honorific} ko bata dungi. Shukriya."
   s3_ask: "{service} ka kitna lagega, aur kitna time?"
   s3_readback: "Matlab {price_inr} rupaye, lagbhag {duration_min} minute. Sahi?"
   s3_readback_price: "Matlab {price_inr} rupaye. Sahi?"
   s3_readback_range: "Matlab {price_inr} rupaye tak, lagbhag {duration_min} minute. Sahi?"
   s3_readback_range_price: "Matlab {price_inr} rupaye tak. Sahi?"
-  s3b_ask: "{user_first_name} ji ka budget {budget} rupaye hai. Kuch kam ho sakta hai?"
+  s3b_ask: "{user_first_name} {honorific} ka budget {budget} rupaye hai. Kuch kam ho sakta hai?"
   s4_ask: "Agar {stylist_pref} available hon to behtar hoga, warna koi bhi chalega?"
   s5_ask: "Koi advance ya cancellation policy hai?"
-  s5_no_advance: "Advance main abhi nahi de sakti, {user_first_name} ji se poochh kar bataungi."
-  s6_ask: "Main {user_first_name} ji se confirm karke aapko isi number par call back karti hoon."
-  s6_no_number: "{user_first_name} ji ka number main share nahi kar sakti. Main aapko isi number par call back karti hoon."
+  s5_no_advance: "Advance main abhi nahi de sakti, {user_first_name} {honorific} se poochh kar bataungi."
+  s6_ask: "Main {user_first_name} {honorific} se confirm karke aapko isi number par call back karti hoon."
+  s6_no_number: "{user_first_name} {honorific} ka number main share nahi kar sakti. Main aapko isi number par call back karti hoon."
   s7_close: "Toh {slot} ke liye {service}, {price_inr} rupaye. Abhi kuch confirm nahi kiya, approval ke baad call karti hoon. Shukriya."
   s7_close_noprice: "Toh {slot} ke liye {service}. Abhi kuch confirm nahi kiya, approval ke baad call karti hoon. Shukriya."
   # the ONLY line that books; used only when the user delegated AND the code-level check passes
   s7_commit:
-    text: "Theek hai, {slot} confirm kar dijiye. {user_first_name} ji ka naam {user_first_name}."
+    text: "Theek hai, {slot} confirm kar dijiye. {user_first_name} {honorific} ka naam {user_first_name}."
     commit: true
   thanks: "Shukriya."
   sorry: "Sorry, ek baar phir?"
-  offscript: "Yeh main {user_first_name} ji se poochh kar bataungi."
+  offscript: "Yeh main {user_first_name} {honorific} se poochh kar bataungi."
   no_secrets: "Yeh jaankari main share nahi kar sakti."
 
 routes:

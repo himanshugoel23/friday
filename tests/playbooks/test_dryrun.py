@@ -140,7 +140,7 @@ def test_cli_dry_run_ok_and_baseline_flow(tmp_path, capsys):
     assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly",
                         "--baseline", str(b), "--show", "friendly"]) == 0
     out = capsys.readouterr().out
-    assert "friendly_free_slot" in out and "Transcript" in out and "Namaste, main Friday" in out
+    assert "friendly_free_slot" in out and "Transcript" in out and "Mera naam Friday hai" in out
 
 
 def test_cli_exit_code_is_nonzero_on_a_safety_violation(monkeypatch, capsys):
@@ -228,7 +228,7 @@ def test_cli_paths_and_saved_redacted_transcripts(tmp_path, capsys):
         "friendly_free_slot", "asks_otp"}
     otp = next(r for r in data["runs"] if r["persona"] == "asks_otp")
     assert any(
-        t["speaker"] == "friday" and t["text"].startswith("Namaste") for t in otp["transcript"]
+        t["speaker"] == "friday" and t["text"].startswith("Hello") for t in otp["transcript"]
     )
 
 

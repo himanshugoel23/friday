@@ -57,8 +57,9 @@ def make_brief(pb: Playbook | None = None, **kw: Any) -> CallBrief:
         inputs["budget"] = "600"
     import re
 
+    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | inputs
     disclosure = re.sub(
-        r"\{([a-z_]+)\}", lambda m: inputs.get(m.group(1), ""), pb.text("disclosure")
+        r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), pb.text("disclosure")
     )
     data: dict[str, Any] = dict(
         task_id="t-" + kw.pop("tid", "1"),

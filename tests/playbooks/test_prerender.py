@@ -14,7 +14,7 @@ from .conftest import make_brief
 def test_static_utterances_cover_the_fixed_lines(salon):
     brief = make_brief()
     texts = static_utterances(salon, resolve_inputs(salon, brief))
-    assert "Namaste, main Friday hoon, Rahul ji ki AI assistant." in texts  # disclosure
+    assert "Hello, kya main Looks Salon se baat kar rahi hoon? Mera naam Friday hai, main Rahul ji ki AI assistant hoon." in texts  # disclosure  # noqa: E501
     assert "Rahul ji ke liye haircut chahiye, kal shaam. Slot milega?" in texts
     assert "Haircut ka kitna lagega, aur kitna time?" in texts  # service filled, capital H
     assert "Yeh main Rahul ji se poochh kar bataungi." in texts

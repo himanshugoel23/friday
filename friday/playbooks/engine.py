@@ -181,6 +181,10 @@ def resolve_inputs(pb: Playbook, brief: CallBrief) -> dict[str, str]:
             v = str(brief.budget.max_inr)
         if name == "date_window" and not v and brief.preferred_times:
             v = brief.preferred_times[0]
+        if name == "business_name" and (not v or v == spec.default):
+            tn = (brief.target.name or "").strip()
+            if tn and "test business" not in tn.lower():
+                v = tn
         if name == "for_whom" and not v and brief.beneficiary_name:
             v = first_name(brief.beneficiary_name)
         out[name] = first_name(v) if name == "user_first_name" else clean_input(v)

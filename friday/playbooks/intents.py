@@ -80,7 +80,7 @@ SLOT_NAMES: frozenset[str] = frozenset(
 )
 INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",
-     "callback_number"}
+     "callback_number", "honorific", "business_name"}
 )
 PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {"slot", "price_inr", "duration_min", "stylist"}
 
