@@ -138,9 +138,15 @@ from friday.core.container import Container
 from friday.core.events import EventBus
 from friday.core.interfaces import AudioClassifier, ProviderError, STTProvider, TTSProvider
 from friday.core.logging import get_logger, mask_phone
-from friday.core.models import DialStatus, OutboundCallRequest, new_id
+from friday.core.models import (
+    DialStatus,
+    Language,
+    OutboundCallRequest,
+    Transcription,
+    new_id,
+)
 from friday.voice._http import VendorHTTP
-from friday.voice.audio import dtmf_pcm16, pcm16_to_ulaw, resample_pcm16, ulaw_to_pcm16
+from friday.voice.audio import dtmf_pcm16, pcm16_to_ulaw, resample_pcm16, rms, ulaw_to_pcm16
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
@@ -234,6 +240,13 @@ class SarvamCallLeg(TwilioCallLeg):
         self.tel_s = tel
         self._close: Callable[[], Awaitable[None]] | None = None
         self.max_duration_s = 1800
+        # Phone speech has pauses: wait longer before closing an utterance, and do not chop a
+        # person mid-sentence (the 6 s cut is only for hold music).
+        self._segmenter.end_silence_ms = 1100
+        self._segmenter.max_continuous_ms = 20000
+        self._playing = False  # Friday's voice is on the line
+        self._barged = False  # the caller spoke over her: do not speak the rest of the turn
+        self._loud_run = 0
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -259,8 +272,46 @@ class SarvamCallLeg(TwilioCallLeg):
         if rate != 8000:
             pcm = resample_pcm16(pcm, rate, 8000)
         for i in range(0, len(pcm) - 319, 320):  # 20 ms frames for the VAD
-            for seg in self._segmenter.feed_pcm16(pcm[i : i + 320]):
+            frame = pcm[i : i + 320]
+            if self._playing:
+                self._watch_for_barge_in(frame)
+            for seg in self._segmenter.feed_pcm16(frame):
+                if self._playing and not self._barged:
+                    continue  # her own voice coming back (echo / speakerphone): not the caller
                 self._segments.put_nowait(seg)
+
+    BARGE_IN_FRAMES = 15  # 300 ms of clearly loud speech while she talks
+    BARGE_IN_LEVEL = 2.5  # times the normal speech threshold, so echo does not interrupt her
+
+    def _watch_for_barge_in(self, frame: bytes) -> None:
+        """The caller talks over Friday: stop her voice at once and listen."""
+        if self._barged:
+            return
+        loud = rms(frame) >= self._segmenter.threshold * self.BARGE_IN_LEVEL
+        self._loud_run = self._loud_run + 1 if loud else 0
+        if self._loud_run >= self.BARGE_IN_FRAMES:
+            self._barged = True
+            self._loud_run = 0
+            task = asyncio.ensure_future(self.clear_audio())
+            self.tel_s._bg.add(task)
+            task.add_done_callback(self.tel_s._bg.discard)
+            for ev in self._marks.values():  # release the playback wait right away
+                ev.set()
+
+    async def speak(self, text: str, language: Language) -> None:
+        if self._barged and (self._segmenter._active or not self._utterances.empty()):
+            return  # she was interrupted and the caller is still talking: do not talk over them
+        self._barged = False
+        await super().speak(text, language)
+
+    async def listen(self, timeout_s: float) -> Transcription | None:
+        t = await super().listen(timeout_s)
+        self._barged = False
+        return t
+
+    def set_hold_mode(self, on: bool) -> None:
+        super().set_hold_mode(on)
+        self._segmenter.max_continuous_ms = 6000 if on else 20000
 
     async def clear_audio(self) -> None:
         """Barge-in: drop queued playback (``clearAudio``; Vobiz answers ``clearedAudio``)."""
@@ -268,6 +319,21 @@ class SarvamCallLeg(TwilioCallLeg):
             await self._send(json.dumps({"event": "clearAudio", "streamId": self.stream_sid}))
 
     async def _play(self, ulaw: bytes) -> None:
+        self._playing = True
+        try:
+            await self._play_audio(ulaw)
+        finally:
+            self._playing = False
+            self._loud_run = 0
+            if not self._barged:  # drop what the line picked up of her own voice
+                seg = self._segmenter
+                seg._buf = bytearray()
+                seg._active = False
+                seg._voiced_run = 0
+                seg._silence_ms = 0
+                seg._pre = []
+
+    async def _play_audio(self, ulaw: bytes) -> None:
         assert self._send is not None
         for i in range(0, len(ulaw), FRAME_BYTES * 10):
             await self._send(
