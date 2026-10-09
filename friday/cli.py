@@ -6,6 +6,7 @@
     uv run friday worker --roles voice,task   # background roles without the HTTP server
     uv run friday pause [--resume|--status]   # kill switch (no calls / nudges)
     uv run friday init-env | doctor | livecall --to +91... [--simulate]   # laptop live test
+    uv run friday listen [--simulate | --restore] [--seconds N]   # front door: people call Friday
     uv run friday chat      # local WhatsApp simulator chat (needs friday.channels.cli:main)
     uv run friday loadtest --users 1000 --calls 200   # S-11 load test on the simulator
 
@@ -398,6 +399,14 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--yes", action="store_true", help="skip the typed confirmation")
     live.add_argument("--simulate", action="store_true", help="no network: simulated business")
     live.add_argument("--on-behalf-of", default="the Friday founder")
+    listen = sub.add_parser(
+        "listen", help="front door: link the Vobiz number to Friday and answer incoming calls"
+    )
+    listen.add_argument("--simulate", action="store_true",
+                        help="offline: simulated callers + a simulated Vobiz account")
+    listen.add_argument("--restore", action="store_true",
+                        help="only put the Vobiz number's previous link back (after a crash)")
+    listen.add_argument("--seconds", type=float, default=None, help="stop after N seconds")
     load = sub.add_parser("loadtest", help="S-11: N users, M concurrent simulated calls")
     load.add_argument("--users", type=int, default=100)
     load.add_argument("--calls", type=int, default=20, help="max concurrent calls in flight")
@@ -434,6 +443,19 @@ def main(argv: list[str] | None = None) -> int:
                     settings, args.to, goal=args.goal, max_seconds=args.max_seconds,
                     yes=args.yes, simulate=args.simulate, on_behalf_of=args.on_behalf_of,
                 )
+            )
+        except KeyboardInterrupt:
+            print("\nStopped by you (Ctrl+C).")
+            return 130
+    if args.cmd == "listen":
+        from friday.pilot import run_listen
+
+        setup_logging("WARNING", settings.log_json)  # plain-language output, not engineer logs
+
+        try:
+            return asyncio.run(
+                run_listen(settings, simulate=args.simulate, restore_only=args.restore,
+                           seconds=args.seconds)
             )
         except KeyboardInterrupt:
             print("\nStopped by you (Ctrl+C).")

@@ -125,8 +125,9 @@ class CallbackService:
             )
         except ValueError:  # "anonymous" / unparsable caller ID: nothing to match
             log.info("inbound call with unparsable caller id ignored")
-            if answered and self.front_door is not None and getattr(self.front_door, "enabled", False):
-                await self.front_door.reject_unparsable(ref)  # cheap fixed message, then hang up
+            fd = self.front_door
+            if answered and fd is not None and getattr(fd, "enabled", False):
+                await fd.reject_unparsable(ref)  # cheap fixed message, then hang up
 
     def _engine(self) -> Any:
         try:

@@ -122,7 +122,9 @@ LINES: dict[str, dict[Language, str]] = {
     # --- rights
     "deleted_fresh": {
         _L.EN: "Done. I have deleted everything I stored about you. Goodbye.",
-        _L.HINGLISH: "Ho gaya. Maine aapke baare mein jo bhi store kiya tha, sab delete kar diya. Namaste.",
+        _L.HINGLISH: (
+            "Ho gaya. Maine aapke baare mein jo bhi store kiya tha, sab delete kar diya. Namaste."
+        ),
         _L.HI: "हो गया। मैंने आपके बारे में जो भी स्टोर किया था, सब डिलीट कर दिया। नमस्ते।",
     },
     "deleted_nothing": {
@@ -202,18 +204,24 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HI: "ठीक है, मैंने कुछ शुरू नहीं किया। आप क्या करवाना चाहेंगे?",
     },
     "task_started_callback": {
-        _L.EN: "Done, I have started on it. I will call you back with the result.",
-        _L.HINGLISH: "Ho gaya, maine isse shuru kar diya hai. Result ke saath main aapko call back karungi.",
-        _L.HI: "हो गया, मैंने इसे शुरू कर दिया है। नतीजे के साथ मैं आपको कॉल बैक करूँगी।",
+        _L.EN: "Done, I have started on it. I will call you back with an update.",
+        _L.HINGLISH: (
+            "Ho gaya, maine isse shuru kar diya hai. Update ke saath main aapko call back karungi."
+        ),
+        _L.HI: "हो गया, मैंने इसे शुरू कर दिया है। अपडेट के साथ मैं आपको कॉल बैक करूँगी।",
     },
     "task_started_message": {
         _L.EN: "Done, I have started on it. I will message you on WhatsApp with the result.",
-        _L.HINGLISH: "Ho gaya, maine isse shuru kar diya hai. Result main aapko WhatsApp par bhejungi.",
+        _L.HINGLISH: (
+            "Ho gaya, maine isse shuru kar diya hai. Result main aapko WhatsApp par bhejungi."
+        ),
         _L.HI: "हो गया, मैंने इसे शुरू कर दिया है। नतीजा मैं आपको WhatsApp पर भेजूँगी।",
     },
     "task_started_plain": {
         _L.EN: "Done, I have started on it. I cannot send you the result on this setup yet.",
-        _L.HINGLISH: "Ho gaya, maine isse shuru kar diya hai. Is setup mein main abhi result bhej nahi sakti.",
+        _L.HINGLISH: (
+            "Ho gaya, maine isse shuru kar diya hai. Is setup mein abhi result bhej nahi sakti."
+        ),
         _L.HI: "हो गया, मैंने इसे शुरू कर दिया है। इस सेटअप में मैं अभी नतीजा भेज नहीं सकती।",
     },
     "task_queued": {
@@ -282,6 +290,42 @@ LINES: dict[str, dict[Language, str]] = {
         _L.EN: "Is there anything else?",
         _L.HINGLISH: "Kuch aur?",
         _L.HI: "कुछ और?",
+    },
+    # --- result call-backs (Friday rings the caller back)
+    "cb_update": {  # {name}
+        _L.EN: "{name}, here is an update on your request.",
+        _L.HINGLISH: "{name}, aapki request ka update yeh hai.",
+        _L.HI: "{name}, आपकी रिक्वेस्ट का अपडेट यह है।",
+    },
+    "cb_offer_whatsapp": {
+        _L.EN: "Nothing is confirmed yet. I have sent you the details on WhatsApp to approve.",
+        _L.HINGLISH: (
+            "Abhi kuch confirm nahi hua hai. Maine details aapko WhatsApp par bhej di hain, "
+            "approve karne ke liye."
+        ),
+        _L.HI: (
+            "अभी कुछ कन्फ़र्म नहीं हुआ है। मैंने डिटेल्स आपको WhatsApp पर भेज दी हैं, अप्रूव करने "
+            "के लिए।"
+        ),
+    },
+    "cb_offer_novoice": {
+        _L.EN: (
+            "Nothing is confirmed yet. I cannot take approvals on a call yet, "
+            "so I have not booked anything."
+        ),
+        _L.HINGLISH: (
+            "Abhi kuch confirm nahi hua hai. Approval main abhi call par nahi le sakti, "
+            "isliye maine kuch book nahi kiya."
+        ),
+        _L.HI: (
+            "अभी कुछ कन्फ़र्म नहीं हुआ है। अप्रूवल मैं अभी कॉल पर नहीं ले सकती, इसलिए मैंने "
+            "कुछ बुक नहीं किया।"
+        ),
+    },
+    "cb_unfinished": {
+        _L.EN: "I could not finish it.",
+        _L.HINGLISH: "Main isse poora nahi kar paayi.",
+        _L.HI: "मैं इसे पूरा नहीं कर पाई।",
     },
     # --- flow control
     "hold": {

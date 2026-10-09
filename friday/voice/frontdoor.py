@@ -1,6 +1,7 @@
 """The front door: a person calls Friday's public number and talks to Friday.
 
-    classify  -> USER (blind-index lookup) | BUSINESS (call memory, existing path, unchanged) | UNKNOWN
+    classify  -> USER (blind-index lookup) | BUSINESS (call memory; existing path, unchanged)
+                 | UNKNOWN
     guard     -> pilot allow-list, per-caller / global rate limits, one live call at a time,
                  max duration, spend cap, abuse hang-up (all before any LLM or TTS spend)
     session   -> fixed AI-disclosure greeting, then either a known-user chat or a short voice
@@ -395,7 +396,8 @@ class FrontDoor:
         """Anonymous / hidden caller ID: nothing to classify, so refuse politely and cheaply."""
         leg = self._take_leg(ref)
         if leg is not None:
-            await self._play_reject(leg, "reject_private" if self.settings.is_pilot else "reject_unavailable")
+            key = "reject_private" if self.settings.is_pilot else "reject_unavailable"
+            await self._play_reject(leg, key)
 
     async def serve(
         self, decision: Decision, ref: str | None, from_phone: str, to_number: str | None
@@ -562,7 +564,7 @@ class FrontDoorSession:
         return t
 
     def _observe_language(self, detected: Language | None, text: str) -> None:
-        """Mirror the caller turn by turn, with a little hysteresis (one-word 'haan' flips nothing)."""
+        """Mirror the caller turn by turn, with hysteresis (a one-word 'haan' flips nothing)."""
         if detected is None or detected == self.lang:
             self._cand_lang = None
             return
@@ -795,7 +797,7 @@ class FrontDoorSession:
             return
         self.unclear += 1
         if self.unclear > MAX_UNCLEAR:
-            await self._end("consent_declined", "consent unclear: nothing stored", CallOutcome.PARTIAL)
+            await self._end("consent_declined", "consent unclear", CallOutcome.PARTIAL)
             return
         await self.say(fd_copy.line("consent_again", self.lang))
 
@@ -1062,7 +1064,9 @@ class FrontDoorSession:
         cancel = getattr(engine, "cancel", None)
         if cancel is not None:
             await cancel(task.id)
-        await self.fd.pipeline.audit("task.cancelled", self.user, actor="user", subject_id=task.id, via="voice")
+        await self.fd.pipeline.audit(
+            "task.cancelled", self.user, actor="user", subject_id=task.id, via="voice"
+        )
         self.expect_more = True
         await self.say(fd_copy.line("cancel_done", self.lang))
 
@@ -1084,30 +1088,39 @@ def _status_words(status: TaskStatus, lang: Language) -> str:
 
 
 class ResultCallbacks:
-    """Call the caller back with the result of a task they asked for on a call.
+    """Call the caller back about a task they asked for on a call.
 
-    Honest limits: one call-back per task, only for a finished task (completed / failed /
-    cancelled), only 08:00-21:00 IST, only to a number the pilot allow-list permits, in-process
-    memory (a restart forgets pending call-backs; the WhatsApp/outbox message still goes out)."""
+    Honest limits: at most one call-back per task and stage (an offer waiting for approval; the
+    final result), only 08:00-21:00 IST, only to a number the pilot allow-list permits, and held
+    in process memory (a restart forgets pending call-backs; the WhatsApp/outbox message still
+    goes out). An offer call-back never claims a booking: approvals are not taken on a call."""
 
     def __init__(self, fd: FrontDoor) -> None:
         self.fd = fd
         self.watched: dict[str, tuple[str, str]] = {}  # task id -> (user id, phone)
-        self.done: set[str] = set()
+        self.done: set[tuple[str, str]] = set()
         self.calls: list[dict[str, Any]] = []  # what happened (tests / summary)
 
     def watch(self, task_id: str, user_id: str, phone: str) -> None:
         self.watched[task_id] = (user_id, phone)
 
     async def on_task_status(self, event: TaskStatusChanged) -> None:
-        if event.task_id not in self.watched or not event.new.is_terminal:
+        if event.task_id not in self.watched:
             return
-        if event.task_id in self.done:
+        if event.new.is_terminal:
+            stage = "final"
+        elif event.new == TaskStatus.AWAITING_APPROVAL:
+            stage = "offer"
+        else:
             return
-        self.done.add(event.task_id)
-        user_id, phone = self.watched.pop(event.task_id)
+        if (event.task_id, stage) in self.done:
+            return
+        self.done.add((event.task_id, stage))
+        user_id, phone = self.watched[event.task_id]
+        if stage == "final":
+            self.watched.pop(event.task_id, None)
         try:
-            await self.deliver(event.task_id, user_id, phone)
+            await self.deliver(event.task_id, user_id, phone, stage)
         except Exception:  # noqa: BLE001 - a failed call-back never breaks the task
             log.exception("front door result call-back failed")
 
@@ -1115,12 +1128,12 @@ class ResultCallbacks:
         h = to_ist(self.fd.clock.now()).hour
         return WINDOW_START_HOUR <= h < WINDOW_END_HOUR
 
-    async def deliver(self, task_id: str, user_id: str, phone: str) -> bool:
+    async def deliver(self, task_id: str, user_id: str, phone: str, stage: str = "final") -> bool:
         fd = self.fd
         task = await fd.repos.tasks.get(task_id)
         if task is None or not fd.callbacks_possible(phone):
             return False
-        record: dict[str, Any] = {"task_id": task_id, "placed": False}
+        record: dict[str, Any] = {"task_id": task_id, "stage": stage, "placed": False}
         self.calls.append(record)
         if not self._in_window():
             record["skipped"] = "outside 08:00-21:00 IST"
@@ -1132,15 +1145,21 @@ class ResultCallbacks:
         lang = fd_copy.pick_language(profile.language if profile else fd.default_language)
         name = (profile.name if profile else None) or ""
         summary = fd_copy.speakable(task.result.summary if task.result else "")
-        if not summary:
-            summary = (
-                "I could not finish it." if lang == Language.EN else "Main isse poora nahi kar paayi."
+        parts = [fd_copy.line("disclosure", lang), fd_copy.line("cb_update", lang, name=name)]
+        if stage == "offer":
+            if summary:
+                parts.append(summary)
+            parts.append(
+                fd_copy.line(
+                    "cb_offer_whatsapp"
+                    if fd.settings.resolve_whatsapp() != "simulator"
+                    else "cb_offer_novoice",
+                    lang,
+                )
             )
-        intro = fd_copy.line("disclosure", lang)
-        hello = (f"{name}, " if name else "") + (
-            "here is an update on your request." if lang == Language.EN
-            else "aapki request ka update yeh hai."
-        )
+        else:
+            parts.append(summary or fd_copy.line("cb_unfinished", lang))
+        parts.append(fd_copy.line("goodbye", lang))
         tel = fd.telephony()
         s = fd.settings
         from_number = (s.sarvam_caller_ids or s.friday_numbers or [None])[0]
@@ -1158,7 +1177,7 @@ class ResultCallbacks:
         status = await leg.wait_for_answer(req.ring_timeout_s)
         record["status"] = status.value
         if status != DialStatus.ANSWERED:
-            fd.guard.release(f"cb-{task_id}", 0.1)
+            fd.guard.spend_inr = round(fd.guard.spend_inr + 0.1, 2)
             return False
         brief = CallBrief(
             task_id=req.task_id,
@@ -1169,13 +1188,14 @@ class ResultCallbacks:
             on_behalf_of="Friday",
             mode=CallMode.FRONT_DOOR,
         )
-        spoken = [intro, hello, summary]
+        spoken = 0
         try:
-            for part in spoken:
-                if not check_speech(part, brief).allowed:
+            for part in parts:
+                clean = strip_fillers(part)
+                if not clean or not check_speech(clean, brief).allowed:
                     continue
-                await leg.speak(strip_fillers(part), lang)
-            await leg.speak(fd_copy.line("goodbye", lang), lang)
+                spoken += len(clean)
+                await leg.speak(clean, lang)
             record["placed"] = True
         except CallEnded:
             record["placed"] = True
@@ -1184,7 +1204,7 @@ class ResultCallbacks:
                 await leg.hangup()
             secs = (fd.clock.now() - started).total_seconds()
             fd.guard.spend_inr = round(
-                fd.guard.spend_inr + estimate_call_cost_inr(secs, sum(len(x) for x in spoken), 0), 2
+                fd.guard.spend_inr + estimate_call_cost_inr(secs, spoken, 0), 2
             )
         return True
 
