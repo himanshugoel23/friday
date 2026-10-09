@@ -1,0 +1,16 @@
+{
+  "id": "04_returning_english_request",
+  "title": "Returning caller asks for a booking in English",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "en",
+  "script": [
+    "Please call Looks Unisex Salon and book a haircut for tomorrow evening",
+    "yes",
+    "no thanks"
+  ],
+  "secrets": [],
+  "expect": {
+    "language": "en"
+  }
+}

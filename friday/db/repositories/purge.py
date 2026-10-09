@@ -30,6 +30,7 @@ from friday.db.tables import (
     UserRow,
     VendorInteractionRow,
 )
+from friday.quality.models import QualityCallRow
 
 
 def tombstone_phone(user_id: str) -> str:
@@ -80,6 +81,7 @@ class DataPurger(Repo):
                 counts[table.__tablename__] = int(res.rowcount or 0)  # type: ignore[attr-defined]
 
             counts["consents_kept_minimised"] = await self._minimise_consents(s, user_id)
+            await wipe(QualityCallRow, QualityCallRow.user_id == user_id)  # stored transcripts
             await wipe(NudgeFeedbackRow, NudgeFeedbackRow.user_id == user_id)
             await wipe(NudgeRow, NudgeRow.user_id == user_id)
             await wipe(HotelBookingRow, HotelBookingRow.user_id == user_id)

@@ -1,0 +1,19 @@
+{
+  "id": "02_first_call_declines_consent",
+  "title": "First call: caller says no to storing their data",
+  "caller": "new",
+  "name": "Asha",
+  "language": "en",
+  "script": [
+    "Asha",
+    "English",
+    "no",
+    "no"
+  ],
+  "secrets": [],
+  "expect": {
+    "consent": "declined",
+    "language": "en",
+    "language_after": 2
+  }
+}

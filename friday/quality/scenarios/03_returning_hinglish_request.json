@@ -1,0 +1,16 @@
+{
+  "id": "03_returning_hinglish_request",
+  "title": "Returning caller asks for a booking in Hinglish",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "hinglish",
+  "script": [
+    "Looks Unisex Salon mein haircut book karo kal shaam",
+    "haan",
+    "nahi bas"
+  ],
+  "secrets": [],
+  "expect": {
+    "language": "hinglish"
+  }
+}

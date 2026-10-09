@@ -1,0 +1,16 @@
+{
+  "id": "11_change_of_mind",
+  "title": "Caller asks for a booking, then changes their mind",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "hinglish",
+  "script": [
+    "Looks Unisex Salon mein haircut book karo kal shaam",
+    "nahi nahi rehne do, cancel",
+    "bas itna hi"
+  ],
+  "secrets": [],
+  "expect": {
+    "language": "hinglish"
+  }
+}

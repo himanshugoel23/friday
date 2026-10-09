@@ -1,0 +1,21 @@
+{
+  "id": "01_first_call_onboarding",
+  "title": "First call: name, language, consent, then a request",
+  "caller": "new",
+  "name": "Asha",
+  "language": "hinglish",
+  "script": [
+    "Asha",
+    "Hindi",
+    "haan",
+    "Looks Unisex Salon mein haircut book karo kal shaam",
+    "haan",
+    "nahi bas"
+  ],
+  "secrets": [],
+  "expect": {
+    "consent": "granted",
+    "language": "hi",
+    "language_after": 3
+  }
+}

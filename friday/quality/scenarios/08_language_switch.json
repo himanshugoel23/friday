@@ -1,0 +1,23 @@
+{
+  "id": "08_language_switch",
+  "title": "Starts in English, switches to Hindi mid-call",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "en",
+  "script": [
+    "Hello, can you help me with something?",
+    {
+      "say": "मुझे कल शाम के लिए हेयरकट बुक करना है",
+      "lang": "hi"
+    },
+    {
+      "say": "हाँ ठीक है",
+      "lang": "hi"
+    }
+  ],
+  "secrets": [],
+  "expect": {
+    "language": "hi",
+    "language_after": 1
+  }
+}

@@ -28,6 +28,7 @@ from friday.core.container import FACTORIES, ComponentNotAvailable, Container
 from friday.core.logging import mask_phone
 from friday.core.models import FridayNumber
 from friday.pilot import HARD_MAX_SECONDS, LiveCallRefused, place_test_call
+from friday.quality.api import add_quality_routes
 
 
 class LiveCallIn(BaseModel):
@@ -116,6 +117,7 @@ def admin_router(c: Container) -> APIRouter:
             by_status[r["status"]] = by_status.get(r["status"], 0) + 1
         return {"numbers": rows, "totals": {"count": len(rows), "by_status": by_status}}
 
+    add_quality_routes(router, c, require_admin)  # ratings + call list (friday/quality/api.py)
     if c.settings.is_pilot:
         _add_livecall_routes(router, c, require_admin)
     return router

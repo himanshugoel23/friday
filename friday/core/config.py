@@ -263,6 +263,9 @@ class Settings(BaseSettings):
     frontdoor_max_silences: int = 3  # consecutive silent turns -> polite hang-up (abuse/prank)
     frontdoor_max_concurrent: int = 5  # live front-door calls at once (pilot is always 1)
     frontdoor_spend_cap_inr: float | None = None  # None = pilot_max_spend_inr (pilot) / unlimited
+    # Quality loop (friday/quality, docs/QUALITY_LOOP.md): redacted transcripts of CONSENTED
+    # calls are kept this many days, then purged. Never kept without storage consent.
+    quality_transcript_retention_days: int = Field(default=30, ge=1, le=365)
     frontdoor_result_callbacks: bool = True  # call the caller back with the result (if allowed)
 
     # Friday caller-ID pool (BRIEF E.30 + caller-ID reputation). Sticky per business.

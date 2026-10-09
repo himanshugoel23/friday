@@ -407,6 +407,9 @@ def main(argv: list[str] | None = None) -> int:
     listen.add_argument("--restore", action="store_true",
                         help="only put the Vobiz number's previous link back (after a crash)")
     listen.add_argument("--seconds", type=float, default=None, help="stop after N seconds")
+    from friday.quality.cli import register as register_quality
+
+    register_quality(sub)  # `friday review` / `friday eval` (docs/QUALITY_LOOP.md)
     load = sub.add_parser("loadtest", help="S-11: N users, M concurrent simulated calls")
     load.add_argument("--users", type=int, default=100)
     load.add_argument("--calls", type=int, default=20, help="max concurrent calls in flight")
@@ -420,8 +423,16 @@ def main(argv: list[str] | None = None) -> int:
         from friday.pilot import init_env
 
         return init_env()
+    if args.cmd == "eval":  # offline scenarios: never reads .env unless --live
+        from friday.quality.cli import run_eval_command
+
+        return run_eval_command(args, Settings)
     settings = Settings()
     setup_logging(settings.log_level, settings.log_json)
+    if args.cmd == "review":
+        from friday.quality.cli import run_review_command
+
+        return run_review_command(args, settings)
 
     if args.cmd == "check":
         rc = _check(settings)

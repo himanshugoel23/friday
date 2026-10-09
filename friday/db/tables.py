@@ -795,3 +795,5 @@ for _row, _clear, _hm in (
     (InboundContactRow, "from_phone", "from_phone_hmac"),
 ):
     event.listen(_row, "before_insert", _fill_hmac(_clear, _hm))
+
+import friday.quality.models  # noqa: E402,F401  (registers quality_calls)

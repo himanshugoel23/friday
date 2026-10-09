@@ -1,0 +1,17 @@
+{
+  "id": "07_unclear_audio",
+  "title": "Silence, then mumbling, then a clear request",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "hinglish",
+  "script": [
+    null,
+    "hmm... uh ... [noise]",
+    null,
+    "haircut book karna hai kal"
+  ],
+  "secrets": [],
+  "expect": {
+    "language": "hinglish"
+  }
+}

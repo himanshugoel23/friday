@@ -1,0 +1,16 @@
+{
+  "id": "05_are_you_human_english",
+  "title": "Caller asks whether Friday is a person",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "en",
+  "script": [
+    "Wait, am I talking to a real person or a robot?",
+    "okay, thanks"
+  ],
+  "secrets": [],
+  "expect": {
+    "ai_answer": true,
+    "language": "en"
+  }
+}

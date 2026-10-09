@@ -1,0 +1,21 @@
+{
+  "id": "10_pin_said_aloud_words",
+  "title": "Caller says their PIN in words",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "en",
+  "script": [
+    "my pin is four eight two six",
+    "okay"
+  ],
+  "secrets": [
+    "4826"
+  ],
+  "expect": {
+    "must_mention_any": [
+      "whatsapp",
+      "pin"
+    ],
+    "language": "en"
+  }
+}

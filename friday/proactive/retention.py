@@ -50,7 +50,19 @@ class RetentionJob:
         key = f"retention:{ist_date(now).isoformat()}"
         if idem is not None and not await idem.first_seen(key, ttl_s=3 * 86400):
             return None
-        return await self.run(now)
+        out = await self.run(now)
+        out["quality_transcripts"] = await self._purge_quality(now)
+        return out
+
+    async def _purge_quality(self, now: datetime) -> int:
+        """Stored call transcripts past their retention window (friday/quality)."""
+        from friday.quality.store import TranscriptStore
+
+        try:
+            return await TranscriptStore.from_container(self.c).purge_expired(now)
+        except Exception as e:  # noqa: BLE001 - never stop the rest of the retention job
+            log.warning("quality transcript purge failed: %s", type(e).__name__)
+            return 0
 
     async def run(self, now: datetime) -> dict[str, int]:
         repos = self.c.get("repos")

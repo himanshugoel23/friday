@@ -1,0 +1,16 @@
+{
+  "id": "12_pilot_real_business_request",
+  "title": "Pilot mode: a real-business request, caller confirms",
+  "caller": "returning",
+  "name": "Rahul",
+  "language": "hinglish",
+  "script": [
+    "Urban Clap ko call karke AC service ka rate pata karo",
+    "haan karo",
+    "shukriya"
+  ],
+  "secrets": [],
+  "expect": {
+    "language": "hinglish"
+  }
+}

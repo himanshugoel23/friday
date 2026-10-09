@@ -46,6 +46,7 @@ from friday.core.scale import (
     worker_id,
 )
 from friday.db.repositories._base import phone_index
+from friday.quality.hook import install_quality_hook
 
 log = get_logger(__name__)
 
@@ -67,6 +68,7 @@ class Runtime:
 
         self.front_door = FrontDoor(c, self.pipeline)
         self.callbacks.front_door = self.front_door
+        install_quality_hook(c)  # consent-gated transcript capture (friday/quality)
         # SECURITY-34 / S-3: per-sender serialisation through the shared DistributedLock
         # (ref-counted memory lock in dev; Postgres advisory / Redis lock across replicas).
         try:
