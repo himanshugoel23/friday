@@ -21,12 +21,12 @@ livecall`, see also `LIVE_TEST_WINDOWS.md` which is the same flow written for Wi
 
 | What | Where | Env name |
 |---|---|---|
-| LLM | console.anthropic.com (new key, set a monthly spend limit) | `ANTHROPIC_API_KEY` |
+| LLM | console.anthropic.com (new key, set a monthly spend limit) **or** an OpenAI key (the repo auto-selects whichever is set; if both, set `FRIDAY_LLM_PROVIDER`) | `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` |
 | Speech | Sarvam dashboard | `SARVAM_API_KEY` |
 | Telephony | Vobiz console: trial upgraded, balance topped up, one number you own, call queuing OFF | `SARVAM_TELEPHONY_AUTH_ID`, `SARVAM_TELEPHONY_AUTH_TOKEN`, `FRIDAY_NUMBERS` |
 | Allowed target | your own mobile, E.164 | `FRIDAY_PILOT_ALLOWED_NUMBERS=+91XXXXXXXXXX` |
 
-Never paste keys into chat or commit them. `.env` is git-ignored. Create fresh keys (old ones were shared in chats).
+Put keys only in the Codespace `.env` (or Codespaces secrets: repo Settings -> Secrets and variables -> Codespaces). Never paste keys into chat or commit them. `.env` is git-ignored. Create fresh keys (old ones were shared in chats).
 
 ## Steps (all in a browser)
 
