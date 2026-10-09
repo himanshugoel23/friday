@@ -62,6 +62,11 @@ class Runtime:
         self.c = c
         self.pipeline = InboundPipeline(c, fast_pin_hash=fast_pin_hash)
         self.callbacks: CallbackService = self.pipeline.callbacks
+        # people who CALL Friday's number (docs/FRONT_DOOR.md); business call-backs are unchanged
+        from friday.voice.frontdoor import FrontDoor
+
+        self.front_door = FrontDoor(c, self.pipeline)
+        self.callbacks.front_door = self.front_door
         # SECURITY-34 / S-3: per-sender serialisation through the shared DistributedLock
         # (ref-counted memory lock in dev; Postgres advisory / Redis lock across replicas).
         try:

@@ -145,6 +145,9 @@ _RISKY_RELAY = re.compile(
 USER_DAILY_CALL_CAP = 50
 TARGET_DAILY_CAP = 3
 TARGET_WEEKLY_CAP = 10
+PILOT_NO_REAL_CALLS = (
+    "In this test mode I cannot phone real businesses yet, so I have not called anyone."
+)
 NO_NUMBER_RETRY_MIN = 15  # NP-3: no caller-ID free -> try again in 15 min
 SHORT_CALL_S = 10
 ANSWER_POLL_S = 0.25  # mid-call answer: poll the DB row (answers stored by other replicas)
@@ -1312,6 +1315,10 @@ class TaskEngine:
         SECURITY-21: hard per-user daily cap and per-target caps across all users."""
         if task.target is None:
             return None
+        if self.settings.pilot_dial_blocked(task.target.phone):  # pilot: allow-list only
+            await self._audit(task, "call.blocked_pilot")
+            await self._fail(task, PILOT_NO_REAL_CALLS)
+            return "pilot"
         pool = self.pool
         if pool is not None and await pool.is_blocked(task.target.phone):
             await self._audit(task, "call.blocked_dnc")
@@ -1437,6 +1444,16 @@ class TaskEngine:
         from_number: str | None = None,
         number_changed: bool = False,
     ) -> None:
+        if (
+            inbound_leg is None
+            and task.target is not None
+            and self.settings.pilot_dial_blocked(task.target.phone)
+        ):  # defence in depth: never dial a real business in the pilot
+            if from_number and self.pool is not None:
+                await self.pool.release(from_number)
+            await self._audit(task, "call.blocked_pilot")
+            await self._fail(task, PILOT_NO_REAL_CALLS)
+            return
         is_confirm = task.status == S.CONFIRMATION_CALLBACK
         ctx = await self._context(task.requester_user_id)
         brief = await _maybe_await(self.brain.build_call_brief(ctx, task))

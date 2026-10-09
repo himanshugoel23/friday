@@ -86,15 +86,23 @@ class CallbackService:
         self.repos = c.repos
         self.clock = c.clock
         self.settings = c.settings
+        # The front door (friday.voice.frontdoor.FrontDoor), set by the Runtime. Duck-typed:
+        # classify(phone, match) -> Decision, serve(decision, ref, phone, to_number),
+        # reject_unparsable(ref). None = every answered call takes the business call-back path.
+        self.front_door: Any = None
 
     # ------------------------------------------------------------------ wiring
     def subscribe(self) -> None:
         self.c.bus.subscribe(InboundCallReceived, self._on_inbound)
         self.c.bus.subscribe(MissedCallReceived, self._on_missed)
+        if self.front_door is not None:
+            self.front_door.subscribe()
 
     def unsubscribe(self) -> None:
         self.c.bus.unsubscribe(InboundCallReceived, self._on_inbound)
         self.c.bus.unsubscribe(MissedCallReceived, self._on_missed)
+        if self.front_door is not None:
+            self.front_door.unsubscribe()
 
     async def _on_inbound(self, event: InboundCallReceived) -> None:
         await self._from_event(event, answered=True)
@@ -117,6 +125,8 @@ class CallbackService:
             )
         except ValueError:  # "anonymous" / unparsable caller ID: nothing to match
             log.info("inbound call with unparsable caller id ignored")
+            if answered and self.front_door is not None and getattr(self.front_door, "enabled", False):
+                await self.front_door.reject_unparsable(ref)  # cheap fixed message, then hang up
 
     def _engine(self) -> Any:
         try:
@@ -174,6 +184,24 @@ class CallbackService:
             subject_id=match.task_id,
             status=match.status.value,
         )
+        if answered and self.front_door is not None and getattr(self.front_door, "enabled", False):
+            # Front door: classify the caller (user / business / unknown). Business call-backs
+            # ("legacy") fall through to the unchanged path below.
+            decision = await self.front_door.classify(match.from_phone, match)
+            if decision.route != "legacy":
+                await self.repos.audit.log(
+                    "inbound.front_door",
+                    user_id=decision.user_id,
+                    actor="system",
+                    kind=decision.kind.value,
+                    route=decision.route,
+                    reason=decision.reason or None,
+                )
+                await self.front_door.serve(
+                    decision, provider_ref or call_id, match.from_phone, match.friday_number
+                )
+                await self.repos.calls.mark_handled(contact.id)
+                return match, contact
         handled = False
         if answered and match.status == MatchStatus.UNMATCHED:
             # E33: greet, take a message, reveal nothing about any user.

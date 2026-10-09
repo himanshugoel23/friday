@@ -220,6 +220,15 @@ class CallMode(StrEnum):
     AGENT = "agent"  # Friday converses alone (default)
     WARM_TRANSFER = "warm_transfer"  # B17: reach the right person, then patch the user in
     TRANSLATOR = "translator"  # B18: user + business on one call, Friday translates
+    FRONT_DOOR = "front_door"  # a person calls Friday's public number and talks to Friday
+
+
+class CallerKind(StrEnum):
+    """Who is on an inbound call to a Friday number (front-door classification)."""
+
+    USER = "user"  # caller ID matches a known user (blind-index lookup)
+    BUSINESS = "business"  # matches call memory (a business ringing back)
+    UNKNOWN = "unknown"  # nobody we know
 
 
 class CareRequestKind(StrEnum):

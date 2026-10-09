@@ -129,6 +129,9 @@ class Settings(BaseSettings):
     # Pilot safety: the ONLY numbers `friday livecall` may dial (E.164, CSV). Default empty.
     pilot_allowed_numbers: CsvList = Field(default_factory=list)
     pilot_max_spend_inr: float = 25.0  # `friday livecall` refuses if the estimate is above this
+    # Pilot + live: Friday must not phone real businesses (only numbers in the allow-list).
+    # None = automatic (True exactly when profile == pilot and mode == live); tests may pin it.
+    pilot_block_business_calls: bool | None = None
     env: Literal["dev", "test", "prod"] = "dev"
     log_level: str = "INFO"
     log_json: bool = False
@@ -242,6 +245,21 @@ class Settings(BaseSettings):
         default_factory=list, validation_alias=_alias("SARVAM_CALLER_IDS")
     )
     inbound_claim_timeout_s: float = 10.0  # parked inbound leg -> fixed P1 message after this
+
+    # ---- front door: people calling Friday's public number (docs/FRONT_DOOR.md)
+    frontdoor_enabled: bool = True
+    # Outside the pilot profile an UNKNOWN caller is only onboarded by voice when this is on;
+    # off = the existing "take a message" path for unknown callers.
+    frontdoor_open_signup: bool = False
+    frontdoor_pilot_max_call_s: int = 180  # pilot profile: hard cap per call
+    frontdoor_max_call_s: int = 300  # other profiles
+    frontdoor_per_caller_per_hour: int = 3
+    frontdoor_per_caller_per_day: int = 10
+    frontdoor_global_per_hour: int = 40
+    frontdoor_max_silences: int = 3  # consecutive silent turns -> polite hang-up (abuse/prank)
+    frontdoor_max_concurrent: int = 1  # live front-door calls at once (pilot is always 1)
+    frontdoor_spend_cap_inr: float | None = None  # None = pilot_max_spend_inr (pilot) / unlimited
+    frontdoor_result_callbacks: bool = True  # call the caller back with the result (if allowed)
 
     # Friday caller-ID pool (BRIEF E.30 + caller-ID reputation). Sticky per business.
     # FRIDAY_NUMBERS=+918000000001,+912200000002 (or JSON). Details per number live in
@@ -590,6 +608,18 @@ class Settings(BaseSettings):
     @property
     def is_beta(self) -> bool:
         return self.profile == "beta"
+
+    @property
+    def pilot_blocks_business_calls(self) -> bool:
+        if self.pilot_block_business_calls is not None:
+            return self.pilot_block_business_calls
+        return self.is_pilot and self.is_live
+
+    def pilot_dial_blocked(self, phone: str | None) -> bool:
+        """True when a real call to ``phone`` must be refused (pilot: allow-list only)."""
+        if not self.pilot_blocks_business_calls:
+            return False
+        return not phone or phone not in set(self.pilot_allowed_numbers)
 
     def beta_expedia_configured(self) -> bool:
         return bool(self.expedia_rapid_api_key and self.expedia_rapid_shared_secret)
