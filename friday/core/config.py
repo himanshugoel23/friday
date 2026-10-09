@@ -73,15 +73,16 @@ DEFAULT_LLM_MODELS: dict[str, str] = {
 }
 
 # OpenAI (GPT) routing, used when the resolved LLM provider is "openai". Same cost rule: the
-# cheap model for every light job, the same cheap model with LOW reasoning for live call turns
+# cheap model for every light job, the same cheap model with NO reasoning for live call turns
 # (latency), the bigger model only on explicit escalation. See docs/LIVE_TEST_WINDOWS.md.
 OPENAI_LIGHT_MODEL = "gpt-5.4-mini"
 OPENAI_ESCALATION_MODEL = "gpt-5.4"
 DEFAULT_OPENAI_MODELS: dict[str, str] = {
     p: OPENAI_LIGHT_MODEL for p in DEFAULT_LLM_MODELS
 }  # incl. call_turn
-# reasoning_effort per purpose (GPT-5 family only): none | minimal | low | medium | high.
-DEFAULT_OPENAI_REASONING: dict[str, str] = {"call_turn": "low"}
+# reasoning_effort per purpose (GPT-5 family only). gpt-5.4-mini accepts none|low|medium|high
+# ("minimal" is rejected with HTTP 400); "none" is ~0.5-1 s faster than "low" on a call turn.
+DEFAULT_OPENAI_REASONING: dict[str, str] = {"call_turn": "none"}
 # ESTIMATES to verify against https://openai.com/api/pricing: USD per 1M tokens as
 # [input, cached input, output]. Used only for internal INR cost logging, never shown to users.
 DEFAULT_OPENAI_PRICES_USD_PER_MTOK: dict[str, list[float]] = {

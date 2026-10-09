@@ -153,6 +153,7 @@ from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.signals import block_signal
 from friday.voice.telephony.exotel import exotel_token as _token
+from friday.voice.telephony.media import Segment
 from friday.voice.telephony.twilio import FRAME_BYTES, TwilioCallLeg
 from friday.voice.text import strip_fillers
 from friday.voice.tts.cache import cached_tts
@@ -266,6 +267,7 @@ class SarvamCallLeg(TwilioCallLeg):
         self._playing = False  # Friday's voice is on the line
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
         self._loud_run = 0
+        self._spec: asyncio.Future[Any] | None = None  # early speech-to-text
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -293,11 +295,49 @@ class SarvamCallLeg(TwilioCallLeg):
         for i in range(0, len(pcm) - 319, 320):  # 20 ms frames for the VAD
             frame = pcm[i : i + 320]
             if self._playing:
+                if self._spec is not None:  # a guess made before she started talking is stale
+                    self._spec.cancel()
+                    self._spec = None
                 self._watch_for_barge_in(frame)
+            else:
+                self._watch_for_early_pause(frame)
             for seg in self._segmenter.feed_pcm16(frame):
                 if self._playing and not self._barged:
                     continue  # her own voice coming back (echo / speakerphone): not the caller
                 self._segments.put_nowait(seg)
+
+    EARLY_STT_SILENCE_MS = 340  # start transcribing this long into a pause, before it is final
+    EARLY_STT_MIN_S = 0.5
+
+    def _watch_for_early_pause(self, frame: bytes) -> None:
+        """Speculative speech-to-text: when the caller pauses, transcribe what they said so far
+        while we wait out the rest of the pause. If they carry on, the guess is thrown away."""
+        seg = self._segmenter
+        if self.hold_mode or not seg._active:
+            return
+        if rms(frame) >= seg.threshold:
+            if self._spec is not None:
+                self._spec.cancel()
+                self._spec = None
+            return
+        if self._spec is not None or seg._silence_ms + 20 < self.EARLY_STT_SILENCE_MS:
+            return
+        pcm = bytes(seg._buf) + frame
+        dur = len(pcm) / 2 / seg.sample_rate
+        if dur >= self.EARLY_STT_MIN_S:
+            snap = Segment(pcm, seg.sample_rate, dur, False)
+            self._spec = asyncio.ensure_future(super()._transcribe(snap))
+
+    async def _transcribe(self, seg: Segment) -> Transcription | None:
+        spec, self._spec = self._spec, None
+        if spec is not None and not seg.forced_cut and not self.hold_mode:
+            try:
+                return await spec
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001 - fall back to a fresh pass
+                pass
+        elif spec is not None:
+            spec.cancel()
+        return await super()._transcribe(seg)
 
     BARGE_IN_FRAMES = 15  # 300 ms of clearly loud speech while she talks
     BARGE_IN_LEVEL = 2.5  # times the normal speech threshold, so echo does not interrupt her

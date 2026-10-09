@@ -97,3 +97,52 @@ async def test_long_reply_streams_sentence_by_sentence_with_one_checkpoint():
     events = [m["event"] for m in sent]
     assert events.count("playAudio") >= 2 and events.count("checkpoint") == 1
     assert events[-1] == "checkpoint" and not leg._playing
+
+
+class _CountingSTT:
+    name = "count"
+
+    def __init__(self):
+        self.calls = 0
+
+    async def transcribe(self, clip, *, language_hint=None):
+        from friday.core.models import Language, Transcription
+
+        self.calls += 1
+        return Transcription(text="haan bataiye", language=Language.HINGLISH, confidence=0.9)
+
+
+async def _leg_with_counting_stt():
+    leg, sent = await _leg()
+    stt = _CountingSTT()
+    leg.tel.stt = stt
+    return leg, stt
+
+
+def _silence_frames(seconds: float) -> list[str]:
+    n = int(seconds / 0.02)
+    return [base64.b64encode(b"\xff" * 160).decode() for _ in range(n)]  # mu-law silence
+
+
+async def test_early_pause_starts_transcribing_and_the_result_is_reused():
+    leg, stt = await _leg_with_counting_stt()
+    for f in _frames(1.0, 0.9) + _silence_frames(0.4):
+        leg.on_media(f)
+    await asyncio.sleep(0.05)
+    assert stt.calls == 1  # started during the pause, before it was final
+    for f in _silence_frames(0.7):
+        leg.on_media(f)
+    seg = await asyncio.wait_for(leg._segments.get(), 1)
+    t = await leg._transcribe(seg)
+    assert t is not None and t.text == "haan bataiye" and stt.calls == 1  # no second pass
+
+
+async def test_speech_resuming_throws_the_early_guess_away():
+    leg, stt = await _leg_with_counting_stt()
+    for f in _frames(1.0, 0.9) + _silence_frames(0.4):
+        leg.on_media(f)
+    await asyncio.sleep(0.05)
+    assert leg._spec is not None
+    for f in _frames(0.3, 0.9):
+        leg.on_media(f)
+    assert leg._spec is None

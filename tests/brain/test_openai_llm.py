@@ -201,7 +201,7 @@ def test_routing_follows_provider_and_claude_defaults_unchanged():
     g = _s(openai_api_key="o")
     assert g.model_for("interpret") == "gpt-5.4-mini" and g.model_for("call_turn") == "gpt-5.4-mini"
     assert g.model_for("interpret", escalate=True) == "gpt-5.4"
-    assert g.openai_reasoning_effort["call_turn"] == "low"
+    assert g.openai_reasoning_effort["call_turn"] == "none"
     c = _s()
     assert c.model_for("call_turn") == "claude-sonnet-5-5"
     assert c.model_for("x") == "claude-haiku-5-5"
