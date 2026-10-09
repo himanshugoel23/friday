@@ -26,6 +26,8 @@ livecall`, see also `LIVE_TEST_WINDOWS.md` which is the same flow written for Wi
 | Telephony | Vobiz console: trial upgraded, balance topped up, one number you own, call queuing OFF | `SARVAM_TELEPHONY_AUTH_ID`, `SARVAM_TELEPHONY_AUTH_TOKEN`, `FRIDAY_NUMBERS` |
 | Allowed target | your own mobile, E.164 | `FRIDAY_PILOT_ALLOWED_NUMBERS=+91XXXXXXXXXX` |
 
+Set the caller ID to the founder's own Vobiz number in the Codespace `.env`, e.g. `SARVAM_CALLER_IDS=+918064267861` (nothing is pre-set; `friday doctor` names it as missing).
+
 Put keys only in the Codespace `.env` (or Codespaces secrets: repo Settings -> Secrets and variables -> Codespaces). Never paste keys into chat or commit them. `.env` is git-ignored. Create fresh keys (old ones were shared in chats).
 
 ## Steps (all in a browser)

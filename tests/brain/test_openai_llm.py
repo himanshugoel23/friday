@@ -101,10 +101,12 @@ async def test_non_reasoning_model_gets_no_effort_and_cache_break_is_stripped():
 async def test_provider_notes_are_additive_and_before_stable_data():
     stub = _Stub(_resp())
     llm = _llm(stub)
-    await llm.complete(system=f"RULES{CACHE_BREAK}STABLE", purpose="interpret", model="gpt-5.4-mini",
-                       messages=[LLMMessage(role="user", content="x")], json_schema=SCHEMA)
+    await llm.complete(system=f"RULES{CACHE_BREAK}STABLE", purpose="interpret",
+                       model="gpt-5.4-mini", messages=[LLMMessage(role="user", content="x")],
+                       json_schema=SCHEMA)
     sys_text = stub.calls[0]["messages"][0]["content"]
-    assert sys_text.startswith("RULES") and sys_text.index("Provider notes") < sys_text.index("STABLE")
+    assert sys_text.startswith("RULES")
+    assert sys_text.index("Provider notes") < sys_text.index("STABLE")
     assert "healthcare" in sys_text  # interpret-only disambiguation
 
 
@@ -158,7 +160,8 @@ async def test_attachments_image_pdf_text_and_unsupported():
     pdf = MediaBlob(data=b"%PDF", mime="application/pdf")
     await _go(_llm(stub), attachments=[img, pdf])
     parts = stub.calls[0]["messages"][1]["content"]
-    assert parts[0]["type"] == "image_url" and parts[0]["image_url"]["url"].startswith("data:image/png")
+    assert parts[0]["type"] == "image_url"
+    assert parts[0]["image_url"]["url"].startswith("data:image/png")
     assert parts[1]["type"] == "file" and parts[-1] == {"type": "text", "text": "hi"}
     assert attachment_part(MediaBlob(data=b"a b", mime="text/plain"))["type"] == "text"
     with pytest.raises(ProviderError):
@@ -200,7 +203,8 @@ def test_routing_follows_provider_and_claude_defaults_unchanged():
     assert g.model_for("interpret", escalate=True) == "gpt-5.4"
     assert g.openai_reasoning_effort["call_turn"] == "low"
     c = _s()
-    assert c.model_for("call_turn") == "claude-sonnet-5-5" and c.model_for("x") == "claude-haiku-5-5"
+    assert c.model_for("call_turn") == "claude-sonnet-5-5"
+    assert c.model_for("x") == "claude-haiku-5-5"
 
 
 def test_live_problems_accept_either_key():

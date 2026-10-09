@@ -32,7 +32,6 @@ from friday.core.models import (
     normalize_phone,
 )
 
-TRIAL_CALLER_ID = "+918065354620"  # Vobiz trial number used for the laptop pilot
 HARD_MAX_SECONDS = 300  # no pilot call may ever be longer than this
 MIN_SECONDS = 20
 EST_INR_PER_MIN = 5.0  # generous: Vobiz ~0.44 + Sarvam STT/TTS + LLM turns
@@ -96,7 +95,6 @@ def init_env(root: Path | None = None, out: Callable[[str], None] = print) -> in
         "FRIDAY_MODE": "live",
         "FRIDAY_PROFILE": "pilot",
         "FRIDAY_TELEPHONY_PROVIDER": "sarvam",
-        "SARVAM_CALLER_IDS": TRIAL_CALLER_ID,
         "FRIDAY_PUBLIC_BASE_URL": "",
     }
     for k in GENERATED_KEYS:
@@ -105,7 +103,7 @@ def init_env(root: Path | None = None, out: Callable[[str], None] = print) -> in
         text = _set_line(text, k, v)
     target.write_text(text, encoding="utf-8")
     to_fill = ["SARVAM_TELEPHONY_AUTH_ID", "SARVAM_TELEPHONY_AUTH_TOKEN", "SARVAM_API_KEY",
-               "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "FRIDAY_PUBLIC_BASE_URL",
+               "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "SARVAM_CALLER_IDS", "FRIDAY_PUBLIC_BASE_URL",
                "FRIDAY_PILOT_ALLOWED_NUMBERS"]
     to_fill = _blank_names(text, to_fill)
     llm_keys = {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
@@ -119,7 +117,7 @@ def init_env(root: Path | None = None, out: Callable[[str], None] = print) -> in
     out("Brain key: fill ANTHROPIC_API_KEY or OPENAI_API_KEY (either one; leave the other blank).")
     out("Tip: no Anthropic credits? Fill OPENAI_API_KEY and add FRIDAY_LLM_PROVIDER=openai.")
     out("Tip: no LLM key at all? Add FRIDAY_LLM_PROVIDER=fake to test only the audio.")
-    out(f"The caller ID is already set to the Vobiz trial number {TRIAL_CALLER_ID}.")
+    out("SARVAM_CALLER_IDS = your own Vobiz number in +91... format (calls are placed from it).")
     return 0
 
 
@@ -353,7 +351,7 @@ async def run_livecall(
         update={"call_max_duration_s": max_seconds, "max_concurrent_calls": 1, "call_record": False}
     )
     from_number = None if simulate else (
-        (settings.sarvam_caller_ids or settings.friday_numbers or [TRIAL_CALLER_ID])[0]
+        (settings.sarvam_caller_ids or settings.friday_numbers or [None])[0]
     )
     est = estimate_cost_inr(max_seconds)
     try:
@@ -510,7 +508,7 @@ async def place_test_call(
                               else 422)
     goal = goal or DEFAULT_GOAL
     from_number = None if simulate else (
-        (settings.sarvam_caller_ids or settings.friday_numbers or [TRIAL_CALLER_ID])[0]
+        (settings.sarvam_caller_ids or settings.friday_numbers or [None])[0]
     )
     est = estimate_cost_inr(max_seconds)
     try:

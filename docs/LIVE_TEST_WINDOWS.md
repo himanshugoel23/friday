@@ -44,7 +44,8 @@ Fill in (after the `=`, no spaces or quotes):
 - `FRIDAY_PILOT_ALLOWED_NUMBERS=+91XXXXXXXXXX` (your own phone)
 
 Use FRESH keys (rotate them first), because the old ones were pasted in a chat. Never share `.env`.
-The caller ID is already set to the Vobiz trial number +918065354620.
+Also set `SARVAM_CALLER_IDS` to your own Vobiz number (for example `SARVAM_CALLER_IDS=+918064267861`).
+`friday init-env` does not pre-set it; `friday doctor` names it as missing until you do.
 
 ## 4. Start the tunnel (second PowerShell window)
 ```powershell

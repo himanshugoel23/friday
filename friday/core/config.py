@@ -809,7 +809,7 @@ class Settings(BaseSettings):
             need |= self._telephony_needs(tel)
         uses_sarvam = tel == "sarvam" or (tel == "routed" and "sarvam" in self.telephony_route)
         if uses_sarvam and not (self.sarvam_caller_ids or self.friday_numbers):
-            problems.append("missing FRIDAY_NUMBERS (or SARVAM_CALLER_IDS): caller-ID pool")
+            problems.append("missing SARVAM_CALLER_IDS (or FRIDAY_NUMBERS): your Vobiz number")
         # S-6: no local-disk recordings in live (the pilot never records)
         if self.is_live and not self.is_pilot and not self.is_beta and not self.object_store_url:
             problems.append("missing FRIDAY_OBJECT_STORE_URL (s3://bucket/prefix) for recordings")

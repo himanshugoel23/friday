@@ -20,7 +20,6 @@ APP_DIR="/opt/friday"
 ENV_FILE="/etc/friday/.env"
 KEY_FILE="$HOME/.ssh/friday_deploy"
 DEFAULT_BRANCH="claude/friday-phase-1"
-TRIAL_CALLER_ID="+918065354620"          # Vobiz trial number
 MODE="test"; FORCE=0; BRANCH=""
 
 say()  { printf '\n==> %s\n' "$*"; }
@@ -318,10 +317,10 @@ step_settings_test() {
   env_set ACME_EMAIL "$email"
 
   # caller ID
-  local cid; cid="$(env_get SARVAM_CALLER_IDS 2>/dev/null || true)"; cid="${cid:-$TRIAL_CALLER_ID}"
+  local cid; cid="$(env_get SARVAM_CALLER_IDS 2>/dev/null || true)"; 
   echo
-  echo "    Calls are placed FROM your Vobiz number. For this test the default is the Vobiz trial number $TRIAL_CALLER_ID."
-  if ! yesno "    Use $cid as the caller ID?" Y; then
+  echo "    Calls are placed FROM your own Vobiz number (no default is assumed)."
+  if [[ -z "$cid" ]] || ! yesno "    Use $cid as the caller ID?" Y; then
     while true; do ask cid "    Type the Vobiz number you own (like +918012345678)"; cid="$(normalize_phone "$cid" || true)"; [[ -n "$cid" ]] && break; warn "not a valid number."; done
   fi
   env_set SARVAM_CALLER_IDS "$cid"; env_set FRIDAY_NUMBERS "$cid"
