@@ -52,12 +52,12 @@ LINES: dict[str, dict[Language, str]] = {
         ),
     },
     "hello_known": {  # {name}
-        _L.EN: "{name}, good to hear from you. How can I help?",
-        _L.HINGLISH: "{name} ji, bataiye, main aapki kya madad kar sakti hoon?",
+        _L.EN: "{name}. What do you need?",
+        _L.HINGLISH: "{name} ji, bataiye, kya karna hai?",
         _L.HI: "{name} जी, बताइए, मैं आपकी क्या मदद कर सकती हूँ?",
     },
     "hello_known_noname": {
-        _L.EN: "Good to hear from you. How can I help?",
+        _L.EN: "What do you need?",
         _L.HINGLISH: "Bataiye, main aapki kya madad kar sakti hoon?",
         _L.HI: "बताइए, मैं आपकी क्या मदद कर सकती हूँ?",
     },
@@ -67,7 +67,7 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HI: "माफ़ कीजिए, मैं समझ नहीं पाई। आपका नाम क्या है?",
     },
     "ask_language": {  # {name}
-        _L.EN: "Nice to meet you, {name}. Which language would you like: Hindi, English, or a mix?",
+        _L.EN: "Nice to meet you, {name}. Hindi, English, or a mix?",
         _L.HINGLISH: (
             "Aapse milkar achha laga, {name}. Aap kis bhasha mein baat karna chahenge: "
             "Hindi, English, ya dono?"
@@ -105,8 +105,8 @@ LINES: dict[str, dict[Language, str]] = {
         ),
     },
     "consent_ok": {  # {name}
-        _L.EN: "Thank you, {name}. How can I help you today?",
-        _L.HINGLISH: "Shukriya, {name}. Aaj main aapki kya madad kar sakti hoon?",
+        _L.EN: "Thanks, {name}. What do you need?",
+        _L.HINGLISH: "Shukriya, {name}. Kya chahiye?",
         _L.HI: "शुक्रिया, {name}। आज मैं आपकी क्या मदद कर सकती हूँ?",
     },
     "consent_declined": {
@@ -189,8 +189,8 @@ LINES: dict[str, dict[Language, str]] = {
     },
     # --- requests
     "confirm_task": {  # {goal}
-        _L.EN: "I will do this: {goal}. Shall I go ahead? Say yes or no.",
-        _L.HINGLISH: "Main yeh karungi: {goal}. Kya main aage badhoon? Haan ya na boliye.",
+        _L.EN: "{goal}. Shall I start?",
+        _L.HINGLISH: "{goal}. Shuru karun?",
         _L.HI: "मैं यह करूँगी: {goal}। क्या मैं आगे बढ़ूँ? हाँ या ना बोलिए।",
     },
     "confirm_again": {
@@ -204,16 +204,16 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HI: "ठीक है, मैंने कुछ शुरू नहीं किया। आप क्या करवाना चाहेंगे?",
     },
     "task_started_callback": {
-        _L.EN: "Done, I have started on it. I will call you back with an update.",
+        _L.EN: "On it. I will call you back with an update.",
         _L.HINGLISH: (
-            "Ho gaya, maine isse shuru kar diya hai. Update ke saath main aapko call back karungi."
+            "Shuru kar diya. Update ke saath call back karungi."
         ),
         _L.HI: "हो गया, मैंने इसे शुरू कर दिया है। अपडेट के साथ मैं आपको कॉल बैक करूँगी।",
     },
     "task_started_message": {
-        _L.EN: "Done, I have started on it. I will message you on WhatsApp with the result.",
+        _L.EN: "On it. I will message you on WhatsApp.",
         _L.HINGLISH: (
-            "Ho gaya, maine isse shuru kar diya hai. Result main aapko WhatsApp par bhejungi."
+            "Shuru kar diya. Result WhatsApp par bhejungi."
         ),
         _L.HI: "हो गया, मैंने इसे शुरू कर दिया है। नतीजा मैं आपको WhatsApp पर भेजूँगी।",
     },
@@ -237,7 +237,7 @@ LINES: dict[str, dict[Language, str]] = {
     "pilot_no_business_calls": {
         _L.EN: (
             "In this test mode I cannot phone real businesses yet, so I have not started that. "
-            "Is there anything else?"
+            "Anything else?"
         ),
         _L.HINGLISH: (
             "Is test mode mein main abhi asli businesses ko call nahi kar sakti, isliye maine "
@@ -277,8 +277,8 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HI: "अभी आपका मेरे पास कोई काम खुला नहीं है। आप क्या करवाना चाहेंगे?",
     },
     "cancel_confirm": {  # {goal}
-        _L.EN: "Cancel this: {goal}? Say yes or no.",
-        _L.HINGLISH: "Isse cancel karun: {goal}? Haan ya na boliye.",
+        _L.EN: "Cancel {goal}?",
+        _L.HINGLISH: "{goal} cancel karun?",
         _L.HI: "इसे रद्द करूँ: {goal}? हाँ या ना बोलिए।",
     },
     "cancel_done": {
@@ -287,7 +287,7 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HI: "हो गया, मैंने इसे रद्द कर दिया। कुछ और?",
     },
     "anything_else": {
-        _L.EN: "Is there anything else?",
+        _L.EN: "Anything else?",
         _L.HINGLISH: "Kuch aur?",
         _L.HI: "कुछ और?",
     },
@@ -334,13 +334,13 @@ LINES: dict[str, dict[Language, str]] = {
         _L.HI: "एक सेकंड।",
     },
     "didnt_catch": {
-        _L.EN: "Sorry, I did not catch that. Could you say it again?",
-        _L.HINGLISH: "Sorry, mujhe samajh nahi aaya. Kya aap dobara bol sakte hain?",
+        _L.EN: "Sorry, say that again?",
+        _L.HINGLISH: "Sorry, dobara bolenge?",
         _L.HI: "माफ़ कीजिए, मैं समझ नहीं पाई। क्या आप दोबारा बोल सकते हैं?",
     },
     "silence_prompt": {
-        _L.EN: "Hello? I am still here.",
-        _L.HINGLISH: "Hello? Main yahin hoon.",
+        _L.EN: "Still here.",
+        _L.HINGLISH: "Main yahin hoon.",
         _L.HI: "हैलो? मैं यहीं हूँ।",
     },
     "silence_bye": {
@@ -355,8 +355,8 @@ LINES: dict[str, dict[Language, str]] = {
         ),
     },
     "goodbye": {
-        _L.EN: "Thank you for calling. Goodbye.",
-        _L.HINGLISH: "Call karne ke liye shukriya. Namaste.",
+        _L.EN: "Alright. Call any time.",
+        _L.HINGLISH: "Theek hai. Jab chahe call kijiye.",
         _L.HI: "कॉल करने के लिए शुक्रिया। नमस्ते।",
     },
     "time_limit": {
@@ -392,11 +392,11 @@ LINES: dict[str, dict[Language, str]] = {
     "reject_private": {
         _L.EN: (
             "Hello, this is Friday, an AI assistant. This number is in a private test right now, "
-            "so I can't help on this call. Thank you for calling. Goodbye."
+            "so I can't help on this call. Alright. Call any time."
         ),
         _L.HINGLISH: (
             "Namaste, main Friday hoon, ek AI assistant. Yeh number abhi ek private test mein hai, "
-            "isliye main is call par madad nahi kar sakti. Call karne ke liye shukriya. Namaste."
+            "isliye main is call par madad nahi kar sakti. Theek hai. Jab chahe call kijiye."
         ),
         _L.HI: (
             "नमस्ते, मैं Friday हूँ, एक AI असिस्टेंट। यह नंबर अभी एक प्राइवेट टेस्ट में है, इसलिए "

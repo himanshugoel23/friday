@@ -45,7 +45,7 @@ async def test_known_user_is_greeted_by_name_and_the_request_becomes_a_real_task
         lines = said(leg)
         assert "ai assistant" in lines[0].lower()  # the fixed disclosure is the first thing said
         assert "Rahul" in lines[1]  # greeted by name, asked how to help
-        assert any("Kya main aage badhoon" in x for x in lines)  # read back before acting
+        assert any("Shuru karun?" in x for x in lines)  # read back before acting
         assert any("call back" in x for x in lines)  # an honest, built promise
         assert summary.kind == CallerKind.USER and summary.llm_turns == 1
         # the REAL task exists with the caller as requester; nothing was committed (approval rule)
@@ -530,7 +530,7 @@ async def test_status_and_cancel_by_voice_use_the_open_task_and_ignore_the_pendi
         assert any("waiting for your approval" in x for x in said(leg))  # not read as an answer
 
         _s, leg = await sim_call(f, rahul.phone, ["", "cancel", "haan", "bye"])
-        assert any("Isse cancel karun" in x for x in said(leg))  # read back before cancelling
+        assert any("cancel karun?" in x for x in said(leg))  # read back before cancelling
         assert any("maine isse cancel kar diya" in x for x in said(leg))
         assert (await rahul.task()).status == TaskStatus.CANCELLED
     finally:
