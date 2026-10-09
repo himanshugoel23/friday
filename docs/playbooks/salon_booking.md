@@ -38,7 +38,7 @@ salon asks to stop or says not to call again (DNC).
   "Koi baat nahi, main {user_first_name} ji ko bata dungi." -> E_NO_SLOT.
 
 ### S3 Price and duration
-- "{service} ka kitna lagega, aur kitna time?"  EN: "What would the {service} cost, and how long does it take?"
+- "{service} ka kitna lagega, aur kitna time?"
 - Read back once: "Matlab {price_inr} rupaye, lagbhag {duration_min} minute. Sahi?"
 - Branches: price range -> take the upper number, say so. "Stylist par depend karta hai" -> S4. Over `budget` ->
   S3b. Refuses to say price on phone -> note `price_unknown`, continue to S5.
