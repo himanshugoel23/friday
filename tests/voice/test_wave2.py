@@ -302,6 +302,7 @@ async def test_inbound_on_a_retired_number_is_accepted_everywhere(sim, vbus):
     sar_leg = sar.by_sid["sv1"]
     await sar.handle_stream_message({"event": "start", "start": {"callId": "sv1", "streamId": "s"}},
                                     lambda t: asyncio.sleep(0), {}, key=sar_leg.key)  # fmt: skip
+    await asyncio.sleep(0.01)  # Sarvam publishes InboundCallReceived in the background
     inbound = [e for e in seen if type(e).__name__ == "InboundCallReceived"]
     assert [e.to_number for e in inbound].count(retired) >= 3
     for leg in (tw.by_sid["CAr"], sar_leg):

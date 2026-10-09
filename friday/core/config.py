@@ -257,7 +257,7 @@ class Settings(BaseSettings):
     frontdoor_per_caller_per_day: int = 10
     frontdoor_global_per_hour: int = 40
     frontdoor_max_silences: int = 3  # consecutive silent turns -> polite hang-up (abuse/prank)
-    frontdoor_max_concurrent: int = 1  # live front-door calls at once (pilot is always 1)
+    frontdoor_max_concurrent: int = 5  # live front-door calls at once (pilot is always 1)
     frontdoor_spend_cap_inr: float | None = None  # None = pilot_max_spend_inr (pilot) / unlimited
     frontdoor_result_callbacks: bool = True  # call the caller back with the result (if allowed)
 
