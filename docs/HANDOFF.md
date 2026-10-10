@@ -133,4 +133,8 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   `deploy/call-me.sh` on the droplet (the sandbox has no keys and cannot SSH). The "salon v6" items listed in section 7 are
   NOT in the repo (no `playbook preview`, no `tts-check`, no quote-only mode): confirm with the founder whether chat A
   still has them before rebuilding.
+- 2026-10-10 founder test call result (chat B session, after `call-me.sh`): (1) the bot pauses 5+ seconds before replying
+  after the salon says "yes"; the business says "hello, hello, hello". **Target: reply starts within 1 second.**
+  (2) The latest finalized salon script (HANDOFF section 3, "salon v6") is NOT what the bot says: the server runs v0.2.
+  Founder wants both fixed. Investigating latency (STT end-of-speech wait, understanding LLM call, TTS) and the script gap.
 
