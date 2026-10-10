@@ -20,7 +20,8 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
    (`friday say`, or the Sarvam TTS API from the sandbox) and send it to the founder with `SendUserFile`; change the
    code only after they approve the sound. (Said on 2026-10-10.)
 2. **Update this file first** at the start of each task (above).
-3. Never read or print `.env`; keys live only in the git-ignored `.env` (sandbox) or typed on the server; never in
+3. **The repository is PUBLIC (founder made it public on 2026-10-10) and must NEVER contain keys, tokens, passwords, private keys or .env content.** Secrets live only in the git-ignored `.env` / typed on the server. Names of keys may be mentioned, never values. Before any commit, make sure no secret is staged. (Phone numbers and the server IP already appear in docs; avoid adding more personal data.)
+3b. Never read or print `.env`; keys live only in the git-ignored `.env` (sandbox) or typed on the server; never in
    chat or git. Never commit `.env` or `var/`. Keys pasted in chat earlier must be rotated after testing.
 4. No real calls except to the allow-listed founder number (+918607549916) and only with the founder's approval.
 5. Founder speaks Hindi/Hinglish/English mixed (often dictating); the founder's own wording of the script is the

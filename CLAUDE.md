@@ -6,5 +6,5 @@
    any mistake or lesson; commit and push it; then do the task. Update section 7 (current state) when work finishes.
 3. **Hear before change:** before changing spoken lines, voices, pace or pronunciation, send the founder an audio
    sample and wait for approval.
-4. Never read or print `.env`; never commit `.env` or `var/`; no secrets in chat or git.
+4. **This repo is PUBLIC: never commit keys, tokens, passwords or private keys, ever; names of keys only.** Never read or print `.env`; never commit `.env` or `var/`; no secrets in chat or git.
 5. No real calls except to the allow-listed founder number, and only with approval.
