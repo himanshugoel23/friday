@@ -4,7 +4,7 @@ Founder instruction (verbatim intent): keep everything we discuss and decide in 
 read it and continue without losing context. **At the START of every task, update this file first** (what was just
 asked, any decision, any mistake or lesson), commit and push it, **then** do the task. Never put secrets in it.
 
-Last updated: 2026-10-10 (session in progress).
+Last updated: 2026-10-10 (two chats have worked on this repo; read section 6 first).
 
 ---
 
@@ -98,6 +98,20 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - Keep agents on disjoint files; do not commit another agent's half-finished work; run the FULL suite before push.
 - Sarvam docs are readable with `curl https://docs.sarvam.ai/<path>.md` from the sandbox (WebFetch cannot resolve it).
 
+- **Two chats, one repo = duplicated work.** Before starting ANY task: `git fetch`, read `git log HEAD..origin/<branch>`
+  and this file. On 2026-10-09 a second chat redid a "less helpdesk / witty proactive call-back" tone pass
+  (`305b40a`) that the main chat had already done (`4eff9d2` front-door lines, `d5e778c` persona cadence). Do not
+  repeat tone/copy passes; check git log for the topic first. (Founder asked 2026-10-10: read where we are, then change;
+  no repeated similar changes.) Also: that tone pass touched spoken lines BEFORE the "hear before change" rule (2026-10-10);
+  from now on, audio sample first.
+- **AWS is a dead end for this founder.** Both AWS accounts given were managed sandbox accounts inside AWS
+  Organizations with an SCP that denies Lightsail (`lightsail:CreateKeyPair ... explicit deny in a service control
+  policy`). Do not retry AWS; hosting is the DigitalOcean droplet (section 5). `docs/DEPLOY_AWS.md`, `deploy/aws/*`,
+  `docs/BETA_PLAN.md` (D12/D13) and `docs/TRIAL_CODESPACES.md` are older planning docs written before the droplet
+  existed; this file is the source of truth where they differ.
+- Founder has no laptop (iPad/phone browser only): give copy-paste steps for the browser console; never ask for
+  secrets in chat (use `.env` on the server / environment settings).
+
 ## 7. Current state and next steps (update every task)
 - DONE and pushed: front door (conversational), quality loop, playbook engine + salon v0.2, script author
   (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls.
@@ -107,3 +121,9 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - NEXT: send the founder the preview audio from the real code; founder picks the voice (robotic tone issue);
   server update + test call to the founder's phone (`call-me.sh`); then first real salon only with explicit
   approval; then clinic/restaurant playbooks via `friday playbook draft --live`; WhatsApp channel; beta plan.
+- 2026-10-10 founder ask (chat B): "read the latest changes made in the other chat first, understand where we are
+  and what I asked, then change; do not repeat similar changes." Done: read this file and the 15 new commits; no code
+  changed in that step. Answered earlier in chat B (no code): what user/call context is stored (profile, facts, people,
+  places, vendor history, encrypted call transcripts, call_memory; front-door call conversations are NOT saved beyond
+  name/language/consent and tasks created; consented redacted transcripts now go to the quality loop), and that
+  fine-tuning now is premature (no data; playbooks + quality loop are the chosen route, fine-tune later from reviewed data).
