@@ -4,7 +4,7 @@ Founder instruction (verbatim intent): keep everything we discuss and decide in 
 read it and continue without losing context. **At the START of every task, update this file first** (what was just
 asked, any decision, any mistake or lesson), commit and push it, **then** do the task. Never put secrets in it.
 
-Last updated: 2026-10-10 (session in progress).
+Last updated: 2026-10-10 (new chat resumed; read this file first).
 
 ---
 
@@ -100,10 +100,15 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 
 ## 7. Current state and next steps (update every task)
 - DONE and pushed: front door (conversational), quality loop, playbook engine + salon v0.2, script author
-  (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls.
-- IN PROGRESS (a builder agent, uncommitted until its tests pass): salon v6 = Devanagari names pipeline,
-  services variable, book vs quote-only modes, fallback day, AI-on-request policy, `friday tts-check`,
-  `friday playbook preview` (renders the real script to audio for the founder to hear before any call).
-- NEXT: send the founder the preview audio from the real code; founder picks the voice (robotic tone issue);
-  server update + test call to the founder's phone (`call-me.sh`); then first real salon only with explicit
-  approval; then clinic/restaurant playbooks via `friday playbook draft --live`; WhatsApp channel; beta plan.
+  (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls, HANDOFF.md +
+  CLAUDE.md.
+- IN PROGRESS: salon v6 builder hit the usage limit mid-build. The working tree has ~29 UNCOMMITTED files
+  (opening change with `ai_disclosure: after_identity` plus the partial v6 work: names pipeline, services,
+  book/quote_only modes, AI-on-request). The builder is being resumed; it must finish, run the FULL suite + ruff,
+  then commit and push. Do not commit its files from the main thread.
+- v6 spec = section 3 above (founder decisions) + `friday playbook preview` (renders the real script to audio),
+  `friday tts-check` (speak-then-listen name QA), `--fallback-when`, `--mode quote-only|book`.
+- NEXT after v6 lands: (1) send the founder the preview audio from the real code (hear-before-change); (2) founder
+  picks the voice (tone still sounds robotic; samples sent: v4-flash Ishita/Shalini/Simran, temperature, phrase
+  pauses); (3) update server and run the test call to the founder's phone (`call-me.sh`); (4) first real salon only
+  with explicit approval; (5) clinic/restaurant playbooks via `friday playbook draft --live`; (6) WhatsApp channel.
