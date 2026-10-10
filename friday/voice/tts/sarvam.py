@@ -12,6 +12,8 @@ from __future__ import annotations
 import base64
 import os
 import re
+import struct
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -99,6 +101,76 @@ def chunk_text(text: str, limit: int = MAX_CHARS) -> list[str]:
     return chunks
 
 
+class TTSStreamError(ProviderError):
+    """A streaming synthesis failed. ``resume_text`` is what still has to be spoken by the
+    caller's fallback ("" when the whole line was already played)."""
+
+    def __init__(self, message: str, *, resume_text: str = "", audio_started: bool = False) -> None:
+        super().__init__("sarvam", message, retryable=True)
+        self.resume_text = resume_text
+        self.audio_started = audio_started
+
+
+class WavStreamParser:
+    """Incremental WAV reader: ``feed(bytes) -> raw PCM16 mono`` once the header is parsed.
+
+    The streaming endpoint may send a header whose RIFF / data sizes are 0 or 0xFFFFFFFF
+    (length unknown): the data chunk then simply runs to the end of the stream.
+    """
+
+    def __init__(self) -> None:
+        self._buf = bytearray()
+        self.rate: int | None = None
+        self.channels = 1
+        self.bits = 16
+        self._in_data = False
+        self._carry = b""
+
+    @property
+    def header_done(self) -> bool:
+        return self._in_data
+
+    def feed(self, data: bytes) -> bytes:
+        if self._in_data:
+            return self._pcm(data)
+        self._buf += data
+        if len(self._buf) < 12:
+            return b""
+        if bytes(self._buf[:4]) != b"RIFF" or bytes(self._buf[8:12]) != b"WAVE":
+            raise ValueError("not a WAV stream")
+        pos = 12
+        while True:
+            if len(self._buf) < pos + 8:
+                return b""
+            cid = bytes(self._buf[pos : pos + 4])
+            (size,) = struct.unpack("<I", self._buf[pos + 4 : pos + 8])
+            if cid == b"data":
+                self._in_data = True
+                rest = bytes(self._buf[pos + 8 :])
+                self._buf = bytearray()
+                if self.rate is None:
+                    raise ValueError("WAV data before fmt chunk")
+                return self._pcm(rest)
+            if cid == b"fmt ":
+                if len(self._buf) < pos + 8 + 16:
+                    return b""
+                _fmt, ch, rate, _br, _ba, bits = struct.unpack(
+                    "<HHIIHH", self._buf[pos + 8 : pos + 24]
+                )
+                self.channels, self.rate, self.bits = ch, rate, bits
+            if size > 0x7FFFFFF0:  # bogus size on a non-data chunk
+                raise ValueError("bad WAV chunk size")
+            pos += 8 + size + (size & 1)
+
+    def _pcm(self, data: bytes) -> bytes:
+        if self.bits != 16 or self.channels != 1:
+            raise ValueError(f"unsupported WAV stream ({self.channels} ch, {self.bits} bit)")
+        data = self._carry + data
+        keep = len(data) & 1  # never split a 16-bit sample
+        self._carry = data[len(data) - keep :] if keep else b""
+        return data[: len(data) - keep]
+
+
 class SarvamTTS:
     name = "sarvam"
     supported_languages: frozenset[Language] = SARVAM_LANGUAGES
@@ -115,7 +187,9 @@ class SarvamTTS:
         transport: httpx.AsyncBaseTransport | None = None,
         dict_id: str | None = None,
         dict_version: str = "",
+        streaming: bool = True,
     ) -> None:
+        self.streaming = streaming  # FRIDAY_SARVAM_TTS_STREAMING: call leg streams uncached lines
         self.catalog = catalog
         self.dict_id = dict_id  # Sarvam pronunciation dictionary (bulbul:v3), see pronunciation.py
         self.dict_version = dict_version  # part of the audio-cache key
@@ -193,6 +267,47 @@ class SarvamTTS:
             sample_rate=self.sample_rate,
         )
 
+    async def synthesize_stream(
+        self, text: str, language: Language, voice: VoiceProfile | None = None
+    ) -> AsyncIterator[bytes]:
+        """Yield 8 kHz (``self.sample_rate``) PCM16 mono pieces while Sarvam is still making them.
+
+        ``POST /text-to-speech/stream`` (same body as REST plus ``output_audio_codec: wav``).
+        Raises ``TTSStreamError`` (before or after partial audio) so the caller can fall back to
+        the REST path for ``resume_text``.
+        """
+        clean = strip_fillers(text)
+        if not clean:
+            return
+        profile = voice or self.voice_for(language)
+        chunks = chunk_text(clean)
+        for i, chunk in enumerate(chunks):
+            body = {**self.payload(chunk, language, profile), "output_audio_codec": "wav"}
+            got = False
+            try:
+                async with self._http._client.stream(
+                    "POST", "/text-to-speech/stream", json=body
+                ) as resp:
+                    if resp.status_code >= 400:
+                        await resp.aread()
+                        raise ValueError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+                    parser = WavStreamParser()
+                    async for raw in resp.aiter_bytes():
+                        pcm = parser.feed(raw)
+                        if not pcm:
+                            continue
+                        got = True
+                        yield resample_pcm16(pcm, parser.rate or self.sample_rate, self.sample_rate)
+                    if not got:
+                        raise ValueError("stream ended without audio")
+            except (httpx.HTTPError, ValueError, struct.error) as e:
+                rest = chunks[i + 1 :] if got else chunks[i:]
+                raise TTSStreamError(
+                    f"streaming text-to-speech failed: {type(e).__name__}: {str(e)[:160]}",
+                    resume_text=" ".join(rest),
+                    audio_started=got or i > 0,
+                ) from e
+
     async def aclose(self) -> None:
         await self._http.aclose()
 
@@ -219,4 +334,6 @@ def build_sarvam_tts(c: Container) -> SarvamTTS:
     return SarvamTTS(
         s.sarvam_api_key.get_secret_value(), catalog, model=model,
         dict_id=dict_id, dict_version=dict_version,
+        streaming=getattr(s, "sarvam_tts_streaming", True),
+        temperature=getattr(s, "sarvam_tts_temperature", None),
     )

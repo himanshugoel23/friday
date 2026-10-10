@@ -58,10 +58,51 @@ class CachedTTS:
         raw = f"{self.name}|{voice.voice_id}|{language.value}|{voice.speaking_rate}|{text}"
         if ver:  # a changed pronunciation dictionary must not replay audio made with the old one
             raw += f"|dict:{ver}"
+        temp = getattr(self.inner, "temperature", None)
+        if temp is not None:  # audio made at another temperature must not be replayed
+            raw += f"|temp:{temp}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def _disk(self, key: str) -> Path | None:
         return self.cache_dir / f"{key}.audio" if self.cache_dir else None
+
+    async def _read(self, key: str) -> AudioClip | None:
+        """Memory, then shared Cache, then disk. Counts a hit when found."""
+        if key in self._mem:
+            self._mem.move_to_end(key)
+            self.hits += 1
+            return self._mem[key]
+        if self.shared is not None:
+            blob = await self.shared.get(f"tts:{key}")
+            if isinstance(blob, (bytes, bytearray)) and b"\n" in blob:
+                mime, _, data = bytes(blob).partition(b"\n")
+                clip = AudioClip(data=data, mime=mime.decode() or "audio/wav")
+                self._store(key, clip)
+                self.hits += 1
+                return clip
+        path = self._disk(key)
+        if path is not None and path.is_file():
+            mime, _, data = path.read_bytes().partition(b"\n")
+            clip = AudioClip(data=data, mime=mime.decode() or "audio/wav")
+            self._store(key, clip)
+            self.hits += 1
+            return clip
+        return None
+
+    async def _write(self, key: str, clip: AudioClip) -> None:
+        self._store(key, clip)
+        if self.shared is not None:
+            with contextlib.suppress(Exception):
+                await self.shared.set(
+                    f"tts:{key}", clip.mime.encode() + b"\n" + clip.data, ttl_s=self.ttl_s
+                )
+        path = self._disk(key)
+        if path is not None:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(clip.mime.encode() + b"\n" + clip.data)
+            except OSError:
+                log.debug("tts cache not writable")
 
     async def synthesize_cached(
         self, text: str, language: Language, *, voice: VoiceProfile | None = None
@@ -75,40 +116,42 @@ class CachedTTS:
             return self._mem[key], True
         lock = self._locks.setdefault(key, asyncio.Lock())
         async with lock:  # concurrent prerender + speak of the same line -> one vendor call
-            if key in self._mem:
-                self.hits += 1
-                return self._mem[key], True
-            if self.shared is not None:
-                blob = await self.shared.get(f"tts:{key}")
-                if isinstance(blob, (bytes, bytearray)) and b"\n" in blob:
-                    mime, _, data = bytes(blob).partition(b"\n")
-                    clip = AudioClip(data=data, mime=mime.decode() or "audio/wav")
-                    self._store(key, clip)
-                    self.hits += 1
-                    return clip, True
-            path = self._disk(key)
-            if path is not None and path.is_file():
-                mime, _, data = path.read_bytes().partition(b"\n")
-                clip = AudioClip(data=data, mime=mime.decode() or "audio/wav")
-                self._store(key, clip)
-                self.hits += 1
+            clip = await self._read(key)
+            if clip is not None:
                 return clip, True
             clip = await self.inner.synthesize(clean, language, voice=voice)
             self.misses += 1
             self.billed_chars += len(clean)
-            self._store(key, clip)
-            if self.shared is not None:
-                with contextlib.suppress(Exception):
-                    await self.shared.set(
-                        f"tts:{key}", clip.mime.encode() + b"\n" + clip.data, ttl_s=self.ttl_s
-                    )
-            if path is not None:
-                try:
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(clip.mime.encode() + b"\n" + clip.data)
-                except OSError:
-                    log.debug("tts cache not writable")
+            await self._write(key, clip)
             return clip, False
+
+    # -- streaming (the inner provider yields PCM while it is still being made) ----------
+    def can_stream(self) -> bool:
+        return bool(getattr(self.inner, "streaming", False)) and hasattr(
+            self.inner, "synthesize_stream"
+        )
+
+    def synthesize_stream(
+        self, text: str, language: Language, *, voice: VoiceProfile | None = None
+    ):
+        return self.inner.synthesize_stream(text, language, voice=voice or self.voice_for(language))
+
+    async def lookup(
+        self, text: str, language: Language, *, voice: VoiceProfile | None = None
+    ) -> AudioClip | None:
+        """The cached clip for a line, or None (never calls the vendor)."""
+        voice = voice or self.voice_for(language)
+        return await self._read(self._key(strip_fillers(text), language, voice))
+
+    async def remember(
+        self, text: str, language: Language, clip: AudioClip, *, voice: VoiceProfile | None = None
+    ) -> None:
+        """Store a line that was streamed in full (same key as ``synthesize_cached``)."""
+        clean = strip_fillers(text)
+        voice = voice or self.voice_for(language)
+        self.misses += 1
+        self.billed_chars += len(clean)
+        await self._write(self._key(clean, language, voice), clip)
 
     async def synthesize(
         self, text: str, language: Language, *, voice: VoiceProfile | None = None

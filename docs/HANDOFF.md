@@ -107,6 +107,7 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - Sarvam docs are readable with `curl https://docs.sarvam.ai/<path>.md` from the sandbox (WebFetch cannot resolve it).
 
 ## 7. Current state and next steps (update every task)
+- DONE 2026-10-10: founder picked "voice 4" = Ritu, temperature 0.9 (pace 0.9, no extra pauses). `Settings.sarvam_tts_temperature` (FRIDAY_SARVAM_TTS_TEMPERATURE, 0.01-1.0, default 0.9) is sent in REST and streaming requests and is part of the TTS cache key (old cached audio is not replayed).
 - DONE 2026-10-10: streaming TTS in the call path. `SarvamTTS.synthesize_stream` (`/text-to-speech/stream`, WAV parsed incrementally), `SarvamCallLeg` streams uncached sentences to Vobiz as chunks arrive, fills the TTS cache after a complete line, falls back to REST on failure, barge-in cancels the request. Switch: `FRIDAY_SARVAM_TTS_STREAMING` (default true). Measured with `deploy/tts_stream_probe.py`: REST 2.1-3.3 s, stream first audio 0.4-0.5 s (total 1.8-2.0 s). Details: `docs/LATENCY.md`. Untested on a live call: run the founder test call and read the `tts stream first-audio` log lines.
 - DONE and pushed: front door (conversational), quality loop, playbook engine + salon v0.2, script author
   (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls, HANDOFF.md +

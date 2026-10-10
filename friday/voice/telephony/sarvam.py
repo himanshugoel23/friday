@@ -140,6 +140,7 @@ from friday.core.events import EventBus
 from friday.core.interfaces import AudioClassifier, ProviderError, STTProvider, TTSProvider
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
+    AudioClip,
     DialStatus,
     Language,
     OutboundCallRequest,
@@ -147,7 +148,15 @@ from friday.core.models import (
     new_id,
 )
 from friday.voice._http import VendorHTTP
-from friday.voice.audio import dtmf_pcm16, pcm16_to_ulaw, resample_pcm16, rms, ulaw_to_pcm16
+from friday.voice.audio import (
+    clip_to_pcm16,
+    dtmf_pcm16,
+    pcm16_to_ulaw,
+    pcm16_to_wav,
+    resample_pcm16,
+    rms,
+    ulaw_to_pcm16,
+)
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
@@ -365,18 +374,26 @@ class SarvamCallLeg(TwilioCallLeg):
         clean = strip_fillers(text)
         return tts._key(clean, language, tts.voice_for(language)) in mem
 
+    def _streaming_on(self) -> bool:
+        can = getattr(self.tel.tts, "can_stream", None)
+        return bool(can and can())
+
     async def speak(self, text: str, language: Language) -> None:
         if self._barged and (self._segmenter._active or not self._utterances.empty()):
             return  # she was interrupted and the caller is still talking: do not talk over them
         self._barged = False
         parts = split_sentences(strip_fillers(text))
-        if len(parts) < 2 or self._is_prerendered(text, language):
+        streaming = self._streaming_on()
+        if self._is_prerendered(text, language) or (len(parts) < 2 and not streaming):
             await super().speak(text, language)
             return
         # Start talking after the FIRST sentence is synthesised, while the rest is still being made.
         self._check_live()
         if self.listen_only or self.bridged or self._send is None:
             raise ProviderError("sarvam", "this leg cannot play audio (bridged / listen-only)")
+        if streaming and parts:
+            await self._speak_streamed(parts, language)
+            return
         t0 = time.perf_counter()
         jobs = [asyncio.ensure_future(self._synth(p, language)) for p in parts]
         self._playing = True
@@ -391,6 +408,101 @@ class SarvamCallLeg(TwilioCallLeg):
         finally:
             for j in jobs:
                 j.cancel()
+            self._end_playback()
+
+    async def _stream_part(
+        self, part: str, language: Language, q: asyncio.Queue[Any]
+    ) -> None:
+        """Producer for one sentence: cached clip, else Sarvam streaming, else REST fallback.
+        Puts PCM pieces on ``q``, then ``None`` (or an exception object). Never raises."""
+        tts = self.tel.tts
+        t0 = time.perf_counter()
+        first_ms: float | None = None
+        got = 0
+        try:
+            voice = tts.voice_for(language)
+            hit = await tts.lookup(part, language, voice=voice)
+            if hit is not None:
+                decoded = clip_to_pcm16(hit)
+                if decoded is None:
+                    raise ProviderError(self.provider, f"cached TTS unsupported ({hit.mime})")
+                q.put_nowait(resample_pcm16(decoded[0], decoded[1], 8000))
+                return
+            clean = strip_fillers(part)
+            self.tts_billed_chars += len(clean)
+            pcm_all = bytearray()
+            resume: str | None = None
+            try:
+                async for pcm in tts.synthesize_stream(part, language, voice=voice):
+                    if first_ms is None:
+                        first_ms = (time.perf_counter() - t0) * 1000
+                    got += len(pcm)
+                    pcm_all += pcm
+                    q.put_nowait(pcm)
+            except ProviderError as e:
+                resume = getattr(e, "resume_text", None)
+                if resume is None:
+                    resume = "" if got else part
+                log.warning(
+                    "tts stream failed (%s) after %d bytes; falling back to REST for %d chars",
+                    e, got, len(resume),
+                )
+            if resume:
+                if not got:  # nothing was streamed: only the REST call is billed
+                    self.tts_billed_chars -= len(clean)
+                q.put_nowait(await self._synth(resume, language))
+                return
+            if resume is None:  # the whole line streamed: next time it is instant
+                clip = AudioClip(data=pcm16_to_wav(bytes(pcm_all), 8000), sample_rate=8000)
+                await tts.remember(part, language, clip, voice=voice)
+                total = (time.perf_counter() - t0) * 1000
+                log.info(
+                    "tts stream first-audio %.0f ms, total %.0f ms, chars %d, cached=False",
+                    first_ms or total, total, len(clean),
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001 - the consumer decides; the call must not die here
+            q.put_nowait(e)
+        finally:
+            q.put_nowait(None)
+
+    async def _speak_streamed(self, parts: list[str], language: Language) -> None:
+        t0 = time.perf_counter()
+        queues: list[asyncio.Queue[Any]] = [asyncio.Queue() for _ in parts]
+        tasks = [
+            asyncio.ensure_future(self._stream_part(p, language, q))
+            for p, q in zip(parts, queues, strict=True)
+        ]
+        self._playing = True
+        sent = 0
+        first = True
+        try:
+            for q in queues:
+                while True:
+                    if self._barged:
+                        return
+                    try:
+                        item = await asyncio.wait_for(q.get(), timeout=0.1)
+                    except TimeoutError:
+                        continue
+                    if item is None:
+                        break
+                    if isinstance(item, Exception):
+                        raise item
+                    if self._barged:
+                        return
+                    if first:
+                        first = False
+                        self.last_tts_ms = (time.perf_counter() - t0) * 1000
+                    ulaw = pcm16_to_ulaw(item)
+                    sent += len(ulaw)
+                    await self._play_audio(ulaw, wait=False)
+            if sent:
+                await self._await_checkpoint(sent)
+        finally:
+            for t in tasks:
+                t.cancel()  # also closes any open Sarvam HTTP stream
             self._end_playback()
 
     async def listen(self, timeout_s: float) -> Transcription | None:
@@ -443,6 +555,10 @@ class SarvamCallLeg(TwilioCallLeg):
             )
         if not wait:  # more of the same reply follows: keep the audio queue full
             return
+        await self._await_checkpoint(len(ulaw))
+
+    async def _await_checkpoint(self, ulaw_len: int) -> None:
+        """Ask Vobiz to tell us when everything queued so far has been played."""
         name = f"cp{new_id()[:10]}"
         ev = asyncio.Event()
         self._marks[name] = ev
@@ -450,7 +566,7 @@ class SarvamCallLeg(TwilioCallLeg):
             json.dumps({"event": "checkpoint", "streamId": self.stream_sid, "name": name})
         )
         try:
-            await asyncio.wait_for(ev.wait(), timeout=len(ulaw) / 8000 + 5)
+            await asyncio.wait_for(ev.wait(), timeout=ulaw_len / 8000 + 5)
         except TimeoutError:
             self._marks.pop(name, None)
         self._check_live()

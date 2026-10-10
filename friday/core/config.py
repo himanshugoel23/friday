@@ -351,6 +351,9 @@ class Settings(BaseSettings):
     )
     sarvam_tts_speaker: str = "anushka"
     sarvam_pronunciation_dict_id: str | None = None  # else var/tts/dict_id.json
+    # FRIDAY_SARVAM_TTS_TEMPERATURE: bulbul:v3 expressiveness, 0.01-1.0 (founder pick: 0.9)
+    sarvam_tts_temperature: float | None = Field(default=0.9, ge=0.01, le=1.0)
+    sarvam_tts_streaming: bool = True  # FRIDAY_SARVAM_TTS_STREAMING: stream uncached call lines
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")
     )
