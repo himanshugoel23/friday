@@ -45,7 +45,7 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
      unki booking ke regarding call kiya hai."
   3. Price FIRST: "Toh sir, ek baar bata sakte hain inke kya charges rahenge?" (no duration question, no
      read-back, no advance/cancellation question unless the salon raises it, no negotiation unless the owner says).
-  4. BOOK mode: "Kya <date/time> ka slot mil sakta hai?" If no: "Achha, nahi ho sakta. Toh kya kal ka slot
+  4. BOOK mode: "Sir, kya <date/time> ka slot available hoga aapke paas?" If no: "Achha, nahi ho sakta. Toh kya kal ka slot
      available rahega?" then close: "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir aane
      se pehle aapko ek baar call kar lenge. Thank you." (If today is free: "...aaj shaam 5 baje ka slot book kar
      lijiye...").
@@ -209,3 +209,8 @@ small-server installer (`dffb809`...), Codespaces devcontainer + `deploy/codespa
 "Read CLAUDE.md and docs/HANDOFF.md fully, then run `git fetch` and `git log HEAD..origin/claude/friday-phase-1`. Tell me in 10
 lines where we are, what is running, what is open, and which question you need me to answer. Do not change anything yet. Then follow
 the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no real calls except to my number with my approval)."
+- 2026-10-10 founder edit to the v6 script (chat B): the slot question is now **"Sir, kya <date/time> ka slot available hoga aapke
+  paas?"** (was "Kya <date/time> ka slot mil sakta hai?"). Spec updated in section 3 step 4 only. The bot's code (v0.2 `s2_ask`:
+  "Kya {date_window} ka appointment mil sakta hai?") is NOT changed: hear-before-change applies and v6 is not in the repo; when v6 is
+  built, use this wording and send the audio first.
+
