@@ -268,6 +268,11 @@ class SarvamCallLeg(TwilioCallLeg):
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
         self._loud_run = 0
         self._spec: asyncio.Future[Any] | None = None  # early speech-to-text
+        # reply-gap stamps (perf_counter): utterance closed -> heard -> speak() -> first audio
+        self._t_seg: float | None = None
+        self._t_heard: float | None = None
+        self._t_speak: float | None = None
+        self._speak_cached = False
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -304,6 +309,7 @@ class SarvamCallLeg(TwilioCallLeg):
             for seg in self._segmenter.feed_pcm16(frame):
                 if self._playing and not self._barged:
                     continue  # her own voice coming back (echo / speakerphone): not the caller
+                self._t_seg = time.perf_counter()
                 self._segments.put_nowait(seg)
 
     EARLY_STT_SILENCE_MS = 340  # start transcribing this long into a pause, before it is final
@@ -369,6 +375,8 @@ class SarvamCallLeg(TwilioCallLeg):
         if self._barged and (self._segmenter._active or not self._utterances.empty()):
             return  # she was interrupted and the caller is still talking: do not talk over them
         self._barged = False
+        self._t_speak = time.perf_counter()
+        self._speak_cached = self._is_prerendered(text, language)
         parts = split_sentences(strip_fillers(text))
         if len(parts) < 2 or self._is_prerendered(text, language):
             await super().speak(text, language)
@@ -395,8 +403,27 @@ class SarvamCallLeg(TwilioCallLeg):
 
     async def listen(self, timeout_s: float) -> Transcription | None:
         t = await super().listen(timeout_s)
+        self._t_heard = time.perf_counter()
         self._barged = False
         return t
+
+    def _log_reply_gap(self) -> None:
+        """One INFO line per turn: where the pause after the caller stopped went. The caller
+        hears ``end_silence_ms`` (we wait out the pause) PLUS the gap below."""
+        seg, heard, speak, now = self._t_seg, self._t_heard, self._t_speak, time.perf_counter()
+        self._t_seg = self._t_heard = self._t_speak = None
+        if seg is None or speak is None or heard is None:
+            return
+        log.info(
+            "reply gap %.0f ms after the %d ms end-of-speech wait "
+            "(stt %.0f, decide %.0f, tts-first-audio %.0f; whole line cached=%s)",
+            (now - seg) * 1000,
+            int(self._segmenter.end_silence_ms),
+            max(0.0, heard - seg) * 1000,
+            max(0.0, speak - heard) * 1000,
+            max(0.0, now - speak) * 1000,
+            self._speak_cached,
+        )
 
     def set_hold_mode(self, on: bool) -> None:
         super().set_hold_mode(on)
@@ -427,6 +454,8 @@ class SarvamCallLeg(TwilioCallLeg):
 
     async def _play_audio(self, ulaw: bytes, wait: bool = True) -> None:
         assert self._send is not None
+        if self._t_seg is not None:
+            self._log_reply_gap()  # first audio of this reply
         for i in range(0, len(ulaw), FRAME_BYTES * 10):
             await self._send(
                 json.dumps(

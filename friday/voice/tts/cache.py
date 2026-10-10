@@ -116,14 +116,23 @@ class CachedTTS:
         clip, _ = await self.synthesize_cached(text, language, voice=voice)
         return clip
 
+    PRERENDER_PARALLEL = 3  # vendor calls at once while warming (the list is in call order)
+
     async def prerender(self, texts: list[str], language: Language) -> int:
-        """Warm the cache; returns how many lines needed a vendor call."""
+        """Warm the cache; returns how many lines needed a vendor call. Lines are started in
+        the given order (the caller puts the start of the conversation first), a few at a time,
+        so the ring time warms the lines she will need first instead of one line per second."""
         before = self.misses
-        for t in texts:
-            try:
-                await self.synthesize_cached(t, language)
-            except Exception as e:  # noqa: BLE001 - warming is best effort
-                log.warning("tts prerender failed: %r", e)
+        gate = asyncio.Semaphore(self.PRERENDER_PARALLEL)
+
+        async def one(t: str) -> None:
+            async with gate:
+                try:
+                    await self.synthesize_cached(t, language)
+                except Exception as e:  # noqa: BLE001 - warming is best effort
+                    log.warning("tts prerender failed: %r", e)
+
+        await asyncio.gather(*(one(t) for t in texts))
         return self.misses - before
 
     def _store(self, key: str, clip: AudioClip) -> None:

@@ -137,4 +137,13 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   after the salon says "yes"; the business says "hello, hello, hello". **Target: reply starts within 1 second.**
   (2) The latest finalized salon script (HANDOFF section 3, "salon v6") is NOT what the bot says: the server runs v0.2.
   Founder wants both fixed. Investigating latency (STT end-of-speech wait, understanding LLM call, TTS) and the script gap.
+- 2026-10-10 latency work (chat B), pushed: the pause after "yes" was investigated in code (no server logs yet). Findings and fixes:
+  (a) TTS warm-up while ringing was strictly one line at a time and the list was in file order, so the lines needed right after
+  "haan ji" were far down the list (position 21+ of 39): now warmed in CALL ORDER (disclosure, then steps breadth-first) and 3 at a time
+  (`static_utterances`, `TTSCache.prerender`). (b) A bare price answer ("300", "teen sau", "200 se 300") was not understood by the
+  rule engine and went to the LLM (2-5 s): now understood at the price step without a model (`price_details(bare_ok=...)`). "yes"/"haan ji"
+  never used the LLM. (c) New per-turn log line in the Vobiz leg: `reply gap X ms after the 900 ms end-of-speech wait (stt, decide,
+  tts-first-audio; whole line cached=...)`. The 900 ms end-of-speech wait is a floor on top of that. NOT yet verified on a real call.
+  To verify: after a test call run `journalctl -u friday --since "10 min ago" --no-pager | grep "reply gap"` and send the lines.
+  Full suite: 1758 passed. No spoken wording was changed in this step.
 

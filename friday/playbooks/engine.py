@@ -847,6 +847,59 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
             if isinstance(x, str) or not x.when
         ]
 
+    def asks_of(step_id: str) -> None:
+        """The question(s) a step opens with: with every conditional line, and without them."""
+        step = pb.steps.get(step_id)
+        if step is None:
+            return
+        allv = [render(x if isinstance(x, str) else x.line) for x in step.ask]
+        if allv and all(allv):
+            add(" ".join(a for a in allv if a))  # e.g. the intro AND the first question, one go
+        base = [render(i) for i in ids(step.ask)]
+        if base and all(base):
+            add(" ".join(a for a in base if a))
+
+    def action_texts(a: Action) -> None:
+        said = [render(i) for i in ids(a.say)]
+        if not said or not all(said):
+            return
+        base = " ".join(s for s in said if s)
+        add(base)
+        if a.goto and not a.goto.startswith("@") and a.goto in pb.steps:
+            step = pb.steps[a.goto]
+            allv = [render(x if isinstance(x, str) else x.line) for x in step.ask]
+            if allv and all(allv):
+                add(base + " " + " ".join(a2 for a2 in allv if a2))
+            asks = [render(i) for i in ids(step.ask)]
+            if asks and all(asks):
+                add(base + " " + " ".join(a2 for a2 in asks if a2))
+
+    # 1) the conversation in the order it happens: the disclosure, then each step breadth-first
+    #    from the start (the first answers come at once, so these must be warm first)
+    add(render(pb.disclosure))
+    order: list[str] = []
+    todo = [pb.start]
+    while todo:
+        sid = todo.pop(0)
+        if sid in order or sid not in pb.steps:
+            continue
+        order.append(sid)
+        step = pb.steps[sid]
+        acts = [x for a in step.branches.values() for x in pb.actions(a)]
+        for a in acts:
+            if a.goto:
+                targets = [a.goto]
+                if a.goto.startswith("@"):
+                    targets = [r.goto for r in pb.routes.get(a.goto[1:], []) if r.goto]
+                todo.extend(t for t in targets if not t.startswith("@"))
+    for sid in order:
+        asks_of(sid)
+        for a in (x for br in pb.steps[sid].branches.values() for x in pb.actions(br)):
+            action_texts(a)
+    # 2) the shared answers (are you a bot, who is this, repeat, hold ...)
+    for a in (x for d in pb.defaults.values() for x in pb.actions(d)):
+        action_texts(a)
+    # 3) everything else, so nothing the old list covered is lost
     for lid in pb.lines:
         if not pb.line_def(lid).commit:
             add(render(lid))
@@ -855,15 +908,7 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
         if asks and all(asks):
             add(" ".join(a for a in asks if a))
     for _where, _intent, a in pb.all_actions():
-        said = [render(i) for i in ids(a.say)]
-        if not said or not all(said):
-            continue
-        base = " ".join(s for s in said if s)
-        add(base)
-        if a.goto and not a.goto.startswith("@") and a.goto in pb.steps:
-            asks = [render(i) for i in ids(pb.steps[a.goto].ask)]
-            if asks and all(asks):
-                add(base + " " + " ".join(a2 for a2 in asks if a2))
+        action_texts(a)
     return texts[:160]
 
 

@@ -412,8 +412,12 @@ def price_and_duration(text: str) -> tuple[list[int], int | None]:
     return prices, duration
 
 
-def price_details(text: str) -> tuple[list[int], int | None, list[int]]:
-    """Like ``price_and_duration`` plus the position of each price in the normalised text."""
+def price_details(
+    text: str, *, bare_ok: bool = False
+) -> tuple[list[int], int | None, list[int]]:
+    """Like ``price_and_duration`` plus the position of each price in the normalised text.
+    ``bare_ok``: right after Friday asked the price, a bare number >= 50 ("300", "teen sau") is
+    the price even without a rupee word."""
     t = normalise(text)
     nums = words_to_numbers(t)
     time_spans: list[tuple[int, int]] = []
@@ -443,7 +447,7 @@ def price_details(text: str) -> tuple[list[int], int | None, list[int]]:
         before = t[max(0, s - 8) : s]
         after = t[e : e + 10]
         tied = re.search(rf"{_RUPEE_WORDS}\s*$", before) or re.match(rf"\s*{_RUPEE_WORDS}", after)
-        if tied or (cue and val >= 50):
+        if tied or ((cue or bare_ok) and val >= 50):
             p = clean_price(val)
             if p is not None:
                 prices.append(p)

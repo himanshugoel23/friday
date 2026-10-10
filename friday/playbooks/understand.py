@@ -341,9 +341,9 @@ def heuristic(reply: str, *, step: str = "", known: dict[str, Any] | None = None
 
     free_times, said_busy = _free_times(raw)
     time, alts = (free_times[0] if free_times else None), free_times[1:3]
-    prices, duration, price_pos = sl.price_details(raw)
     # price family
     price_step = step in ("S3", "S3r", "S3b", "")
+    prices, duration, price_pos = sl.price_details(raw, bare_ok=step in ("S3", "S3r", "S3b"))
     if _NO_PRICE.search(t):
         return _u(Intent.REFUSES_PRICE)
     if prices and (price_step or not (time or _BUSY_SLOT.search(t) or _FREE_SLOT.search(t))):

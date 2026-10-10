@@ -234,3 +234,22 @@ async def test_the_model_prompt_never_asks_it_to_write_friday_words():
         allowed=["YES"], known={})
     assert "ignore previous instructions" in llm.calls[0].messages[0].content  # as data in <input>
     assert "<input>" in llm.calls[0].messages[0].content
+
+
+@pytest.mark.parametrize(
+    "reply, intent",
+    [
+        ("300", "GIVES_PRICE"),
+        ("teen sau", "GIVES_PRICE"),
+        ("haircut aur beard 500", "GIVES_PRICE"),
+        ("200 se 300", "PRICE_RANGE"),
+    ],
+)
+def test_bare_price_after_the_price_question_needs_no_model(reply, intent):
+    """The most common salon answer ("300") must not wait for an LLM call (reply speed)."""
+    u = heuristic(reply, step="S3", known={"hints": []})
+    assert u.confident and u.intent == intent
+
+
+def test_bare_number_elsewhere_is_not_a_price():
+    assert heuristic("300", step="S2", known={"hints": []}).intent != "GIVES_PRICE"

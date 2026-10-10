@@ -52,3 +52,22 @@ async def test_a_missing_prerender_hook_is_caught_by_the_dry_run(monkeypatch):
     persona = next(p for p in pf.personas if p.id == "friendly_free_slot")
     r = await dryrun.run_persona(pb, pf, persona)
     assert r.static_misses > 0 and not r.checks["fixed_lines_prerendered"]
+
+
+def test_warm_list_is_in_call_order():
+    """While the phone rings the cache warms in order, so the start of the conversation (the first
+    question after "haan ji") must come early, not after every goodbye line (reply speed)."""
+    from friday.playbooks.engine import static_utterances
+    from friday.playbooks.model import get_playbook
+
+    pb = get_playbook("salon_booking")
+    inputs = {
+        "user_first_name": "Himanshu", "honorific": "sir", "business_name": "Shreya salon",
+        "service": "haircut", "date_window": "aaj shaam 5 baje", "budget": "600",
+    }
+    texts = static_utterances(pb, inputs)
+    assert texts[0].startswith("Hello, main Friday")
+    ask = "Kya aaj shaam 5 baje ka appointment mil sakta hai?"
+    assert any(ask in t for t in texts[:16])
+    price = "Sir, haircut ka estimated charge kitna hoga?"
+    assert any(price in t for t in texts[:20])
