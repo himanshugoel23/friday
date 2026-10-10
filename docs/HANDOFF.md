@@ -258,3 +258,7 @@ the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no 
   Decision: **keys are NOT stored in git** (standing rule 3; repo may go public). Added section 7b: a names-only registry of what exists and
   where it lives. The pasted helper key was not used (the service/endpoint is unknown to the repo) and is treated as exposed.
 
+- 2026-10-10 founder ask (chat C): "Create a new repository on my GitHub called `amazon`" for a thorough research of Amazon's e-commerce
+  business, to start our own e-commerce store. The new repo is the **source of truth** for that work (it will span multiple chats). This is
+  a separate project from Friday; Friday's rules (no secrets, English replies, update the handoff first) carry over. The new repo gets its own
+  `CLAUDE.md` and `docs/HANDOFF.md` so any new chat can continue. Created as a private repo (default; founder can change).
