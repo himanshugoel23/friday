@@ -56,9 +56,17 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   Sarvam's transliteration API, cached, with an overrides file and a generic-business-word glossary; a
   speak-then-listen check flags names needing review. Sarvam's pronunciation dictionary (bulbul:v3, `dict_id`) is
   wired in (`friday tts-dict sync`, `friday/voice/tts/pronunciations.json`).
-- **Voice/speed**: Sarvam bulbul:v3 speaker `ritu`, **pace 0.9** (founder is happy with the speed). Founder said
-  the tone still feels robotic: samples of other voices (v4-flash Hinglish customer voices Ishita/Shalini/Simran,
-  higher temperature, phrase pauses) were sent; **the founder has not yet chosen a voice**.
+- **Voice/speed (DECIDED 2026-10-10)**: Sarvam bulbul:v3 speaker `ritu`, pace 0.9. The founder compared v4-flash
+  Hinglish voices (Ishita, Shalini, Simran): they pause at random places; Ritu pauses sensibly in conversation, so
+  **Ritu stays**. Speed is fine. Ideas still open for the "robotic" feel: phrase-level pauses, temperature.
+- **Latency facts (measured 2026-10-10, real credits)**: Sarvam TTS REST for a ~150-char two-sentence line takes
+  3.7-5.7 s; the streaming endpoint (`POST /text-to-speech/stream`, `output_audio_codec: wav`, 8 kHz) gives first
+  audio in about 1.1 s. v4-flash is no faster than v3. Do NOT trust latency numbers taken while the API returns 402
+  (errors return fast). Streaming TTS in the call path is proposed; founder has not said "go" yet. STT in use:
+  Sarvam saaras:v4 REST per utterance (streaming STT not used).
+- **Cost of a 1-minute call (Sarvam list prices)**: TTS Rs 3 per 1,000 chars (about Rs 1.4-1.8 per salon call),
+  STT Rs 30/hour (about Rs 0.5/min), Vobiz about Rs 0.38/min, GPT near zero for scripted calls: about Rs 2.5-3 per
+  minute. Sarvam credits ran out once during sampling (402): keep the account topped up.
 - Scale plan: one playbook per business type (8 types drafted offline: clinic, restaurant, car service, home
   services, hotel, gym, dentist, pharmacy); `friday playbook draft/promote`; dry-run simulation before any real
   call; quality loop stores consented, redacted, encrypted transcripts for later review and fine-tuning.
@@ -108,7 +116,5 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   then commit and push. Do not commit its files from the main thread.
 - v6 spec = section 3 above (founder decisions) + `friday playbook preview` (renders the real script to audio),
   `friday tts-check` (speak-then-listen name QA), `--fallback-when`, `--mode quote-only|book`.
-- NEXT after v6 lands: (1) send the founder the preview audio from the real code (hear-before-change); (2) founder
-  picks the voice (tone still sounds robotic; samples sent: v4-flash Ishita/Shalini/Simran, temperature, phrase
-  pauses); (3) update server and run the test call to the founder's phone (`call-me.sh`); (4) first real salon only
+- NEXT after v6 lands: (1) send the founder the preview audio from the real code (hear-before-change); (2) voice is decided (Ritu); (3) update server and run the test call to the founder's phone (`call-me.sh`); (4) first real salon only
   with explicit approval; (5) clinic/restaurant playbooks via `friday playbook draft --live`; (6) WhatsApp channel.
