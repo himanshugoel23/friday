@@ -173,6 +173,18 @@ rotate every key ever pasted in chat; decide whether the GitHub repo becomes pri
 preview of the real script -> founder picks voice -> server update + test call to the founder -> first real salon only with explicit
 approval -> clinic/restaurant playbooks (`friday playbook draft --live`) -> WhatsApp channel -> beta plan (see section 9).
 
+## 7b. Keys and where they live (NAMES ONLY: never write a value, a prefix or a screenshot of a key into the repo or chat)
+Secrets are never committed (the repo may become public; `.env` and `var/` are git-ignored). Where each one lives:
+| Name | Used for | Lives in |
+|---|---|---|
+| `SARVAM_API_KEY` | speech (STT/TTS), preview audio | droplet `/opt/friday/.env`; sandbox: Claude environment settings (needed for audio previews) |
+| `OPENAI_API_KEY` | the brain (gpt-5.4-mini) | droplet `.env`; sandbox: Claude environment settings if live brain tests are wanted |
+| `SARVAM_TELEPHONY_AUTH_ID`, `SARVAM_TELEPHONY_AUTH_TOKEN`, `SARVAM_CALLER_IDS` / `FRIDAY_NUMBERS` | Vobiz telephony (historical names) | droplet `.env` only |
+| "helper" key (service and env var name to be confirmed by the founder; pasted in chat 2026-10-10 for sandbox messaging) | sandbox helper messaging | Claude environment settings once its name is known; treat the pasted value as exposed and rotate it |
+Rules: add/rotate secrets in the droplet `.env` (typed hidden) or in the Claude environment settings (Edit environment -> variable by NAME);
+a new session picks them up. If a key is pasted in chat it is considered exposed: rotate it after testing. This table is the reference a
+new chat should use to know WHAT exists and WHERE; it contains no values.
+
 ## 8. History: who did what (newest last). Chat A = the main builder chat; chat B = the second chat (planning/hardening)
 **Chat A (summary from git; see `git log` for detail):** conversational front door (`0a6a037`), quality loop (`2461d47`), playbook engine +
 salon booking (`275c2bd`, `23d1882`, `3fe3029`, `5c78491`, `a3d7cb0`), `deploy/call-me.sh`, Sarvam pronunciation dictionary (`3d75f2b`),
@@ -242,4 +254,7 @@ the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no 
   settings (by name, never in chat) and starts a new session; then run `uv run python deploy/preview_script.py` and send the files with
   SendUserFile. Alternative: run the same command on the droplet (it has the key) and download the WAVs. Preview text is a draft; edit
   the .txt and re-run until approved, then build v6 with the approved wording.
+- 2026-10-10 founder ask (chat B): test a "helper" key pasted in chat and "store the keys in GitHub so the other chat has them".
+  Decision: **keys are NOT stored in git** (standing rule 3; repo may go public). Added section 7b: a names-only registry of what exists and
+  where it lives. The pasted helper key was not used (the service/endpoint is unknown to the repo) and is treated as exposed.
 
