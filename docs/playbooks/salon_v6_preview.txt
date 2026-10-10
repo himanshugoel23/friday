@@ -1,0 +1,15 @@
+# Preview lines for the v6 salon script (HANDOFF.md section 3). Format: id | text
+# Example inputs: user Himanshu, salon "Shreya saloon" (spelled saloon: that is how it is spoken), services "haircut aur beard trim",
+# slot "aaj shaam 5 baje". Edit a line here, re-run deploy/preview_script.py, listen again. Nothing here is used by the bot yet.
+01_opening          | Hello, kya meri baat Shreya saloon se ho rahi hai?
+02_intro            | Main Friday baat kar rahi hoon, Himanshu sir ki virtual assistant. Himanshu sir ko haircut aur beard trim karwana hai, toh unki booking ke regarding call kiya hai.
+03_price            | Toh sir, ek baar bata sakte hain inke kya charges rahenge?
+04_slot_question    | Sir, kya aaj shaam 5 baje ka slot available hoga aapke paas?
+05_close_slot_free  | Theek hai sir, aaj shaam 5 baje ka slot book kar lijiye. Himanshu sir ya main aapko ek baar 5 baje se pehle call kar lenge, booking confirm karne ke liye. Thank you.
+06a_not_free_shaam  | Achha, aaj nahi ho sakta. Toh sir, nearest kaun sa slot available hoga shaam ka?
+06b_not_free_din    | Achha, aaj nahi ho sakta. Toh sir, nearest kaun sa slot available hoga din ka?
+06c_not_free_subah  | Achha, aaj nahi ho sakta. Toh sir, nearest kaun sa slot available hoga subah ka?
+07_close_other_slot | Theek hai sir, main ek baar Himanshu sir se confirm karke aapko call back karti hoon. Thank you.
+08_close_other_days | Theek hai, main ek baar Himanshu sir se confirm karke aapko call back karti hoon final booking ke liye. Thank you.
+09_close_quote_only | Theek hai sir, main Himanshu sir ko bata deti hoon. Thank you.
+10_if_asked_are_you_ai | Haan ji, main Himanshu sir ki personal AI assistant hoon.

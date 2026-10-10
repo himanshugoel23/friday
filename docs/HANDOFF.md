@@ -235,4 +235,11 @@ the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no 
   when v6 is built: store `offered_slots` even when the salon names other days; outcome = SLOT_OFFERED (pending approval) with the
   call-back task created; the engine needs a `part_of_day` value derived from the requested time (today `slots.find_period` exists).
   Spec only; the bot's code is unchanged (hear-before-change).
+- 2026-10-10 founder ask (chat B): "Give audio preview first" (of the v6 script lines). **Blocked: no `SARVAM_API_KEY` in the sandbox
+  environment** (Sarvam is reachable; the key is not set; no `.env`). Prepared: `docs/playbooks/salon_v6_preview.txt` (the 12 lines with example
+  inputs, "saloon" spelled as spoken) and `deploy/preview_script.py` (renders them with the same voice code as `friday say`, pace 0.9, to
+  `var/preview/salon_v6/*.wav` plus `all.wav`; `--dry-run` lists lines). To unblock: founder adds `SARVAM_API_KEY` in the Claude environment
+  settings (by name, never in chat) and starts a new session; then run `uv run python deploy/preview_script.py` and send the files with
+  SendUserFile. Alternative: run the same command on the droplet (it has the key) and download the WAVs. Preview text is a draft; edit
+  the .txt and re-run until approved, then build v6 with the approved wording.
 
