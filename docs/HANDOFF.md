@@ -127,3 +127,10 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   places, vendor history, encrypted call transcripts, call_memory; front-door call conversations are NOT saved beyond
   name/language/consent and tasks created; consented redacted transcripts now go to the quality loop), and that
   fine-tuning now is premature (no data; playbooks + quality loop are the chosen route, fine-tune later from reviewed data).
+- 2026-10-10 founder ask (chat B): "ignore what chat B built earlier; treat chat A's work as the instruction and continue
+  it." Action: reverted chat B's tone commit `305b40a` (revert `ca1a714`) so no unapproved spoken-line changes ship to the
+  server; chat A's wording stands. Founder then asked to place a Friday call to their own number: done via
+  `deploy/call-me.sh` on the droplet (the sandbox has no keys and cannot SSH). The "salon v6" items listed in section 7 are
+  NOT in the repo (no `playbook preview`, no `tts-check`, no quote-only mode): confirm with the founder whether chat A
+  still has them before rebuilding.
+
