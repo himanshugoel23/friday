@@ -4,7 +4,7 @@ Founder instruction (verbatim intent): keep everything we discuss and decide in 
 read it and continue without losing context. **At the START of every task, update this file first** (what was just
 asked, any decision, any mistake or lesson), commit and push it, **then** do the task. Never put secrets in it.
 
-Last updated: 2026-10-10 (two chats have worked on this repo; read section 6 first).
+Last updated: 2026-10-10 (two chats, A and B, have worked on this repo; read sections 6-9 before touching anything).
 
 ---
 
@@ -90,60 +90,120 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   **call queue OFF**; rotate all keys that were pasted in chat; decide whether the GitHub repo becomes private;
   check Sarvam/Vobiz terms on AI disclosure; domain/WhatsApp Business/legal pages for beta.
 
-## 6. Lessons and mistakes (so we do not repeat them)
-- Do not guess call problems: ask for `journalctl -u friday --since "10 min ago" --no-pager | tail -40`.
+## 6. Lessons, mistakes and sandbox facts (so we do not repeat them)
+**Workflow lessons**
+- **Two chats, one repo = duplicated work.** Before ANY task: `git fetch`, read `git log HEAD..origin/claude/friday-phase-1` and this
+  file. (2026-10-09 chat B redid a "less helpdesk / witty call-back" tone pass, `305b40a`, that chat A had already done in
+  `4eff9d2` + `d5e778c`; the founder asked not to repeat similar changes; chat B's commit was reverted in `ca1a714`.) Check git log
+  for the topic before starting a tone/copy/prompt pass.
+- Do not guess call problems: ask for `journalctl -u friday --since "10 min ago" --no-pager | tail -40` (and `| grep "reply gap"`).
+- Keep agents on disjoint files; do not commit another agent's half-finished work; run the FULL suite (`uv run pytest -q`) before push.
+- Never put stage directions in text that will be spoken (it gets spoken). Never put secrets in chat or git.
 - Third-party apt repos can break (Caddy repo returned 402): use Ubuntu's own package.
 - `reasoning_effort: minimal` is rejected by gpt-5.4-mini; valid: none/low/medium/high.
-- When making audio samples, never put stage directions in the spoken text (it gets spoken).
-- Keep agents on disjoint files; do not commit another agent's half-finished work; run the FULL suite before push.
 - Sarvam docs are readable with `curl https://docs.sarvam.ai/<path>.md` from the sandbox (WebFetch cannot resolve it).
+- A `pkill -f "pytest -q"` inside a command containing that text kills its own shell; start test runs with `run_in_background`.
 
-- **Two chats, one repo = duplicated work.** Before starting ANY task: `git fetch`, read `git log HEAD..origin/<branch>`
-  and this file. On 2026-10-09 a second chat redid a "less helpdesk / witty proactive call-back" tone pass
-  (`305b40a`) that the main chat had already done (`4eff9d2` front-door lines, `d5e778c` persona cadence). Do not
-  repeat tone/copy passes; check git log for the topic first. (Founder asked 2026-10-10: read where we are, then change;
-  no repeated similar changes.) Also: that tone pass touched spoken lines BEFORE the "hear before change" rule (2026-10-10);
-  from now on, audio sample first.
-- **AWS is a dead end for this founder.** Both AWS accounts given were managed sandbox accounts inside AWS
-  Organizations with an SCP that denies Lightsail (`lightsail:CreateKeyPair ... explicit deny in a service control
-  policy`). Do not retry AWS; hosting is the DigitalOcean droplet (section 5). `docs/DEPLOY_AWS.md`, `deploy/aws/*`,
-  `docs/BETA_PLAN.md` (D12/D13) and `docs/TRIAL_CODESPACES.md` are older planning docs written before the droplet
-  existed; this file is the source of truth where they differ.
-- Founder has no laptop (iPad/phone browser only): give copy-paste steps for the browser console; never ask for
-  secrets in chat (use `.env` on the server / environment settings).
+**The founder has no laptop (iPad/phone browser only):** give copy-paste steps for the DigitalOcean Web Console; never ask for secrets
+in chat; keys go in the server `.env` (typed hidden) or the Claude environment settings, never in chat or git.
 
-## 7. Current state and next steps (update every task)
-- DONE and pushed: front door (conversational), quality loop, playbook engine + salon v0.2, script author
-  (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls.
-- IN PROGRESS (a builder agent, uncommitted until its tests pass): salon v6 = Devanagari names pipeline,
-  services variable, book vs quote-only modes, fallback day, AI-on-request policy, `friday tts-check`,
-  `friday playbook preview` (renders the real script to audio for the founder to hear before any call).
-- NEXT: send the founder the preview audio from the real code; founder picks the voice (robotic tone issue);
-  server update + test call to the founder's phone (`call-me.sh`); then first real salon only with explicit
-  approval; then clinic/restaurant playbooks via `friday playbook draft --live`; WhatsApp channel; beta plan.
-- 2026-10-10 founder ask (chat B): "read the latest changes made in the other chat first, understand where we are
-  and what I asked, then change; do not repeat similar changes." Done: read this file and the 15 new commits; no code
-  changed in that step. Answered earlier in chat B (no code): what user/call context is stored (profile, facts, people,
-  places, vendor history, encrypted call transcripts, call_memory; front-door call conversations are NOT saved beyond
-  name/language/consent and tasks created; consented redacted transcripts now go to the quality loop), and that
-  fine-tuning now is premature (no data; playbooks + quality loop are the chosen route, fine-tune later from reviewed data).
-- 2026-10-10 founder ask (chat B): "ignore what chat B built earlier; treat chat A's work as the instruction and continue
-  it." Action: reverted chat B's tone commit `305b40a` (revert `ca1a714`) so no unapproved spoken-line changes ship to the
-  server; chat A's wording stands. Founder then asked to place a Friday call to their own number: done via
-  `deploy/call-me.sh` on the droplet (the sandbox has no keys and cannot SSH). The "salon v6" items listed in section 7 are
-  NOT in the repo (no `playbook preview`, no `tts-check`, no quote-only mode): confirm with the founder whether chat A
-  still has them before rebuilding.
-- 2026-10-10 founder test call result (chat B session, after `call-me.sh`): (1) the bot pauses 5+ seconds before replying
-  after the salon says "yes"; the business says "hello, hello, hello". **Target: reply starts within 1 second.**
-  (2) The latest finalized salon script (HANDOFF section 3, "salon v6") is NOT what the bot says: the server runs v0.2.
-  Founder wants both fixed. Investigating latency (STT end-of-speech wait, understanding LLM call, TTS) and the script gap.
-- 2026-10-10 latency work (chat B), pushed: the pause after "yes" was investigated in code (no server logs yet). Findings and fixes:
-  (a) TTS warm-up while ringing was strictly one line at a time and the list was in file order, so the lines needed right after
-  "haan ji" were far down the list (position 21+ of 39): now warmed in CALL ORDER (disclosure, then steps breadth-first) and 3 at a time
-  (`static_utterances`, `TTSCache.prerender`). (b) A bare price answer ("300", "teen sau", "200 se 300") was not understood by the
-  rule engine and went to the LLM (2-5 s): now understood at the price step without a model (`price_details(bare_ok=...)`). "yes"/"haan ji"
-  never used the LLM. (c) New per-turn log line in the Vobiz leg: `reply gap X ms after the 900 ms end-of-speech wait (stt, decide,
-  tts-first-audio; whole line cached=...)`. The 900 ms end-of-speech wait is a floor on top of that. NOT yet verified on a real call.
-  To verify: after a test call run `journalctl -u friday --since "10 min ago" --no-pager | grep "reply gap"` and send the lines.
-  Full suite: 1758 passed. No spoken wording was changed in this step.
+**AWS is a dead end for this founder.** Both AWS accounts offered (066899195555, 405449670622) were managed sandbox accounts inside
+AWS Organizations with an SCP that explicitly denies Lightsail. Do not retry AWS. Hosting = the DigitalOcean droplet (section 5).
 
+**What the AI sandbox can and cannot do** (it is a temporary cloud container): it can edit/run/test code, `uv run pytest`, build the
+Docker image (`deploy/build_sandbox.sh`, because `ghcr.io` is blocked and Docker Hub rate-limits), run Postgres 16 / Redis locally for
+tests, and read Sarvam docs. It cannot SSH to the droplet (outbound port 22 blocked), has NO provider keys (no Vobiz/Sarvam/OpenAI,
+no `.env`), so it cannot place calls or generate audio unless the founder adds `SARVAM_API_KEY` etc. to the environment settings
+(by name; never in chat). The founder runs server commands in the DigitalOcean Web Console (`tmux new -As friday`).
+
+## 7. Current state (update every task)
+**Running now (as last reported by the founder, 2026-10-10):** DigitalOcean Bangalore droplet (64.227.183.183, HTTPS via sslip.io),
+systemd service `friday` running `friday listen` (front door: people can call +91 80 6426 7861), pilot profile (only the allow-listed
+founder number is served/called), brain = OpenAI gpt-5.4-mini, Sarvam STT/TTS (bulbul:v3, ritu, pace 0.9), Vobiz telephony. The server
+runs whatever was last `git pull`ed (`call-me.sh` pulls first).
+
+**Done and pushed:** front door (conversational, voice onboarding, limits, result call-backs); quality loop (consented redacted encrypted
+transcripts, review labels, scripted-caller eval); playbook engine + salon booking v0.2 + offline script author (8 business types
+drafted) + dry-run simulator; Sarvam pronunciation dictionary; faster turns (early STT, sentence-by-sentence TTS, barge-in);
+small-server installer; Codespaces trial path; Docker image + compose stack verified in the sandbox (image builds/boots, Alembic
+migrations to head `0003_task_role` on Postgres 16, Postgres/Redis contract tests 52/52; the compose stack itself and the repo
+Dockerfile (needs ghcr.io) were never run live). Full suite: **1758 passed, 28 skipped** (Postgres/Redis variants), ruff clean.
+
+**Reported by the founder on the test call (2026-10-10), being fixed:**
+1. Pause of 5+ seconds after the salon says "yes"; the salon says "hello, hello, hello". Target: reply starts within **1 second**.
+   Status: code-side fixes pushed in `a435f2a` (warm TTS in call order and 3 at a time; bare price answers need no LLM; new
+   `reply gap` log line). **Unverified on a real call.** The 900 ms end-of-speech wait (`SarvamCallLeg._segmenter.end_silence_ms`) is a
+   floor; if the log shows warm audio and no LLM yet the gap is >1 s, shorten it for short answers (idea: close the utterance at ~500 ms
+   when the early-STT guess is a short confirmation like "haan ji"). Do this only after reading the `reply gap` lines.
+2. The latest finalized salon script (section 3, "salon v6") is NOT what the bot says; the repo has v0.2 (see the table below).
+   **Not in the repo:** Devanagari-names pipeline, `friday tts-check`, `friday playbook preview`, quote-only mode, services variable,
+   price-first order, fallback day, AI-on-request policy. Chat A reported a builder working on these (uncommitted). **Ask the founder
+   whether chat A still has them before rebuilding** (avoid the duplication in section 6).
+
+| | repo today (v0.2) | founder's final (section 3) |
+|---|---|---|
+| opening | "Hello, main Friday, ek AI assistant... Kya meri baat X se ho rahi hai?" | "Hello, kya meri baat X se ho rahi hai?" |
+| intro | "...ki AI assistant hoon... appointment ke regarding" | "Main Friday... <user> sir ki virtual assistant... <services>... booking ke regarding" |
+| order | slot question, then price | price first, then slot (book mode) |
+| modes | one | book mode and quote-only mode |
+| no slot | asks one alternative time | "Achha, nahi ho sakta. Toh kya kal ka slot available rahega?" then the close |
+| close | one short line | "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir aane se pehle aapko ek baar call kar lenge. Thank you." |
+| AI mention | said first | not volunteered; "Haan ji, main <user> sir ki personal AI assistant hoon." when asked |
+Note: the playbook validator currently rejects Devanagari in lines and tests enforce "AI disclosure first"; v6 changes both on purpose
+(founder decision 2026-10-10), so those tests/validators must be updated together with the script.
+
+**Open questions for the founder:** (a) is chat A still building v6? (b) add `SARVAM_API_KEY` to the Claude environment settings so the
+sandbox can make preview audio (hear-before-change rule)? (c) which voice (robotic tone issue; samples sent, none chosen)? (d) check
+Sarvam/Vobiz terms on not volunteering "AI". (e) turn Vobiz call queue OFF; keep Sarvam credits topped up (a 402 crashed a call);
+rotate every key ever pasted in chat; decide whether the GitHub repo becomes private.
+
+**Next steps, in order:** read `reply gap` lines from a new test call -> tune endpointing if needed -> settle v6 ownership (a) -> audio
+preview of the real script -> founder picks voice -> server update + test call to the founder -> first real salon only with explicit
+approval -> clinic/restaurant playbooks (`friday playbook draft --live`) -> WhatsApp channel -> beta plan (see section 9).
+
+## 8. History: who did what (newest last). Chat A = the main builder chat; chat B = the second chat (planning/hardening)
+**Chat A (summary from git; see `git log` for detail):** conversational front door (`0a6a037`), quality loop (`2461d47`), playbook engine +
+salon booking (`275c2bd`, `23d1882`, `3fe3029`, `5c78491`, `a3d7cb0`), `deploy/call-me.sh`, Sarvam pronunciation dictionary (`3d75f2b`),
+offline script author (`054f34a`), Vobiz leg: barge-in, sentence-by-sentence TTS, early STT, persona cadence, shorter front-door lines,
+small-server installer (`dffb809`...), Codespaces devcontainer + `deploy/codespace_call.sh`, GPT as an alternative brain, live-tuned.
+**Chat B (this repo, 2026-10-08 to 10-10):**
+- Reviewed the whole repo/docs; wrote the 3-day beta plan (`docs/BETA_PLAN.md`, decisions D1-D16): calls + WhatsApp, SMS off; scope =
+  bookings/enquiries; hotels, care/IVR calls, transfer, recordings stay off until Vobiz TODOs are confirmed; calls-only product is not
+  feasible (PIN/approvals cannot be taken by voice: Vobiz has no DTMF inside a media stream).
+- Built and verified in the sandbox: Docker image, Alembic migrations on Postgres 16, Postgres/Redis contract tests, full suite; fixed
+  2 lint errors and a stale config test; `deploy/build_sandbox.sh`, AWS/CloudShell provisioning scripts (unused: AWS blocked),
+  provider-neutral `lightsail-launch.sh`, `backup.sh` S3-compatible endpoint.
+- Decided: LLM for the beta = Anthropic (Haiku 5.5 background, Sonnet 5.5 live turns) on cost grounds, but the trial/pilot runs on
+  OpenAI because that is the key the founder has; re-decide for the beta from measured cost/quality.
+- Answered (no code): what is stored. User context = profile, facts, people, places, vendor history, identifiers (encrypted), autonomy
+  limits, recent chat turns, open tasks (rebuilt into a snapshot before each brain call). Calls = call rows + encrypted per-turn
+  transcripts, call_memory (which number called which business), quotes; recordings off in beta (30-day retention if on); pre-consent
+  users purged after 7 days; "delete everything" erases a user's rows. Front-door voice conversations are NOT stored beyond name/
+  language/consent and tasks created (plus the consented, redacted quality-loop transcripts). Gap proposed, not built: a short summary
+  of each front-door call as memory.
+- Answered (no code): fine-tuning now is premature (no real-call data; Anthropic models in use are not fine-tunable; playbooks +
+  quality loop are the chosen route; fine-tune later from reviewed transcripts).
+- Redid a "less helpdesk / witty call-back" tone pass (duplicate of chat A, reverted).
+- Placed the first test call path (`call-me.sh`), received the founder's feedback, fixed the latency causes found in code (section 7).
+
+## 9. Decision register (condensed from `docs/BETA_PLAN.md`; this file wins where they differ)
+| Topic | Decision | Status |
+|---|---|---|
+| Channels | voice + WhatsApp; SMS off (no DLT/MSG91) | WhatsApp not built into the pilot; Meta templates/verification are the long pole |
+| Hosting | DigitalOcean Bangalore droplet, pilot profile (SQLite, `friday listen`, no Docker) | live; Docker + Postgres + Redis compose stack is the later beta route, never run live |
+| Brain | OpenAI gpt-5.4-mini now; Anthropic recommended for beta on cost | re-decide after real-call cost/quality |
+| Scope of beta | bookings and enquiries; no hotels, care/IVR, transfer, recordings | until Vobiz TODOs are confirmed (`docs/LAUNCH_CHECKLIST.md` s.2) |
+| Approval rule | never book without explicit owner delegation; budget alone is not delegation | enforced in code |
+| Beta gates | privacy/terms/Grievance Officer pages, vendor ZDR/DPA, verified official care numbers, key rotation, spend limits | open (`docs/PRODUCTION_CHECKLIST.md`) |
+| Fine-tuning | later, from reviewed consented transcripts | not started |
+
+## 10. Document map: current vs stale
+**Current:** this file; `CLAUDE.md`; `BRIEF.md`; `PLAYBOOKS.md` + `playbooks/salon_booking.md`; `QUALITY_LOOP.md`; `FRONT_DOOR.md`;
+`LATENCY.md` (why replies pause, how to measure, levers); `SECURITY.md`/`SECURITY_FIXES.md`; `PRODUCTION_CHECKLIST.md` (beta go/no-go); `ARCHITECTURE.md`.
+**Older planning docs (written before the droplet existed; trust section 5 of this file instead where they differ):** `BETA_PLAN.md`,
+`DEPLOY_AWS.md`, `TRIAL_CODESPACES.md`, `LAUNCH_CHECKLIST.md`, `LIVE_TEST_WINDOWS.md`, `deploy/aws/*`, `deploy/lightsail-launch.sh`.
+
+## 11. How to start a new chat (paste this as the first message)
+"Read CLAUDE.md and docs/HANDOFF.md fully, then run `git fetch` and `git log HEAD..origin/claude/friday-phase-1`. Tell me in 10
+lines where we are, what is running, what is open, and which question you need me to answer. Do not change anything yet. Then follow
+the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no real calls except to my number with my approval)."
