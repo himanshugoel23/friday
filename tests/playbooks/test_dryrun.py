@@ -1,5 +1,7 @@
 """Dry runs: the real call runner + engine against simulated salons, scored, baselined."""
 
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 import json
@@ -21,13 +23,21 @@ from friday.playbooks.dryrun import (
 from friday.playbooks.model import get_playbook
 
 REQUESTED = {
-    "friendly_free_slot", "busy_call_later", "puts_on_hold", "asks_who", "asks_robot",
-    "pure_hindi", "price_over_budget_negotiates", "salon_raises_advance",
-    "no_slot_two_alternatives", "noisy_then_clear", "rude_hangs_up", "asks_customer_phone",
-    "wrong_number",
-    # v0.2 (founder feedback): the delegated / not delegated closes and the busy-time paths
-    "books_directly", "price_over_ceiling", "requested_time_busy_offers_other",
-    "no_delegation_free",
+    # price check (quote_only) and the usual salon behaviours
+    "quote_friendly", "quote_busy_call_later", "quote_puts_on_hold", "quote_hold_too_long",
+    "quote_asks_who_after_intro", "quote_pure_hindi", "quote_noisy_then_clear", "quote_rude_hangs_up",
+    "quote_dnc_request", "quote_asks_customer_phone", "quote_wrong_number_later", "quote_asks_otp",
+    "quote_one_service", "quote_two_services", "quote_three_services", "quote_ampersand_name",
+    "quote_book_mode_without_delegation", "quote_price_depends", "quote_salon_raises_advance",
+    # AI on request, in several phrasings and at several steps
+    "ai_robot_at_identity", "ai_ho_at_identity", "ai_insaan_at_price", "ai_real_person_english",
+    "ai_bot_english", "ai_computer_recorded", "ai_asked_twice", "ai_asked_at_slot_step",
+    "ai_asked_at_fallback_step", "ai_asked_then_hangs_up",
+    # book mode: the delegated close, the fallback day accepted / refused, nothing free
+    "book_free_today", "book_busy_fallback_accepted", "book_busy_fallback_refused",
+    "book_busy_fallback_nothing", "book_busy_no_fallback_other_time", "book_price_over_ceiling",
+    "book_advance_with_slot", "book_yes_without_time", "book_stylist_pref",
+    "says_yes_then_hangs_up_during_intro", "silent_after_identity",
 }
 
 
@@ -55,46 +65,53 @@ def test_all_personas_reach_their_expected_outcome_with_no_safety_violation(repo
 
 
 def test_scoring_fields_are_filled(report):
-    friendly = next(r for r in report.runs if r.persona == "friendly_free_slot")
-    assert friendly.outcome == "SLOT_OFFERED" and friendly.call_outcome == "pending_approval"
-    assert friendly.steps == ["S0", "S2", "S3", "S7"]  # intro+availability, price, one-line close
-    assert friendly.turns == 4 and 20 < friendly.seconds < 120
+    friendly = next(r for r in report.runs if r.persona == "quote_friendly")
+    assert friendly.outcome == "QUOTE_COLLECTED" and friendly.call_outcome == "partial"
+    assert friendly.steps == ["S0", "S3", "S7q"]  # who+why+price, then the one-line close
+    assert friendly.turns == 3 and 15 < friendly.seconds < 120
     assert friendly.llm_calls == 0 and friendly.repeats == 0 and friendly.safety == []
-    hold = next(r for r in report.runs if r.persona == "puts_on_hold")
+    hold = next(r for r in report.runs if r.persona == "quote_puts_on_hold")
     assert hold.repeats >= 1 and hold.seconds > friendly.seconds  # waited, then asked again
-    over = next(r for r in report.runs if r.persona == "price_over_budget_negotiates")
+    over = next(r for r in report.runs if r.persona == "book_over_budget_negotiates")
     assert "S3b" in over.steps
-    quiet = next(r for r in report.runs if r.persona == "price_over_budget_no_negotiation")
-    assert "S3b" not in quiet.steps  # no discount ask without the owner's instruction
-    rude = next(r for r in report.runs if r.persona == "rude_hangs_up")
+    quiet = next(r for r in report.runs if r.persona == "quote_over_budget_never_haggles")
+    assert "S3b" not in quiet.steps  # a price check never asks for a discount
+    rude = next(r for r in report.runs if r.persona == "quote_rude_hangs_up")
     assert rude.outcome == "REFUSED" and rude.turns <= 3
-    wrong = next(r for r in report.runs if r.persona == "wrong_number")
+    wrong = next(r for r in report.runs if r.persona == "quote_wrong_number_later")
     assert wrong.outcome == "WRONG_NUMBER"
+    fb = next(r for r in report.runs if r.persona == "book_busy_fallback_accepted")
+    assert fb.steps == ["S0", "S3", "S2", "S2f", "S7"] and fb.outcome == "BOOKED"
 
 
 def test_special_outcomes(report):
     by = {r.persona: r for r in report.runs}
-    assert by["delegated_booking"].outcome == "BOOKED"
-    assert by["books_directly"].outcome == "BOOKED"
-    assert by["price_over_ceiling"].outcome == "SLOT_OFFERED"
-    assert by["salon_raises_advance"].outcome == "SLOT_OFFERED"  # even with a delegation
-    assert by["no_delegation_free"].outcome == "SLOT_OFFERED"
-    assert by["requested_time_busy_no_delegation"].outcome == "SLOT_OFFERED"
-    assert by["hold_too_long"].call_outcome == "hold_timeout"
-    assert by["never_clear"].outcome == "UNCLEAR"
-    assert by["dnc_request"].outcome == "REFUSED"
+    assert by["book_free_today"].outcome == "BOOKED" and by["book_free_today"].call_outcome == "success"
+    assert by["book_busy_fallback_accepted"].outcome == "BOOKED"
+    assert by["book_busy_fallback_refused"].outcome == "SLOT_OFFERED"  # never books another time
+    assert by["book_price_over_ceiling"].outcome == "SLOT_OFFERED"
+    assert by["book_advance_with_slot"].outcome == "SLOT_OFFERED"  # even with a delegation
+    assert by["quote_book_mode_without_delegation"].outcome == "QUOTE_COLLECTED"
+    assert by["quote_hold_too_long"].call_outcome == "hold_timeout"
+    assert by["quote_never_clear"].outcome == "UNCLEAR"
+    assert by["quote_dnc_request"].outcome == "REFUSED"
+    assert not any(r.outcome == "BOOKED" for p, r in by.items() if p.startswith("quote_"))
 
 
 def test_hinglish_only_in_every_simulated_call(report):
+    names = ["लुक्स", "श्रेया", "हिमांशु", "रवि", "सन्स"]  # names are read in Devanagari on purpose
     for r in report.runs:
         for speaker, text in r.transcript:
             if speaker == Speaker.FRIDAY.value:
-                assert not re.search(r"[ऀ-ॿ]", text), (r.persona, text)
+                bare = text
+                for n in names:
+                    bare = bare.replace(n, "")
+                assert not re.search(r"[ऀ-ॿ]", bare), (r.persona, text)
 
 
 def test_every_friday_utterance_is_made_only_of_playbook_lines(report):
     pb = get_playbook("salon_booking")
-    m = LineMatcher(pb, dryrun._runner_lines())
+    m = LineMatcher(pb, dryrun._runner_lines(pb))
     for r in report.runs:
         for speaker, text in r.transcript:
             if speaker == Speaker.FRIDAY.value:
@@ -113,7 +130,7 @@ def test_table_lists_every_scenario_and_the_columns(report):
 
 async def test_scenarios_filter():
     rep = await run_dryrun("salon_booking", only=["hold", "rude"])
-    assert {r.persona for r in rep.runs} == {"puts_on_hold", "hold_too_long", "rude_hangs_up"}
+    assert {r.persona for r in rep.runs} == {"quote_puts_on_hold", "quote_hold_too_long", "quote_rude_hangs_up"}
 
 
 # ------------------------------------------------------------------ baseline
@@ -144,13 +161,13 @@ def test_shipped_baseline_matches_the_current_behaviour(report):
 # ------------------------------------------------------------------ CLI
 def test_cli_dry_run_ok_and_baseline_flow(tmp_path, capsys):
     b = tmp_path / "base.json"
-    assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly",
+    assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "quote_friendly",
                         "--baseline", str(b), "--update-baseline"]) == 0
     assert b.exists()
-    assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly",
-                        "--baseline", str(b), "--show", "friendly"]) == 0
+    assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "quote_friendly",
+                        "--baseline", str(b), "--show", "quote_friendly"]) == 0
     out = capsys.readouterr().out
-    assert "friendly_free_slot" in out and "Transcript" in out and "ek AI assistant" in out
+    assert "quote_friendly" in out and "Transcript" in out and "virtual assistant" in out
 
 
 def test_cli_exit_code_is_nonzero_on_a_safety_violation(monkeypatch, capsys):
@@ -162,28 +179,28 @@ def test_cli_exit_code_is_nonzero_on_a_safety_violation(monkeypatch, capsys):
         return real(self, c, text + " Apna OTP bata dijiye.")
 
     monkeypatch.setattr(PlaybookPolicy, "_say", leaky)
-    rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly"])
+    rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "quote_friendly"])
     out = capsys.readouterr().out
     assert rc == 2 and "SAFETY VIOLATION" in out and "OTP" in out
 
 
 def test_cli_exit_code_is_nonzero_when_a_check_regresses(monkeypatch, tmp_path, capsys):
     b = tmp_path / "base.json"
-    assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly",
+    assert friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "quote_friendly",
                         "--baseline", str(b), "--update-baseline"]) == 0
     data = json.loads(b.read_text())
-    data["scenarios"]["friendly_free_slot"]["checks"]["no_unhandled_intent"] = True
+    data["scenarios"]["quote_friendly"]["checks"]["no_unhandled_intent"] = True
     b.write_text(json.dumps(data))
     from friday.playbooks.engine import PlaybookPolicy
 
     real = PlaybookPolicy._apply
 
     def worse(self, c, u, reply):
-        c.st.unhandled.append("S2:TEST")
+        c.st.unhandled.append("S3:TEST")
         return real(self, c, u, reply)
 
     monkeypatch.setattr(PlaybookPolicy, "_apply", worse)
-    rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly",
+    rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "quote_friendly",
                       "--baseline", str(b)])
     assert rc == 1 and "REGRESSION" in capsys.readouterr().out
 
@@ -194,7 +211,7 @@ def test_cli_list_and_validate(tmp_path, capsys, raw):
     assert friday_main(["playbook", "validate", "salon_booking"]) == 0
     assert "OK" in capsys.readouterr().out
     bad = tmp_path / "bad.yaml"
-    raw["lines"]["s1_ask"] = "Apna OTP batao"
+    raw["lines"]["s4_ask"] = "Apna OTP batao"
     import yaml
 
     bad.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
@@ -217,11 +234,15 @@ async def test_through_the_fake_llm_brain_gives_the_same_outcomes(report):
 async def test_a_persona_can_be_run_alone():
     pb = get_playbook("salon_booking")
     pf = load_personas("salon_booking")
-    persona = next(p for p in pf.personas if p.id == "asks_robot")
+    persona = next(p for p in pf.personas if p.id == "ai_insaan_at_price")
     brief = build_brief(pb, pf, persona)
-    assert brief.playbook == "salon_booking" and "AI" in brief.disclosure()
+    assert brief.playbook == "salon_booking"
+    assert brief.disclosure().startswith("Hello, kya meri baat")
+    assert brief.ai_disclosure == "on_request" and brief.redisclosure_text
+    assert brief.playbook_inputs["playbook_mode"] == "quote_only"
     r = await run_persona(pb, pf, persona)
-    assert r.outcome == "SLOT_OFFERED" and "ARE_YOU_BOT" in " ".join(r.transcript[0]) or True
+    assert r.outcome == "QUOTE_COLLECTED"
+    assert any("personal AI assistant" in t for k, t in r.transcript if k == "friday")
 
 
 def test_checks_constant_lists_the_scored_checks():
@@ -229,14 +250,14 @@ def test_checks_constant_lists_the_scored_checks():
 
 
 def test_cli_paths_and_saved_redacted_transcripts(tmp_path, capsys):
-    rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "friendly,asks_otp",
+    rc = friday_main(["playbook", "dry-run", "salon_booking", "--scenarios", "quote_friendly,quote_asks_otp",
                       "--paths", "--save-transcripts", str(tmp_path)])
     out = capsys.readouterr().out
-    assert rc in (0, 1) and "S0 > S2 > S3 > S7" in out
+    assert rc in (0, 1) and "S0 > S3 > S7q" in out
     data = json.loads((tmp_path / "salon_booking-dryrun.json").read_text(encoding="utf-8"))
     assert data["simulated"] is True and {r["persona"] for r in data["runs"]} == {
-        "friendly_free_slot", "asks_otp"}
-    otp = next(r for r in data["runs"] if r["persona"] == "asks_otp")
+        "quote_friendly", "quote_asks_otp"}
+    otp = next(r for r in data["runs"] if r["persona"] == "quote_asks_otp")
     assert any(
         t["speaker"] == "friday" and t["text"].startswith("Hello") for t in otp["transcript"]
     )

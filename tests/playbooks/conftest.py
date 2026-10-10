@@ -3,6 +3,7 @@ playbook policy (no telephony), exactly the way the call runner would."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -48,19 +49,32 @@ def raw() -> dict[str, Any]:
 
 
 def make_brief(pb: Playbook | None = None, **kw: Any) -> CallBrief:
+    """A salon brief. ``book=True``: the owner delegated (up to Rs 800) and asked for a booking
+    of one specific time ("aaj shaam 5 baje"); the default is a price check (no delegation)."""
+    from friday.playbooks.engine import resolve_inputs
+
     pb = pb or get_playbook("salon_booking")
+    book = kw.pop("book", False)
     inputs = {
-        "user_first_name": "Rahul", "service": "haircut", "date_window": "kal shaam",
+        "user_first_name": "Rahul", "service": "haircut", "services": "haircut",
+        "date_window": "aaj shaam 5 baje" if book else "kal shaam",
+        **({"playbook_mode": "book"} if book else {}),
         **kw.pop("inputs", {}),
     }
     if kw.pop("budget_input", True) and "budget" not in inputs and kw.get("budget") is None:
         inputs["budget"] = "600"
-    import re
+    if book and "delegation" not in kw:
+        from datetime import UTC
 
-    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | inputs
-    disclosure = re.sub(
-        r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), pb.text("disclosure")
-    )
+        from friday.playbooks import slots as sl
+        from friday.playbooks.select import book_now_delegation
+
+        if sl.requested_time(inputs.get("date_window")):  # exactly that time (+ the fallback)
+            kw["delegation"], _fb = book_now_delegation(
+                inputs["date_window"], inputs.get("fallback_when"), 800, START.replace(tzinfo=UTC)
+            )
+        else:
+            kw["delegation"] = Delegation(granted=True, scope=["slot", "price"], max_price_inr=800)
     data: dict[str, Any] = dict(
         task_id="t-" + kw.pop("tid", "1"),
         requester_user_id="u1",
@@ -70,14 +84,25 @@ def make_brief(pb: Playbook | None = None, **kw: Any) -> CallBrief:
         on_behalf_of="Rahul",
         playbook=pb.id,
         playbook_inputs=inputs,
-        disclosure_text=disclosure,
+        ai_disclosure=pb.ai_disclosure,
         max_duration_s=180,
         negotiation=NegotiationPolicy(enabled=kw.pop("negotiation", False)),
     )
     if inputs.get("budget"):
         data["budget"] = Budget(max_inr=int(inputs["budget"]))
     data.update(kw)
-    return CallBrief(**data)
+    probe = CallBrief(**data)
+    resolved = resolve_inputs(pb, probe)
+
+    def fill(t: str) -> str:
+        return re.sub(r"\{([a-z_]+)\}", lambda m: resolved.get(m.group(1), ""), t)
+
+    upd = {}
+    if "disclosure_text" not in kw:
+        upd["disclosure_text"] = fill(pb.text("disclosure"))
+    if pb.reintro and "redisclosure_text" not in kw:
+        upd["redisclosure_text"] = fill(pb.text(pb.reintro))
+    return probe.model_copy(update=upd)
 
 
 @dataclass

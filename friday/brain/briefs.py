@@ -385,6 +385,9 @@ def build_call_brief(
                 constraints=constraints,
                 budget_max_inr=spec.budget.max_inr if spec.budget else None,
                 enabled=getattr(settings, "playbooks_enabled", True),
+                business_name=target.name,
+                delegation_granted=bool(_delegation(task).granted),
+                name_speller=_name_speller(settings),
             )
         )
     if inbound is None:
@@ -402,6 +405,13 @@ def build_call_brief(
         inbound = inbound.model_copy(update={"matched_task_id": task.id})
     direction = CallDirection.OUTBOUND if inbound.kind == "missed_call" else CallDirection.INBOUND
     return InboundCallBrief(direction=direction, inbound=inbound, **kwargs)
+
+
+def _name_speller(settings: Settings | None) -> object | None:
+    """How the voice reads names, worked out once when the call brief is built (never mid-call)."""
+    from friday.voice.names import speller_from_settings
+
+    return speller_from_settings(settings) if settings is not None else None
 
 
 def related_from_task(

@@ -114,6 +114,35 @@ _DISCLOSURE = {
 }
 
 
+# A playbook that declares ``ai_disclosure: after_identity`` may OPEN with a pure identity question
+# ("Hello, kya meri baat X se ho rahi hai?") and say it is an AI in its first reply to the answer.
+# The opening may carry NOTHING about the task. This is the one reviewed form of an AI-less opening.
+_TASK_WORDS = re.compile(
+    r"(?<![\w])(appointment|appointments|booking|book|slot|price|prices|rate|rates|charge|"
+    r"charges|kitna|kitne|rupaye|rupees|rs|inr|haircut|facial|service|services|karwana|"
+    r"available|availability|free|time|order|reservation|table|room)(?![\w])|[\u20b9\d]",
+    re.I,
+)
+
+
+_HUMAN_CLAIM_RX = re.compile(
+    r"\b(i am|i'm) (a )?(real )?(human|person|real person)\b|main (ek )?(insaan|aadmi|ladki) hoon|"
+    r"\b(human|insaan|real person)\b",
+    re.I,
+)
+
+
+def is_pure_identity_question(text: str, user_name: str | None = None) -> bool:
+    """True for a single question that only asks who we reached: ends with '?', no digits, and no
+    service / price / booking / appointment words, nor the user's name."""
+    t = (text or "").strip()
+    if not t.endswith("?") or t.count("?") != 1:
+        return False
+    if _TASK_WORDS.search(t):
+        return False
+    return not (user_name and re.search(rf"(?<![\w]){re.escape(user_name)}(?![\w])", t, re.I))
+
+
 def disclosure_line(on_behalf_of: str | None, language: Language = DEFAULT_CALL_LANGUAGE) -> str:
     """Mandatory AI disclosure. Falls back to Hinglish for languages without a template."""
     tpl = _DISCLOSURE.get(language, _DISCLOSURE[Language.HINGLISH])
@@ -1252,6 +1281,10 @@ class Delegation(_Model):
     max_price_inr: int | None = None
     conditions: list[str] = Field(default_factory=list)  # "female doctor only"
     user_words: str | None = None  # the user's literal instruction (audit)
+    # Optional NARROWING of the window: when set, a slot must ALSO fall inside one of these
+    # (start, end) pairs. Used for "today 5pm OR tomorrow 5pm": the envelope window_start/end
+    # spans both, slot_windows keeps every other time in between out. Never widens anything.
+    slot_windows: list[tuple[datetime, datetime]] = Field(default_factory=list)
 
     def allows_price(self, amount_inr: int | None) -> bool:
         return self.granted and (
@@ -1262,8 +1295,12 @@ class Delegation(_Model):
     def allows_time(self, when: datetime | None) -> bool:
         if not self.granted:
             return False
+        if self.slot_windows and (when is None or not any(a <= when <= b for a, b in self.slot_windows)):  # noqa: E501
+            return False
         if when is None or (self.window_start is None and self.window_end is None):
-            return self.window_start is None and self.window_end is None
+            return self.window_start is None and self.window_end is None and (
+                not self.slot_windows or when is not None
+            )
         start_ok = self.window_start is None or when >= self.window_start
         end_ok = self.window_end is None or when <= self.window_end
         return start_ok and end_ok
@@ -1612,11 +1649,42 @@ class CallBrief(_Model):
     playbook: str | None = None
     playbook_inputs: dict[str, str] = Field(default_factory=dict)
     disclosure_text: str | None = None
+    # "first" (default): the opening line itself says Friday is an AI. "after_identity": the
+    # playbook opens with a pure identity question and discloses in its first reply to the answer
+    # (enforced by the playbook validator and the dry-run safety check).
+    # "on_request" (founder decision, salon playbook): Friday does NOT volunteer that she is an AI
+    # (she says "virtual assistant"); the playbook validator and the dry run guarantee that any
+    # question about it ("AI ho?", "robot hai?", "insaan ho?") is answered truthfully in her very
+    # next reply. The opening is the same pure identity question as after_identity; a repeat
+    # (after a hold) is the playbook's short "virtual assistant" re-intro, never a human claim.
+    ai_disclosure: Literal["first", "after_identity", "on_request"] = "first"
+    redisclosure_text: str | None = None  # on_request only: the short re-intro after a hold
 
-    def disclosure(self, language: Language | None = None) -> str:
-        # a playbook's own wording (Hinglish only, no switching) - but only if it still says "AI"
-        if self.disclosure_text and "AI" in self.disclosure_text:
-            return self.disclosure_text
+    def disclosure(self, language: Language | None = None, *, repeat: bool = False) -> str:
+        """The line the runner speaks when it first reaches a human (and again, ``repeat=True``,
+        after a hold / a new agent). A playbook's own wording (Hinglish only) is used only if it
+        says "AI" - or, for an ``after_identity`` playbook, if it is a pure identity question
+        (first time only: every repeat is the standard AI disclosure)."""
+        t = self.disclosure_text
+        if t and "AI" in t:
+            return t
+        if (
+            t
+            and not repeat
+            and self.playbook
+            and self.ai_disclosure in ("after_identity", "on_request")
+            and is_pure_identity_question(t, self.on_behalf_of)
+        ):
+            return t
+        r = self.redisclosure_text
+        if (
+            r
+            and repeat
+            and self.playbook
+            and self.ai_disclosure == "on_request"
+            and not _HUMAN_CLAIM_RX.search(r)
+        ):
+            return r
         return disclosure_line(self.on_behalf_of, language or self.opening_language)
 
     def can_commit(self, answers: list[UserAnswer]) -> bool:

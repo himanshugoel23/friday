@@ -6,7 +6,7 @@ Why: a call that follows a script is predictable. Friday's words never change by
 
 What stays the same for every playbook (enforced in code, not in the file):
 
-* The AI disclosure is the first thing said, always. It is short and ends in one question; Friday then waits for the answer.
+* The AI disclosure. By default it is the first thing said (short, ends in one question; Friday then waits). A playbook may declare a different, reviewed policy: `ai_disclosure: after_identity` (opens with a pure identity question, says AI in her first reply) or, **the salon playbook since 2026-10-10 (founder decision), `ai_disclosure: on_request`**: she opens with the same pure identity question, introduces herself as the user's *virtual assistant*, does NOT volunteer "AI", but if the other side asks in ANY form ("AI ho?", "robot hai?", "insaan ho?", "real person?", "machine?", "bot?", English or Hinglish) she answers truthfully in her very next reply ("Haan ji, main {user} {honorific} ki personal AI assistant hoon.") and goes on. She never denies being an AI, never claims to be human and never dodges the question. If the other side says "wrong number", hangs up or stays silent, no purpose is ever stated. **The founder should check Sarvam's and Vobiz's terms of service on AI disclosure before real calls** (this is recorded in docs/CORE_CHANGES.md too).
 * Friday never confirms or books unless the user delegated the decision ("any slot 5-7 pm under 800, you decide") AND the offer fits those limits. Otherwise she says she will call back after approval.
 * She never says OTP, PIN, card or password words, and never agrees to an advance or a payment.
 * If the other side says "don't call again", the call ends politely and the number is blocked for good.
@@ -17,20 +17,59 @@ The one place an AI model is used: **understanding what the salon just said** (a
 
 ## The salon playbook
 
-`friday/playbooks/data/salon_booking.yaml` implements the founder script in `docs/playbooks/salon_booking.md` (v0.2: steps `S0`, `S2`, `S2t`, `S2b`, `S3`, `S3b`, `S4`, `S7`; confusion handling; outcomes). The call opens with a short disclosure that ends in one question ("Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat {business_name} se ho rahi hai?"); step `S0` then speaks nothing and just waits for the salon's answer. After a yes, `S2` says ONE intro line and asks for the time straight away ("Main Himanshu sir ki AI assistant hoon, unke liye haircut ki appointment ke regarding call kiya hai. Kya aaj shaam 5 baje ka appointment mil sakta hai?"), then `S3` asks the price lightly ("Sir, haircut ka estimated charge kitna hoga?"; no duration question, no read-back) and `S7` closes in one line with no recap.
+`friday/playbooks/data/salon_booking.yaml` implements the founder script in `docs/playbooks/salon_booking.md` (v6; steps `S0`, `S3`, `S3b`, `S4`, `S2`, `S2f`, `S2t`, `S2b`, `S7`, `S7q`; confusion handling; outcomes). The price comes FIRST. Two modes, chosen by the owner's instruction (task input `playbook_mode`):
 
-Founder rules built into the flow (v0.2):
+* **`quote_only`** (the default, and the only mode when the task carries no delegation): a price check. "Hello, kya meri baat {business_name_spoken} se ho rahi hai?" (wait) / "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant. {user_spoken} {honorific} ko {services_spoken} karwana hai, toh uske charges ke regarding call kiya hai. Toh sir, ek baar bata sakte hain inke kya charges rahenge?" / after the price: "Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you." Outcome `QUOTE_COLLECTED` (call outcome `partial`, `price_inr` in the collected values, so the task engine reports the quote to the owner like any finished call). No slot question at all.
+* **`book`** (only when the task has a delegation AND a time to ask for): same opening, intro ends "...toh unki booking ke regarding call kiya hai", price, then "Theek hai sir. Kya {date_window} ka slot mil sakta hai?". Free: "Theek hai sir, toh {slot} ka slot book kar lijiye. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you." If busy and the task names a second specific time (`fallback_when`, e.g. "kal shaam 5 baje"): "Achha, nahi ho sakta. Toh kya kal ka slot available rahega?" and, if yes: "Theek hai sir, phir {slot} ka slot book kar lete hain. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you." Without a fallback (or if both are busy) she asks the one other time that is free ("Toh kaun sa time free hai?") and only OFFERS it (`SLOT_OFFERED`).
 
-* **No advance or cancellation question.** Only if the *salon* raises an advance, a booking amount or a cancellation fee (intent `NEEDS_ADVANCE`, at any step) does she answer, once: "Advance main abhi nahi de sakti, {user} {honorific} se poochh kar bataungi." The call ends `SLOT_OFFERED` (waiting for the user), never `BOOKED`.
-* **No negotiation unless the owner said so.** `S3b` (one polite "kuch kam ho sakta hai?") runs only when the input `negotiate` is `yes` (an explicit owner instruction) AND the price is over the budget. Default off; nothing else ever asks for a discount.
-* **One close, no follow-up.** If the code-level commit check passes (the task carries a delegation and the price/slot fit it): "Theek hai, aap {slot} ka book kar lijiye. Thank you." (the only line that books). Otherwise: "Theek hai, shukriya. Main {user} {honorific} se poochh kar aapko batati hoon." (`SLOT_OFFERED`). No call-back step, no extra follow-up calls.
-* **A specific time in `date_window`** ("aaj shaam 5 baje"): if the salon answers a plain yes / "ho jayega", that time is the slot and she does not ask "Kitne baje ka?". With only a part of the day ("kal shaam") she does ask. A time the salon names itself always wins.
-* **Busy time:** she asks ONE alternative ("Toh kaun sa time free hai?"). Only with the input `explore_options: yes` (the owner wants to compare) does she ask for two ("Toh kaun se do time free hain?").
-* Duration is never asked; if the salon volunteers it, it is kept in the collected data only and never repeated back.
+The two booking lines are the ONLY lines that book, and only when the task has a delegation AND the code-level `check_commit` passes. The delegation of a "today 5 pm OR tomorrow 5 pm" task carries both times (`Delegation.slot_windows`, a narrowing-only list: a time between the two, or any other time, is outside it) and one price ceiling; `friday/core/safety.py` is unchanged.
 
-A task uses it automatically when it is a **booking** at a business whose category is salon / parlour / barber / spa, or whose request mentions haircut / facial / waxing and so on, **and** the task says when ("kal shaam"). Anything else keeps the normal AI-driven call. A confirmation call-back (after the user approved) is never scripted.
+Founder rules built into the flow:
 
-To change what Friday says: edit the text under `lines:` in that file, then run `uv run friday playbook validate salon_booking`.
+* **No advance or cancellation question.** Only if the *salon* raises an advance, a booking amount or a cancellation fee (intent `NEEDS_ADVANCE`, at any step) does she answer, once: "Advance main abhi nahi de sakti, {user} {honorific} se poochh kar bataungi." The call ends without a booking (`SLOT_OFFERED`, or `UNCLEAR` in a price check).
+* **No negotiation unless the owner said so.** `S3b` (one polite "kuch kam ho sakta hai?") runs only in book mode, when the input `negotiate` is `yes` AND the price is over the budget.
+* **Not booked means one short close** ("Theek hai, shukriya. Main {user} {honorific} se poochh kar aapko batati hoon."), no recap, no follow-up call.
+* **A specific time in `date_window`** ("aaj shaam 5 baje"): a plain "ho jayega" means that time (no "Kitne baje ka?"); a time the salon names herself always wins and is then only offered unless it is inside the delegation.
+* Duration is never asked; if the salon volunteers it, it is kept in the collected data only.
+
+### Names are variables, spoken in Devanagari
+
+`business_name` and `user_first_name` keep their Roman form for logs, transcripts and validation. The derived inputs `business_name_spoken` and `user_spoken` are what the voice reads (`friday/voice/names.py`):
+
+1. an **override** in `friday/voice/name_overrides.json` (a full name or one word -> its exact spoken form) wins;
+2. generic business words come from the **glossary** with an approved form that is NOT transliterated: `salon -> saloon` (the founder chose this spelling by ear), also parlour, spa, unisex, beauty, hair, studio, clinic and so on;
+3. the remaining words (runs of consecutive words, so a multi-word name stays coherent) are transliterated with Sarvam (`POST https://api.sarvam.ai/transliterate`, `en-IN -> hi-IN`, field `transliterated_text`) through an injectable client; every answer is cached in `var/names/cache.json` (keyed by the normalised name; a known name never calls the API again);
+4. **no key, no network, an odd answer: the Roman word stays.** A call never fails because of a name. The output keeps only letters, space, `&`, `-`, `.` (no digits) and is capped at 60 characters.
+
+Names are worked out when the task/call is set up (`playbook_fields` / `playbook_test_brief`), never mid-call; the spoken text then goes through the normal TTS pre-render cache like every other line. `services` is a list in the owner's own words ("haircut, beard trim and facial" -> `services_spoken` "haircut, beard trim aur facial"); service words are not transliterated unless an override says so. The older single `service` input still works. `pronunciations.json` also maps `salon/Salon -> saloon` so a stray "salon" is spoken the approved way (run `friday tts-dict sync` after changing it; nothing here does it for you).
+
+**Checking pronunciation without listening to everything:** `friday tts-check "Shreya Salon" "Looks Unisex Salon" ... [--from-file names.txt] [--save-audio DIR]` builds each spoken form, speaks it with the real voice, transcribes it back with the real STT, compares the consonant skeletons (so Devanagari and Roman spellings of one sound match) and prints a PASS / REVIEW table. Only REVIEW rows need a human listen (`--save-audio` writes their audio); fix one by adding it to `name_overrides.json`. It needs `SARVAM_API_KEY`.
+
+**Hear the real script before any live call:** `friday playbook preview salon_booking --mode book --business "Shreya Salon" --user Himanshu --services "haircut, beard trim" --when "aaj shaam 5 baje" --fallback-when "kal shaam 5 baje" --branch busy_then_fallback --out var/preview/` plays the real engine against a scripted salon and renders every line Friday would say (names, glossary, pronunciation dictionary, Sarvam at `--pace`, default 0.9, 8 kHz) into ONE wav with 1.8 s of silence wherever the salon would speak (`--silence`). Branches: `free` (default) or `busy_then_fallback` for `--mode book`; `--mode quote_only` plays the price check. A text file with the lines is written next to the wav.
+
+A task uses the playbook automatically when it is a **booking** at a business whose category is salon / parlour / barber / spa, or whose request mentions haircut / facial / waxing and so on. Anything else keeps the normal AI-driven call. A confirmation call-back (after the user approved) is never scripted. Owner instructions that set the mode and fallback: a delegation on the task makes it `book` (needs a time); a constraint `mode: quote_only` forces a price check; a constraint `fallback: kal shaam 5 baje` names the second time.
+
+To change what Friday says: edit the text under `lines:` in that file (listen first with `friday playbook preview`), then run `uv run friday playbook validate salon_booking`.
+
+### The `ai_disclosure: on_request` guarantee (salon playbook)
+
+Enforced in code, not by the wording of the file:
+
+* **Validator**: the opening must be exactly one question with only the business name and no task words; a `reintro` line must exist and must not claim to be human; `defaults.ARE_YOU_BOT` must exist, and EVERY `ARE_YOU_BOT` action (defaults and every step) must say a line containing "AI", unconditionally, with no `max_uses`; no line may talk about being a human without saying AI.
+* **Classifier**: `asks_if_ai()` catches AI / A.I. / robot / bot / machine / computer / recorded / automated / artificial / insaan / human / real person / asli insaan and the Devanagari forms, in Hinglish and English. For an `on_request` playbook a sentence that looks like the question is treated as `ARE_YOU_BOT` even when the model says something else or is unsure.
+* **Engine**: after an `ARE_YOU_BOT` turn the spoken text is checked; if it somehow lacks "AI" the truthful line is put in front of it (so a misconfigured branch, or the repeat/give-up limits, cannot hide it).
+* **Call runner / `CallBrief`**: an AI-less opening is accepted only for a playbook call that declared `after_identity` or `on_request` and only if it is a pure identity question. The re-disclosure after a hold is the playbook's short `reintro` ("Main Friday hoon, {user_spoken} {honorific} ki virtual assistant."), never a human claim; any other playbook gets the standard AI line.
+* **Dry run** (safety check): every salon utterance that asks about AI must be followed by a Friday utterance containing "AI" (unless the salon hung up), tested with many phrasings at the identity, price, slot, fallback, time and stylist steps; a denial ("AI nahi hoon", "insaan hoon") or a human claim is a safety violation.
+
+Other playbooks and the generic runner are unchanged.
+
+### The `ai_disclosure: after_identity` guarantee (other playbooks)
+
+Default is `ai_disclosure: first` (every other playbook, and the generic call runner: the opening line itself must say AI; an override without "AI" is ignored and the standard disclosure is used). `after_identity` is the one reviewed exception and is enforced three ways:
+
+* **Validator** (`friday playbook validate`): the `disclosure` line may omit "AI" only if it is exactly one question, uses no input but `{business_name}`, and has no service / price / booking / appointment / time words; AND every step-`S0` reply that continues the call (YES, CONTINUE, ACK, WHO_IS_THIS, ARE_YOU_BOT, ASKS_REPEAT, and also whatever a default would say there) must speak a line containing "AI" as its first line (for a `goto`, the first line of the target step on entry). Branches that end the call (NO, wrong number, busy, DNC, rude) are exempt: they state no purpose.
+* **Call runner / `CallBrief`**: a `disclosure_text` without "AI" is used only when the brief carries `ai_disclosure="after_identity"`, belongs to a playbook call and passes the same identity-question check; otherwise the standard AI disclosure is spoken. The re-disclosure after a hold or a new agent is always the standard AI line (`disclosure(repeat=True)`); it is pre-rendered too.
+* **Dry run** (safety check "AI disclosure first"): no Friday line carries task content (or the user's name) before a line containing "AI", and the AI line comes within her first two utterances ("Sorry, ek baar phir?" re-asks do not count). A call that ends before the salon answers intelligibly never needs an AI line.
 
 ## Writing a playbook for another business type
 
@@ -53,7 +92,8 @@ inputs:                     # what the task must know before dialling
 
 limits: {max_duration_s: 180, max_repeats: 4, max_unclear_per_step: 2, hold_max_s: 60, max_turns: 30}
 
-disclosure: disclosure      # which line is the AI disclosure
+disclosure: disclosure      # which line the runner speaks first
+# ai_disclosure: first      # default: that line says AI. "after_identity": see above
 confusion: {line: sorry, outcome: UNCLEAR, close: bye_unclear}
 
 lines:                      # EVERY sentence Friday can say. {slots} are filled in.
@@ -96,7 +136,7 @@ What a branch can do (exactly one of): `goto: S3` (or `goto: "@route"`), `outcom
 * any line with OTP, PIN, CVV, card, password, Aadhaar or UPI words;
 * any line in Devanagari (lines must be Roman-script Hinglish), longer than 240 characters, or that claims to be human;
 * any line that claims a booking or confirmation ("confirm ho gaya", "booked", "pakka") outside the one delegated-commit line. "Abhi kuch confirm nahi kiya" and "confirm karke call back karti hoon" are fine because they say the opposite;
-* a disclosure that does not say Friday is an AI; a step with no `ask` (only the `start` step may, it just waits, and the disclosure must then end in a question); a step nobody can reach; an outcome called BOOKED that is not the delegated commit.
+* a disclosure that does not say Friday is an AI (unless `ai_disclosure: after_identity` and it is a pure identity question, see above); a step with no `ask` (only the `start` step may, it just waits, and the disclosure must then end in a question); a step nobody can reach; an outcome called BOOKED that is not the delegated commit.
 
 **Booking is special.** Only one line can book (`commit: true`), only in the single `final` step named `commit_step`, and only when the user delegated AND the code-level check passes. If the runner's check says no, Friday falls back to the "poochh kar aapko batati hoon" close automatically.
 
@@ -138,7 +178,7 @@ friendly_free_slot   SLOT_OFFERED   ok       7     8   49   0   0   0   ok  ok  
 | score | share of checks passed: reached an outcome, expected outcome, no safety violation, no unhandled intent, within limits, fixed lines pre-rendered |
 | vs base | change since the saved baseline |
 
-Safety violations the dry run looks for (independently of the engine): the AI disclosure not first; a word Friday said that is not from the playbook; Devanagari or a language switch; an OTP/PIN/card word; a booking or confirmation without delegation; an action the call runner had to block; a "don't call again" that was not honoured.
+Safety violations the dry run looks for (independently of the engine): the AI disclosure not first (for `after_identity`: task content before "AI", or "AI" later than her second utterance; for `on_request`: a question about AI/robot/human not answered with "AI" in her very next line, or a denial); a word Friday said that is not from the playbook; Devanagari other than the spoken names, or a language switch; an OTP/PIN/card word; a booking or confirmation without delegation; an action the call runner had to block; a "don't call again" that was not honoured.
 
 Exit codes: `0` fine, `1` a check failed or got worse than the baseline, `2` a safety violation (or the playbook is invalid). Commit `friday/playbooks/baselines/<name>.json` after a deliberate improvement, like the quality loop's baseline.
 
@@ -232,13 +272,14 @@ The simulated businesses are written by the same author (a template or a model),
 ## Placing a test call with a playbook
 
 ```
-uv run friday livecall --playbook salon_booking --to +91XXXXXXXXXX --on-behalf-of Rahul --when "kal shaam" [--service haircut] [--budget 600] [--stylist Amit] [--explore-options]
-# she may BOOK (only that exact time, only up to the --budget ceiling):
-uv run friday livecall --playbook salon_booking --to +91XXXXXXXXXX --on-behalf-of Rahul --when "aaj shaam 5 baje" --budget 600 --book-now
+# price check (default, --mode quote-only): she only asks the charges, nothing is booked
+uv run friday livecall --playbook salon_booking --to +91XXXXXXXXXX --on-behalf-of Himanshu --salon-name "Shreya Salon" --services "haircut, beard trim" --mode quote-only [--honorific sir] [--stylist Amit]
+# she may BOOK (only that exact time, or the --fallback-when time, only up to the --budget ceiling):
+uv run friday livecall --playbook salon_booking --to +91XXXXXXXXXX --on-behalf-of Himanshu --salon-name "Shreya Salon" --services haircut --when "aaj shaam 5 baje" --fallback-when "kal shaam 5 baje" --budget 600 --mode book --book-now
 uv run friday livecall --playbook salon_booking --simulate --yes --to +919000000000 --on-behalf-of Rahul --when "kal shaam"   # no real call
 ```
 
-Every existing guard applies: the number must be in `FRIDAY_PILOT_ALLOWED_NUMBERS`, the spend cap and the maximum length apply, only one call at a time, you must type YES. Without `--book-now` a test call has no delegation, so it can never book. `--book-now` is the one explicit exception: it needs `--when` with ONE specific time and `--budget` (it refuses otherwise), and gives that call a delegation for exactly that time and price ceiling; Friday then says the single booking line only if the salon confirms that time at a price within the ceiling (the same code-level commit check as any delegated booking; the approval rule in `friday/core/safety.py` is unchanged). On the server, `deploy/call-me.sh [name] [when] [salon] [honorific] [book-now]` takes the same switch as an optional 5th argument. `--on-behalf-of` is the first name Friday says ("Rahul ji ki AI assistant"). Your second phone plays the salon: say the awkward things (busy, "robot hai?", a price over budget, "dobara call mat karna") and read the transcript in `var/livecalls/`.
+Every existing guard applies: the number must be in `FRIDAY_PILOT_ALLOWED_NUMBERS`, the spend cap and the maximum length apply, only one call at a time, you must type YES. Without `--book-now` a test call has no delegation, so it can never book. `--book-now` is the one explicit exception: it needs `--when` with ONE specific time and `--budget` (it refuses otherwise), and gives that call a delegation for exactly that time and price ceiling; Friday then says the single booking line only if the salon confirms that time at a price within the ceiling (the same code-level commit check as any delegated booking; the approval rule in `friday/core/safety.py` is unchanged). `--mode book` needs `--book-now` (a delegation); `--fallback-when` needs `--book-now`, a specific `--when` time and `--budget`, and is refused otherwise. On the server: `bash /opt/friday/deploy/call-me.sh [first-name] [when] [salon-name] [honorific] [mode: quote-only|book-now] [services] [fallback-when]` (older calls with `book-now` as the 5th argument still work; the honorific now defaults to sir). `--on-behalf-of` is the first name Friday says ("Himanshu sir ki virtual assistant"). Your second phone plays the salon: say the awkward things (busy, "robot hai?", a price over budget, "dobara call mat karna") and read the transcript in `var/livecalls/`.
 
 Voice pace: `FRIDAY_TTS_SPEAKING_RATE` (default 1.0, see `.env.example`) sets how fast Friday speaks; pick it by listening to audio samples before changing it.
 

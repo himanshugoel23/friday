@@ -64,6 +64,10 @@ CONDITIONS: frozenset[str] = frozenset(
         "has_offered",  # alternatives were offered
         "can_commit",  # the user delegated AND the commit check passes for the offer
         "first_ask",  # this step's question has not been asked yet on this call
+        "mode_book",  # the owner delegated: this call may book (playbook_mode book + delegation)
+        "mode_quote",  # price check only: no slot question, nothing is booked
+        "has_fallback",  # the task names a second specific time (e.g. "kal shaam 5 baje")
+        "used_fallback",  # the slot in hand is that fallback time (the salon accepted it)
     }
 )
 
@@ -82,12 +86,14 @@ SLOT_NAMES: frozenset[str] = frozenset(
 )
 INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",
-     "callback_number", "honorific", "business_name", "negotiate", "explore_options"}
+     "callback_number", "honorific", "business_name", "negotiate", "explore_options",
+     "business_name_spoken", "user_spoken", "services", "services_spoken", "playbook_mode",
+     "fallback_when", "fallback_day"}
 )
 PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {"slot", "price_inr", "duration_min", "stylist"}
 
 # what the engine may write into ``set:`` of a branch (fixed values only)
 SETTABLE: frozenset[str] = frozenset(
     {"advance_needed", "price_unknown", "slot_free", "price_note", "do_not_call", "rude",
-     "wrong_number"}
+     "wrong_number", "fallback_used"}
 )

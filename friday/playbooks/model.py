@@ -23,12 +23,12 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from friday.core.models import CallOutcome
+from friday.core.models import _TASK_WORDS, CallOutcome
 from friday.core.safety import _SECRET_WORDS, looks_like_commitment
 from friday.playbooks.intents import (
     ANY,
@@ -76,7 +76,9 @@ _SAMPLE: dict[str, str] = {
     "date_window": "kal shaam", "budget": "600", "stylist_pref": "Amit",
     "callback_number": "yeh number", "slot": "kal shaam 6 baje", "price_inr": "500",
     "duration_min": "30", "stylist": "Amit", "honorific": "ji", "business_name": "Shreya salon",
-    "negotiate": "no", "explore_options": "no",
+    "negotiate": "no", "explore_options": "no", "business_name_spoken": "Shreya saloon",
+    "user_spoken": "Rahul", "services": "haircut", "services_spoken": "haircut",
+    "playbook_mode": "book", "fallback_when": "kal shaam 5 baje", "fallback_day": "kal",
 }  # fmt: skip
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 
@@ -125,6 +127,8 @@ class Action(_Strict):
     # take the time the task already named as the slot (needs the has_requested_time condition):
     # "ho jayega" to "aaj shaam 5 baje ka appointment mil sakta hai?" means that time
     use_requested_time: bool = False
+    # the same for the task's second specific time ("kal shaam 5 baje"), after the first was busy
+    use_fallback_time: bool = False
     set: dict[str, str] = Field(default_factory=dict)
     max_uses: int | None = None  # per call; beyond it the branch counts as unhandled
 
@@ -143,6 +147,9 @@ class Step(_Strict):
     branches: dict[str, ActionOrList] = Field(default_factory=dict)
     final: bool = False  # nothing is asked; the actions only close the call
     max_visits: int | None = None  # e.g. the budget ask happens at most once
+    # input whose day word ("aaj"/"kal") a bare time heard in this step belongs to
+    # (default: date_window; the fallback step uses fallback_when)
+    day_input: str | None = None
 
     @field_validator("skip_when", mode="before")
     @classmethod
@@ -192,6 +199,12 @@ class Playbook(_Strict):
     outputs: list[str] = Field(default_factory=list)
     limits: Limits = Field(default_factory=Limits)
     disclosure: str  # line id; the runner speaks it (AI disclosure first)
+    # "first": the disclosure line says AI. "after_identity": it is a pure identity question and
+    # EVERY step-S0 reply that continues the call speaks an AI line first (see _identity_problems)
+    # "on_request": she says "virtual assistant", never volunteers AI, and answers any question
+    # about it truthfully in her very next reply (see _on_request_problems)
+    ai_disclosure: Literal["first", "after_identity", "on_request"] = "first"
+    reintro: str | None = None  # on_request: line id of the short re-intro after a hold
     confusion: Confusion
     lines: dict[str, str | LineDef]
     routes: dict[str, list[Action]] = Field(default_factory=dict)
@@ -324,6 +337,127 @@ def line_problems(line_id: str, text: str, *, commit: bool = False) -> list[str]
     return p
 
 
+_HAS_AI = re.compile(r"\bAI\b")
+
+
+def _speaks_ai_first(pb: Playbook, items: list[str | LineRef], *, entering: bool) -> str | None:
+    """None if the first line Friday can speak from ``items`` always contains 'AI', else why not.
+    A conditional line may be skipped, so every line up to the first unconditional one counts;
+    when ``entering`` a step from another one, ``first_ask`` holds and ``!first_ask`` never does."""
+    for it in items:
+        when = [] if isinstance(it, str) else it.when
+        if entering and "!first_ask" in when:
+            continue
+        lid = _ref(it)
+        if lid in pb.lines and not _HAS_AI.search(pb.text(lid)):
+            return f"line '{lid}' can be the first thing said but does not say AI"
+        if not [w for w in when if not (entering and w == "first_ask")]:
+            return None  # unconditional: nothing after it can be spoken first
+    return None
+
+
+def _opening_problems(pb: Playbook, mode: str) -> list[str]:
+    """The opening of an after_identity / on_request playbook: one identity question, nothing
+    about the task (it can be said to a wrong number)."""
+    p: list[str] = []
+    d = pb.text(pb.disclosure)
+    if not d.strip().endswith("?") or d.count("?") != 1:
+        p.append(f"ai_disclosure: {mode} needs a disclosure that is exactly one question")
+    names = set(_PLACEHOLDER.findall(d)) - {"business_name", "business_name_spoken"}
+    if names:
+        p.append(
+            f"ai_disclosure: {mode}: the opening may only use the business name, "
+            f"not {sorted(names)} (it must carry nothing about the task)"
+        )
+    bare = _PLACEHOLDER.sub(" ", d)
+    if _TASK_WORDS.search(bare):
+        p.append(
+            f"ai_disclosure: {mode}: the opening mentions the task (service / price / "
+            "booking / appointment / time words); it must only ask who is on the line"
+        )
+    if pb.confusion.line in pb.lines and _TASK_WORDS.search(pb.text(pb.confusion.line)):
+        p.append("the confusion line must not carry task content (it can be said at the start)")
+    return p
+
+
+def _on_request_problems(pb: Playbook) -> list[str]:
+    """ai_disclosure: on_request. Whatever the step, a question about being an AI gets an answer
+    that says AI in Friday's very next reply: every ARE_YOU_BOT action says an AI line, none can
+    run out (max_uses), none ends the call without saying it, and nothing claims to be human."""
+    p = _opening_problems(pb, "on_request")
+    if not pb.reintro or pb.reintro not in pb.lines:
+        p.append("ai_disclosure: on_request needs `reintro:` (a line id: the short re-intro after a hold)")  # noqa: E501
+    elif _HUMAN_CLAIM.search(pb.text(pb.reintro)) or re.search(r"\b(insaan|human)\b", pb.text(pb.reintro), re.I):  # noqa: E501
+        p.append("the reintro line must not claim to be human")
+    if "ARE_YOU_BOT" not in pb.defaults:
+        p.append("ai_disclosure: on_request needs a defaults.ARE_YOU_BOT branch that says AI")
+    places = [("defaults.ARE_YOU_BOT", pb.actions(pb.defaults["ARE_YOU_BOT"]))] if (
+        "ARE_YOU_BOT" in pb.defaults
+    ) else []
+    places += [
+        (f"steps.{sid}.ARE_YOU_BOT", pb.actions(st.branches["ARE_YOU_BOT"]))
+        for sid, st in pb.steps.items()
+        if "ARE_YOU_BOT" in st.branches
+    ]
+    for where, acts in places:
+        for k, a in enumerate(acts):
+            at = f"{where}[{k}]"
+            if a.max_uses is not None:
+                p.append(f"{at}: an ARE_YOU_BOT answer must never run out (no max_uses)")
+            if a.when:
+                p.append(f"{at}: an ARE_YOU_BOT answer must not depend on a condition")
+            ai_lines = [x for x in a.say if _ref(x) in pb.lines and _HAS_AI.search(pb.text(_ref(x)))]  # noqa: E501
+            if not ai_lines:
+                p.append(f"{at}: ai_disclosure: on_request: the answer to 'are you an AI' must say AI")  # noqa: E501
+            if any(
+                isinstance(x, LineRef) and x.when for x in a.say if _ref(x) in {_ref(y) for y in ai_lines}  # noqa: E501
+            ):
+                p.append(f"{at}: the AI line must be unconditional")
+    for lid in pb.lines:
+        if re.search(r"\b(insaan|human|real person)\b", pb.text(lid), re.I) and not _HAS_AI.search(pb.text(lid)):  # noqa: E501
+            p.append(f"line '{lid}': talks about being human without saying AI")
+    return p
+
+
+def _identity_problems(pb: Playbook) -> list[str]:
+    """ai_disclosure: after_identity. The opening may omit 'AI' only if it is a pure identity
+    question, and every start-step reply that continues the call must speak an AI line first."""
+    p = _opening_problems(pb, "after_identity")
+    start = pb.steps.get(pb.start)
+    if start is None:
+        return p
+    for intent in sorted(set(start.branches) | set(pb.defaults) | {ANY}):
+        chain: list[Action] = []  # in the order the engine tries them
+        for src in (start.branches, pb.defaults):
+            if intent in src:
+                chain += pb.actions(src[intent])
+        if ANY in start.branches and intent != "UNCLEAR":
+            chain += pb.actions(start.branches[ANY])
+        for act in chain:
+            where = f"steps.{pb.start}.{intent}"
+            if act.outcome:
+                if not act.when and act.max_uses is None:
+                    break
+                continue  # the call ends: no purpose is ever disclosed there
+            if act.say:
+                why = _speaks_ai_first(pb, act.say, entering=False)
+                if why:
+                    p.append(f"{where}: ai_disclosure: after_identity: {why}")
+            elif act.goto and not act.goto.startswith("@") and act.goto in pb.steps:
+                tgt = pb.steps[act.goto]
+                if tgt.ask:
+                    why = _speaks_ai_first(pb, tgt.ask, entering=True)
+                    if why:
+                        p.append(f"{where} -> {act.goto}: ai_disclosure: after_identity: {why}")
+                elif not tgt.final:
+                    p.append(f"{where}: goto '{act.goto}' speaks nothing: put an AI line first")
+            elif act.goto:
+                p.append(f"{where}: after_identity: go to a step, not a route (AI line check)")
+            if not act.when and act.max_uses is None:
+                break  # always taken: later candidates are unreachable
+    return p
+
+
 def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
     """Validate a parsed playbook dict. Raises ``PlaybookError`` with ALL problems."""
     problems: list[str] = []
@@ -354,8 +488,8 @@ def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
         ld = pb.line_def(lid)
         problems += line_problems(lid, ld.text, commit=ld.commit)
     commit_lines = {lid for lid in pb.lines if pb.line_def(lid).commit}
-    if len(commit_lines) > 1:
-        problems.append(f"at most one commit line allowed, found {sorted(commit_lines)}")
+    if len(commit_lines) > 3:
+        problems.append(f"at most three commit lines allowed, found {sorted(commit_lines)}")
 
     def need_line(where: str, lid: str) -> None:
         if lid not in pb.lines:
@@ -367,7 +501,11 @@ def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
         need_line("confusion.close", pb.confusion.close)
     if pb.disclosure in pb.lines:
         d = pb.text(pb.disclosure)
-        if not re.search(r"\bAI\b", d):
+        if pb.ai_disclosure == "after_identity":
+            problems += _identity_problems(pb)
+        elif pb.ai_disclosure == "on_request":
+            problems += _on_request_problems(pb)
+        elif not re.search(r"\bAI\b", d):
             problems.append("the disclosure line must say that Friday is an AI")
         if not set(_PLACEHOLDER.findall(d)) <= INPUT_NAMES:
             problems.append("the disclosure line may only use inputs (it is spoken first)")
@@ -415,6 +553,8 @@ def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
                 problems.append(f"{where}: cannot set '{k}' (allowed: {sorted(SETTABLE)})")
         if a.use_requested_time and "has_requested_time" not in a.when:
             problems.append(f"{where}: use_requested_time needs 'has_requested_time' in its when")
+        if a.use_fallback_time and "has_fallback" not in a.when:
+            problems.append(f"{where}: use_fallback_time needs 'has_fallback' in its when")
         if a.commit and a.outcome != "BOOKED":
             problems.append(f"{where}: a commit action must end with outcome BOOKED")
         if a.outcome == "BOOKED" and not a.commit:

@@ -12,22 +12,23 @@ from .conftest import make_brief
 
 
 def test_static_utterances_cover_the_fixed_lines(salon):
-    brief = make_brief()
+    brief = make_brief(book=True, inputs={"fallback_when": "kal shaam 5 baje"})
     texts = static_utterances(salon, resolve_inputs(salon, brief))
-    assert "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat Looks Salon se ho rahi hai?" in texts  # disclosure  # noqa: E501
-    # the intro (who she is calling for) is pre-rendered, whole and sentence by sentence
-    intro = "Main Rahul ji ki AI assistant hoon, unke liye haircut ki appointment ke regarding call kiya hai."  # noqa: E501
-    assert intro in texts
-    assert "Kya kal shaam ka appointment mil sakta hai?" in texts
-    assert "Sir, haircut ka estimated charge kitna hoga?" in texts  # service filled
-    assert "Yeh main Rahul ji se poochh kar bataungi." in texts
-    assert "Theek hai, shukriya. Main Rahul ji se poochh kar aapko batati hoon." in texts  # noqa: E501
+    assert "Hello, kya meri baat लुक्स saloon se ho rahi hai?" in texts  # the identity question
+    who = "Main Friday baat kar rahi hoon, Rahul sir ki virtual assistant."
+    why = "Rahul sir ko haircut karwana hai, toh unki booking ke regarding call kiya hai."
+    ask = "Toh sir, ek baar bata sakte hain inke kya charges rahenge?"
+    assert who in texts and why in texts and ask in texts and f"{who} {why} {ask}" in texts
+    assert "Sir, haircut ke kya charges rahenge?" in texts  # asked again
+    assert "Theek hai sir. Kya aaj shaam 5 baje ka slot mil sakta hai?" in texts
+    assert "Achha, nahi ho sakta. Toh kya kal ka slot available rahega?" in texts
+    assert "Haan ji, main Rahul sir ki personal AI assistant hoon." in texts
+    assert "Main Friday hoon, Rahul sir ki virtual assistant." in texts  # the re-intro after a hold
+    assert "Theek hai sir, main Rahul sir ko bata deti hoon. Thank you." in texts
     assert "Sorry, ek baar phir?" in texts
     # lines that need collected values (the slot) are NOT pre-rendered: synthesised live
-    assert not any("book kar lijiye" in t for t in texts)
+    assert not any("book kar lijiye" in t or "book kar lete" in t for t in texts)
     assert not any("400 rupaye" in t for t in texts)
-    # a joined "say + next question" is warmed too (it is what is actually spoken)
-    assert any(t.startswith("Haan, main ek AI assistant hoon") and t.endswith("appointment mil sakta hai?") for t in texts)  # noqa: E501
     assert len(texts) == len(set(texts))
 
 
@@ -40,15 +41,16 @@ def test_policy_exposes_fixed_lines_for_the_runner():
 async def test_runner_prerenders_and_no_fixed_line_misses_the_cache():
     pb = get_playbook("salon_booking")
     pf = load_personas("salon_booking")
-    persona = next(p for p in pf.personas if p.id == "friendly_free_slot")
-    r = await run_persona(pb, pf, persona)
-    assert r.static_misses == 0 and r.checks["fixed_lines_prerendered"]
+    for pid in ("quote_friendly", "book_busy_fallback_accepted"):
+        persona = next(p for p in pf.personas if p.id == pid)
+        r = await run_persona(pb, pf, persona)
+        assert r.static_misses == 0 and r.checks["fixed_lines_prerendered"], pid
 
 
 async def test_a_missing_prerender_hook_is_caught_by_the_dry_run(monkeypatch):
     monkeypatch.setattr(PlaybookPolicy, "fixed_lines", lambda self, brief: {})
     pb = get_playbook("salon_booking")
     pf: PersonaFile = load_personas("salon_booking")
-    persona = next(p for p in pf.personas if p.id == "friendly_free_slot")
+    persona = next(p for p in pf.personas if p.id == "quote_friendly")
     r = await dryrun.run_persona(pb, pf, persona)
     assert r.static_misses > 0 and not r.checks["fixed_lines_prerendered"]

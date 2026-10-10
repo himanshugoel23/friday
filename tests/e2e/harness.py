@@ -46,6 +46,9 @@ def make_settings(**over: Any) -> Settings:
         elevenlabs_api_key=None,
         google_places_api_key=None,
         invite_only=False,
+        # these journeys test the generic LLM-policy flows (approval, call-backs, delegation);
+        # the scripted salon playbook has its own suites in tests/playbooks
+        playbooks_enabled=False,
     )
     base.update(over)
     return Settings(**base)

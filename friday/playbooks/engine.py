@@ -47,6 +47,7 @@ from friday.playbooks.understand import (
     HeuristicUnderstander,
     Understander,
     Understanding,
+    asks_if_ai,
     heuristic,
     is_stop_request,
 )
@@ -100,6 +101,13 @@ def clean_input(value: object, limit: int = 40) -> str:
     s = _SAFE_INPUT.sub("", str(value or "")).strip()
     s = re.sub(r"\s+", " ", s)[:limit]
     return s
+
+
+def clean_spoken(value: object, limit: int = 60) -> str:
+    """A spoken-form name (may be Devanagari): letters, marks, space, & - . only."""
+    from friday.voice.names import sanitise
+
+    return sanitise(str(value or ""), limit)
 
 
 def first_name(name: str | None) -> str:
@@ -195,11 +203,50 @@ def resolve_inputs(pb: Playbook, brief: CallBrief) -> dict[str, str]:
                 v = tn
         if name == "for_whom" and not v and brief.beneficiary_name:
             v = first_name(brief.beneficiary_name)
+        if name in ("services_spoken", "user_spoken", "business_name_spoken"):
+            continue  # derived below
+        if name == "services":
+            continue
         out[name] = first_name(v) if name == "user_first_name" else clean_input(v)
     if name := out.get("budget"):
         digits = re.sub(r"\D", "", name)
         out["budget"] = digits if digits else ""
+    _derive_spoken(pb, brief, raw, out)
     return out
+
+
+def _derive_spoken(pb: Playbook, brief: CallBrief, raw: dict[str, str], out: dict[str, str]) -> None:  # noqa: E501
+    """Spoken forms (names in Devanagari, services joined), the effective mode and the fallback.
+    Roman inputs stay as they are for logs; the ``*_spoken`` ones are what the voice reads. They
+    come from the brief (worked out at task creation) or, failing that, from the offline speller
+    (overrides + glossary): never from the network, never mid-call."""
+    from friday.voice.names import default_speller, join_services, parse_services
+
+    sp = default_speller()
+    for src, dst in (("user_first_name", "user_spoken"), ("business_name", "business_name_spoken")):
+        if dst not in pb.inputs:
+            continue
+        given = clean_spoken(raw.get(dst))
+        out[dst] = given or sp.spoken(out.get(src, "")) or out.get(src, "")
+    if "services" in pb.inputs:
+        items = parse_services(raw.get("services")) or parse_services(out.get("service"))
+        items = [sp.spoken_service(x) for x in items]
+        out["services"] = ", ".join(items)
+        out["services_spoken"] = re.sub(r"[^\w\s,'.\-]", "", join_services(items))[:90].strip()
+        if not out.get("service"):
+            out["service"] = out["services_spoken"]
+    # mode: "book" only with a delegation and a time to ask for; everything else is a price check
+    want = (raw.get("playbook_mode") or "").strip().lower().replace("-", "_")
+    book = want == "book" and brief.delegation.granted and bool(out.get("date_window"))
+    out["playbook_mode"] = "book" if book else "quote_only"
+    fb = clean_input(raw.get("fallback_when") or "")
+    if fb and sl.requested_time(fb) and book:
+        day = sl.find_day(fb) or "kal"
+        out["fallback_when"] = fb
+        out["fallback_day"] = day
+    else:
+        out["fallback_when"] = ""
+        out["fallback_day"] = ""
 
 
 def missing_inputs(pb: Playbook, inputs: dict[str, str]) -> list[str]:
@@ -282,6 +329,10 @@ class PlaybookPolicy:
             "has_offered": len(st.times) >= 2,
             "can_commit": self._can_commit(c) if key == "can_commit" else False,
             "first_ask": st.asked[st.step] == 0,
+            "mode_book": c.inputs.get("playbook_mode") == "book",
+            "mode_quote": c.inputs.get("playbook_mode") != "book",
+            "has_fallback": self._fallback(c) is not None,
+            "used_fallback": st.flags.get("fallback_used") == "yes",
         }[key]
         return (not val) if neg else bool(val)
 
@@ -289,6 +340,12 @@ class PlaybookPolicy:
         """The one specific time the task already names (None if it only names a part of day)."""
         t = sl.requested_time(c.inputs.get("date_window"))
         return sl.with_day(t, sl.find_day(c.inputs.get("date_window", ""))) if t else None
+
+    def _fallback(self, c: Ctx) -> str | None:
+        """The second specific time the task names ("kal shaam 5 baje"), if any."""
+        fb = c.inputs.get("fallback_when")
+        t = sl.requested_time(fb) if fb else None
+        return sl.with_day(t, sl.find_day(fb) or "kal") if t else None
 
     def _all(self, conds: list[str], c: Ctx) -> bool:
         return all(self._cond(x, c) for x in conds)
@@ -422,6 +479,41 @@ class PlaybookPolicy:
         return sorted(keys | {Intent.UNCLEAR.value})
 
     async def _understand(self, c: Ctx, reply: str) -> Understanding:
+        u = await self._understand_raw(c, reply)
+        if (
+            c.pb.ai_disclosure == "on_request"
+            and u.intent not in (Intent.STOP_CALLING.value, Intent.RUDE.value)
+            and asks_if_ai(reply)
+        ):  # hard rule: anything that looks like "are you an AI?" is answered, whatever the model said  # noqa: E501
+            return Understanding(intent=Intent.ARE_YOU_BOT.value, confident=True)
+        return u
+
+    def _ai_line(self, c: Ctx) -> str:
+        """The truthful answer to 'are you an AI?' (the first line of defaults.ARE_YOU_BOT)."""
+        for a in c.pb.actions(c.pb.defaults.get("ARE_YOU_BOT", [])):
+            for it in a.say:
+                lid = it if isinstance(it, str) else it.line
+                if lid not in c.pb.lines or not re.search(r"\bAI\b", c.pb.text(lid)):
+                    continue
+                try:
+                    return self._render(c.pb, lid, c)
+                except MissingSlot:
+                    continue
+        return "Haan ji, main AI assistant hoon."
+
+    def _ensure_ai(self, c: Ctx, action: CallAction) -> CallAction:
+        """on_request guarantee, in code: the reply to an 'are you an AI?' question says AI."""
+        if action.text and re.search(r"\bAI\b", action.text):
+            return action
+        ai = self._ai_line(c)
+        if action.type in (CallActionType.SAY, CallActionType.HANGUP):
+            text = f"{ai} {action.text}".strip() if action.text else ai
+            c.st.last_friday = text
+            return action.model_copy(update={"text": text, "language": Language.HINGLISH})
+        c.st.last_friday = ai
+        return self._say(c, ai)
+
+    async def _understand_raw(self, c: Ctx, reply: str) -> Understanding:
         st, pb = c.st, c.pb
         if is_stop_request(reply):  # hard rule: no model needed, none trusted
             return Understanding(intent=Intent.STOP_CALLING.value, confident=True)
@@ -498,8 +590,15 @@ class PlaybookPolicy:
         return None, ""
 
     def _apply(self, c: Ctx, u: Understanding, reply: str) -> CallAction:
+        action = self._apply_intent(c, u, reply)
+        if c.pb.ai_disclosure == "on_request" and u.intent == Intent.ARE_YOU_BOT.value:
+            action = self._ensure_ai(c, action)
+        return action
+
+    def _apply_intent(self, c: Ctx, u: Understanding, reply: str) -> CallAction:
         pb, st = c.pb, c.st
-        self._merge_slots(st, u, day=sl.find_day(c.inputs.get("date_window", "")))
+        day_key = pb.steps[st.step].day_input or "date_window"
+        self._merge_slots(st, u, day=sl.find_day(c.inputs.get(day_key, "")))
         intent = u.intent
         if (intent == Intent.SLOT_FREE or (intent == Intent.NEEDS_ADVANCE and u.slot_free)) and (
             not st.times
@@ -522,16 +621,25 @@ class PlaybookPolicy:
 
     def _take_requested(self, c: Ctx) -> None:
         """She said yes to the time we asked for: that time is the slot (never invented)."""
-        req = self._requested(c)
+        fallback_step = c.pb.steps[c.st.step].day_input == "fallback_when"
+        req = self._fallback(c) if fallback_step else self._requested(c)
         if req and not c.st.times:
             c.st.times = [req]
             c.st.slot_free = "yes"
+            if fallback_step:
+                c.st.flags["fallback_used"] = "yes"
 
     def _run(self, c: Ctx, a: Action) -> CallAction:
         pb, st = c.pb, c.st
         st.flags.update({k: v for k, v in a.set.items()})
         if a.use_requested_time:
             self._take_requested(c)
+        if a.use_fallback_time:
+            fb = self._fallback(c)
+            if fb:
+                st.times = [fb]
+                st.slot_free = "yes"
+                st.flags["fallback_used"] = "yes"
         say = self._lines(pb, a.say, c)
         if a.hold_s is not None:
             st.after_hold = True
@@ -759,6 +867,8 @@ class PlaybookPolicy:
             oid = "REFUSED"
         elif st.times and st.price_inr is not None:
             oid = "SLOT_OFFERED"  # she gave slot and price, then hung up: still worth approval
+        elif st.price_inr is not None and "QUOTE_COLLECTED" in pb.outcomes:
+            oid = "QUOTE_COLLECTED"  # a price check: the price is all we came for
         else:
             oid = None
         st.outcome = oid or "HUNG_UP"
@@ -850,8 +960,21 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
     for lid in pb.lines:
         if not pb.line_def(lid).commit:
             add(render(lid))
+    mode_book = inputs.get("playbook_mode") == "book"
+    known_conds = {"first_ask": True, "mode_book": mode_book, "mode_quote": not mode_book}
+
+    def first_ask_ids(items: list[str | LineRef]) -> list[str]:
+        # first entry into a step: lines needing only `first_ask` (and the call's mode, known from
+        # the inputs) are spoken, `!first_ask` ones are not
+        return [
+            x if isinstance(x, str) else x.line
+            for x in items
+            if isinstance(x, str)
+            or (set(x.when) <= set(known_conds) and all(known_conds[c] for c in x.when))
+        ]
+
     for step in pb.steps.values():
-        asks = [render(i) for i in ids(step.ask)]
+        asks = [render(i) for i in first_ask_ids(step.ask)]
         if asks and all(asks):
             add(" ".join(a for a in asks if a))
     for _where, _intent, a in pb.all_actions():

@@ -21,7 +21,7 @@ from friday.playbooks.understand import (
 from .conftest import drive, make_brief
 
 OPEN = ["Haan boliye"]
-FULL = ["Haan kal shaam 6 baje free hai", "Haircut 400 rupaye, 30 minute"]
+FULL = ["Haircut 400 rupaye, 30 minute"]  # a price check: the price, then the close
 
 
 @pytest.mark.parametrize(
@@ -180,7 +180,7 @@ async def test_cost_one_small_call_per_turn_with_no_reasoning():
     brain, llm = brain_with()
     policy = PlaybookPolicy(understander=BrainUnderstander(brain), llm_mode="always")
     run = await drive(FULL, brief=make_brief(), policy=policy)
-    assert run.outcome == "SLOT_OFFERED"
+    assert run.outcome == "QUOTE_COLLECTED"
     replies = len(FULL) + 1  # + the identity answer
     assert len(llm.meta) == replies  # exactly one model call per salon reply, never two
     assert all(p == "call_turn" and tok <= 200 and eff == "low" for p, tok, eff in llm.meta)
@@ -191,7 +191,7 @@ async def test_auto_mode_skips_the_model_when_the_rules_are_sure():
     brain, llm = brain_with()
     policy = PlaybookPolicy(understander=BrainUnderstander(brain), llm_mode="auto")
     run = await drive(FULL, brief=make_brief(), policy=policy)
-    assert run.outcome == "SLOT_OFFERED" and len(llm.meta) == 0
+    assert run.outcome == "QUOTE_COLLECTED" and len(llm.meta) == 0
 
 
 async def test_auto_mode_asks_the_model_only_for_what_the_rules_cannot_place():
@@ -213,14 +213,14 @@ async def test_a_broken_model_falls_back_to_the_rules_and_the_call_goes_on():
     llm.fail_purposes.add("call_turn")
     policy = PlaybookPolicy(understander=BrainUnderstander(brain), llm_mode="always")
     run = await drive(FULL, brief=make_brief(), policy=policy)
-    assert run.outcome == "SLOT_OFFERED"
+    assert run.outcome == "QUOTE_COLLECTED"
 
 
 async def test_garbage_from_the_model_is_unclear_not_a_crash():
     brain, llm = brain_with()
     llm.script("call_turn", *(["this is not json"] * 3))
     policy = PlaybookPolicy(understander=BrainUnderstander(brain), llm_mode="always")
-    run = await drive(["Haan kal shaam 6 baje free hai"], brief=make_brief(), policy=policy)
+    run = await drive(["Haircut 400 rupaye"], brief=make_brief(), policy=policy)
     assert "S3" in run.path  # fell back to the rules
 
 

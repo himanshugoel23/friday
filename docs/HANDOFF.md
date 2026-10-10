@@ -4,7 +4,7 @@ Founder instruction (verbatim intent): keep everything we discuss and decide in 
 read it and continue without losing context. **At the START of every task, update this file first** (what was just
 asked, any decision, any mistake or lesson), commit and push it, **then** do the task. Never put secrets in it.
 
-Last updated: 2026-10-10 (new chat resumed; read this file first).
+Last updated: 2026-10-10 (salon v6 built; read this file first).
 
 ---
 
@@ -110,11 +110,15 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - DONE and pushed: front door (conversational), quality loop, playbook engine + salon v0.2, script author
   (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls, HANDOFF.md +
   CLAUDE.md.
-- IN PROGRESS: salon v6 builder hit the usage limit mid-build. The working tree has ~29 UNCOMMITTED files
-  (opening change with `ai_disclosure: after_identity` plus the partial v6 work: names pipeline, services,
-  book/quote_only modes, AI-on-request). The builder is being resumed; it must finish, run the FULL suite + ruff,
-  then commit and push. Do not commit its files from the main thread.
-- v6 spec = section 3 above (founder decisions) + `friday playbook preview` (renders the real script to audio),
-  `friday tts-check` (speak-then-listen name QA), `--fallback-when`, `--mode quote-only|book`.
+- DONE (v6, 2026-10-10, committed and pushed together): salon playbook v6 = price first, `quote_only` (default; outcome
+  `QUOTE_COLLECTED`) and `book` modes (booking only with a delegation + `check_commit`; `--fallback-when` second time via
+  `Delegation.slot_windows`), AI disclosure ON REQUEST (`ai_disclosure: on_request`: validator + `asks_if_ai` engine override +
+  forced AI line + dry-run check; recorded in docs/CORE_CHANGES.md and docs/PLAYBOOKS.md; founder to check Sarvam/Vobiz terms),
+  names as variables (`friday/voice/names.py`: Sarvam transliteration + disk cache `var/names/cache.json` + overrides file
+  `friday/voice/name_overrides.json` + glossary, salon -> saloon, Roman fallback), services list, `friday tts-check`
+  (speak-then-listen name QA), `friday playbook preview` (the real script into one wav), `deploy/call-me.sh` new arguments,
+  47 new personas in the dry-run baseline. Docs: docs/PLAYBOOKS.md, docs/playbooks/salon_booking.md. `tests/e2e` now runs with
+  playbooks off (they test the generic approval flows). NOT tested live: the real transliteration API call from this code, the
+  real TTS/STT in `tts-check` and `preview`, a live call with the new script.
 - NEXT after v6 lands: (1) send the founder the preview audio from the real code (hear-before-change); (2) voice is decided (Ritu); (3) update server and run the test call to the founder's phone (`call-me.sh`); (4) first real salon only
   with explicit approval; (5) clinic/restaurant playbooks via `friday playbook draft --live`; (6) WhatsApp channel.

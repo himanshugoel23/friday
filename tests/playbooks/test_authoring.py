@@ -200,7 +200,7 @@ def test_salon_playbook_is_untouched():
     names = sorted(playbook_files())
     assert "salon_booking" in names
     pb = load_playbook(DATA_DIR / "salon_booking.yaml")
-    assert pb.id == "salon_booking" and len(pb.steps) == 8
+    assert pb.id == "salon_booking" and len(pb.steps) == 10
 
 
 # --------------------------------------------------------------------------- the loop

@@ -29,9 +29,7 @@ async def test_offer_waits_for_user_then_confirmation_callback(friday, rahul):
     assert t.approved_terms is None
     # the user sees the offer with tappable options (never an auto-booking)
     offer = rahul.last_msg()
-    # the salon lists "men 400, women 700" and the task does not say which: the scripted call
-    # quotes the upper price (never under-quotes; the read-back lets the salon correct it)
-    assert [b.title for b in offer.buttons][:2] == ["4 PM, ₹700", "6 PM, ₹700"]
+    assert [b.title for b in offer.buttons][:2] == ["4 PM, ₹400", "6 PM, ₹400"]
 
     await rahul.say("2")  # tap "6 PM, ₹400"
     t = await rahul.task()

@@ -1,0 +1,6 @@
+{
+  "_comment": "Human overrides for how a business or person name is SPOKEN. Keys: a single word or a full name (lower case); values: the exact text sent to the voice (Devanagari, Roman or a mix). Overrides win over the glossary and over the transliteration API. Add a name here when `friday tts-check` flags it and you have listened to the fix.",
+  "overrides": {
+    "looks": "लुक्स"
+  }
+}

@@ -1,115 +1,65 @@
-# Playbook: salon booking (v0.2, founder feedback applied)
+# Playbook: salon booking (v6, founder script)
 
-Friday phones a salon on behalf of a user, asks whether the time is available and what the service
-roughly costs, and ends the call in one short line. She books ONLY when the owner's task carries a
-delegation ("book it, up to Rs 600") AND the code-level commit check passes; otherwise she says she
-will check with the user and get back to the salon. She is clearly an AI, calm, short, JARVIS-style.
-All lines are HINGLISH (Roman-script Hindi-English mix). No language switching: if the salon answers in
-pure Hindi or English she still replies in Hinglish.
+Friday phones a salon for a user. The PRICE comes first. Then, only when the owner delegated the decision, she asks about a slot and may book it. Everything is Roman-script Hinglish; the *names* inside the lines (salon, user) are Devanagari for a better voice. No language switching: if the salon answers in pure Hindi or English she still replies in Hinglish. The model never writes Friday's words, it only classifies what the salon said.
 
-What changed from v0.1 (founder feedback):
-1. She does NOT ask about advance or cancellation. Only if the salon itself raises an advance, a booking
-   amount or a cancellation fee does she react (she does not agree; see "Salon raises an advance").
-2. She does NOT ask how long it takes. She asks the price lightly: "Sir, haircut ka estimated charge
-   kitna hoga?" No read-back of the price. A duration is noted only if the salon volunteers it.
-3. No negotiation unless the owner explicitly asked for it (input `negotiate: yes`; default off).
-4. The call closes with ONE line, no recap. No separate call-back step, no follow-up calls. She asks for
-   two alternative slots only when the owner wants to compare (input `explore_options: yes`; default off).
-5. The "do minute baat ho sakti hai?" step is gone: one intro line, then straight to availability.
+## Inputs
 
-Inputs (known before dialling): `user_first_name`, `honorific` (ji / sir / madam), `business_name`,
-`service` (e.g. haircut), `date_window` (a part of the day such as "kal shaam", OR one specific time such
-as "aaj shaam 5 baje"), `budget` (optional, also the booking ceiling), `stylist_pref` (optional),
-`negotiate` (default no), `explore_options` (default no).
+`business_name` / `user_first_name` (Roman, for logs) and the derived `business_name_spoken` / `user_spoken` (Devanagari + approved glossary words, e.g. "श्रेया saloon"); `honorific` (default **sir**, overridable: madam / ji); `services` (a list in the owner's words, spoken as "haircut", "haircut aur beard trim", "haircut, beard trim aur facial"; the older single `service` still works); `playbook_mode` (`book` | `quote_only`); `date_window` ("aaj shaam 5 baje" or "kal shaam"); `fallback_when` (a second specific time, e.g. "kal shaam 5 baje", book mode only); `budget`; `stylist_pref`; `negotiate` and `explore_options` (both off unless the owner says so).
 
-Outputs (collected): `slot_free`, `offered_slots[]`, `slot`, `price_inr`, `stylist`, `advance_needed`,
-`outcome` (duration is kept only when the salon volunteered it).
+**Mode** comes from the owner's instruction: `playbook_mode: quote_only` (the default, and the only possible mode when no delegation exists) or `book` (only when the task carries a delegation and there is a time to ask for). Outputs: `slot_free`, `offered_slots`, `slot`, `price_inr`, `stylist`, `advance_needed`, `outcome`.
 
-Rules the engine enforces in code, whatever the lines say: AI disclosure first; never confirm, pay or give
-a deposit; never say OTP/PIN/card; max 4 repeats of one question; max 180 s and 30 turns; stop if the salon
-asks to stop or says not to call again (DNC); the single booking line is spoken only if the brief carries
-a delegation and the price/slot fit it.
+## The script
 
----
+**Opening (spoken first by the runner, then she waits):**
+> Hello, kya meri baat {business_name_spoken} se ho rahi hai?
 
-## The call (sample, with a specific time and a delegation)
+**After the salon says yes ("haan ji") - one turn, both modes start the same way:**
+> Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant. {user_spoken} {honorific} ko {services_spoken} karwana hai, toh unki booking ke regarding call kiya hai. Toh sir, ek baar bata sakte hain inke kya charges rahenge?
 
-> Friday: Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat Shreya salon se ho rahi hai?
-> Salon: Haan ji, boliye.
-> Friday: Main Himanshu sir ki AI assistant hoon, unke liye haircut ki appointment ke regarding call kiya hai. Kya aaj shaam 5 baje ka appointment mil sakta hai?
-> Salon: Haan ho jayega.
-> Friday: Sir, haircut ka estimated charge kitna hoga?
-> Salon: 400 rupaye.
-> Friday: Theek hai, aap aaj shaam 5 baje ka book kar lijiye. Thank you.
+(quote_only: "...toh **uske charges** ke regarding call kiya hai.") No duration question, no read-back of the price.
 
-Without a delegation (or if the price is over the ceiling) the last line is instead:
-"Theek hai, shukriya. Main Himanshu sir se poochh kar aapko batati hoon."
+### QUOTE_ONLY mode (the owner only asked for a price check)
+After the price, no availability or slot question at all:
+> Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you.
 
----
+Outcome `QUOTE_COLLECTED` (call outcome `partial`): `price_inr` is in the collected values and the quote, so the task engine reports it to the owner like any finished call. If the salon will not give a price on the phone, the same line is spoken and the outcome is `UNCLEAR`.
 
-## Steps
+### BOOK mode (a delegation exists)
+After the price (a stylist preference, if the user named one, is asked first: "Agar {stylist_pref} available ho to unse hi karwana hai, warna koi bhi chalega."):
+> Theek hai sir. Kya {date_window} ka slot mil sakta hai?  (e.g. "aaj shaam 5 baje")
 
-### Opening: disclosure + identity question (fixed; spoken by the call runner)
-- "Hello, main Friday, ek AI assistant, baat kar rahi hoon. Kya meri baat {business_name} se ho rahi hai?"
-- Short on purpose: she says she is an AI, asks ONE question, and stops.
+* **Free** ("ho jayega" means that time) and the code-level check passes:
+  > Theek hai sir, toh {slot} ka slot book kar lijiye. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you.
+* **Busy** and the task names a fallback time (same price ceiling):
+  > Achha, nahi ho sakta. Toh kya kal ka slot available rahega?
+  and if yes:
+  > Theek hai sir, phir {slot} ka slot book kar lete hain. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you.
+* Busy and no fallback (or the fallback is busy too): "Toh kaun sa time free hai?" (two times, "Toh kaun se do time free hain?", only if the owner wants to compare). Anything the salon offers is only OFFERED (`SLOT_OFFERED`), never booked.
+* Nothing free: "Koi baat nahi, main {user_spoken} {honorific} ko bata dungi. Shukriya." (`NO_SLOT`).
+* She may not book (no delegation, price over the ceiling or budget, price unknown, an advance wanted, a time that is not one of the delegated times): "Theek hai, shukriya. Main {user_spoken} {honorific} se poochh kar aapko batati hoon." (`SLOT_OFFERED`).
 
-### S0 Wait for the identity answer (nothing is spoken here)
-- Silence -> "Sorry, ek baar phir?". yes / "haan boliye" / ack -> S2.
-- "Nahi, yeh Meena parlour hai" / wrong number -> "Maaf kijiye, galat number lag gaya. Shukriya." (WRONG_NUMBER).
-- "Kaun bol raha hai?" -> "Main Friday hoon, ek AI assistant. Kya meri baat {business_name} se ho rahi hai?" and wait again.
-- "Robot hai?" -> "Haan, main ek AI assistant hoon, insaan nahi." -> S2. Busy / do not call / rude: the standard closes.
+The two booking lines are the ONLY lines that book. They are spoken only when the delegation exists AND `check_commit` passes (price within the ceiling, the time is one of the delegated times). The delegation for "today 5 pm OR tomorrow 5 pm" holds both times and ONE price ceiling; times between them are outside it (`Delegation.slot_windows`).
 
-### S2 Intro + availability (one turn)
-- Recording notice only if recording is on: "Yeh call quality ke liye record ho sakta hai."
-- Intro, said once: "Main {user_first_name} {honorific} ki AI assistant hoon, unke liye {service} ki appointment ke regarding call kiya hai."
-- Ask: "Kya {date_window} ka appointment mil sakta hai?"  (`date_window` may carry a time: "aaj shaam 5 baje")
-- Salon says yes / "ho jayega" WITHOUT a time: if the task named one specific time, that time is the slot and
-  Friday goes straight to the price (she does NOT ask "Kitne baje ka?"). If the task named only a part of the
-  day, she asks S2t. The salon names another time -> that time is used.
-- Busy / no -> S2b. "Appointment lagta hai, walk-in nahi" -> "Appointment ke liye hi poochh rahi hoon." and ask again.
-- "Kaun bol raha hai?" / "Kya?" -> the intro once more, then the ask. On hold -> wait (max 60 s, silent), then ask again.
+### Asked about being an AI (any step, any phrasing)
+She does not volunteer it. If the salon asks ("AI ho?", "robot hai?", "insaan ho?", "real person?", "machine?", "bot?", "computer?", "recorded hai?", English or Hinglish), the very next thing she says is:
+> Haan ji, main {user_spoken} {honorific} ki personal AI assistant hoon.
 
-### S2t Yes, but no time (only when the task named no specific time)
-- "Kitne baje ka?"
+and the call goes on (the question that was pending is asked again). She never denies it, claims to be human or dodges the question; this is enforced in code (see docs/PLAYBOOKS.md, "The `ai_disclosure: on_request` guarantee"). After a hold, the runner's short re-intro is "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant." **Founder to do: check Sarvam's and Vobiz's terms on AI disclosure.**
 
-### S2b The time is busy
-- Default (ONE alternative): "Toh kaun sa time free hai?"
-- Only when the owner wants to compare (`explore_options: yes`): "Toh kaun se do time free hain?" (up to 2 slots)
-- Nothing free -> "Koi baat nahi, main {user_first_name} {honorific} ko bata dungi. Shukriya." (NO_SLOT).
+### Other branches (unchanged behaviour)
+* "Kaun bol raha hai?" / not heard (before the identity answer): "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"; later: the short introduction, then the pending question again.
+* Wrong name / wrong number: "Maaf kijiye, galat number lag gaya. Shukriya." No purpose is ever said. Busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya." Do not call again: "Theek hai, hum dobara call nahi karenge. Shukriya." (number blocked). Rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
+* Hold: wait silently (max 60 s), then ask again. Did not hear: "Sorry, ek baar phir?" (max 2 per step, then "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya.").
+* Off-script: "Yeh main {user_spoken} {honorific} se poochh kar bataungi." Customer's number: "{user_spoken} {honorific} ka number main share nahi kar sakti." OTP/PIN/card: "Yeh jaankari main share nahi kar sakti."
+* No advance or cancellation question by her. Only if the SALON raises an advance / booking amount / cancellation fee: "Advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi." (never booked). No negotiation unless the owner said so (book mode only).
 
-### S3 Price (light, no duration, no read-back)
-- "Sir, {service} ka estimated charge kitna hoga?"
-- A range -> the upper number is taken. "Stylist par depend karta hai" / will not say on the phone -> go on to the close.
-- Over `budget` AND `negotiate: yes` (owner's explicit instruction) -> S3b. Otherwise straight on.
-
-### S3b Over budget (ONLY with an explicit owner instruction)
-- "{user_first_name} {honorific} ka budget {budget} rupaye hai. Kuch kam ho sakta hai?" Max one ask; accept either way.
-
-### S4 Stylist (only if the user named one)
-- "Agar {stylist_pref} available ho to unse hi karwana hai, warna koi bhi chalega."
-
-### Salon raises an advance / booking amount / cancellation fee (any step)
-- She does not agree: "Advance main abhi nahi de sakti, {user_first_name} {honorific} se poochh kar bataungi."
-  and the call ends as SLOT_OFFERED (waiting for the user), never BOOKED.
-
-### S7 The close (one line, nothing asked, no recap)
-- May book (delegation present, price within the ceiling, slot fits, no advance): "Theek hai, aap {slot} ka book kar lijiye. Thank you." (BOOKED)
-- Otherwise: "Theek hai, shukriya. Main {user_first_name} {honorific} se poochh kar aapko batati hoon." (SLOT_OFFERED)
-
----
-
-## Confusion handling (every step)
-- Did not hear: "Sorry, ek baar phir?" (max 2 per step). After that -> UNCLEAR.
-- Off-script (parking, products): "Yeh main {user_first_name} {honorific} se poochh kar bataungi." and ask again.
-- Asks for the user's number: "{user_first_name} {honorific} ka number main share nahi kar sakti." (never shared)
-- OTP / PIN / card: "Yeh jaankari main share nahi kar sakti."
-- Rude / hangs up: stop. No retry for 24 h.
+## Rules the engine enforces in code, whatever the lines say
+Never confirm, pay or give a deposit; never say OTP/PIN/card; max 4 repeats of one question; max 180 s and 30 turns; stop on a do-not-call request; the booking lines only with a delegation and a passing price/slot check; AI answered truthfully on request.
 
 ## Outcomes
-`SLOT_OFFERED` (slot collected, awaiting the user) | `BOOKED` (only if delegated and committed) |
-`NO_SLOT` | `CALL_BACK_LATER` (salon asked to call at a time) | `WRONG_NUMBER` | `UNCLEAR` | `REFUSED` (DNC) |
-`NO_ANSWER`.
+`QUOTE_COLLECTED` (price check done) | `SLOT_OFFERED` (waiting for the user) | `BOOKED` (only if delegated and committed) | `NO_SLOT` | `CALL_BACK_LATER` | `WRONG_NUMBER` | `UNCLEAR` | `REFUSED` (DNC) | `NO_ANSWER`.
 
-## Test calls
-`friday livecall --playbook salon_booking ...` can never book. Add `--book-now` (needs `--when` with one
-specific time and `--budget`) to give that one call a delegation for exactly that time and price ceiling.
+## Hear it, check it, test it
+* `friday playbook preview salon_booking --mode book --business "Shreya Salon" --user Himanshu --services "haircut, beard trim" --when "aaj shaam 5 baje" --fallback-when "kal shaam 5 baje" --branch busy_then_fallback --out var/preview/` renders the real lines into one wav (see docs/PLAYBOOKS.md).
+* `friday tts-check "Shreya Salon" "Looks Unisex Salon"` flags names that need a human listen.
+* `friday livecall --playbook salon_booking ...` can never book unless `--book-now` (with `--when` one specific time and `--budget`); `--fallback-when "kal shaam 5 baje"` adds the second time. `deploy/call-me.sh` wraps it.

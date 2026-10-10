@@ -135,10 +135,20 @@ _WRONG = _rx(
     r"रॉन्ग\s+नंबर|गलत\s+नंबर|सैलून\s+नहीं|ये\s+सैलून\s+नहीं",
 )
 _BOT = _rx(
-    r"\brobot\b|\bbot\b|\bai\b\s*(hai|ho|se|ka|bol)|\bmachine\b|insaan|insan\b|real\s+person|"
-    r"\bhuman\b|computer\s+(hai|se)|recorded|"
-    r"रोबोट|मशीन|इंसान|कंप्यूटर",
+    r"\brobot\w*|\bbot\b|\bbots\b|\ba\.?\s?i\.?\b|\bai\b|artificial|\bmachine\b|\bmashin\b|insaan|insan\b|"
+    r"real\s+(person|human|insaan|aadmi|ladki)|\bhuman\b|\bcomputer\b|recorded|recording\s+(hai|hi|to)|"
+    r"automat(ed|ic)|virtual\s+(assistant|person)\s+(hai|ho)|asli\s+(insaan|aadmi|ladki)|"
+    r"koi\s+(insaan|aadmi|ladki)|sach\s+mein\s+(insaan|ladki)|"
+    r"रोबोट|मशीन|इंसान|कंप्यूटर|एआई|ए\s?आई|बॉट",
 )
+
+
+def asks_if_ai(text: str) -> bool:
+    """Does this sentence look like 'are you an AI / robot / human?' in any phrasing. Used as a
+    hard override by playbooks that answer such a question on request: when in doubt, answer."""
+    return bool(_BOT.search(sl.normalise(text) if text else ""))
+
+
 _BUSY = _rx(
     r"\bbusy\b|baad\s+mein|baad\s+me\b|baad\s+main|thodi\s+der\s+(baad|mein)|\blater\b|"
     r"abhi\s+time\s+nahi|abhi\s+free\s+nahi|customer\s+(hain|hai|ke\s+saath)|"
@@ -190,7 +200,7 @@ _BUSY_SLOT = _rx(
     r"\bfull\b|housefull|house\s+full|booked\s+(hain|hai|hai\s+sab)|slot\s+nahi|free\s+nahi|"
     r"koi\s+slot\s+nahi|nahi\s+mil|available\s+nahi|khali\s+nahi|khaali\s+nahi|bhara\s+hua|"
     r"nahi\s+ho\s+(payega|paega|sakta|sakega)|no\s+slot|not\s+available|fully\s+booked|"
-    r"mushkil|sold\s+out|"
+    r"mushkil|sold\s+out|baje\s+(ka\s+|to\s+|ke\s+liye\s+)*(nahi|nahin)\b|"
     r"फुल|स्लॉट\s+नहीं|खाली\s+नहीं|नहीं\s+हो\s+पाएगा|नहीं\s+मिल",
 )
 _FREE_SLOT = _rx(
@@ -336,7 +346,7 @@ def heuristic(reply: str, *, step: str = "", known: dict[str, Any] | None = None
             time=ft[0] if ft else None,
             alt_times=ft[1:3],
         )
-    if _APPT.search(t) and step in ("S2", ""):
+    if _APPT.search(t) and step in ("S2", "S2f", ""):
         return _u(Intent.NEEDS_APPOINTMENT)
 
     free_times, said_busy = _free_times(raw)
@@ -373,11 +383,11 @@ def heuristic(reply: str, *, step: str = "", known: dict[str, Any] | None = None
         return _u(Intent.OFFERS_SLOTS, time=time, alt_times=alts)
     if busy:
         return _u(Intent.SLOT_BUSY, slot_free=False)
-    if time and (free or step == "S2"):
+    if time and (free or step in ("S2", "S2f")):
         return _u(Intent.SLOT_FREE, slot_free=True, time=time)
     if time:
         return _u(Intent.GIVES_TIME, time=time)
-    if free and step in ("S2", "S2t", "S2b", ""):
+    if free and step in ("S2", "S2f", "S2t", "S2b", ""):
         return _u(Intent.SLOT_FREE, slot_free=True)
 
     # stylist

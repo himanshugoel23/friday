@@ -93,6 +93,20 @@ def when_phrase(
     return out
 
 
+def _services(item: str | None, goal: str | None, default: str | None) -> list[str]:
+    """Every known service word in the owner's text, in order ("haircut and beard trim")."""
+    found: list[str] = []
+    for text in (item, goal):
+        for m in _SERVICE_WORDS.finditer(text or ""):
+            w = re.sub(r"\s+", " ", m.group(1).lower())
+            w = {"hair cut": "haircut"}.get(w, w)
+            if w not in found and not (w == "trim" and any("trim" in f for f in found)):
+                found.append(w)
+        if found:
+            break
+    return found or ([default] if default else [])
+
+
 def _service(item: str | None, goal: str | None, default: str | None) -> str:
     for text in (item, goal):
         m = _SERVICE_WORDS.search(text or "")
@@ -100,6 +114,89 @@ def _service(item: str | None, goal: str | None, default: str | None) -> str:
             w = re.sub(r"\s+", " ", m.group(1).lower())
             return {"hair cut": "haircut"}.get(w, w)
     return default or ""
+
+
+def book_now_delegation(
+    date_window: str,
+    fallback_when: str | None,
+    max_price_inr: int,
+    now: datetime,
+    *,
+    name: str = "salon_booking",
+    label: str = "delegation",
+) -> tuple[Any, str]:
+    """A delegation for EXACTLY the requested time (and, if given, ONE fallback time, same price
+    ceiling): each time gets a +-5 minute window, and ``slot_windows`` keeps every time in between
+    out. Returns (Delegation, cleaned fallback text). Raises PlaybookError without a specific time."""  # noqa: E501
+    from datetime import timedelta
+
+    from friday.core.models import Delegation
+
+    asked = sl.requested_time(date_window)
+    if not asked:
+        raise PlaybookError(
+            ["--book-now needs --when with ONE specific time, e.g. 'aaj shaam 5 baje' "
+             f"(got '{date_window}')"], name)
+    phrase = sl.with_day(asked, sl.find_day(date_window))
+    slot_at = sl.resolve_slot_at(phrase, now=now)
+    if slot_at is None:
+        raise PlaybookError([f"cannot work out the time '{phrase}'"], name)
+    windows = [(slot_at - timedelta(minutes=5), slot_at + timedelta(minutes=5))]
+    said = f"book {phrase} if free"
+    fb = ""
+    if fallback_when:
+        fb = clean_input(fallback_when)
+        fb_t = sl.requested_time(fb)
+        if not fb_t:
+            raise PlaybookError(
+                ["--fallback-when needs ONE specific time with a day, e.g. 'kal shaam 5 baje' "
+                 f"(got '{fb}')"], name)
+        fb_phrase = sl.with_day(fb_t, sl.find_day(fb) or "kal")
+        fb_at = sl.resolve_slot_at(fb_phrase, now=now)
+        if fb_at is None:
+            raise PlaybookError([f"cannot work out the time '{fb_phrase}'"], name)
+        windows.append((fb_at - timedelta(minutes=5), fb_at + timedelta(minutes=5)))
+        said += f", or {fb_phrase}"
+    return Delegation(
+        granted=True,
+        scope=["slot", "price"],
+        window_start=min(w[0] for w in windows),
+        window_end=max(w[1] for w in windows),
+        slot_windows=windows if len(windows) > 1 else [],
+        max_price_inr=int(max_price_inr),
+        user_words=f"{said}, up to Rs {int(max_price_inr)} ({label})",
+    ), fb
+
+
+def _name_inputs(inputs: dict[str, str], speller: Any) -> None:
+    """Worked out ONCE, when the task/call is set up: how the voice reads the names."""
+    from friday.voice.names import default_speller
+
+    sp = speller or default_speller()
+    if inputs.get("user_first_name"):
+        inputs["user_spoken"] = sp.spoken(inputs["user_first_name"])
+    if inputs.get("business_name"):
+        inputs["business_name_spoken"] = sp.spoken(inputs["business_name"])
+
+
+def _opening_texts(pb: Playbook, inputs: dict[str, str]) -> dict[str, Any]:
+    """The runner's opening and (on_request) the short re-intro after a hold, names filled in."""
+    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | {
+        k: v for k, v in inputs.items() if v
+    }
+    from friday.voice.names import default_speller
+
+    for src, dst in (("business_name", "business_name_spoken"), ("user_first_name", "user_spoken")):
+        if not shown.get(dst):
+            shown[dst] = default_speller().spoken(shown.get(src, "")) or shown.get(src, "")
+
+    def fill_(text: str) -> str:
+        return re.sub(r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), text)
+
+    out: dict[str, Any] = {"disclosure_text": fill_(pb.text(pb.disclosure))}
+    if pb.ai_disclosure == "on_request" and pb.reintro:
+        out["redisclosure_text"] = fill_(pb.text(pb.reintro))
+    return out
 
 
 def playbook_fields(
@@ -119,6 +216,9 @@ def playbook_fields(
     budget_max_inr: int | None,
     enabled: bool = True,
     directory: Any = None,
+    business_name: str | None = None,
+    delegation_granted: bool = False,
+    name_speller: Any = None,
 ) -> dict[str, Any]:
     """CallBrief fields for a scripted call, or ``{}``."""
     if not enabled:
@@ -130,6 +230,9 @@ def playbook_fields(
         "user_first_name": first_name(requester_name),
         "service": _service(
             item, goal, pb.inputs["service"].default if "service" in pb.inputs else None
+        ),
+        "services": ", ".join(
+            _services(item, goal, pb.inputs["service"].default if "service" in pb.inputs else None)
         ),
         "date_window": clean_input(
             when_phrase(when_text, preferred_times, window_start, window_end, now)
@@ -148,16 +251,32 @@ def playbook_fields(
             inputs["negotiate"] = "yes"
         if re.match(r"\s*(explore|compare)[ _-]*(multiple[ _-]*)?options\b", cons, re.I):
             inputs["explore_options"] = "yes"
+        m = re.match(r"\s*(?:fallback|fallback[ _-]*when)\s*[:=]\s*(.+)$", cons, re.I)
+        if m:
+            inputs["fallback_when"] = clean_input(m.group(1))
+        m = re.match(r"\s*(?:mode|playbook[ _-]*mode)\s*[:=]\s*(book|quote[ _-]*only)\s*$", cons, re.I)  # noqa: E501
+        if m:
+            inputs["playbook_mode"] = m.group(1).lower().replace("-", "_").replace(" ", "_")
+        if re.match(r"\s*(price|quote)[ _-]*(check|only)\b", cons, re.I):
+            inputs["playbook_mode"] = "quote_only"
+    # the mode comes from the owner's instruction; "book" exists only with a delegation
+    if inputs.get("playbook_mode") != "quote_only":
+        inputs["playbook_mode"] = "book" if (delegation_granted and inputs["date_window"]) else (
+            "quote_only"
+        )
+    if business_name and "test business" not in business_name.lower():
+        inputs["business_name"] = clean_input(business_name, 40)
+    _name_inputs(inputs, name_speller)
     if any(spec.required and not inputs.get(n) for n, spec in pb.inputs.items()):
         return {}  # a required input is unknown: the normal policy handles this call
-
-    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | {
-        k: v for k, v in inputs.items() if v
+    if inputs["playbook_mode"] == "book" and not inputs["date_window"]:
+        inputs["playbook_mode"] = "quote_only"
+    return {
+        "playbook": pb.id,
+        "playbook_inputs": inputs,
+        "ai_disclosure": pb.ai_disclosure,
+        **_opening_texts(pb, inputs),
     }
-    disclosure = re.sub(
-        r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), pb.text(pb.disclosure)
-    )
-    return {"playbook": pb.id, "playbook_inputs": inputs, "disclosure_text": disclosure}
 
 
 def playbook_test_brief(
@@ -177,6 +296,11 @@ def playbook_test_brief(
     book_now: bool = False,
     explore_options: bool = False,
     negotiate: bool = False,
+    services: str | None = None,
+    fallback_when: str | None = None,
+    mode: str | None = None,
+    name_speller: Any = None,
+    now: datetime | None = None,
 ) -> Any:
     """A CallBrief for ``friday livecall --playbook``: a normal outbound BOOKING brief with NO
     delegation and no approval, so the call can only end with "I will call back after approval".
@@ -186,7 +310,7 @@ def playbook_test_brief(
     ceiling (required), so Friday may say the single booking line if, and only if, the salon
     confirms THAT time at a price within the ceiling. The code-level commit check still decides."""
     import secrets
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
 
     from friday.core.models import (
         Budget,
@@ -198,13 +322,20 @@ def playbook_test_brief(
     )
 
     pb = get_playbook(name)
+    from friday.voice.names import parse_services
+
     inputs = {
         "user_first_name": first_name(user_first_name),
         "service": clean_input(service or "") or (
             pb.inputs["service"].default if "service" in pb.inputs else ""
         ) or "",
+        "services": ", ".join(parse_services(services or service)),
         "date_window": clean_input(date_window or ""),
     }
+    if services and not service:
+        inputs["service"] = inputs["services"].split(", ")[0] or inputs["service"]
+    if not inputs["services"]:
+        inputs["services"] = inputs["service"]
     if budget_inr:
         inputs["budget"] = str(int(budget_inr))
     if stylist_pref:
@@ -217,37 +348,32 @@ def playbook_test_brief(
         inputs["explore_options"] = "yes"
     if negotiate:
         inputs["negotiate"] = "yes"
+    if mode not in (None, "book", "quote_only"):
+        raise PlaybookError([f"mode must be book or quote_only (got '{mode}')"], name)
+    if mode == "book" and not book_now:
+        raise PlaybookError(
+            ["--mode book needs --book-now (a delegation: one specific --when time and --budget)"],
+            name)
+    inputs["playbook_mode"] = "book" if book_now else "quote_only"
+    if mode == "quote_only" and book_now:
+        raise PlaybookError(["--mode quote-only cannot be combined with --book-now"], name)
     missing = [n for n, spec in pb.inputs.items() if spec.required and not inputs.get(n)]
     if missing:
         raise PlaybookError([f"missing required input(s): {', '.join(missing)}"], name)
     delegation = Delegation()
     if book_now:
-        asked = sl.requested_time(inputs["date_window"])
-        if not asked:
-            raise PlaybookError(
-                ["--book-now needs --when with ONE specific time, e.g. 'aaj shaam 5 baje' "
-                 f"(got '{inputs['date_window']}')"], name)
         if not budget_inr:
             raise PlaybookError(
                 ["--book-now needs --budget (the most Friday may agree to, in rupees)"], name)
-        phrase = sl.with_day(asked, sl.find_day(inputs["date_window"]))
-        slot_at = sl.resolve_slot_at(phrase, now=datetime.now(UTC))
-        if slot_at is None:
-            raise PlaybookError([f"cannot work out the time '{phrase}'"], name)
-        delegation = Delegation(
-            granted=True,
-            scope=["slot", "price"],
-            window_start=slot_at - timedelta(minutes=5),
-            window_end=slot_at + timedelta(minutes=5),
-            max_price_inr=int(budget_inr),
-            user_words=f"book {phrase} if free, up to Rs {int(budget_inr)} (test call, --book-now)",
+        delegation, fb_clean = book_now_delegation(
+            inputs["date_window"], fallback_when, int(budget_inr), now or datetime.now(UTC),
+            name=name, label="book-now test call, --book-now",
         )
-    shown = {n: spec.default for n, spec in pb.inputs.items() if spec.default} | {
-        k: v for k, v in inputs.items() if v
-    }
-    disclosure = re.sub(
-        r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), pb.text(pb.disclosure)
-    )
+        if fb_clean:
+            inputs["fallback_when"] = fb_clean
+    elif fallback_when:
+        raise PlaybookError(["--fallback-when only makes sense with --book-now"], name)
+    _name_inputs(inputs, name_speller)
     return CallBrief(
         task_id=f"livecall-{secrets.token_hex(4)}",
         requester_user_id="pilot",
@@ -262,8 +388,9 @@ def playbook_test_brief(
         max_hold_s=min(60, max_seconds),
         playbook=pb.id,
         playbook_inputs=inputs,
-        disclosure_text=disclosure,
+        ai_disclosure=pb.ai_disclosure,
         delegation=delegation,
+        **_opening_texts(pb, inputs),
     )
 
 

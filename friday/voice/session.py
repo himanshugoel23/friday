@@ -817,6 +817,10 @@ class _Session:
         b = self.brief
         lang = b.opening_language
         lines = {lang: [b.disclosure(lang)]}
+        if b.ai_disclosure in ("after_identity", "on_request"):
+            # the re-disclosure after a hold: the standard AI line, or (on_request) the
+            # playbook's short truthful "virtual assistant" re-intro
+            lines[lang].append(b.disclosure(lang, repeat=True))
         if b.number_changed:
             text, nl = _line(_NEW_NUMBER, lang)
             lines.setdefault(nl, []).append(text)
@@ -1193,7 +1197,8 @@ class _Session:
         lang = b.opening_language
         if self.after_machine and human_lang in CORE_LANGUAGES:
             lang = human_lang  # agent after IVR/hold: their language if we have a template
-        await self._say(b.disclosure(lang), lang, disclosure=True)
+        # a repeat (after a hold / a new agent) is always the standard AI disclosure
+        await self._say(b.disclosure(lang, repeat=self.disclosures > 0), lang, disclosure=True)
         self.disclosed_current = True
         self.disclosures += 1
         if b.number_changed and not self.inbound and self.disclosures == 1:

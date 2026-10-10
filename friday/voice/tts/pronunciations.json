@@ -1,10 +1,14 @@
 {
   "pronunciations": {
     "hi-IN": {
-      "AI": "A I"
+      "AI": "A I",
+      "salon": "saloon",
+      "Salon": "saloon"
     },
     "en-IN": {
-      "AI": "A I"
+      "AI": "A I",
+      "salon": "saloon",
+      "Salon": "saloon"
     }
   }
 }

@@ -41,6 +41,25 @@ def register(sub: Any) -> None:
     dry.add_argument("--paths", action="store_true", help="print the steps each persona visited")
     dry.add_argument("--save-transcripts", default=None, metavar="DIR",
                      help="write redacted simulated transcripts to DIR")
+    prev = psub.add_parser(
+        "preview", help="hear the REAL script (names, voice, pauses) as one wav, before any call")
+    prev.add_argument("name", help="playbook, e.g. salon_booking")
+    prev.add_argument("--mode", choices=["book", "quote_only", "quote-only"], default="quote_only")
+    prev.add_argument("--business", required=True, help='e.g. "Shreya Salon"')
+    prev.add_argument("--user", required=True, help="the owner's first name, e.g. Himanshu")
+    prev.add_argument("--services", default="haircut", help='e.g. "haircut, beard trim"')
+    prev.add_argument("--when", default=None, help="book mode: e.g. 'aaj shaam 5 baje'")
+    prev.add_argument("--fallback-when", default=None, help="book mode: e.g. 'kal shaam 5 baje'")
+    prev.add_argument("--branch", default=None,
+                      help="book: free | busy_then_fallback (default free); quote_only: quote")
+    prev.add_argument("--budget", type=int, default=600, help="book mode price ceiling (Rs)")
+    prev.add_argument("--honorific", default="sir")
+    prev.add_argument("--pace", type=float, default=0.9,
+                      help="voice pace (default 0.9, what the founder approved; the live call "
+                           "uses FRIDAY_TTS_SPEAKING_RATE)")
+    prev.add_argument("--silence", type=float, default=1.8,
+                      help="seconds of silence where the salon would speak (default 1.8)")
+    prev.add_argument("--out", required=True, metavar="DIR", help="folder for the wav")
     draft = psub.add_parser(
         "draft", help="OFFLINE script author: draft a playbook for a new business type")
     draft.add_argument("business_type", help="e.g. clinic_appointment (see: friday playbook types)")
@@ -102,6 +121,8 @@ def run_command(args: argparse.Namespace) -> int:
 
     if cmd == "dry-run":
         return _dry_run(args)
+    if cmd == "preview":
+        return _preview(args)
     if cmd in ("draft", "promote", "types"):
         from friday.playbooks.authoring import cli as authoring_cli
 
@@ -109,6 +130,54 @@ def run_command(args: argparse.Namespace) -> int:
     print("Usage: friday playbook list | validate <name> | dry-run <name> | draft <type> | "
           "promote <type> | types")
     return 2
+
+
+def _preview(args: argparse.Namespace) -> int:
+    import asyncio
+
+    from friday.core.config import Settings
+    from friday.core.models import Language
+    from friday.playbooks.model import PlaybookError
+    from friday.playbooks.preview import render_preview
+    from friday.voice.names import NameSpeller, sarvam_transliterator
+    from friday.voice.tts.sarvam import build_sarvam_tts
+
+    settings = Settings()
+    if not settings.sarvam_api_key:
+        print("SARVAM_API_KEY is not set (the preview uses the real voice).")
+        return 2
+
+    class _C:  # build_sarvam_tts only reads .settings
+        pass
+
+    c = _C()
+    c.settings = settings
+    tts = build_sarvam_tts(c)  # type: ignore[arg-type]
+    voice = tts.voice_for(Language.HINGLISH).model_copy(update={"speaking_rate": args.pace})
+    speller = NameSpeller(sarvam_transliterator(settings.sarvam_api_key.get_secret_value()))
+
+    async def go() -> Any:
+        try:
+            return await render_preview(
+                tts=tts, voice=voice, out_dir=Path(args.out), silence_s=args.silence,
+                mode=args.mode, branch=args.branch, business=args.business, user=args.user,
+                services=args.services, when=args.when, fallback_when=args.fallback_when,
+                budget=args.budget, honorific=args.honorific, speller=speller,
+                playbook=args.name,
+            )
+        finally:
+            await tts.aclose()
+
+    try:
+        res = asyncio.run(go())
+    except PlaybookError as e:
+        print("Cannot preview: " + "; ".join(e.problems))
+        return 2
+    for i, line in enumerate(res.lines, 1):
+        print(f"{i}. {line}")
+    print(f"\nOutcome of this branch: {res.outcome}. {res.seconds:.0f} s at pace {args.pace}.")
+    print(f"Wrote {res.wav_path}")
+    return 0
 
 
 def _dry_run(args: argparse.Namespace) -> int:

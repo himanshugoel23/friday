@@ -393,6 +393,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
+    chk = sub.add_parser(
+        "tts-check",
+        help="speak each name with the real voice, listen back with the real STT, flag REVIEW",
+    )
+    chk.add_argument("names", nargs="*", help='e.g. "Shreya Salon" "Looks Unisex Salon"')
+    chk.add_argument("--from-file", default=None, help="one name per line")
+    chk.add_argument("--save-audio", default=None, metavar="DIR",
+                     help="write the audio of the REVIEW rows to DIR")
+    chk.add_argument("--threshold", type=float, default=0.7,
+                     help="similarity needed for PASS (default 0.7)")
     say = sub.add_parser("say", help="speak one line in Friday's voice into a WAV file")
     say.add_argument("text")
     say.add_argument("--out", default="var/preview/say.wav")
@@ -413,7 +423,16 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--budget", type=int, default=None, help="playbook: budget in rupees")
     live.add_argument("--stylist", default=None, help="playbook: preferred stylist first name")
     live.add_argument("--salon-name", default=None, help="playbook: e.g. 'Shreya salon'")
-    live.add_argument("--honorific", default=None, help="playbook: ji / sir / madam")
+    live.add_argument("--honorific", default=None,
+                      help="playbook: sir / madam / ji (default for salon_booking: sir)")
+    live.add_argument("--services", default=None,
+                      help="playbook: what the owner wants, e.g. 'haircut, beard trim'")
+    live.add_argument("--mode", choices=["quote-only", "book"], default=None,
+                      help="playbook: quote-only (price check, default) or book (needs "
+                           "--book-now rules: one specific --when time and --budget)")
+    live.add_argument("--fallback-when", default=None,
+                      help="playbook, with --book-now: a second specific time if the first is "
+                           "busy, e.g. 'kal shaam 5 baje' (the booking may cover either)")
     live.add_argument("--book-now", action="store_true",
                       help="playbook: let her BOOK (and only that): needs --when with one specific "
                            "time (e.g. 'aaj shaam 5 baje') and --budget (price ceiling). Without "
@@ -478,6 +497,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{r['action']} dictionary {r['dict_id']} ({r['words']} words). "
               "Restart Friday to use it.")
         return 0
+    if args.cmd == "tts-check":
+        from friday.voice.ttscheck import run_tts_check_command
+
+        return run_tts_check_command(args, settings)
     if args.cmd == "say":
         import asyncio as _aio
         from pathlib import Path as _P
@@ -526,7 +549,20 @@ def main(argv: list[str] | None = None) -> int:
                 ("service", args.service), ("date_window", args.when),
                 ("budget_inr", args.budget), ("stylist_pref", args.stylist),
                 ("salon_name", args.salon_name), ("honorific", args.honorific),
-                ("book_now", args.book_now), ("explore_options", args.explore_options)) if v}
+                ("book_now", args.book_now), ("explore_options", args.explore_options),
+                ("services", args.services), ("fallback_when", args.fallback_when),
+                ("mode", (args.mode or "").replace("-", "_") or None)) if v}
+            if args.mode == "book" and not args.book_now:
+                print("REFUSED: --mode book needs --book-now (one specific --when time and "
+                      "--budget): booking only happens under an explicit delegation.")
+                return 2
+            if args.mode == "quote-only" and args.book_now:
+                print("REFUSED: --mode quote-only and --book-now contradict each other.")
+                return 2
+            if args.fallback_when and not args.book_now:
+                print("REFUSED: --fallback-when needs --book-now and --budget (without both "
+                      "specific times and a price ceiling she cannot book).")
+                return 2
             if args.on_behalf_of == "the Friday founder":
                 print("REFUSED: a playbook call needs the first name Friday should use: "
                       "add --on-behalf-of Rahul (the name she says in 'Rahul ji ki AI assistant').")

@@ -2,98 +2,7 @@
   "playbook": "salon_booking",
   "playbook_version": 1,
   "scenarios": {
-    "appointment_only": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "asks_customer_phone": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "asks_otp": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "asks_repeat": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 7
-    },
-    "asks_robot": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "asks_who": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "asks_who_first": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "books_directly": {
+    "ai_asked_at_fallback_step": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -104,22 +13,9 @@
       },
       "outcome": "BOOKED",
       "score": 1.0,
-      "turns": 4
+      "turns": 6
     },
-    "busy_call_later": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "CALL_BACK_LATER",
-      "score": 1.0,
-      "turns": 3
-    },
-    "delegated_booking": {
+    "ai_asked_at_slot_step": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -130,9 +26,9 @@
       },
       "outcome": "BOOKED",
       "score": 1.0,
-      "turns": 4
+      "turns": 5
     },
-    "dnc_request": {
+    "ai_asked_then_hangs_up": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -141,37 +37,11 @@
         "reached_outcome": true,
         "within_limits": true
       },
-      "outcome": "REFUSED",
-      "score": 1.0,
-      "turns": 3
-    },
-    "friendly_free_slot": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 4
-    },
-    "hold_too_long": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "hold_timeout",
+      "outcome": "HUNG_UP",
       "score": 1.0,
       "turns": 2
     },
-    "never_clear": {
+    "ai_asked_twice": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -180,11 +50,89 @@
         "reached_outcome": true,
         "within_limits": true
       },
-      "outcome": "UNCLEAR",
+      "outcome": "QUOTE_COLLECTED",
       "score": 1.0,
       "turns": 5
     },
-    "no_delegation_free": {
+    "ai_bot_english": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "ai_computer_recorded": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "ai_ho_at_identity": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "ai_insaan_at_price": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "ai_real_person_english": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "ai_robot_at_identity": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "book_advance_with_slot": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -197,7 +145,33 @@
       "score": 1.0,
       "turns": 4
     },
-    "no_slot_at_all": {
+    "book_appointment_only": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "book_busy_fallback_accepted": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "book_busy_fallback_nothing": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -208,113 +182,9 @@
       },
       "outcome": "NO_SLOT",
       "score": 1.0,
-      "turns": 4
+      "turns": 6
     },
-    "no_slot_two_alternatives": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "noisy_then_clear": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "offtopic_question": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "price_over_budget_negotiates": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "price_over_budget_no_negotiation": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 4
-    },
-    "price_over_ceiling": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 4
-    },
-    "price_range_and_stylist": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 5
-    },
-    "pure_hindi": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 4
-    },
-    "puts_on_hold": {
+    "book_busy_fallback_refused": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -327,7 +197,7 @@
       "score": 1.0,
       "turns": 6
     },
-    "requested_time_busy_no_delegation": {
+    "book_busy_no_fallback_other_time": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -340,7 +210,98 @@
       "score": 1.0,
       "turns": 5
     },
-    "requested_time_busy_offers_other": {
+    "book_day_part_request": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "book_fallback_other_time_named": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "book_free_names_time": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "book_free_today": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "book_over_budget_negotiates": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "book_price_over_ceiling": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "book_salon_offers_other_time": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "book_stylist_pref": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -353,7 +314,358 @@
       "score": 1.0,
       "turns": 5
     },
-    "rude_hangs_up": {
+    "book_two_alternatives": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "SLOT_OFFERED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "book_yes_without_time": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "BOOKED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "quote_ampersand_name": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_asks_customer_phone": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "quote_asks_otp": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "quote_asks_repeat": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "quote_asks_who_after_intro": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "quote_asks_who_first": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "quote_book_mode_without_delegation": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_busy_call_later": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "CALL_BACK_LATER",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_cancellation_fee": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "UNCLEAR",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_devanagari_names": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_dnc_request": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "REFUSED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_friendly": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_hold_too_long": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "hold_timeout",
+      "score": 1.0,
+      "turns": 2
+    },
+    "quote_madam_honorific": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_never_clear": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "UNCLEAR",
+      "score": 1.0,
+      "turns": 5
+    },
+    "quote_no_advance_said": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_noisy_then_clear": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "quote_offtopic_question": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 4
+    },
+    "quote_one_service": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_over_budget_never_haggles": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_price_depends": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "UNCLEAR",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_price_range": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_pure_hindi": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_puts_on_hold": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 5
+    },
+    "quote_refuses_price": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "UNCLEAR",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_rude_hangs_up": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -366,7 +678,7 @@
       "score": 1.0,
       "turns": 2
     },
-    "salon_mentions_cancellation_fee": {
+    "quote_salon_raises_advance": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -375,37 +687,11 @@
         "reached_outcome": true,
         "within_limits": true
       },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 4
-    },
-    "salon_raises_advance": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
-      "score": 1.0,
-      "turns": 4
-    },
-    "salon_raises_advance_with_slot": {
-      "checks": {
-        "expected_outcome": true,
-        "fixed_lines_prerendered": true,
-        "no_safety_violation": true,
-        "no_unhandled_intent": true,
-        "reached_outcome": true,
-        "within_limits": true
-      },
-      "outcome": "SLOT_OFFERED",
+      "outcome": "UNCLEAR",
       "score": 1.0,
       "turns": 3
     },
-    "volunteers_duration": {
+    "quote_three_services": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -414,11 +700,37 @@
         "reached_outcome": true,
         "within_limits": true
       },
-      "outcome": "SLOT_OFFERED",
+      "outcome": "QUOTE_COLLECTED",
       "score": 1.0,
-      "turns": 4
+      "turns": 3
     },
-    "wrong_number": {
+    "quote_two_services": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_volunteers_duration": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "QUOTE_COLLECTED",
+      "score": 1.0,
+      "turns": 3
+    },
+    "quote_wrong_number_later": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -431,7 +743,7 @@
       "score": 1.0,
       "turns": 3
     },
-    "wrong_salon_name": {
+    "quote_wrong_salon_name": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -444,7 +756,7 @@
       "score": 1.0,
       "turns": 2
     },
-    "yes_without_time": {
+    "says_yes_then_hangs_up_during_intro": {
       "checks": {
         "expected_outcome": true,
         "fixed_lines_prerendered": true,
@@ -453,9 +765,22 @@
         "reached_outcome": true,
         "within_limits": true
       },
-      "outcome": "SLOT_OFFERED",
+      "outcome": "HUNG_UP",
       "score": 1.0,
-      "turns": 5
+      "turns": 2
+    },
+    "silent_after_identity": {
+      "checks": {
+        "expected_outcome": true,
+        "fixed_lines_prerendered": true,
+        "no_safety_violation": true,
+        "no_unhandled_intent": true,
+        "reached_outcome": true,
+        "within_limits": true
+      },
+      "outcome": "hung_up",
+      "score": 1.0,
+      "turns": 3
     }
   },
   "version": 1

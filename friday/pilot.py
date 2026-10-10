@@ -455,11 +455,14 @@ async def run_livecall(
         out(f"  From      : {from_number or '(simulator)'}")
         out(f"  To        : {to}")
         book_now = bool((playbook_args or {}).get("book_now"))
+        fb = (playbook_args or {}).get("fallback_when")
         out(f"  Goal      : {goal}" if not playbook else
             f"  Playbook  : {playbook} (fixed Hinglish script; "
-            + ("--book-now: she WILL book if the requested time is free and the price fits "
+            + ("BOOK mode (--book-now): she WILL book if the requested time"
+               + (f" or {fb}" if fb else "")
+               + " is free and the price fits "
                f"Rs {(playbook_args or {}).get('budget_inr')})" if book_now
-               else "no delegation, cannot book)"))
+               else "QUOTE-ONLY mode: asks the price, books nothing)"))
         out(f"  Max length: {max_seconds} s (hard cap)")
         out(f"  Est. cost : up to about Rs {est}")
         if not yes and ask("Type YES to place the call: ").strip() != "YES":
@@ -467,11 +470,16 @@ async def run_livecall(
             return 1
         if playbook:
             from friday.playbooks.select import playbook_test_brief
+            from friday.voice.names import speller_from_settings
 
             brief = playbook_test_brief(
                 playbook, to=to, user_first_name=on_behalf_of, max_seconds=max_seconds,
-                from_number=from_number, **(playbook_args or {}),
+                from_number=from_number, name_speller=speller_from_settings(settings),
+                **(playbook_args or {}),
             )
+            inp = brief.playbook_inputs
+            out(f"  Names     : {inp.get('business_name_spoken') or '(default salon name)'} / "
+                f"{inp.get('user_spoken')}")
         else:
             brief = build_test_brief(to, goal, max_seconds, from_number, on_behalf_of)
         runner = c.call_runner
