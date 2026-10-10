@@ -46,9 +46,10 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   3. Price FIRST: "Toh sir, ek baar bata sakte hain inke kya charges rahenge?" (no duration question, no
      read-back, no advance/cancellation question unless the salon raises it, no negotiation unless the owner says).
   4. BOOK mode: "Sir, kya <date/time> ka slot available hoga aapke paas?" If no: "Achha, nahi ho sakta. Toh kya kal ka slot
-     available rahega?" then close: "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir aane
-     se pehle aapko ek baar call kar lenge. Thank you." (If today is free: "...aaj shaam 5 baje ka slot book kar
-     lijiye...").
+     available rahega?" then close: "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir ya main
+     aapko ek baar <slot time> se pehle call kar lenge, booking confirm karne ke liye. Thank you." (If today is free:
+     "...aaj shaam 5 baje ka slot book kar lijiye..." then the same last two sentences.) The call-back sentence changed on
+     2026-10-10 (founder): it was "<user> sir aane se pehle aapko ek baar call kar lenge."
   5. QUOTE-ONLY mode (owner only asked for a price): no slot question; after the price: "Theek hai sir, main <user>
      sir ko bata deti hoon. Thank you."
   - Business name, user name and services are VARIABLES (services joined like "haircut aur beard trim").
@@ -149,7 +150,7 @@ Dockerfile (needs ghcr.io) were never run live). Full suite: **1758 passed, 28 s
 | order | slot question, then price | price first, then slot (book mode) |
 | modes | one | book mode and quote-only mode |
 | no slot | asks one alternative time | "Achha, nahi ho sakta. Toh kya kal ka slot available rahega?" then the close |
-| close | one short line | "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir aane se pehle aapko ek baar call kar lenge. Thank you." |
+| close | one short line | "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir ya main aapko ek baar <slot time> se pehle call kar lenge, booking confirm karne ke liye. Thank you." |
 | AI mention | said first | not volunteered; "Haan ji, main <user> sir ki personal AI assistant hoon." when asked |
 Note: the playbook validator currently rejects Devanagari in lines and tests enforce "AI disclosure first"; v6 changes both on purpose
 (founder decision 2026-10-10), so those tests/validators must be updated together with the script.
@@ -213,4 +214,9 @@ the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no 
   paas?"** (was "Kya <date/time> ka slot mil sakta hai?"). Spec updated in section 3 step 4 only. The bot's code (v0.2 `s2_ask`:
   "Kya {date_window} ka appointment mil sakta hai?") is NOT changed: hear-before-change applies and v6 is not in the repo; when v6 is
   built, use this wording and send the audio first.
+- 2026-10-10 founder edit to the v6 script (chat B): the close's call-back sentence is now **"<user> sir ya main aapko ek baar
+  <slot time> se pehle call kar lenge, booking confirm karne ke liye. Thank you."** (<slot time> = the booked time, e.g. "5 baje").
+  Spec only (section 3 step 4 and the section 7 table); the bot's code is unchanged (v0.2 close is "Theek hai, aap {slot} ka book
+  kar lijiye. Thank you."), audio first when v6 is built. Note for the engine: "main call kar lungi" means the call-back task must
+  exist; if the confirmation call is not implemented for a slot, do not promise it.
 
