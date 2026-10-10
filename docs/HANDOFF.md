@@ -45,11 +45,20 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
      unki booking ke regarding call kiya hai."
   3. Price FIRST: "Toh sir, ek baar bata sakte hain inke kya charges rahenge?" (no duration question, no
      read-back, no advance/cancellation question unless the salon raises it, no negotiation unless the owner says).
-  4. BOOK mode: "Sir, kya <date/time> ka slot available hoga aapke paas?" If no: "Achha, nahi ho sakta. Toh kya kal ka slot
-     available rahega?" then close: "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir ya main
-     aapko ek baar <slot time> se pehle call kar lenge, booking confirm karne ke liye. Thank you." (If today is free:
-     "...aaj shaam 5 baje ka slot book kar lijiye..." then the same last two sentences.) The call-back sentence changed on
-     2026-10-10 (founder): it was "<user> sir aane se pehle aapko ek baar call kar lenge."
+  4. BOOK mode: "Sir, kya <date/time> ka slot available hoga aapke paas?"
+     a. **Requested slot is free** -> close: "Theek hai sir, aaj shaam 5 baje ka slot book kar lijiye. <user> sir ya main aapko
+        ek baar <slot time> se pehle call kar lenge, booking confirm karne ke liye. Thank you." (books only if the owner
+        delegated and the code-level check passes; otherwise she says she will confirm with the owner and call back.)
+     b. **Requested slot is NOT free** (founder, 2026-10-10): ask once for the nearest slot of the SAME part of the day:
+        "Achha, aaj nahi ho sakta. Toh sir, nearest kaun sa slot available hoga <part of day>?" where <part of day> follows the
+        time the owner asked for: 2-3 baje -> "din ka"; a morning time -> "subah ka"; 5 baje or later -> "shaam ka".
+        - If the salon offers another slot (same day): "Theek hai sir, main ek baar <user> sir se confirm karke aapko call back
+          karti hoon. Thank you."  (outcome: slot offered, NOT booked.)
+        - If the salon says nothing today but names other days/times ("aaj nahi hai, kal subah ka hai / kal shaam ka hai"): take it
+          as information only (store the offered slots) and ALWAYS say: "Theek hai, main ek baar <user> sir se confirm karke aapko
+          call back karti hoon final booking ke liye. Thank you."  (outcome: slot offered, NOT booked.)
+        - She never books a different slot on her own. The earlier line "phir kal ka 5 baje ka slot book kar lete hain" is
+          REMOVED (replaced by this branch).
   5. QUOTE-ONLY mode (owner only asked for a price): no slot question; after the price: "Theek hai sir, main <user>
      sir ko bata deti hoon. Thank you."
   - Business name, user name and services are VARIABLES (services joined like "haircut aur beard trim").
@@ -149,7 +158,7 @@ Dockerfile (needs ghcr.io) were never run live). Full suite: **1758 passed, 28 s
 | intro | "...ki AI assistant hoon... appointment ke regarding" | "Main Friday... <user> sir ki virtual assistant... <services>... booking ke regarding" |
 | order | slot question, then price | price first, then slot (book mode) |
 | modes | one | book mode and quote-only mode |
-| no slot | asks one alternative time | "Achha, nahi ho sakta. Toh kya kal ka slot available rahega?" then the close |
+| no slot | asks one alternative time | asks the nearest slot of the same part of the day (subah/din/shaam); any offer or other-day info is NOT booked: "main ek baar <user> sir se confirm karke aapko call back karti hoon. Thank you." |
 | close | one short line | "Theek hai sir, phir kal ka 5 baje ka slot book kar lete hain. <user> sir ya main aapko ek baar <slot time> se pehle call kar lenge, booking confirm karne ke liye. Thank you." |
 | AI mention | said first | not volunteered; "Haan ji, main <user> sir ki personal AI assistant hoon." when asked |
 Note: the playbook validator currently rejects Devanagari in lines and tests enforce "AI disclosure first"; v6 changes both on purpose
@@ -219,4 +228,11 @@ the rules in section 2 (update HANDOFF first, hear before change, no `.env`, no 
   Spec only (section 3 step 4 and the section 7 table); the bot's code is unchanged (v0.2 close is "Theek hai, aap {slot} ka book
   kar lijiye. Thank you."), audio first when v6 is built. Note for the engine: "main call kar lungi" means the call-back task must
   exist; if the confirmation call is not implemented for a slot, do not promise it.
+- 2026-10-10 founder edit to the v6 script (chat B): **slot-not-free branch** defined (section 3 step 4b): ask the nearest slot of the
+  same part of the day; salon offers a slot -> "confirm karke call back karti hoon", other-day info -> take it as information and
+  always say the call-back line; never book a different slot herself; the fallback-day booking line is removed. Proposed boundaries
+  for <part of day> (to confirm with the founder): before 12:00 = subah, 12:00-16:59 = din, 17:00 or later = shaam. Engine notes for
+  when v6 is built: store `offered_slots` even when the salon names other days; outcome = SLOT_OFFERED (pending approval) with the
+  call-back task created; the engine needs a `part_of_day` value derived from the requested time (today `slots.find_period` exists).
+  Spec only; the bot's code is unchanged (hear-before-change).
 
