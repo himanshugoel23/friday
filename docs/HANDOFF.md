@@ -27,6 +27,8 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
    authority. Do not assume pronouns for people.
 6. Keep AI cost low; keep the user experience good.
 7. Show scripts and results plainly; the founder is non-technical about servers/AWS.
+8. **Language: the founder may write in Hindi, Hinglish or English (often dictated); the assistant ALWAYS replies in English.**
+   (Said on 2026-10-10. This is about the chat only; the bot's spoken language on calls stays Hinglish.)
 
 ## 3. Product decisions made (see BRIEF.md for the older ones)
 - Voice agent speaks **Hinglish only** (Roman script; Indian names/business names are written in **Devanagari**

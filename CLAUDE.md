@@ -8,3 +8,4 @@
    sample and wait for approval.
 4. Never read or print `.env`; never commit `.env` or `var/`; no secrets in chat or git.
 5. No real calls except to the allow-listed founder number, and only with approval.
+6. **Reply to the founder in English always**, even when they write Hindi/Hinglish (the bot's call language stays Hinglish).
