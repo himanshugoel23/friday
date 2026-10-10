@@ -58,11 +58,11 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
   wired in (`friday tts-dict sync`, `friday/voice/tts/pronunciations.json`).
 - **Voice/speed (DECIDED 2026-10-10)**: Sarvam bulbul:v3 speaker `ritu`, pace 0.9. The founder compared v4-flash
   Hinglish voices (Ishita, Shalini, Simran): they pause at random places; Ritu pauses sensibly in conversation, so
-  **Ritu stays**. Speed is fine. Ideas still open for the "robotic" feel: phrase-level pauses, temperature.
+  **Ritu stays**. Speed is fine. Tone (DECIDED 2026-10-10): the founder compared 4 files (baseline temp 0.6, phrase pauses, temp 0.75, temp 0.9) and picked #4 = **temperature 0.9** (assumed from 'Voice 4 sounds better than rest'; the founder's message was cut off, confirm if unsure). Phrase pauses were not chosen.
 - **Latency facts (measured 2026-10-10, real credits)**: Sarvam TTS REST for a ~150-char two-sentence line takes
   3.7-5.7 s; the streaming endpoint (`POST /text-to-speech/stream`, `output_audio_codec: wav`, 8 kHz) gives first
   audio in about 1.1 s. v4-flash is no faster than v3. Do NOT trust latency numbers taken while the API returns 402
-  (errors return fast). Streaming TTS in the call path: founder said GO on 2026-10-10 ("build around Ritu"); being built by a second builder (files: friday/voice/tts/sarvam.py, the Vobiz leg speak path, cache fill). STT in use:
+  (errors return fast). Streaming TTS in the call path: founder said GO on 2026-10-10 ("build around Ritu"); DONE (see section 7 and docs/LATENCY.md). STT in use:
   Sarvam saaras:v4 REST per utterance (streaming STT not used).
 - **Cost of a 1-minute call (Sarvam list prices)**: TTS Rs 3 per 1,000 chars (about Rs 1.4-1.8 per salon call),
   STT Rs 30/hour (about Rs 0.5/min), Vobiz about Rs 0.38/min, GPT near zero for scripted calls: about Rs 2.5-3 per
@@ -107,6 +107,7 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - Sarvam docs are readable with `curl https://docs.sarvam.ai/<path>.md` from the sandbox (WebFetch cannot resolve it).
 
 ## 7. Current state and next steps (update every task)
+- DONE 2026-10-10: streaming TTS in the call path. `SarvamTTS.synthesize_stream` (`/text-to-speech/stream`, WAV parsed incrementally), `SarvamCallLeg` streams uncached sentences to Vobiz as chunks arrive, fills the TTS cache after a complete line, falls back to REST on failure, barge-in cancels the request. Switch: `FRIDAY_SARVAM_TTS_STREAMING` (default true). Measured with `deploy/tts_stream_probe.py`: REST 2.1-3.3 s, stream first audio 0.4-0.5 s (total 1.8-2.0 s). Details: `docs/LATENCY.md`. Untested on a live call: run the founder test call and read the `tts stream first-audio` log lines.
 - DONE and pushed: front door (conversational), quality loop, playbook engine + salon v0.2, script author
   (offline), TTS pronunciation dictionary support, faster turns, droplet deployed and answering calls, HANDOFF.md +
   CLAUDE.md.
