@@ -22,3 +22,14 @@ conflicts for the shortlist, but only a weak search was done.
 ## Avoid
 - **Pucho / Puch**: "Puch AI" is a Bengaluru WhatsApp + voice AI assistant (around 1M users claimed): direct competitor, too close.
 - **Bata** (shoe brand), **Friday** (generic, crowded, trademark and domain issues), single common words (.com taken).
+
+## Round 2 (2026-10-11): the founder wants an AGENT CHARACTER name (a popular, human-style name), not a "wala" word
+Finding: famous fictional assistant names (Jarvis, F.R.I.D.A.Y., Edith, Cortana, Moneypenny, Samantha) belong to other
+companies' trademarks; using one as a commercial brand is risky (the current name "Friday" comes from the Iron Man AI).
+Use a popular real first name with an agent feel, and brand it as "Agent <Name>" or "<Name> Agent".
+.com + .in both unregistered (2026-10-11):
+- **Zoya** (name of the spy in the Tiger films): agentzoya, zoyaagent, callzoya, getzoya, withzoya. Risk: Zoya jewellery (Titan) and a US nail brand exist; different classes, check IP India.
+- **Misha**: agentmisha, mishaagent, callmisha, mishahq. **Kiara**: agentkiara, kiaraagent, callkiara.
+- **Nyra** (modern, coined; fewest brand conflicts): agentnyra, nyraagent, callnyra, hellonyra.
+- **Aarya**: agentaarya, aaryaagent, callaarya, getaarya. **Kavya**: agentkavya, kavyaai, kavyaagent.
+Plain names without prefix (zoya.com, misha.com, ...) are all taken.
