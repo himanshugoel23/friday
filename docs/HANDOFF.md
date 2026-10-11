@@ -126,3 +126,5 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - NEXT after v6 lands: (1) send the founder the preview audio from the real code (hear-before-change); (2) voice is decided (Ritu); (3) update server and run the test call to the founder's phone (`call-me.sh`); (4) first real salon only
   with explicit approval; (5) clinic/restaurant playbooks via `friday playbook draft --live`; (6) WhatsApp channel.
 - **2026-10-10 founder ask: PUBLIC BETA in ~6 days** (Gurgaon + Bangalore, calling businesses, landing page, WhatsApp Business (applied), Google Places for numbers, Supabase for data, measure users + business pickup rate). Plan in `docs/BETA_LAUNCH_PLAN.md`. Founder also asked to keep the context window small: keep chat replies short, push heavy work to builder agents, avoid long outputs.
+
+- 2026-10-11 founder ask: brand-name research (needs .com and .in free, buyable on GoDaddy, tech-savvy generation). Results in docs/BRAND_NAMES.md.
