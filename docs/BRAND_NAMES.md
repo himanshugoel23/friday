@@ -51,3 +51,10 @@ Plain months, days and festival words are taken as .com+.in; patterns with agent
   Minnie, Tweety, Velma, Buttercup, Carmen (Sandiego), Villanelle.
 - Festivals (Diwali, Holi, Eid, Navratri, Onam, Pongal, Lohri, Baisakhi, Easter, Halloween) have agent/call/ask/meet patterns free, but
   tie the brand to one season and to religion; not recommended as the main brand.
+
+## Round 5 (2026-10-11): creative names
+Invented/short coined names and all plain names tested (about 960 coinages): none free on plain .com+.in (taken).
+Creative route that works: alliterative "verb + persona name" brands (the persona is the assistant: "Main Tilly baat kar rahi hoon").
+Both .com and .in free: **Tell Tilly** (telltilly; also telltrixie, telltilda), **Dial Dixie** (dialdixie, dialdottie, dialdarcy, dialdelia),
+**Ping Pippa** (pingpippa, pingpolly, pingpixie, pingpiper, pingpoppy, pingpaige, pingpeggy, pingpearl), **Ring Roxie** (ringroxie,
+ringrory, ringronnie, ringrita, ringrhea), **Buzz Bonnie** (buzzbonnie, buzzbetty, buzzbree, buzzblair), **Chat Callie** (chatcallie, chatcindy, chatcora).
