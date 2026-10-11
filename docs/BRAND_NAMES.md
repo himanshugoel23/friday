@@ -40,3 +40,14 @@ Both .com and .in free: **Ziva** (agentziva, callziva, meetziva, heyziva, withzi
 sloaneagent, callsloane, mysloane; spy name), Maeve (maeveagent, callmaeve; Westworld AI; hard to say), Lyra (calllyra),
 Dani (agentdani, calldani, usedani), Romy (agentromy, romyagent), Ines, Mila, Thea, Willow, Isla. Nikita/Sasha are common in India.
 Phone test: Ziva and Dani are the easiest for a salon receptionist to hear.
+
+## Round 4 (2026-10-11): months / days / festivals / characters (anime, cartoon, movie)
+Plain months, days and festival words are taken as .com+.in; patterns with agent/call/meet/with are free.
+- Days/months (no character IP, best legal safety): **Thursday** (thursdayagent, callthursday, meetthursday, withthursday; nod to the spy novel
+  "The Man Who Was Thursday"), **July** (agentjuly, calljuly), Tuesday (agenttuesday, tuesdayagent, calltuesday), Saturday, Marzo (March), August (callaugust).
+- Wednesday (wednesdayagent, callwednesday) is the most famous (Addams Family) but that character is MGM/Netflix IP.
+- Character-style first names: **Ziva**, **Sloane**, **Rei** (callrei, askrei, meetrei, withrei, tryrei; Evangelion), Hanna (agenthanna), Yor (callyor), Jem (calljem).
+- Free but IP-heavy, do NOT use commercially: Naruto, Hinata, Mikasa, Asuka, Shinobu, Misa, Hermione, Gamora, Moana, Mulan, Leia, Wanda,
+  Minnie, Tweety, Velma, Buttercup, Carmen (Sandiego), Villanelle.
+- Festivals (Diwali, Holi, Eid, Navratri, Onam, Pongal, Lohri, Baisakhi, Easter, Halloween) have agent/call/ask/meet patterns free, but
+  tie the brand to one season and to religion; not recommended as the main brand.
