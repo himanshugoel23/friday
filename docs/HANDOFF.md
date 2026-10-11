@@ -130,3 +130,4 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - 2026-10-11 founder ask: brand-name research (needs .com and .in free, buyable on GoDaddy, tech-savvy generation). Results in docs/BRAND_NAMES.md.
 - 2026-10-11 brand research done: shortlist in `docs/BRAND_NAMES.md` (top: Batiyaan, Oyeping, Haanio). Avoid Pucho (competitor Puch AI). Founder to choose; then buy .com + .in at GoDaddy and check IP India trademark search.
 - 2026-10-11 round 2 names (agent-character first names: Zoya, Misha, Kiara, Nyra, Aarya) in docs/BRAND_NAMES.md; founder to pick.
+- 2026-10-11 round 3: foreign agent names (Ziva, Sloane, Dani...) in docs/BRAND_NAMES.md; name audio samples sent; founder to pick.

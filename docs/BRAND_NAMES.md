@@ -33,3 +33,10 @@ Use a popular real first name with an agent feel, and brand it as "Agent <Name>"
 - **Nyra** (modern, coined; fewest brand conflicts): agentnyra, nyraagent, callnyra, hellonyra.
 - **Aarya**: agentaarya, aaryaagent, callaarya, getaarya. **Kavya**: agentkavya, kavyaai, kavyaagent.
 Plain names without prefix (zoya.com, misha.com, ...) are all taken.
+
+## Round 3 (2026-10-11): foreign (non-Indian) agent-character first names
+Plain names + Aria/Ava/Nova/Eve/Luna/Stella/Iris/Ivy/Ada etc.: all taken as .com+.in in every pattern checked.
+Both .com and .in free: **Ziva** (agentziva, callziva, meetziva, heyziva, withziva; NCIS agent), **Sloane** (agentsloane,
+sloaneagent, callsloane, mysloane; spy name), Maeve (maeveagent, callmaeve; Westworld AI; hard to say), Lyra (calllyra),
+Dani (agentdani, calldani, usedani), Romy (agentromy, romyagent), Ines, Mila, Thea, Willow, Isla. Nikita/Sasha are common in India.
+Phone test: Ziva and Dani are the easiest for a salon receptionist to hear.
