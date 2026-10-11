@@ -133,3 +133,4 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - 2026-10-11 round 3: foreign agent names (Ziva, Sloane, Dani...) in docs/BRAND_NAMES.md; name audio samples sent; founder to pick.
 - 2026-10-11 round 4 names (Thursday, July, Rei, Ziva, Sloane; avoid IP characters) in docs/BRAND_NAMES.md; audio samples of names sent; founder to pick.
 - 2026-10-11 round 5 creative names (Tell Tilly, Dial Dixie, Ping Pippa, Ring Roxie...) in docs/BRAND_NAMES.md; audio sent.
+- 2026-10-11 round 6 day/month names (Avril, Abril, Lunes, July, Thursday, October) in docs/BRAND_NAMES.md; audio sent.

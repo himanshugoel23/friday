@@ -58,3 +58,12 @@ Creative route that works: alliterative "verb + persona name" brands (the person
 Both .com and .in free: **Tell Tilly** (telltilly; also telltrixie, telltilda), **Dial Dixie** (dialdixie, dialdottie, dialdarcy, dialdelia),
 **Ping Pippa** (pingpippa, pingpolly, pingpixie, pingpiper, pingpoppy, pingpaige, pingpeggy, pingpearl), **Ring Roxie** (ringroxie,
 ringrory, ringronnie, ringrita, ringrhea), **Buzz Bonnie** (buzzbonnie, buzzbetty, buzzbree, buzzblair), **Chat Callie** (chatcallie, chatcindy, chatcora).
+
+## Round 6 (2026-10-11): days and months (English, Spanish, French, Italian), about 1,300 domain patterns checked
+Plain day/month names are all taken (.com or .in). Free as .com+.in with agent/call/ask/meet/hey patterns:
+- **Avril** (French April; also a girl's name): agentavril, avrilagent, callavril, askavril, meetavril, heyavril.
+- **Abril** (Spanish April, a girl's name): agentabril, abrilagent, callabril, askabril, meetabril, heyabril.
+- **Lunes** (Spanish Monday, sounds like "luna"): agentlunes, lunesagent, calllunes, asklunes, meetlunes.
+- **July**: agentjuly, calljuly. **Thursday**: thursdayagent, callthursday, meetthursday. **October**: agentoctober, calloctober, octoberhq.
+- Also free: Martes (agentmartes), Marzo, Agosto, Juin, Mardi, Samedi, Settembre, Febbraio, Tuesday, Saturday.
+Top pick: Avril ("Agent Avril"); second Lunes; third July.
