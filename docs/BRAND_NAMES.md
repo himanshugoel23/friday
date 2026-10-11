@@ -67,3 +67,12 @@ Plain day/month names are all taken (.com or .in). Free as .com+.in with agent/c
 - **July**: agentjuly, calljuly. **Thursday**: thursdayagent, callthursday, meetthursday. **October**: agentoctober, calloctober, octoberhq.
 - Also free: Martes (agentmartes), Marzo, Agosto, Juin, Mardi, Samedi, Settembre, Febbraio, Tuesday, Saturday.
 Top pick: Avril ("Agent Avril"); second Lunes; third July.
+
+## Round 7 (2026-10-11): creative names derived from days and months
+Idea: names with a story. Free as .com+.in:
+- **Mercuri** (Mercury, messenger god; Wednesday = "Mercury's day"): agentmercuri, mercuriagent, callmercuri, askmercuri, meetmercuri.
+- **Monami** (Monday + French "mon ami", my friend): agentmonami, monamiagent, callmonami, askmonami, meetmonami.
+- **Octavia** (October): agentoctavia, octaviaagent, calloctavia. **Dessa** (December): agentdessa, dessaagent, calldessa, askdessa, meetdessa.
+- **Jovia** (Jove = Thursday's god; "jovial"): agentjovia, joviaagent, calljovia, askjovia, heyjovia. **Thora** (Thursday = Thor's day): agentthora, callthora, askthora, meetthora.
+- **Sundae** (Sunday pun): agentsundae, callsundae, asksundae, meetsundae. Decima (Dec) / Septima (Sep): agentdecima, agentseptima.
+- Avoid: Aprilia (motorbike brand), Frigga (Marvel), Venera, Wensday-style misspellings.
