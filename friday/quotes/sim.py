@@ -40,6 +40,7 @@ async def _amain(args: Any) -> int:
         directory_provider="simulator",
         geocoder_provider="simulator",
         whatsapp_provider="simulator",
+        database_url="sqlite+aiosqlite:///:memory:",
         mode="simulator", quotes_flow_enabled=True, playbooks_enabled=True, invite_only=False,
         quotes_retry_after_min=1,
     )
