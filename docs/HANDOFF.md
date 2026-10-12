@@ -163,3 +163,6 @@ Founder: do NOT build a vendor database yet. Search Google Places live on each r
 
 ## Decision note (2026-10-12): many small single-job agents; "best", not just nearest
 Founder: build a separate scouting agent for Google (find vendors, fetch numbers) and in general MANY small agents, each with one narrow job, handing structured output to the next, so none hallucinates. Vendor selection must be about the BEST, not just nearest: read Google reviews, judge whether they look genuine, and what service the place really provides. Design: docs/AGENT_ROSTER.md. Build: friday/scouting/ (new package). Rule: LLM agents only get small closed tasks with JSON schemas; code does everything deterministic (distance, ranking math, phone validation).
+
+## Task note (2026-10-12): scouting package (agents 6-12)
+Founder/orchestrator ask: build `friday/scouting/` = place searcher, eligibility filter, review fetcher, review authenticity judge (rules first, optional LLM hook), service-evidence extractor (LLM behind interface; every claim needs a quote + review id verified by code), fit scorer, ranker; category table for the 20 Wave 1 categories; CLI `friday scout` and `friday scout-report`; docs/SCOUTING.md. Wraps (does not edit) discovery/google_places.py and google_geocoder.py. Tests use fixtures and fakes only. Raw review text stays in memory only.
