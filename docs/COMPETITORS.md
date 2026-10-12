@@ -102,3 +102,10 @@ Gaps Friday can win
 
 ## 6. Update log
 - 2026-10-12: first version. Not yet covered: Pi, Rabbit, Alexa, Bland/Vapi consumer apps, TRAI/DLT and DPDP details, real user reviews, Puch pricing after free period.
+
+### Update 2026-10-12 (founder's read, to be verified by the next research run)
+Founder's view after looking at it: **Puch AI behaves like a general chatbot on WhatsApp (a Claude/ChatGPT-style assistant), not an assistant that takes real-world actions for you.** That matches what the first run found (no evidence it phones businesses). So:
+- Puch = competitor for **WhatsApp mindshare and the "AI on WhatsApp" habit**, not for the job Friday does (calling, comparing, booking, following up). Threat to Friday's core: **medium-low**, unless Puch adds actions.
+- **Instinct (and Meta Muse, Google Ask for Me) = the real comparison set**: assistants that act for the user, including by phone. Instinct is the closest model for Friday's long-term vision (personal agent that acts and follows up).
+- Positioning consequence: do not say "AI on WhatsApp" (that is Puch's lane and every chatbot's); say what only an acting assistant can say: "Friday phones the shops for you and sends one comparison."
+- Next research run: confirm by using Puch for real tasks (can it call, book, or follow up?), then re-rate; deep-dive Instinct (pricing, channels, failure modes, whether it targets India); add a "chatbot vs acting assistant" column to the table.
