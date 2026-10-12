@@ -45,9 +45,17 @@ messages:
   bucket_unclear:
     en: "Do you want prices, availability or a booking?"
     hinglish: "Aapko price chahiye, availability, ya booking?"
-  assumptions:
-    en: "Going ahead with: {assumed}."
-    hinglish: "Main yeh maan kar aage badh rahi hoon: {assumed}."
+  # Founder rule: ONE acknowledgement when the request is understood, then silence until an
+  # outcome or a question only the user can answer. "progress" is sent only if updates are ON.
+  ack:
+    en: "Got it: {summary}. I will get back to you with the result."
+    hinglish: "Samajh gayi: {summary}. Result aate hi bata dungi."
+  ack_assumed:
+    en: "Got it: {summary}. I am assuming {assumed}. I will get back to you with the result."
+    hinglish: "Samajh gayi: {summary}. Main yeh maan rahi hoon: {assumed}. Result aate hi bata dungi."
+  progress:
+    en: "Update: {step} done."
+    hinglish: "Update: {step} ho gaya."
   stop_missing:
     en: "I could not get enough details ({missing}) to search properly. Message me again with them and I will start right away."
     hinglish: "Mujhe poori detail ({missing}) nahi mili, isliye search nahi kar paayi. Woh bata dein toh main turant shuru kar dungi."
@@ -67,8 +75,8 @@ messages:
     en: "Okay, I will leave it here. Message me if you want me to try again."
     hinglish: "Theek hai, yahin rok deti hoon. Dobara try karna ho toh bata dijiye."
   consent:
-    en: "Shortlist ({count}):\n{list}\nShall I call these for you? (yes / no)"
-    hinglish: "Shortlist ({count}):\n{list}\nKya main inhe call karun? (haan / nahi)"
+    en: "Shortlist ({count}):\n{list}\nShall I call these for you? If one does not answer I will try the next best one nearby. (yes / no)"
+    hinglish: "Shortlist ({count}):\n{list}\nKya main inhe call karun? Koi phone na uthaye toh paas ka agla achha option try karungi. (haan / nahi)"
   consent_declined:
     en: "Okay, no calls will be made."
     hinglish: "Theek hai, kisi ko call nahi karungi."
@@ -96,6 +104,9 @@ messages:
   switched_to_check:
     en: "Understood, I will only check prices and availability and not book."
     hinglish: "Theek hai, main sirf price aur availability check karungi, booking nahi."
+  blocked:
+    en: "I am not able to make these calls right now. I have noted it and will tell you when I can."
+    hinglish: "Abhi main yeh calls nahi kar sakti. Maine note kar liya hai, jab ho payega bata dungi."
   terminal:
     en: "This request is already closed. Send a new message to start another."
     hinglish: "Yeh request band ho chuki hai. Nayi request ke liye naya message bhejiye."

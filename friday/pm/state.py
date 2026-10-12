@@ -67,7 +67,10 @@ class TaskRecord(BaseModel):
     inbox: list[str] = Field(default_factory=list)       # user messages, oldest first
     outbox: list[str] = Field(default_factory=list)      # PM messages to the user
     log: list[Decision] = Field(default_factory=list)
+    updates_on: bool = False   # per-request opt-in for progress messages (default off)
+    acked: bool = False
     stop_reason: str | None = None
+    profile: dict[str, Any] = Field(default_factory=dict)  # saved places etc. from the caller
 
 
 class TaskStore(Protocol):
