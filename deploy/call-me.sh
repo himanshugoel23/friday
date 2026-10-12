@@ -36,6 +36,6 @@ trap 'systemctl start friday' EXIT        # the front door always comes back, ev
 systemctl stop friday
 cd /opt/friday
 mkdir -p /opt/friday/var/livecalls && chown friday: /opt/friday/var/livecalls 2>/dev/null || true
-sudo -u friday /home/friday/.local/bin/uv run friday livecall --playbook salon_booking \
+sudo -u friday env PYTHONUNBUFFERED=1 /home/friday/.local/bin/uv run friday livecall --playbook salon_booking \
   --to +918607549916 --on-behalf-of "$NAME" --when "$WHEN" --salon-name "$SALON" --honorific "$HON" --services "$SERVICES" --budget 600 --max-seconds 150 "${MODEFLAGS[@]}" 2>&1 | tee /opt/friday/var/livecalls/last-run.log
 echo; echo "Transcript: /opt/friday/var/livecalls/ (newest file). Full log: /opt/friday/var/livecalls/last-run.log. Front door restarting."
