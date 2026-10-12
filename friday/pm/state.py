@@ -69,6 +69,9 @@ class TaskRecord(BaseModel):
     log: list[Decision] = Field(default_factory=list)
     updates_on: bool = False   # per-request opt-in for progress messages (default off)
     acked: bool = False
+    channel: str = "whatsapp_text"          # channel of the latest turn
+    background: bool = False       # plan made on a call; steps run later via run_background
+    deferred: list[dict[str, Any]] = Field(default_factory=list)  # messages to send on WhatsApp
     stop_reason: str | None = None
     profile: dict[str, Any] = Field(default_factory=dict)  # saved places etc. from the caller
 

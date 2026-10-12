@@ -531,7 +531,7 @@ def _allowed_here(known: dict[str, Any], intent: Intent) -> bool:
 
 
 def _ext_prices(
-    raw: str, unit: str | None, *, loose: bool = False
+    raw: str, unit: str | None, *, loose: bool = False, ka: bool = False
 ) -> tuple[list[int], list[int]]:
     """(prices, positions) with the archetype reading: the salon rules first (a number tied to a
     rupee word or a price cue); then, when a per-unit phrase is named ("800 per plate") or the
@@ -546,6 +546,13 @@ def _ext_prices(
             if p is not None and val >= 5:
                 prices.append(p)
                 pos.append(s0)
+    if not prices and ka:  # "350 ka hai", "teen sau ke hain": a number the vendor attaches a ka to
+        t = sl.normalise(raw)
+        for val, s0, e0 in sl.words_to_numbers(t):
+            p = sl.clean_price(val)
+            if p is not None and val >= 20 and re.match(r"\s*(ka|ke|ki)\b", t[e0 : e0 + 6]):
+                prices.append(p)
+                pos.append(s0)
     return prices, pos
 
 
@@ -554,6 +561,13 @@ def _ext_pre(raw: str, t: str, known: dict[str, Any]) -> Understanding | None:
     prices, _p = _ext_prices(raw, unit_of(raw))
     deposit = bool(_DEPOSIT_WORDS.search(t))
     arch = known.get("archetype")
+    if (
+        not prices
+        and known.get("price_step")
+        and _DEPENDS.search(t)
+        and _allowed_here(known, Intent.PRICE_DEPENDS)
+    ):
+        return _u(Intent.PRICE_DEPENDS)
     if not prices:
         if _WA.search(t) and _allowed_here(known, Intent.WHATSAPP_PLEASE):
             return _u(Intent.WHATSAPP_PLEASE)
@@ -608,6 +622,11 @@ def _ext_post(u: Understanding, raw: str, step: str, known: dict[str, Any]) -> U
         if low is not None and low == u.price_inr:
             low = None
         return u.model_copy(update={"price_unit": unit, "price_low_inr": low})
+    if u.intent == Intent.UNCLEAR.value:  # an English yes / no that starts a longer sentence
+        if re.match(r"(yes|yeah|yep|yup|sure|of course|absolutely|we do|we have|it is|it's)\b", t):
+            u = _u(Intent.YES, confident=False)
+        elif re.match(r"(no|nope|not|we don'?t|we do not)\b", t):
+            u = _u(Intent.NO, confident=False)
     # a price tucked inside another answer, at a step that asks for prices
     carriers = {
         Intent.SLOT_FREE.value, Intent.GIVES_TIME.value, Intent.YES.value, Intent.CONTINUE.value,
@@ -615,7 +634,7 @@ def _ext_post(u: Understanding, raw: str, step: str, known: dict[str, Any]) -> U
         Intent.OFFERS_SLOTS.value, Intent.ACK.value,
     }
     if price_step and u.intent in carriers and not _BUSY_SLOT.search(t):
-        prices, pos = _ext_prices(raw, unit)
+        prices, pos = _ext_prices(raw, unit, loose=bool(_RANGE.search(t)), ka=True)
         if prices:
             multi = len(set(prices)) >= 2
             ranged = bool(_RANGE.search(t)) or multi

@@ -170,6 +170,7 @@ steps:
     branches:
       YES: {set: {delivery: "yes"}, goto: S7q}
       NO: {set: {delivery: pickup_only}, goto: S7q}
+      UNCLEAR: {goto: S7q}      # the price is already in hand; do not lose it over this answer
       ANY: {goto: S7q}
 
   S7q:  # the price goes to the user

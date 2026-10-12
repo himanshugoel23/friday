@@ -3,480 +3,728 @@
   "text": "Sector 45 Gurgaon mein haircut aur beard trim kitna lega?",
   "bucket": "quote",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "how much does a facial cost near Indiranagar",
   "bucket": "quote",
   "category": "salon",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "सैलून में हेयरकट कितना लगेगा",
   "bucket": "quote",
   "category": "salon",
-  "lang": "hi"
+  "lang": "hi",
+  "channel": "whatsapp_text"
  },
  {
   "text": "bridal makeup ka rate batao, shaadi 5 December ko hai",
   "bucket": "quote",
   "category": "wedding_vendors",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "mehendi artist ke charges kya hain",
   "bucket": "quote",
   "category": "wedding_vendors",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "packers and movers quote chahiye 2 BHK Dwarka se Noida",
   "bucket": "quote",
   "category": "packers_movers",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "need quotes from movers for shifting my flat",
   "bucket": "quote",
   "category": "packers_movers",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "3 BHK pest control ka kitna charge hoga",
   "bucket": "quote",
   "category": "pest_control",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "cockroach control price for 2bhk",
   "bucket": "quote",
   "category": "pest_control",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "gym membership kitne ki hai Koramangala mein",
   "bucket": "quote",
   "category": "gym_yoga",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "yoga classes fees monthly?",
   "bucket": "quote",
   "category": "gym_yoga",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "iPhone 15 ka best price kya chal raha hai Nehru Place mein",
   "bucket": "quote",
   "category": "electronics_dealer",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "laptop dealer se macbook air ka quote chahiye",
   "bucket": "quote",
   "category": "electronics_dealer",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "DJ aur decorator ka quote chahiye birthday party ke liye",
   "bucket": "quote",
   "category": "event_services",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "wedding photographer rates for 2 days",
   "bucket": "quote",
   "category": "event_services",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "dog grooming kitne ka hota hai",
   "bucket": "quote",
   "category": "vet_pet",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "pet grooming price near me",
   "bucket": "quote",
   "category": "vet_pet",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "driving school ki fees kitni hai",
   "bucket": "quote",
   "category": "driving_school",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "learn driving course price for car",
   "bucket": "quote",
   "category": "driving_school",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "outstation cab Delhi to Jaipur ka kitna lagega",
   "bucket": "quote",
   "category": "cab_travel",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "tempo traveller rate for 12 people airport drop",
   "bucket": "quote",
   "category": "cab_travel",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "suit dry clean karne ka rate kya hai",
   "bucket": "quote",
   "category": "laundry_tailor",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "tailor se blouse stitching ke charges",
   "bucket": "quote",
   "category": "laundry_tailor",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "roses ka bouquet kitne ka milega",
   "bucket": "quote",
   "category": "florist_gift",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "gift hamper price for diwali",
   "bucket": "quote",
   "category": "florist_gift",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "car service ka kitna kharcha aayega Swift ka",
   "bucket": "quote",
   "category": "car_service",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "blood test thyroid ka kitna charge hai",
   "bucket": "quote",
   "category": "diagnostic_lab",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "full body checkup package price",
   "bucket": "quote",
   "category": "diagnostic_lab",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "dentist consultation fees kitni hai",
   "bucket": "quote",
   "category": "clinic",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "banquet hall ka rate 200 logon ke liye",
   "bucket": "quote",
   "category": "restaurant_banquet",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "coaching fees for JEE batch kitni hai",
   "bucket": "quote",
   "category": "coaching_classes",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "PG ka rent kitna hai Sector 62 Noida mein",
   "bucket": "quote",
   "category": "pg_rental",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "AC service ka kitna lagega",
   "bucket": "quote",
   "category": "appliance_repair",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "plumber ka charge kitna hota hai",
   "bucket": "quote",
   "category": "home_repair",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "aaj shaam salon mein slot hai?",
   "bucket": "availability",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "is there any slot available at a salon tomorrow morning",
   "bucket": "availability",
   "category": "salon",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "kal dentist available hai kya",
   "bucket": "availability",
   "category": "clinic",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "is the dermatologist available this Saturday",
   "bucket": "availability",
   "category": "clinic",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "aaj raat 4 logon ke liye table hai restaurant mein?",
   "bucket": "availability",
   "category": "restaurant_banquet",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "do you have a table for 6 tonight at a good restaurant",
   "bucket": "availability",
   "category": "restaurant_banquet",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "iPhone 15 stock mein hai kya",
   "bucket": "availability",
   "category": "electronics_dealer",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "is the gym open for a trial session this evening, any slot?",
   "bucket": "availability",
   "category": "gym_yoga",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "15 December ko photographer available hai?",
   "bucket": "availability",
   "category": "event_services",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "wedding planner free hai kya 20 February ko",
   "bucket": "availability",
   "category": "wedding_vendors",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "vet ka appointment kal mil jayega?",
   "bucket": "availability",
   "category": "vet_pet",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "is a lab available for home collection tomorrow morning",
   "bucket": "availability",
   "category": "diagnostic_lab",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "driving school mein weekend batch khali hai kya",
   "bucket": "availability",
   "category": "driving_school",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "tempo traveller available hai 3 January ko",
   "bucket": "availability",
   "category": "cab_travel",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "same day delivery wale florist mil jayenge kya, free hai aaj?",
   "bucket": "availability",
   "category": "florist_gift",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "kal 5 baje haircut book kar do, max 800",
   "bucket": "book",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "please book a facial for me tomorrow at 4 pm",
   "bucket": "book",
   "category": "salon",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "dentist ka appointment kal subah book kar do",
   "bucket": "book",
   "category": "clinic",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "book a table for 4 at 8 pm tonight at a restaurant",
   "bucket": "book",
   "category": "restaurant_banquet",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "car wash book kar do sunday ke liye",
   "bucket": "book",
   "category": "car_service",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "yoga trial class book karo kal shaam",
   "bucket": "book",
   "category": "gym_yoga",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "vet ka slot book kar do parso ke liye",
   "bucket": "book",
   "category": "vet_pet",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "pest control visit book kar do Saturday",
   "bucket": "book",
   "category": "pest_control",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "kal ki salon booking confirm karo",
   "bucket": "confirm",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "can you reconfirm my dentist appointment tomorrow",
   "bucket": "confirm",
   "category": "clinic",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "salon booking kal nahi, parso karo",
   "bucket": "reschedule_cancel",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "please cancel my gym trial booking",
   "bucket": "reschedule_cancel",
   "category": "gym_yoga",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "reschedule my car service to next week",
   "bucket": "reschedule_cancel",
   "category": "car_service",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "is salon ki timings kya hain, kab tak khula rehta hai",
   "bucket": "information",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "what time does the nearby gym close",
   "bucket": "information",
   "category": "gym_yoga",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "kya ye restaurant parking offer karta hai",
   "bucket": "information",
   "category": "restaurant_banquet",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "which services does the vet clinic offer",
   "bucket": "information",
   "category": "vet_pet",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "kya ye lab home visit karte hain, timings batao",
   "bucket": "information",
   "category": "diagnostic_lab",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "AC thik karne aaj aa sakte ho? cooling nahi kar raha",
   "bucket": "service_visit",
   "category": "appliance_repair",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "washing machine kharab ho gaya, mechanic bhejo",
   "bucket": "service_visit",
   "category": "appliance_repair",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "need someone to fix a tap leak today",
   "bucket": "service_visit",
   "category": "home_repair",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "bijli ka kaam hai, electrician aa sakta hai kya aaj",
   "bucket": "service_visit",
   "category": "home_repair",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "ghar mein deemak hai, pest control wale aa sakte hain?",
   "bucket": "service_visit",
   "category": "pest_control",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "fridge not working, please send a technician",
   "bucket": "service_visit",
   "category": "appliance_repair",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "लीकेज हो रहा है, प्लंबर आ सकता है आज",
   "bucket": "service_visit",
   "category": "home_repair",
-  "lang": "hi"
+  "lang": "hi",
+  "channel": "whatsapp_text"
  },
  {
   "text": "mera AC repair ready hai kya abhi tak?",
   "bucket": "followup",
   "category": "appliance_repair",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "laundry ka order kab milega, update batao",
   "bucket": "followup",
   "category": "laundry_tailor",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "salon ki service bahut kharab thi, refund chahiye",
   "bucket": "complaint",
   "category": "salon",
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "the movers damaged my furniture, I want to file a complaint",
   "bucket": "complaint",
   "category": "packers_movers",
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
  },
  {
   "text": "aaj mausam kaisa hai",
   "bucket": "other",
   "category": null,
-  "lang": "hinglish"
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
  },
  {
   "text": "tell me a joke",
   "bucket": "other",
   "category": null,
-  "lang": "en"
+  "lang": "en",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "haircut kitna lagega",
+  "bucket": "quote",
+  "category": "salon",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "hello haan ek saloon mein hair cut ka rate batao",
+  "bucket": "quote",
+  "category": "salon",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "dentist ka appointment kal hai kya",
+  "bucket": "availability",
+  "category": "clinic",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "dant ke doctor ko dikhana hai kal slot hai",
+  "bucket": "availability",
+  "category": "clinic",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "AC theek karne aaj aa sakte ho",
+  "bucket": "service_visit",
+  "category": "appliance_repair",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "mera ac kharab ho gaya hai mechanic bhejo",
+  "bucket": "service_visit",
+  "category": "appliance_repair",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "nal se paani leak ho raha hai plumber aa sakta hai",
+  "bucket": "service_visit",
+  "category": "home_repair",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "packers movers ka rate chahiye shifting hai",
+  "bucket": "quote",
+  "category": "packers_movers",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "gym ki membership kitne ki hai",
+  "bucket": "quote",
+  "category": "gym_yoga",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "aaj raat table hai restaurant mein",
+  "bucket": "availability",
+  "category": "restaurant_banquet",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "kal ka salon booking confirm karo",
+  "bucket": "confirm",
+  "category": "salon",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "meri booking cancel kar do gym ki",
+  "bucket": "reschedule_cancel",
+  "category": "gym_yoga",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "pest control ka kitna charge hai",
+  "bucket": "quote",
+  "category": "pest_control",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "car service kitna kharcha aayega",
+  "bucket": "quote",
+  "category": "car_service",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "kal subah salon book kar do",
+  "bucket": "book",
+  "category": "salon",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "blood test ka rate kya hai lab mein",
+  "bucket": "quote",
+  "category": "diagnostic_lab",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "dog grooming kitne ka hai",
+  "bucket": "quote",
+  "category": "vet_pet",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "flowers ka bouquet kitne ka milega",
+  "bucket": "quote",
+  "category": "florist_gift",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "driving school ki fees kitni hai",
+  "bucket": "quote",
+  "category": "driving_school",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "cab outstation jaana hai kitna lagega",
+  "bucket": "quote",
+  "category": "cab_travel",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "yoga classes ka timing kya hai",
+  "bucket": "information",
+  "category": "gym_yoga",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "tailor stitching ka rate batao",
+  "bucket": "quote",
+  "category": "laundry_tailor",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "hello hello kuch bhi",
+  "bucket": "other",
+  "category": null,
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "main dilli mein hoon mausam batao",
+  "bucket": "other",
+  "category": null,
+  "lang": "hinglish",
+  "channel": "call"
  }
 ]

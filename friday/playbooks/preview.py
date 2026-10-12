@@ -82,8 +82,19 @@ async def friday_lines(
     honorific: str,
     speller: Any,
     playbook: str = "salon_booking",
+    directory: Path | None = None,
+    persona: str | None = None,
+    extra: dict[str, str] | None = None,
 ) -> tuple[list[str], str]:
     """(what Friday says, in order; the playbook outcome) for the chosen branch."""
+    pb0 = get_playbook(playbook, directory)
+    if pb0.archetype:  # a vendor archetype: the branch is a persona of its own personas file
+        return await _archetype_lines(
+            pb0, directory=directory, persona=persona or branch, mode=mode, business=business,
+            user=user, services=services, when=when, fallback_when=fallback_when, budget=budget,
+            honorific=honorific, speller=speller, extra=extra or {},
+        )
+    services = services or "haircut"
     mode = mode.replace("-", "_")
     if mode not in BRANCHES:
         raise PlaybookError([f"--mode must be book or quote_only (got '{mode}')"], playbook)
@@ -92,7 +103,7 @@ async def friday_lines(
         raise PlaybookError([f"--branch for {mode} must be one of {BRANCHES[mode]}"], playbook)
     if branch == "busy_then_fallback" and not fallback_when:
         raise PlaybookError(["--branch busy_then_fallback needs --fallback-when"], playbook)
-    pb = get_playbook(playbook)
+    pb = pb0
     brief = playbook_test_brief(
         playbook,
         to="+918040000001",
@@ -117,6 +128,55 @@ async def friday_lines(
     return lines, score.outcome
 
 
+async def _archetype_lines(
+    pb: Any,
+    *,
+    directory: Path | None,
+    persona: str | None,
+    mode: str,
+    business: str,
+    user: str,
+    services: str | None,
+    when: str | None,
+    fallback_when: str | None,
+    budget: int,
+    honorific: str,
+    speller: Any,
+    extra: dict[str, str],
+) -> tuple[list[str], str]:
+    """Vendor archetype preview: play the chosen preview persona (default preview_quote /
+    preview_book) with the founder's own names, services and category inputs."""
+    from friday.playbooks.dryrun import build_brief, load_personas
+
+    mode = mode.replace("-", "_")
+    pf = load_personas(pb.id, directory)
+    wanted = persona or ("preview_book" if mode == "book" else "preview_quote")
+    base = next((p for p in pf.personas if p.id == wanted), None)
+    if base is None:
+        ids = [p.id for p in pf.personas if p.id.startswith("preview_")]
+        raise PlaybookError([f"no preview persona '{wanted}' (have: {ids})"], pb.id)
+    cfg: dict[str, Any] = {**pf.brief, **base.brief}
+    cfg.update(
+        user_first_name=user, business_name=business, honorific=honorific,
+        user_spoken=speller.spoken(user), business_name_spoken=speller.spoken(business),
+    )
+    if services:
+        cfg["services"] = services
+    if when:
+        cfg["date_window"] = when
+    if fallback_when:
+        cfg["fallback_when"] = fallback_when
+    if mode == "book" or cfg.get("delegation_max_price"):
+        cfg["delegation_max_price"] = cfg.get("delegation_max_price") or budget
+    cfg.update(extra)
+    persona_def = base.model_copy(update={"brief": cfg, "id": f"preview_{wanted}"})
+    pf2 = pf.model_copy(update={"brief": {}})
+    brief = build_brief(pb, pf2, persona_def)
+    score = await run_persona(pb, pf2, persona_def, brief=brief)
+    lines = [t for sp, t in score.transcript if sp == "friday" and t]
+    return lines, score.outcome
+
+
 async def render_preview(
     *,
     tts: Any,
@@ -132,7 +192,7 @@ async def render_preview(
         clips.append(clip.data)
     wav, rate = join_pcm_wav(clips, silence_s)
     mode = kw["mode"].replace("-", "_")
-    branch = kw.get("branch") or BRANCHES[mode][0]
+    branch = kw.get("persona") or kw.get("branch") or BRANCHES[mode][0]
     path = out_dir / f"preview_{mode}_{branch}.wav"
 
     def write() -> None:

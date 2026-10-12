@@ -210,3 +210,33 @@ categories:
     "*": {}
     availability: {required_add: []}
     quote: {optional_add: [when]}
+
+# Phone-call wording (channel "call"): ONE very short, speakable question; no lists, no symbols.
+# Long inputs (long_slots) are never asked on a call: they are requested on WhatsApp afterwards,
+# and the final outcome is always delivered on WhatsApp.
+long_slots: [details]
+spoken:
+  slots:
+    where: {en: "Which area?", hinglish: "Kaunse area mein?"}
+    service: {en: "What do you need?", hinglish: "Kya chahiye aapko?"}
+    when: {en: "When do you need it?", hinglish: "Kab chahiye?"}
+    budget: {en: "What is your budget?", hinglish: "Budget kitna hai?"}
+    for_whom: {en: "Is it for you?", hinglish: "Aapke liye hai?"}
+    delegation: {en: "Should I book it for you?", hinglish: "Kya main book kar doon?"}
+    details: {en: "Any other detail?", hinglish: "Aur koi detail?"}
+  messages:
+    category_unclear: {en: "Sorry, what service do you need?", hinglish: "Maaf kijiye, kaunsi service chahiye?"}
+    bucket_unclear: {en: "Price, availability or booking?", hinglish: "Price, availability, ya booking?"}
+    ack: {en: "Got it. I will message you the result on WhatsApp.", hinglish: "Samajh gayi. Result aapko WhatsApp par bhej dungi."}
+    ack_assumed: {en: "Got it. I will message you the result on WhatsApp.", hinglish: "Samajh gayi. Result aapko WhatsApp par bhej dungi."}
+    whatsapp_followup: {en: "I need a few more details. I will ask you on WhatsApp.", hinglish: "Kuch details chahiye, woh main WhatsApp par poochungi."}
+    yesno_unclear: {en: "Sorry, yes or no?", hinglish: "Maaf kijiye, haan ya nahi?"}
+    cancelled: {en: "Okay, cancelled.", hinglish: "Theek hai, cancel kar diya."}
+    replanned: {en: "Okay, changed.", hinglish: "Theek hai, badal diya."}
+    stop_missing: {en: "I could not get the details. I will message you on WhatsApp.", hinglish: "Details nahi mil paayi. Main WhatsApp par message karungi."}
+    stop_category: {en: "Sorry, I did not understand. Please message me on WhatsApp.", hinglish: "Maaf kijiye, samajh nahi aaya. Please WhatsApp par likh dijiye."}
+    terminal: {en: "That request is closed.", hinglish: "Woh request band ho chuki hai."}
+messages_extra:
+  whatsapp_followup:
+    en: "Thanks for your call. To continue I need one more detail. {question}"
+    hinglish: "Call ke liye shukriya. Aage badhne ke liye ek detail chahiye. {question}"

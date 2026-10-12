@@ -19,6 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from .taxonomy import bucket_keys, buckets, categories, category_keys
 
 NO_CATEGORY = "none"
+CHANNELS = ("whatsapp_text", "whatsapp_voice", "call", "sms")
+DEFAULT_CHANNEL = "whatsapp_text"
 # Tie-break order (first wins) for the keyword baseline: the riskier / more specific bucket first.
 _PRECEDENCE = [
     "reschedule_cancel", "confirm", "complaint", "followup", "book", "service_visit",
@@ -83,7 +85,7 @@ def parse_classification(raw: str) -> Classification:
 
 @runtime_checkable
 class Classifier(Protocol):
-    async def classify(self, text: str) -> Classification: ...
+    async def classify(self, text: str, channel: str = DEFAULT_CHANNEL) -> Classification: ...
 
 
 # ------------------------------------------------------------------------------ keyword baseline
@@ -105,7 +107,7 @@ class KeywordClassifier:
         self._b = {k: v.keywords for k, v in buckets().items()}
         self._c = {k: v.keywords for k, v in categories().items()}
 
-    async def classify(self, text: str) -> Classification:
+    async def classify(self, text: str, channel: str = DEFAULT_CHANNEL) -> Classification:
         return self.classify_sync(text)
 
     def classify_sync(self, text: str) -> Classification:
@@ -138,7 +140,7 @@ class ScriptedClassifier:
         self.default = default or Classification.unsure()
         self.calls: list[str] = []
 
-    async def classify(self, text: str) -> Classification:
+    async def classify(self, text: str, channel: str = DEFAULT_CHANNEL) -> Classification:
         self.calls.append(text)
         return self.table.get(text, self.default)
 
@@ -175,10 +177,13 @@ class LLMClassifier:
         self.max_tokens = max_tokens
         self.repairs = 0
 
-    async def classify(self, text: str) -> Classification:
+    async def classify(self, text: str, channel: str = DEFAULT_CHANNEL) -> Classification:
         from friday.core.interfaces import LLMMessage, ProviderError
 
-        msgs = [LLMMessage(role="user", content=f"Message to classify:\n\"\"\"\n{text}\n\"\"\"")]
+        note = ("" if channel in ("whatsapp_text", "sms") else
+                "This text is a speech-to-text transcript of a spoken message: expect misspellings, "
+                "dropped words and Hindi/English mixing.\n")
+        msgs = [LLMMessage(role="user", content=f"{note}Message to classify:\n\"\"\"\n{text}\n\"\"\"")]
         for attempt in range(2):
             try:
                 resp = await self.llm.complete(

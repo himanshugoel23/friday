@@ -15,8 +15,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .classifier import Classification, Classifier
-from .plans import PlanTemplate, message, slot_question, template_for
+from .classifier import CHANNELS, Classification, Classifier
+from .plans import PlanTemplate, long_slots, message, slot_question, template_for
 from .plans import raw as plans_raw
 from .slots import (
     SLOT_KEYS,
@@ -52,8 +52,23 @@ _RESET_FROM = {"where": "locate", "service": "search", "details": "search",
 class PMReply(BaseModel):
     task_id: str
     status: str
-    messages: list[str] = Field(default_factory=list)
+    messages: list[str] = Field(default_factory=list)   # in the turn's own channel
     pending_kind: str | None = None
+    deliver_via: str = "whatsapp_text"                   # channel of ``messages``
+    whatsapp: list[str] = Field(default_factory=list)    # extra texts to send on WhatsApp
+
+
+class TurnReply(BaseModel):
+    """Turn-based result for any channel (the voice layer speaks ``reply_text``)."""
+
+    task_id: str
+    reply_text: str
+    state: str                       # task status value
+    pending_kind: str | None = None  # what the PM waits for (None = nothing / working)
+    pending_slot: str | None = None
+    background: bool = False         # call: steps run later via run_background()
+    whatsapp: list[str] = Field(default_factory=list)
+    done: bool = False
 
 
 class ProjectManager:
@@ -77,13 +92,46 @@ class ProjectManager:
 
     # ------------------------------------------------------------------ public API
 
+    async def handle_turn(self, task_id: str | None, text: str,
+                          channel: str = "whatsapp_text", *, user_id: str = "user",
+                          profile: dict[str, Any] | None = None,
+                          updates_on: bool = False) -> TurnReply:
+        """One user turn on any channel (whatsapp_text | whatsapp_voice | call | sms)."""
+        r = await self.handle_message(text, task_id=task_id, user_id=user_id, profile=profile,
+                                      updates_on=updates_on, channel=channel)
+        task = self.store.load(r.task_id)
+        assert task is not None
+        return TurnReply(
+            task_id=r.task_id, reply_text=" ".join(r.messages), state=r.status,
+            pending_kind=r.pending_kind,
+            pending_slot=task.pending.slot if task.pending else None,
+            background=task.background, whatsapp=r.whatsapp,
+            done=task.status in TERMINAL)
+
+    async def run_background(self, task_id: str) -> PMReply:
+        """Run the plan of a task that started on a call. From here everything (questions,
+        the outcome) goes to WhatsApp; nothing depends on the caller still being on the line."""
+        task = self.store.load(task_id)
+        if task is None:
+            raise KeyError(f"unknown task {task_id}")
+        msgs: list[str] = []
+        if task.status not in TERMINAL and not task.pending:
+            task.channel, task.background = "whatsapp_text", False
+            self._log(task, "background_run_started")
+            await self._drive(task, msgs)
+        self.store.save(task)
+        return self._reply(task, msgs)
+
     async def handle_message(self, text: str, *, task_id: str | None = None,
                              user_id: str = "user", profile: dict[str, Any] | None = None,
-                             updates_on: bool = False) -> PMReply:
+                             updates_on: bool = False,
+                             channel: str = "whatsapp_text") -> PMReply:
+        if channel not in CHANNELS:
+            raise ValueError(f"unknown channel {channel!r}")
         msgs: list[str] = []
         if task_id is None:
             task = TaskRecord(id=self.new_id(), user_id=user_id, profile=profile or {},
-                              updates_on=updates_on)
+                              updates_on=updates_on, channel=channel)
             self._log(task, "task_created", user_id=user_id, updates_on=updates_on)
             self._note_message(task, text)
             await self._start(task, text, msgs)
@@ -92,8 +140,9 @@ class ProjectManager:
             if loaded is None:
                 raise KeyError(f"unknown task {task_id}")
             task = loaded
+            task.channel = channel
             if task.status in TERMINAL:
-                self._say(task, msgs, message("terminal", task.language))
+                self._say(task, msgs, self._m(task, "terminal"))
                 self.store.save(task)
                 return self._reply(task, msgs)
             self._note_message(task, text)
@@ -130,8 +179,10 @@ class ProjectManager:
         task.outbox.append(text)
 
     def _reply(self, task: TaskRecord, msgs: list[str]) -> PMReply:
+        wa, task.deferred = [d["text"] for d in task.deferred], []
         return PMReply(task_id=task.id, status=task.status.value, messages=msgs,
-                       pending_kind=task.pending.kind if task.pending else None)
+                       pending_kind=task.pending.kind if task.pending else None,
+                       deliver_via=task.channel, whatsapp=wa)
 
     def _note_message(self, task: TaskRecord, text: str) -> None:
         task.inbox.append(text)
@@ -147,12 +198,22 @@ class ProjectManager:
             t = build_template(task.archetype, task.category)
         return t
 
-    def _stop(self, task: TaskRecord, msgs: list[str], reason: str, text: str) -> None:
+    def _m(self, task: TaskRecord, key: str, **kw: Any) -> str:
+        """Template text in the user's language and the current channel's style."""
+        return message(key, task.language, task.channel, **kw)
+
+    def _stop(self, task: TaskRecord, msgs: list[str], reason: str, key: str, **kw: Any) -> None:
         task.status = Status.STOPPED
         task.stop_reason = reason
         task.pending = None
         self._log(task, "stopped", reason=reason)
-        self._say(task, msgs, text)
+        self._say(task, msgs, self._m(task, key, **kw))
+        if task.channel == "call":  # the outcome is always also delivered on WhatsApp
+            self._whatsapp(task, message(key, task.language, "whatsapp_text", **kw))
+
+    def _whatsapp(self, task: TaskRecord, text: str) -> None:
+        task.deferred.append({"channel": "whatsapp_text", "text": text})
+        task.outbox.append(text)
 
     async def _ask(self, task: TaskRecord, msgs: list[str], pending: Pending) -> None:
         if pending.slot:
@@ -166,7 +227,7 @@ class ProjectManager:
     # ------------------------------------------------------------------ first message
 
     async def _start(self, task: TaskRecord, text: str, msgs: list[str]) -> None:
-        c = await self.classifier.classify(text)
+        c = await self.classifier.classify(text, task.channel)
         self._apply_classification(task, c)
         await self._after_classification(task, text, msgs)
 
@@ -182,7 +243,7 @@ class ProjectManager:
         if task.archetype == "handoff" and task.bucket != "other":
             task.status = Status.HANDOFF
             self._log(task, "handoff", bucket=task.bucket, reason="bucket_not_run_by_pm")
-            self._say(task, msgs, message("handoff", task.language))
+            self._say(task, msgs, self._m(task, "handoff"))
             return
         if task.category is None or task.bucket == "other" or task.confidence < self.min_confidence:
             if task.category is None and task.bucket == "other" and task.confidence < 0.3 \
@@ -190,20 +251,19 @@ class ProjectManager:
                 pass
             if task.rounds_used >= self.max_rounds:
                 if task.category is None or task.bucket == "other":
-                    self._stop(task, msgs, "classification_unresolved",
-                               message("stop_category", task.language))
+                    self._stop(task, msgs, "classification_unresolved", "stop_category")
                     return
             else:
                 task.rounds_used += 1
                 if task.category is None:
-                    p = Pending(kind="category", prompt=message("category_unclear", task.language))
+                    p = Pending(kind="category", prompt=self._m(task, "category_unclear"))
                 else:
-                    p = Pending(kind="bucket", prompt=message("bucket_unclear", task.language))
+                    p = Pending(kind="bucket", prompt=self._m(task, "bucket_unclear"))
                 await self._ask(task, msgs, p)
                 return
         if task.archetype == "handoff":  # bucket "other" with a category but rounds used up
             task.status = Status.HANDOFF
-            self._say(task, msgs, message("handoff", task.language))
+            self._say(task, msgs, self._m(task, "handoff"))
             return
         await self._ingest_first(task, text)
 
@@ -229,11 +289,14 @@ class ProjectManager:
             self._cancel(task, msgs, during=task.pending.kind if task.pending else "running")
             return
         p = task.pending
+        if p is not None and p.data.get("via") == "whatsapp" and task.channel == "call":
+            self._say(task, msgs, self._m(task, "whatsapp_followup"))  # long input: not by voice
+            return
         if p is None:
             await self._apply_changes(task, text, msgs)
             return
         if p.kind in ("category", "bucket"):
-            c = await self.classifier.classify(text)
+            c = await self.classifier.classify(text, task.channel)
             self._log(task, "answer_received", kind=p.kind)
             bucket = c.bucket if c.bucket != "other" else task.bucket
             category = c.category or task.category
@@ -264,9 +327,9 @@ class ProjectManager:
             p.unclear += 1
             self._log(task, "answer_unclear", kind=p.kind, count=p.unclear)
             if p.unclear >= 2:
-                self._stop(task, msgs, f"{p.kind}_unanswered", message("stop_category", task.language))
+                self._stop(task, msgs, f"{p.kind}_unanswered", "stop_category")
             else:
-                self._say(task, msgs, message("yesno_unclear", task.language))
+                self._say(task, msgs, self._m(task, "yesno_unclear"))
             return
         self._log(task, "answer_received", kind=p.kind, value=yn)
         await self._yes_no(task, p, yn, msgs)
@@ -278,7 +341,7 @@ class ProjectManager:
         if value is None and p.unclear < 1:
             p.unclear += 1
             self._log(task, "answer_unclear", slot=p.slot)
-            self._say(task, msgs, message("yesno_unclear", task.language)
+            self._say(task, msgs, self._m(task, "yesno_unclear")
                       if p.slot == "delegation" else p.prompt)
             return
         task.pending = None
@@ -299,7 +362,7 @@ class ProjectManager:
                 task.outputs["_consent_user"] = True
                 task.pending, task.status = None, Status.RUNNING
             else:
-                self._stop(task, msgs, "consent_declined", message("consent_declined", task.language))
+                self._stop(task, msgs, "consent_declined", "consent_declined")
         elif p.kind == "widen":
             if yes:
                 to = float(p.data["to_km"])
@@ -308,14 +371,13 @@ class ProjectManager:
                 task.pending, task.status = None, Status.RUNNING
                 self._reset_from(task, "search")
             else:
-                self._stop(task, msgs, "widen_declined", message("widen_declined", task.language))
+                self._stop(task, msgs, "widen_declined", "widen_declined")
         elif p.kind == "over_budget":
             if yes:
                 task.outputs["_over_budget_ack"] = True
                 task.pending, task.status = None, Status.RUNNING
             else:
-                self._stop(task, msgs, "over_budget_declined",
-                           message("over_budget_declined", task.language))
+                self._stop(task, msgs, "over_budget_declined", "over_budget_declined")
 
     # ------------------------------------------------------------------ interruptions
 
@@ -326,7 +388,7 @@ class ProjectManager:
             if s.status in ("pending", "running"):
                 s.status = "skipped"
         self._log(task, "interrupt_cancel", during=during)
-        self._say(task, msgs, message("cancelled", task.language))
+        self._say(task, msgs, self._m(task, "cancelled"))
 
     def _reset_from(self, task: TaskRecord, step: str) -> None:
         names = [s.name for s in task.plan]
@@ -373,7 +435,7 @@ class ProjectManager:
             task.pending = None
         task.status = Status.RUNNING
         summary = ", ".join(f"{k}={v}" for k, v in changes.items())
-        self._say(task, msgs, message("replanned", task.language, changes=summary))
+        self._say(task, msgs, self._m(task, "replanned", changes=summary))
 
     def _rebuild_plan(self, task: TaskRecord) -> None:
         old = {s.name: s for s in task.plan}
@@ -388,8 +450,17 @@ class ProjectManager:
         if missing and task.rounds_used < self.max_rounds:
             slot = missing[0]
             task.rounds_used += 1
+            if task.channel == "call" and slot in long_slots():
+                # Long input (details, address, many numbers) is requested on WhatsApp.
+                q = slot_question(slot, task.language, tpl, "whatsapp_text")
+                task.pending = Pending(kind="slot", slot=slot, prompt=q, data={"via": "whatsapp"})
+                task.status = Status.AWAITING_USER
+                self._log(task, "question_deferred_to_whatsapp", slot=slot)
+                self._whatsapp(task, message("whatsapp_followup", task.language, question=q))
+                self._say(task, msgs, self._m(task, "whatsapp_followup"))
+                return
             await self._ask(task, msgs, Pending(kind="slot", slot=slot,
-                                                prompt=slot_question(slot, task.language, tpl)))
+                                                prompt=slot_question(slot, task.language, tpl, task.channel)))
             return
         unresolved: list[str] = []
         for slot in missing:
@@ -403,7 +474,7 @@ class ProjectManager:
             # No explicit instruction to book: never book. Check prices/availability only.
             task.archetype = "availability"
             self._log(task, "archetype_switch", to="availability", reason="no_delegation")
-            self._say(task, msgs, message("switched_to_check", task.language))
+            self._say(task, msgs, self._m(task, "switched_to_check"))
             tpl = self._template(task)
             unresolved = [s for s in tpl.required if s not in task.slots and s not in tpl.defaults]
             for s in tpl.required:
@@ -411,8 +482,8 @@ class ProjectManager:
                     task.slots[s] = tpl.defaults[s]
                     task.assumed[s] = tpl.defaults[s]
         if unresolved:
-            self._stop(task, msgs, "missing_slots:" + ",".join(unresolved),
-                       message("stop_missing", task.language, missing=", ".join(unresolved)))
+            self._stop(task, msgs, "missing_slots:" + ",".join(unresolved), "stop_missing",
+                       missing=", ".join(unresolved))
             return
         for k, v in tpl.defaults.items():  # optional slots: silent defaults
             if k not in task.slots:
@@ -435,10 +506,10 @@ class ProjectManager:
         shown = {k: v for k, v in task.assumed.items() if k != "for_whom"}
         if shown:
             assumed = ", ".join(f"{k}: {v}" for k, v in shown.items())
-            self._say(task, msgs, message("ack_assumed", task.language, summary=summary,
+            self._say(task, msgs, self._m(task, "ack_assumed", summary=summary,
                                           assumed=assumed))
         else:
-            self._say(task, msgs, message("ack", task.language, summary=summary))
+            self._say(task, msgs, self._m(task, "ack", summary=summary))
 
     # ------------------------------------------------------------------ driving the plan
 
@@ -457,6 +528,10 @@ class ProjectManager:
             if step is None:
                 task.status = Status.DONE
                 self._log(task, "done")
+                return
+            if task.channel == "call":  # keep the call turn short: steps run via run_background
+                task.background = True
+                self._log(task, "background_scheduled")
                 return
             await self._run_step(task, step, msgs)
             self.store.save(task)
@@ -505,7 +580,7 @@ class ProjectManager:
             task.outputs[step.name] = data
             self._log(task, "step_done", step=step.name)
             if task.updates_on and step.name != "report":
-                self._say(task, msgs, message("progress", task.language, step=step.name))
+                self._say(task, msgs, self._m(task, "progress", step=step.name))
             if step.name == "collect" and await self._over_budget(task, data, msgs):
                 return
             if step.name == "report" and isinstance(data.get("message"), str):
@@ -525,9 +600,8 @@ class ProjectManager:
                 step.status = "pending"
                 return
             step.status, step.reason = "failed", res.reason
-            text = message("blocked" if res.reason == "blocked_by_policy" else "step_failed",
-                           task.language)
-            self._stop(task, msgs, f"step_failed:{step.name}:{res.reason}", text)
+            self._stop(task, msgs, f"step_failed:{step.name}:{res.reason}",
+                       "blocked" if res.reason == "blocked_by_policy" else "step_failed")
 
     def _validate_shortlist(self, task: TaskRecord, data: dict) -> dict:
         """Distance is a HARD filter: drop anything beyond the radius or the category hard max."""
@@ -551,14 +625,14 @@ class ProjectManager:
         step.status = "pending"
         self._log(task, "no_vendors", step=step.name, radius_km=cur, reason=reason)
         if not bigger:
-            self._stop(task, msgs, "no_vendors_within_hard_max",
-                       message("widen_stop", task.language, hard_max_km=int(tpl.hard_max_km)))
+            self._stop(task, msgs, "no_vendors_within_hard_max", "widen_stop",
+                       hard_max_km=int(tpl.hard_max_km))
             return
         to = bigger[0]
         self._log(task, "widen_offered", from_km=cur, to_km=to)
         await self._ask(task, msgs, Pending(
             kind="widen", data={"to_km": to},
-            prompt=message("widen", task.language, current_km=_km(cur), to_km=_km(to))))
+            prompt=self._m(task, "widen", current_km=_km(cur), to_km=_km(to))))
 
     async def _consent(self, task: TaskRecord, step: StepState, msgs: list[str]) -> None:
         tpl = self._template(task)
@@ -570,7 +644,7 @@ class ProjectManager:
                 lines.append(f"- {v.get('name', v.get('id'))}, {_km(v['distance_km'])} km{extra}")
             await self._ask(task, msgs, Pending(
                 kind="consent", data={"vendors": [v.get("id") for v in vendors]},
-                prompt=message("consent", task.language, count=len(lines),
+                prompt=self._m(task, "consent", count=len(lines),
                                list="\n".join(lines))))
             return
         step.status = "running"
@@ -615,7 +689,7 @@ class ProjectManager:
             self.store.save(task)
         if ok == 0 and not any(r["outcome"] == "ambiguous" for r in results):
             step.status = "failed"
-            self._stop(task, msgs, "all_vendors_failed", message("all_no_pickup", task.language))
+            self._stop(task, msgs, "all_vendors_failed", "all_no_pickup")
             return
         step.status = "done"
         self._log(task, "step_done", step="calls", ok=ok, tried=len(results))
@@ -632,7 +706,7 @@ class ProjectManager:
             return False
         await self._ask(task, msgs, Pending(
             kind="over_budget",
-            prompt=message("over_budget", task.language, budget=budget, lowest=int(min(prices)))))
+            prompt=self._m(task, "over_budget", budget=budget, lowest=int(min(prices)))))
         return True
 
 

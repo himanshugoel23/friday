@@ -20,7 +20,7 @@ appliance_repair:
   label: AC / appliance repair
   radius_km: 10
   hard_max_km: 20
-  keywords: [ac repair, ac service, ac thik, ac ठीक, ac kharab, appliance, washing machine, fridge, refrigerator, geyser, microwave, tv repair, air conditioner, ac gas, ac mechanic, ac ki service]
+  keywords: [ac theek, ac repair, ac service, ac thik, ac ठीक, ac kharab, appliance, washing machine, fridge, refrigerator, geyser, microwave, tv repair, air conditioner, ac gas, ac mechanic, ac ki service]
 home_repair:
   label: Plumber / electrician / carpenter
   radius_km: 10

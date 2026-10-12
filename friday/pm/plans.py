@@ -32,9 +32,14 @@ def raw() -> dict:
     return yaml.safe_load((DATA_DIR / "plans.yaml").read_text(encoding="utf-8"))
 
 
-def message(key: str, lang: str, **kw: object) -> str:
-    """User-facing template text; Devanagari Hindi falls back to the Hinglish wording."""
-    entry = raw()["messages"][key]
+def message(key: str, lang: str, channel: str = "whatsapp_text", **kw: object) -> str:
+    """User-facing template text; Devanagari Hindi falls back to the Hinglish wording.
+
+    On a phone call (``channel == "call"``) the short spoken variant is used when one exists."""
+    data = raw()
+    entry = data["messages"].get(key) or data["messages_extra"][key]
+    if channel == "call" and key in data["spoken"]["messages"]:
+        entry = data["spoken"]["messages"][key]
     text = entry["en"] if lang == "en" else entry["hinglish"]
     return text.format(**kw) if kw else text
 
@@ -43,8 +48,16 @@ def slot_kind(slot: str) -> str:
     return raw()["slots"][slot]["kind"]
 
 
-def slot_question(slot: str, lang: str, template: PlanTemplate | None = None) -> str:
-    entry = (template.questions.get(slot) if template else None) or raw()["slots"][slot]
+def long_slots() -> list[str]:
+    return list(raw()["long_slots"])
+
+
+def slot_question(slot: str, lang: str, template: PlanTemplate | None = None,
+                  channel: str = "whatsapp_text") -> str:
+    if channel == "call":
+        entry = raw()["spoken"]["slots"][slot]
+    else:
+        entry = (template.questions.get(slot) if template else None) or raw()["slots"][slot]
     return entry["en"] if lang == "en" else entry["hinglish"]
 
 
