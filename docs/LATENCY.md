@@ -90,3 +90,13 @@ recognised by the rules ("bataiye" was not in the confident patterns), so the mo
    saves up to ~0.5 s), streaming STT, a trained small intent classifier (no model call for the closed intent set), and a short
    backchannel word ("ji") while the model works (needs founder audio approval).
 Benchmark scripts are one-off (scratchpad); re-measure on the server from `last-run.log` (the `llm purpose=call_turn` lines).
+
+## 2026-10-12 TTS vendor speed check (this sandbox, 6 runs, an 85-char Hinglish line, phone formats)
+| Path | First audio p50 | Total p50 |
+|---|---|---|
+| ElevenLabs Flash v2.5, REST (how our adapter calls it) | 321 ms | 321 ms |
+| ElevenLabs Flash v2.5, streaming (ulaw_8000) | 170 ms | 296 ms |
+| ElevenLabs multilingual_v2, streaming | 1359 ms | 1412 ms |
+| Sarvam REST | 1387 ms | 1387 ms |
+| Sarvam stream (in use) | 260 ms | 1282 ms |
+So an earlier remark that ElevenLabs would be slower was WRONG for Flash v2.5: it is as fast or faster than Sarvam's streaming, even over REST. Caveats: measured from the sandbox, not the Bangalore droplet (Sarvam is in India, ElevenLabs is not: re-measure on the server); only the free premade voice was timed; multilingual_v2 (better quality) is slow, Flash is the real-time model; quality on Hinglish still has to be judged by ear.
