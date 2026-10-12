@@ -77,7 +77,7 @@ _WHERE_TRAIL = re.compile(r"((?:[\w\-]+\s+){0,3}[\w\-]+)\s+(?:mein|me|ke paas|ke
 _WHERE_LEAD = re.compile(r"\b(?:in|near|around|at|nearby)\s+((?:[\w\-]+\s*){1,4})", re.I)
 _SECTOR = re.compile(r"\b(sector\s*\d+[a-z]?(?:\s+[a-z]+)?)", re.I)
 _STOP = set((
-    "mujhe mera meri mere kal aaj parso shaam subah raat today tomorrow tonight the a an is "
+    "ka ki ke mein hum mujhe mera meri mere kal aaj parso shaam subah raat today tomorrow tonight the a an is "
     "kya kitna kitne lega lagega hai hain for and aur ya to please need want chahiye book kar do "
     "karo koi achha good best my me i we you can could would nearby near ke paas se tak "
     "abhi ghar haan ji ok ek do teen char paanch cost price rate fee fees much how does what "

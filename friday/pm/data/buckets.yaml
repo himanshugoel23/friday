@@ -7,7 +7,7 @@ quote:
 availability:
   label: Availability check
   archetype: availability
-  keywords: [do you have, available, availability, slot hai, slot milega, slot mil, free hai, khali, table hai, hai kya, mil jayega, stock mein, in stock, aaj shaam, can i get a slot, any slot, open hai, jagah hai]
+  keywords: [slot, is there a, do you have, available, availability, slot hai, slot milega, slot mil, free hai, khali, table hai, hai kya, mil jayega, stock mein, in stock, aaj shaam, can i get a slot, any slot, open hai, jagah hai]
 book:
   label: Book (delegated)
   archetype: book

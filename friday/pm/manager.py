@@ -119,8 +119,9 @@ class ProjectManager:
             task.channel, task.background = "whatsapp_text", False
             self._log(task, "background_run_started")
             await self._drive(task, msgs)
+        reply = self._reply(task, msgs)
         self.store.save(task)
-        return self._reply(task, msgs)
+        return reply
 
     async def handle_message(self, text: str, *, task_id: str | None = None,
                              user_id: str = "user", profile: dict[str, Any] | None = None,
@@ -148,8 +149,9 @@ class ProjectManager:
             self._note_message(task, text)
             await self._on_message(task, text, msgs)
         await self._drive(task, msgs)
+        reply = self._reply(task, msgs)
         self.store.save(task)
-        return self._reply(task, msgs)
+        return reply
 
     async def resume(self, task_id: str) -> PMReply:
         """Continue after a restart: steps caught mid-run are re-run; a waiting question is re-sent."""
@@ -166,8 +168,9 @@ class ProjectManager:
                 self._say(task, msgs, task.pending.prompt)
             else:
                 await self._drive(task, msgs)
+        reply = self._reply(task, msgs)
         self.store.save(task)
-        return self._reply(task, msgs)
+        return reply
 
     # ------------------------------------------------------------------ helpers
 
@@ -304,7 +307,7 @@ class ProjectManager:
             merged = Classification(bucket=bucket or "other", category=category, confidence=conf)
             task.pending = None
             self._apply_classification(task, merged)
-            await self._after_classification(task, " ".join(task.inbox), [])
+            await self._after_classification(task, " ".join(task.inbox), msgs)
             if task.status == Status.AWAITING_USER and task.pending is None:
                 task.status = Status.RUNNING
             return
@@ -369,7 +372,7 @@ class ProjectManager:
                 self._log(task, "widen_accepted", from_km=task.radius_km, to_km=to)
                 task.radius_km = to
                 task.pending, task.status = None, Status.RUNNING
-                self._reset_from(task, "search")
+                self._reset_from(task, "search", reset_radius=False)
             else:
                 self._stop(task, msgs, "widen_declined", "widen_declined")
         elif p.kind == "over_budget":
@@ -390,7 +393,7 @@ class ProjectManager:
         self._log(task, "interrupt_cancel", during=during)
         self._say(task, msgs, self._m(task, "cancelled"))
 
-    def _reset_from(self, task: TaskRecord, step: str) -> None:
+    def _reset_from(self, task: TaskRecord, step: str, reset_radius: bool = True) -> None:
         names = [s.name for s in task.plan]
         if step not in names:
             return
@@ -404,7 +407,7 @@ class ProjectManager:
                     task.outputs.pop(k, None)
         if "consent" in names and i <= names.index("consent"):
             task.outputs.pop("_consent_user", None)
-        if i <= (names.index("search") if "search" in names else 0):
+        if reset_radius and i <= (names.index("search") if "search" in names else 0):
             tpl = self._template(task)
             task.radius_km = tpl.radius_km
         self._log(task, "replan", from_step=step)
@@ -488,7 +491,7 @@ class ProjectManager:
         for k, v in tpl.defaults.items():  # optional slots: silent defaults
             if k not in task.slots:
                 task.slots[k] = v
-                task.assumed[k] = v
+                self._log(task, "default_applied", slot=k, value=v, silent=True)
         task.radius_km = tpl.radius_km
         task.plan = [StepState(name=n) for n in tpl.steps]
         task.status = Status.RUNNING
