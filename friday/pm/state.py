@@ -95,6 +95,11 @@ class MemoryTaskStore:
         raw = self._rows.get(task_id)
         return TaskRecord.model_validate_json(raw) if raw else None
 
+    def active_for_user(self, user_id: str) -> TaskRecord | None:
+        rows = (TaskRecord.model_validate_json(r) for r in self._rows.values())
+        mine = [t for t in rows if t.user_id == user_id and t.status not in TERMINAL]
+        return max(mine, key=lambda t: t.log[-1].ts if t.log else "", default=None)
+
 
 class JsonFileTaskStore:
     """One JSON file per task (adapter for a real DB table can implement ``TaskStore`` too)."""
@@ -115,6 +120,17 @@ class JsonFileTaskStore:
     def load(self, task_id: str) -> TaskRecord | None:
         p = self._path(task_id)
         return TaskRecord.model_validate_json(p.read_text()) if p.exists() else None
+
+    def active_for_user(self, user_id: str) -> TaskRecord | None:
+        mine = []
+        for f in self.dir.glob("*.json"):
+            try:
+                t = TaskRecord.model_validate_json(f.read_text())
+            except ValueError:
+                continue
+            if t.user_id == user_id and t.status not in TERMINAL:
+                mine.append(t)
+        return max(mine, key=lambda t: t.log[-1].ts if t.log else "", default=None)
 
 
 def utcnow() -> datetime:

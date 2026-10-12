@@ -546,7 +546,7 @@ class ProjectManager:
     def _ctx(self, task: TaskRecord, step: str, vendor: dict | None = None) -> StepContext:
         tpl = self._template(task)
         return StepContext(
-            task_id=task.id, step=step, bucket=task.bucket or "", category=task.category or "",
+            task_id=task.id, user_id=task.user_id, step=step, bucket=task.bucket or "", category=task.category or "",
             slots=dict(task.slots), radius_km=task.radius_km or tpl.radius_km,
             hard_max_km=tpl.hard_max_km, n_vendors=tpl.n_vendors,
             outputs={k: v for k, v in task.outputs.items() if not k.startswith("_")}

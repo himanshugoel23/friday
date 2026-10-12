@@ -175,6 +175,9 @@ class InboundPipeline:
         from friday.quotes.flow import QuotesFlow
 
         self.quotes = QuotesFlow(c, self)  # WhatsApp quotes flow (docs/WHATSAPP_QUOTES_FLOW.md)
+        from friday.pm.gateway import PMGateway
+
+        self.pm_gateway = PMGateway(c)  # non-salon categories (off unless FRIDAY_PM_ENABLED)
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -579,6 +582,8 @@ class InboundPipeline:
             return
 
         if await self.quotes.handle(user, msg):
+            return
+        if await self.pm_gateway.handle(user, msg):
             return
 
         if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):

@@ -430,6 +430,10 @@ class Settings(BaseSettings):
     # docs/WHATSAPP_QUOTES_FLOW.md: text -> questions -> shortlist -> approve -> calls -> quotes
     quotes_flow_enabled: bool = True
     quotes_radius_km: float = 5.0
+    pm_enabled: bool = False  # PM front door, non-salon (pm/gateway.py)
+    pm_store_dir: str = "var/pm"
+    pm_min_confidence: float = 0.6
+    pm_use_llm_classifier: bool = False
     quotes_use_scouting: bool = False  # best-and-near via friday.scouting
     quotes_max_requests_per_day: int = 3  # per user (counted when the Places search runs)
     quotes_max_places_calls_per_request: int = 8  # hard cost cap: searches + detail lookups

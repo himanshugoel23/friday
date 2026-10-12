@@ -354,7 +354,7 @@ async def test_resume_reruns_a_step_caught_mid_run():
 
 async def test_step_context_has_no_free_text_scripts():
     assert set(StepContext.model_fields) == {
-        "task_id", "step", "bucket", "category", "slots", "radius_km", "hard_max_km",
+        "task_id", "user_id", "step", "bucket", "category", "slots", "radius_km", "hard_max_km",
         "n_vendors", "outputs", "vendor", "user_answer", "language"}
 
 

@@ -21,6 +21,7 @@ class StepContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     task_id: str
+    user_id: str = ""
     step: str
     bucket: str
     category: str
