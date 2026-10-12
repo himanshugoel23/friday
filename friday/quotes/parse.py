@@ -189,7 +189,9 @@ def _period_word(start_min: int | None) -> str:
 def canonical_when(text: str, now: datetime) -> tuple[str | None, datetime | None, datetime | None, bool, bool]:
     """(Hinglish phrase, window start, window end, exact, day_given) for the user's time words."""
     w = parse_when(text, now)
-    if not w.found:
+    if w.start_min is None and not w.found and BAJE_RE.search(text):
+        w.dates = []  # a bare "6 baje": the day comes from the conversation
+    elif not w.found:
         return None, None, None, False, False
     if w.start_min is None:  # "kal 5 baje": no am/pm word, salons are open 9-9
         m = BAJE_RE.search(text)
@@ -229,15 +231,19 @@ def parse_location_phrase(text: str) -> str | None:
         if extra:
             phrase += " " + extra.group(1)
         return phrase.strip()
-    m = re.search(r"(?:near|nearby|paas|pass|ke paas|around|in|at)\s+([A-Za-z0-9][\w ,.-]{2,40})", t, re.I)
-    if m and (CITY_RE.search(m.group(1)) or len(m.group(1).split()) <= 4):
+    m = re.search(r"(?:near|nearby|around|ke paas|paas|pass)\s+([A-Za-z0-9][\w ,.-]{2,40})", t, re.I)
+    if m is None:  # "in/at <place>" only when it names a city or has a number (sector 56)
+        m = re.search(r"\b(?:in|at)\s+([A-Za-z0-9][\w ,.-]{2,40})", t, re.I)
+        if m and not (CITY_RE.search(m.group(1)) or re.search(r"\d", m.group(1))):
+            m = None
+    if m:
         cand = re.split(
-            r"\b(?:mein|me|karwana|chahiye|haircut|for|ke liye|kal|aaj|tomorrow|today)\b",
+            r"\b(?:mein|me|karwana|chahiye|haircut|for|ke liye|kal|aaj|tomorrow|today|please)\b",
             m.group(1),
             maxsplit=1,
             flags=re.I,
         )[0].strip(" ,.")
-        if cand:
+        if cand and len(cand.split()) <= 5:
             return cand
     c = CITY_RE.search(t)
     if c:

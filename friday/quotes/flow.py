@@ -378,8 +378,8 @@ class QuotesFlow:
                 await self._remember(conv.id, pid)
                 await self._cancel(conv, "cancelled")
                 return True
-            if conv.state in (State.COLLECTING, State.CONFIRMING, State.AWAITING_BOOK) and (
-                P.looks_like_request(text) and conv.asking not in ("location", "book_time")
+            if conv.state in (State.CONFIRMING, State.AWAITING_BOOK) and (
+                P.looks_like_request(text) and conv.asking != "book_time"
             ):
                 # a fresh request replaces the open one
                 await self._cancel(conv, None)
