@@ -29,6 +29,15 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 6. Keep AI cost low; keep the user experience good.
 7. Show scripts and results plainly; the founder is non-technical about servers/AWS.
 
+## 2b. Architecture principle (founder, 2026-10-12; applies to everything we build)
+**All processing happens on OUR backend servers. Nothing depends on the user's phone being online, awake or running anything.**
+No app, no on-phone processing, no background work on the user's device, no using the user's internet/data for our work.
+After the user sends a request (WhatsApp text, call, SMS) the server finishes the whole job by itself (search, vendor calls,
+follow-ups) even if the phone is switched off or idle, and delivers the result later through channels the network queues:
+WhatsApp (queued until the phone is online), SMS and voice call as fallbacks. This is also the base for the future safety product
+(check-ins, alerts, calls to the user and their contacts from the server). Honest limits: we cannot read the phone's GPS or location
+without the user sharing it; a switched-off phone cannot receive anything until it is back on.
+
 ## 3. Product decisions made (see BRIEF.md for the older ones)
 - Voice agent speaks **Hinglish only** (Roman script; Indian names/business names are written in **Devanagari**
   inside the text for better pronunciation).
