@@ -98,3 +98,64 @@ explicit delegation), reading everything about the user (only what they told Fri
 **Build for Layer 1 (needs no new infra, biggest wow per effort):** a "next best step" suggestion step at the end of the
 PM report and after each user answer: code picks the candidate (cheapest/nearest/best-reviewed/budget gap/memory hit)
 from structured data; the LLM (optional) only rewords one sentence. So she never invents facts.
+
+## I. The full personal assistant: Friday sees what the user connects (founder vision, 2026-10-12)
+Founder: Friday has access to everything the user has given access to. Example: a mail arrived, the user has not
+replied, escalations are coming in -> Friday highlights it. She sits on top of the user's whole daily life and helps.
+This replaces the 8.14 limit ("only the user's own conversations") for LATER phases, with consent per source.
+
+### I.1 What she can see (reachable from our servers, so nothing runs on the phone)
+| Source | How | Phase |
+|---|---|---|
+| Gmail | Google OAuth, read-only scopes first | 2 |
+| Google Calendar | OAuth | 2 (easiest, ship first) |
+| Outlook / Microsoft 365 mail+calendar | OAuth (Graph) | 2-3 |
+| Bank/cards/bills/insurance (India) | RBI Account Aggregator (consent-based), plus bill emails | 3 |
+| Food/shopping/travel orders | Swiggy/Zomato MCP, order emails | 3 |
+| Documents the user sends on WhatsApp (PDF, photo) | already reachable | 2 |
+| WhatsApp chats, SMS, photos, app usage, GPS | NOT reachable without an app (user can forward or share) | no |
+
+### I.2 The attention engine (how "highlight the escalation" works)
+1. **Ingest** (server): fetch new mail/events with the stored token. Raw text is treated as UNTRUSTED input (prompt injection) and
+   is never given tools.
+2. **Signal extractor** (closed JSON schema, quote + message id verified by code): kinds = `needs_reply`, `deadline`, `escalation`,
+   `payment_due`, `appointment`, `travel`, `delivery`, `renewal`, `unanswered_follow_up`. Rules do the cheap ones (a thread
+   where the user was last to be written to, N days old, sender wrote again = escalation count); a small model only classifies
+   the unclear ones.
+3. **Attention scorer** (rules): urgency (deadline < 24 h, same sender 3 times, words like "final reminder", money, legal,
+   boss/customer), importance (who: VIPs the user marked or Friday learnt from reply history), staleness. Output tier:
+   `now` (interrupt) / `today` (digest) / `fyi` (only if asked).
+4. **Suggestion builder**: for each item code assembles facts; one reworded sentence + a ready action:
+   "Rahul (client) ne 3 din mein 3 baar likha: invoice pending. Draft reply bhej dun?" [Draft dikhao] [Baad mein].
+5. **Delivery**: `now` = WhatsApp message immediately (rare); `today` = ONE morning digest the user chose the time for;
+   anything else only on "kya pending hai?". The 2/week cap from 8.13 applies to *marketing-like* nudges, not to
+   this: user-owned alerts are limited by a **noise budget** (default max 3 interrupts/day, learns from "ignore this
+   sender" / "not important").
+6. **Act only with approval**: draft replies, calendar holds, bill reminders are SHOWN first; sending an email, paying,
+   booking = explicit yes each time (delegation rules as for calls). Never silently deletes or sends.
+
+### I.3 Trust and safety (this is the biggest risk of the product)
+- Per-source switch, read-only by default, scopes minimal; "what can you see?" lists sources and the last items she used;
+  "forget this source" deletes tokens and derived data; disconnect any time; everything audit-logged; DPDP consent record.
+- Stored: extracted facts + pointers (message id), NOT whole bodies; tokens encrypted; no data used to train anything.
+- Gmail is a *restricted* scope: Google verification + a security assessment (weeks, some cost). **Start the OAuth consent
+  screen now** even though the feature ships after beta.
+- Sensitive content (health, legal, finance): shown only as "important, open it" unless the user opted in to summaries.
+- Prompt injection: email text can contain instructions; the extractor has no tools and its output is schema-checked.
+
+### I.4 Daily-life suggestions (examples once data exists)
+Morning digest ("3 cheezein: client ka invoice reply pending, 4 baje dentist, bijli bill kal due"); travel ("Flight kal
+6 AM, cab 3:30 pe book karun?"); renewals ("Car insurance 12 din mein expire, quotes nikaalun?" -> goes to vendor calls!);
+conflicts ("Dono meetings 5 baje hain, ek shift karun?"); follow-ups after calls. Vendor calling becomes ONE action
+inside a larger assistant: signals create tasks for the project manager.
+
+### I.5 Staging
+Phase 1 (now): vendor calling, in-conversation proactivity (H). Start now: OAuth verification, noise-budget and consent design.
+Phase 2: Calendar + Gmail read-only, signals needs_reply/deadline/escalation/appointment, morning digest, draft replies (approval).
+Phase 3: Outlook, Account Aggregator, order/travel sources, learning what matters per user.
+
+### I.6 Decisions needed
+1. OK to put this as Phase 2 (after the beta), and start the Google OAuth/verification paperwork now?
+2. First source: Calendar (easy, quick win) then Gmail?
+3. Interrupt rule: max 3 "now" alerts/day, everything else in one morning digest: OK?
+4. Draft-and-approve only (never auto-send) for the first version: OK?
