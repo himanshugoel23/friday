@@ -8,6 +8,8 @@ calm and even; text is filler-stripped first. Voice ids come from
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 import httpx
 
 from friday.core.container import Container
@@ -17,6 +19,7 @@ from friday.voice._http import VendorHTTP
 from friday.voice.audio import pcm16_to_wav
 from friday.voice.langs import VoiceCatalog
 from friday.voice.text import strip_fillers
+from friday.voice.tts.sarvam import TTSStreamError
 
 ELEVENLABS_BASE_URL = "https://api.elevenlabs.io"
 # ElevenLabs premade "Rachel" - calm, female. Override with ELEVENLABS_VOICE_ID.
@@ -35,10 +38,13 @@ class ElevenLabsTTS:
         *,
         model: str = "eleven_flash_v2_5",
         sample_rate: int = 16000,
+        streaming: bool = True,
         base_url: str = ELEVENLABS_BASE_URL,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.catalog = catalog
+        self.streaming = streaming  # live calls: first audio ~170 ms (docs/LATENCY.md)
+        self.stream_rate = 8000  # telephony rate: no resampling on the call leg
         self.model = model
         self.sample_rate = sample_rate
         self._http = VendorHTTP(
@@ -84,6 +90,46 @@ class ElevenLabsTTS:
             sample_rate=self.sample_rate,
         )
 
+    async def synthesize_stream(
+        self, text: str, language: Language, voice: VoiceProfile | None = None
+    ) -> AsyncIterator[bytes]:
+        """Yield 8 kHz PCM16 mono pieces while ElevenLabs is still making the line.
+
+        ``POST /v1/text-to-speech/{voice}/stream?output_format=pcm_8000``. Raises
+        ``TTSStreamError`` (``resume_text`` = what is still unspoken) so the call leg can fall
+        back to the plain request."""
+        clean = strip_fillers(text)
+        if not clean:
+            return
+        profile = voice or self.voice_for(language)
+        got = False
+        carry = b""
+        try:
+            async with self._http._client.stream(
+                "POST",
+                f"/v1/text-to-speech/{profile.voice_id}/stream",
+                params={"output_format": f"pcm_{self.stream_rate}"},
+                json=self.payload(clean, language, profile),
+            ) as resp:
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    raise ValueError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+                async for raw in resp.aiter_bytes():
+                    data = carry + raw
+                    n = len(data) // 2 * 2  # whole 16-bit samples only
+                    carry = data[n:]
+                    if n:
+                        got = True
+                        yield data[:n]
+                if not got:
+                    raise ValueError("stream ended without audio")
+        except (httpx.HTTPError, ValueError) as e:
+            raise TTSStreamError(
+                f"elevenlabs streaming failed: {type(e).__name__}: {str(e)[:160]}",
+                resume_text="" if got else clean,
+                audio_started=got,
+            ) from e
+
     async def aclose(self) -> None:
         await self._http.aclose()
 
@@ -93,4 +139,15 @@ def build_elevenlabs_tts(c: Container) -> ElevenLabsTTS:
     if not s.elevenlabs_api_key:
         raise ProviderError("elevenlabs", "ELEVENLABS_API_KEY not set")
     catalog = VoiceCatalog("elevenlabs", s, {}, s.elevenlabs_voice_id or DEFAULT_FEMALE_VOICE_ID)
-    return ElevenLabsTTS(s.elevenlabs_api_key.get_secret_value(), catalog)
+    primary = ElevenLabsTTS(
+        s.elevenlabs_api_key.get_secret_value(),
+        catalog,
+        model=s.elevenlabs_model,
+        streaming=s.elevenlabs_streaming,
+    )
+    if s.tts_fallback == "sarvam" and s.sarvam_api_key:
+        from friday.voice.tts.fallback import FallbackTTS
+        from friday.voice.tts.sarvam import build_sarvam_tts
+
+        return FallbackTTS(primary, build_sarvam_tts(c))  # type: ignore[return-value]
+    return primary

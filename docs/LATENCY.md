@@ -100,3 +100,11 @@ Benchmark scripts are one-off (scratchpad); re-measure on the server from `last-
 | Sarvam REST | 1387 ms | 1387 ms |
 | Sarvam stream (in use) | 260 ms | 1282 ms |
 So an earlier remark that ElevenLabs would be slower was WRONG for Flash v2.5: it is as fast or faster than Sarvam's streaming, even over REST. Caveats: measured from the sandbox, not the Bangalore droplet (Sarvam is in India, ElevenLabs is not: re-measure on the server); only the free premade voice was timed; multilingual_v2 (better quality) is slow, Flash is the real-time model; quality on Hinglish still has to be judged by ear.
+
+## 2026-10-12 ElevenLabs in the live call (opt-in)
+`FRIDAY_TTS_PROVIDER=elevenlabs` + `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` switches the call voice (default stays Sarvam). Flash v2.5
+streams 8 kHz PCM straight into the call (`ElevenLabsTTS.synthesize_stream`, no resampling); smoke test with the real API: first audio 176 ms
+(563 ms on the very first request of a process, connection setup). `FRIDAY_TTS_FALLBACK=sarvam` (default) wraps it in `FallbackTTS`: if
+ElevenLabs fails, the line is spoken by Sarvam (Ritu) so the call never drops. Other settings: `FRIDAY_ELEVENLABS_MODEL` (default
+eleven_flash_v2_5), `FRIDAY_ELEVENLABS_STREAMING` (default true). Founder-chosen candidates: Zara `OtEfb2LVzIE45wdYe54M`, Neha P `X1aCu8g69vgtNfFwu68G`
+(library voices; need the paid plan). The Sarvam pronunciation dictionary does not apply to ElevenLabs; names are already sent in Devanagari.

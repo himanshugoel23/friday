@@ -368,6 +368,9 @@ class Settings(BaseSettings):
     # Language -> provider voice id (JSON in env). Missing languages fall back to
     # the provider default for that language. Voice must be calm & polished; the
     # TTS layer must never inject fillers ("umm"), breaths or typing sounds.
+    elevenlabs_model: str = "eleven_flash_v2_5"  # the real-time model (v2 is ~1.4 s: too slow)
+    elevenlabs_streaming: bool = True  # stream lines into the call (first audio ~170 ms)
+    tts_fallback: Literal["none", "sarvam"] = "sarvam"  # spare voice if the primary vendor fails
     tts_voices: dict[str, str] = Field(default_factory=dict)
     tts_speaking_rate: float = 1.0
     tts_style: str = "calm"
