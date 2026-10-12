@@ -1,0 +1,216 @@
+# PENDING playbook: rental (vendor archetype). NOT loaded by production (`select`, calls).
+# Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
+# (hear-before-change). Promote only with: friday playbook promote rental
+# (needs the founder's marker file rental.approved next to this file).
+#
+# Rate per day / km / hour, and whether it is available for the dates. A DEPOSIT the vendor
+# mentions is information only: it is written down, never asked about, never agreed to. Quote
+# only: nothing is reserved or paid.
+# The category pack (friday/vendors/categories/rental.yaml) only changes the VOCABULARY (what the
+# user wants, the unit phrase, the sane price range, which questions are asked); the words below
+# do not change.
+# Same rules as salon_booking v6 (founder): identity question first, then "virtual assistant" and
+# the purpose, price asked FIRST and subtly, no negotiation, no advance / cancellation question
+# unless the vendor raises it, AI answered truthfully on request, booking ONLY with a delegation and
+# the code-level commit check (only archetypes that can book have a commit line).
+
+version: 1
+id: rental
+archetype: rental
+title: Rental (car, cab, bike, equipment)
+language: hinglish
+
+inputs:
+  user_first_name: {required: true}
+  user_spoken: {}
+  honorific: {default: sir}
+  business_name: {required: true}
+  business_name_spoken: {}
+  service: {required: true}
+  services: {}
+  services_spoken: {}
+  playbook_mode: {default: quote_only}
+  price_min: {}              # category sanity range: a price outside it is not trusted
+  price_max: {}
+  category: {}
+  date_window: {}
+  duration_text: {}              # "2 din": for how long
+  unit_phrase: {required: true}  # "ek din ka kiraya", "per km ka rate", "ek ghante ka rate"
+
+outputs: [price_inr, price_low_inr, price_unit, advance_needed, outcome]
+
+limits:
+  max_duration_s: 150
+  max_repeats: 4
+  max_unclear_per_step: 2
+  hold_max_s: 60
+  max_turns: 28
+
+disclosure: disclosure
+ai_disclosure: on_request
+reintro: reintro
+
+confusion:
+  line: sorry
+  outcome: UNCLEAR
+  close: bye_unclear
+
+lines:
+  disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  recording_notice: "Yeh call quality ke liye record ho sakta hai."
+  intro: "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant."
+  ai_yes: "Haan ji, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
+  bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
+  bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
+  bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
+  bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
+  wa_decline: "Sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  no_number: "{user_spoken} {honorific} ka number main share nahi kar sakti."
+  q_close: "Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you."
+  sorry: "Sorry, ek baar phir?"
+  offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
+  no_secrets: "Yeh jaankari main share nahi kar sakti."
+  intro_rent: "{user_spoken} {honorific} ko {services_spoken} kiraye par chahiye."
+  intro_rent_for: "Yeh {duration_text} ke liye chahiye."
+  s3_ask_first: "Toh sir, {unit_phrase} kitna rahega?"
+  s3_ask: "Sir, {unit_phrase} kitna hoga?"
+  s2_ask_first: "Theek hai sir. Kya {date_window} ke liye available hai?"
+  s2_ask: "Kya {date_window} ke liye available hai?"
+  s2_ask_open: "Theek hai sir. Kya aaj ya kal ke liye available hai?"
+
+routes:
+  after_price:
+    - {goto: S2}
+
+defaults:
+  STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
+  RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
+  WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+  BUSY_LATER: {say: [bye_busy], outcome: CALL_BACK_LATER}
+  ARE_YOU_BOT: {say: [ai_yes], repeat: true}
+  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  ASKS_REPEAT: {repeat: true, max_uses: 3}
+  HOLD_ON: {hold_s: 60, max_uses: 3}
+  ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
+  ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
+  ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
+  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
+  # "WhatsApp pe bhej do": asked once to say it here (in the price step), then a polite close
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: S7w}
+  # a deposit raised by the vendor is information: nothing is agreed, the question is asked again
+  NEEDS_ADVANCE: {set: {advance_needed: "yes"}, repeat: true, max_uses: 2}
+  VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: "@after_price"}
+
+start: S0
+
+steps:
+  S0:   # identity check; the runner already asked the identity question; Friday WAITS
+    branches:
+      YES: {goto: S3}
+      CONTINUE: {goto: S3}
+      ACK: {goto: S3}
+      NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+      WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
+      ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S3}
+      ASKS_OFFTOPIC: {say: [s0_who], stay: true}
+      ASKS_SECRET: {say: [s0_who], stay: true}
+      ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
+      WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
+
+  S3:   # ONE turn: who, what, for how long; then the rate
+    ask:
+      - {line: intro, when: [first_ask]}
+      - {line: recording_notice, when: [recording, first_ask]}
+      - {line: intro_rent, when: [first_ask]}
+      - {line: intro_rent_for, when: [first_ask, has_duration]}
+      - {line: s3_ask_first, when: [first_ask]}
+      - {line: s3_ask, when: ["!first_ask"]}
+    branches:
+      GIVES_PRICE:
+        - {when: [price_known], goto: "@after_price"}
+        - {repeat: true}
+      PRICE_RANGE:
+        - {when: [price_known], goto: "@after_price"}
+        - {repeat: true}
+      PRICE_DEPENDS: {set: {price_note: depends}, goto: "@after_price"}
+      REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: "@after_price"}
+      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
+      CONTINUE: {repeat: true}
+      YES: {repeat: true}
+      ASKS_REPEAT: {say: [intro], repeat: true, max_uses: 1}
+
+  S2:   # available for the dates?
+    ask:
+      - {line: s2_ask_first, when: [first_ask, has_date_window]}
+      - {line: s2_ask, when: ["!first_ask", has_date_window]}
+      - {line: s2_ask_open, when: ["!has_date_window"]}
+    branches:
+      YES: {set: {slot_free: "yes"}, goto: S7q}
+      SLOT_FREE: {goto: S7q}
+      GIVES_TIME: {goto: S7q}
+      OFFERS_SLOTS: {goto: S7q}
+      SLOT_BUSY: {set: {not_available: "yes"}, goto: S7n}
+      NO: {set: {not_available: "yes"}, goto: S7n}
+      CONTINUE: {repeat: true}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+
+  S7q:  # the rate and availability go to the user
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: PRICE_ON_REQUEST}
+
+  S7n:  # not available for those dates
+    final: true
+    branches:
+      ANY:
+        - {say: [q_close], outcome: NOT_AVAILABLE}
+
+  S7w:  # they asked to send it on WhatsApp (and would not say it here)
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: WHATSAPP_REQUESTED}
+
+outcomes:
+  QUOTE_COLLECTED:
+    call_outcome: partial
+    description: rate (price_inr, price_low_inr, price_unit) and availability collected; a deposit is only reported (deposit_inr), nothing reserved
+    needs_quote: true
+  NOT_AVAILABLE:
+    call_outcome: declined
+    description: not available for those dates (the rate, if given, is still reported)
+    needs_quote: true
+    collected: {not_available: "yes"}
+  REFUSED:
+    call_outcome: declined
+    description: asked not to be called again, or hostile (no retry)
+  CALL_BACK_LATER:
+    call_outcome: callback_later
+    description: they asked us to call later
+  WRONG_NUMBER:
+    call_outcome: declined
+    description: wrong number / not this kind of business
+    collected: {wrong_number: "yes"}
+  WHATSAPP_REQUESTED:
+    call_outcome: partial
+    description: they wanted to send details on WhatsApp instead of saying them
+    collected: {whatsapp_requested: "yes"}
+  PRICE_ON_REQUEST:
+    call_outcome: partial
+    description: no price on the phone / it depends
+  ADVANCE_ASKED:
+    call_outcome: partial
+    description: they asked for an advance; Friday did not agree
+  UNCLEAR:
+    call_outcome: partial
+    description: could not understand them
+  NO_ANSWER:
+    call_outcome: no_answer
+    description: nobody picked up (set by the call runner)

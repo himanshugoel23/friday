@@ -211,6 +211,11 @@ class QuotesFlow:
         text = M.msg(key, conv.lang, **kw)
         await self._send_text(conv, text, buttons)
 
+    async def _say_update(self, conv: Conv, key: str, **kw: Any) -> None:
+        """Progress pings are OFF by default: sent only when the user switched "updates on"."""
+        if conv.extra.get("updates"):
+            await self._say(conv, key, **kw)
+
     async def _send_text(
         self, conv: Conv, text: str, buttons: list[tuple[str, str]] | None = None
     ) -> Any:
@@ -249,6 +254,14 @@ class QuotesFlow:
                 return False
             if msg.kind == MessageKind.TEXT and P.STATUS_RE.match(text):
                 return await self._status(user, latest, pid)
+            if msg.kind == MessageKind.TEXT and (flag := P.updates_switch(text)) is not None:
+                if latest is None or not latest[0].state.active:
+                    return False
+                conv0 = latest[0]
+                await self._remember(conv0.id, pid)
+                await self.store.mutate(conv0.id, lambda c: c.extra.__setitem__("updates", flag))
+                await self._say(conv0, "updates_on" if flag else "updates_off")
+                return True
             if got is None:
                 if msg.kind == MessageKind.TEXT and P.looks_like_request(text):
                     open_q = await self.c.repos.tasks.open_question_for_user(user.id)
@@ -714,15 +727,12 @@ class QuotesFlow:
 
         conv = await self.store.mutate(conv.id, fn) or conv
         now = self.clock.now()
+        # no stage pings (founder rule): only with the per-request "updates on" switch
         if self._window_ok(now):
-            await self._say(conv, "calling")
+            await self._say_update(conv, "calling")
         else:
             when = self._time_phrase(self._next_window(now), conv.lang, now)
-            await self._say(conv, "queued", when=when)
-            def flag(c: Conv) -> None:
-                c.extra["queued_msg"] = True
-
-            await self.store.mutate(conv.id, flag)
+            await self._say_update(conv, "queued", when=when)
         await self._pump(conv.id)
 
     def _time_phrase(self, dt: datetime, lang: str, now: datetime) -> str:
@@ -1196,7 +1206,7 @@ class QuotesFlow:
                 c.extra["book_start"] = when_start.isoformat()
 
         conv = await self.store.mutate(conv.id, fn) or conv
-        await self._say(
+        await self._say_update(
             conv, "book_calling", name=v.name, when=self._book_when(conv, conv.lang, self.clock.now())
         )
         await self._pump_booking(conv)
@@ -1265,6 +1275,10 @@ class QuotesFlow:
         if conv.delivery and conv.delivery.text:
             btns = conv.delivery.buttons if conv.state == State.AWAITING_BOOK else []
             await self._send_text(conv, conv.delivery.text, btns)
+            return True
+        if conv.state == State.QUEUED and conv.queued_until and conv.queued_until > self.clock.now():
+            when = self._time_phrase(conv.queued_until, conv.lang, self.clock.now())
+            await self._say(conv, "status_queued", when=when)
             return True
         if conv.state.active:
             await self._say(conv, "status_working")

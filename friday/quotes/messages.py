@@ -83,7 +83,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "hinglish": "Is area mein aur options nahi hain. Doosra area bataiye?",
         "hi": "इस एरिया में और विकल्प नहीं हैं। दूसरा एरिया बताइए?",
     },
-    "calling": {
+    "calling": {  # sent ONLY when the user switched "updates on" (founder rule: no stage pings)
         "en": "Okay, calling them now. I will send all the quotes together.",
         "hinglish": "Theek hai, call kar rahi hoon. Saare quotes ek saath bhejungi.",
         "hi": "ठीक है, कॉल कर रही हूँ। सारे कोट्स एक साथ भेजूँगी।",
@@ -238,6 +238,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Still working on it. I will message you when the quotes are ready.",
         "hinglish": "Abhi kaam chal raha hai. Quotes aate hi message karungi.",
         "hi": "अभी काम चल रहा है। कोट्स आते ही मैसेज करूँगी।",
+    },
+    "status_queued": {
+        "en": "Calls start {when}. I will message you when the quotes are ready.",
+        "hinglish": "Calls {when} shuru hongi. Quotes aate hi message karungi.",
+        "hi": "कॉल {when} शुरू होंगी। कोट्स आते ही मैसेज करूँगी।",
+    },
+    "updates_on": {
+        "en": "Okay, I will send progress updates for this request.",
+        "hinglish": "Theek hai, is request ke progress updates bhejungi.",
+        "hi": "ठीक है, इस रिक्वेस्ट के प्रोग्रेस अपडेट भेजूँगी।",
+    },
+    "updates_off": {
+        "en": "Okay, no progress updates. I will message you with the result.",
+        "hinglish": "Theek hai, updates nahi bhejungi. Result aate hi message karungi.",
+        "hi": "ठीक है, अपडेट नहीं भेजूँगी। रिज़ल्ट आते ही मैसेज करूँगी।",
     },
     "status_none": {
         "en": "No request yet. Tell me what you need, like 'haircut tomorrow evening'.",

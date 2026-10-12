@@ -1125,7 +1125,7 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
         base = " ".join(s for s in said if s)
         add(base)
         if a.goto and not a.goto.startswith("@") and a.goto in pb.steps:
-            asks = [render(i) for i in ids(pb.steps[a.goto].ask)]
+            asks = [render(i) for i in first_ask_ids(pb.steps[a.goto].ask)]
             if asks and all(asks):
                 add(base + " " + " ".join(a2 for a2 in asks if a2))
     return texts[:160]

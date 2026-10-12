@@ -319,3 +319,20 @@ def slot_window(start: datetime, minutes: int = 5) -> tuple[datetime, datetime]:
 
 
 _ = IST
+
+
+UPDATES_RE = re.compile(
+    r"^\s*(updates?|progress)\s*(on|chalu|shuru|do|de do)\s*[.!]*\s*$", re.I
+)
+UPDATES_OFF_RE = re.compile(
+    r"^\s*(updates?|progress)\s*(off|band|mat do|nahi)\s*[.!]*\s*$", re.I
+)
+
+
+def updates_switch(text: str) -> bool | None:
+    """'updates on' / 'updates band': the per-request switch for progress messages."""
+    if UPDATES_RE.match(text):
+        return True
+    if UPDATES_OFF_RE.match(text):
+        return False
+    return None

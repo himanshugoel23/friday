@@ -531,12 +531,22 @@ def _allowed_here(known: dict[str, Any], intent: Intent) -> bool:
     return True if allowed is None else intent.value in allowed
 
 
+# "250 km free", "2 din ke liye", "150 plate", "3 BHK": numbers that measure the job, not its price
+_MEASURE = re.compile(
+    r"\b\d+(?:\.\d+)?\s*(?:km|kms|kilometers?|kilometres?|kg|kgs|kilo|litres?|liters?|din|days?|"
+    r"ghante|ghanta|hours?|hrs?|log|logon|people|persons?|guests?|plates?|bhk|rooms?|seats?|"
+    r"seater|sq\.?\s?ft|square|feet|minutes?|mins?|months?|mahine|saal|years?|bande|aadmi)\b",
+    re.I,
+)
+
+
 def _ext_prices(
     raw: str, unit: str | None, *, loose: bool = False, ka: bool = False
 ) -> tuple[list[int], list[int]]:
     """(prices, positions) with the archetype reading: the salon rules first (a number tied to a
     rupee word or a price cue); then, when a per-unit phrase is named ("800 per plate") or the
     text is a deposit clause (``loose``), the bare numbers of 50 or more."""
+    raw = _MEASURE.sub(" ", raw)
     prices, _dur, pos = sl.price_details(raw)
     if not prices and (unit or loose):
         prices, _dur, pos = sl.price_details(raw + " rate")
@@ -617,33 +627,30 @@ def _ext_post(u: Understanding, raw: str, step: str, known: dict[str, Any]) -> U
         if u.intent == Intent.NEEDS_ADVANCE.value:
             return u.model_copy(update={"deposit_inr": dep})
         return u
-    if u.intent in (Intent.GIVES_PRICE.value, Intent.PRICE_RANGE.value):
-        prices, _pos = _ext_prices(raw, unit)
-        low = min(prices) if (u.intent == Intent.PRICE_RANGE.value and prices) else None
-        if low is not None and low == u.price_inr:
-            low = None
-        return u.model_copy(update={"price_unit": unit, "price_low_inr": low})
-    if u.intent == Intent.UNCLEAR.value:  # an English yes / no that starts a longer sentence
-        if re.match(r"(yes|yeah|yep|yup|sure|of course|absolutely|we do|we have|it is|it's)\b", t):
-            u = _u(Intent.YES, confident=False)
-        elif re.match(r"(no|nope|not|we don'?t|we do not)\b", t):
-            u = _u(Intent.NO, confident=False)
-    # a price tucked inside another answer, at a step that asks for prices
     carriers = {
         Intent.SLOT_FREE.value, Intent.GIVES_TIME.value, Intent.YES.value, Intent.CONTINUE.value,
         Intent.UNCLEAR.value, Intent.ASKS_OFFTOPIC.value, Intent.NO_ADVANCE.value,
         Intent.OFFERS_SLOTS.value, Intent.ACK.value,
     }
-    if price_step and u.intent in carriers and not _BUSY_SLOT.search(t):
-        prices, pos = _ext_prices(raw, unit, loose=bool(_RANGE.search(t)), ka=True)
+    was_price = u.intent in (Intent.GIVES_PRICE.value, Intent.PRICE_RANGE.value)
+    if u.intent == Intent.UNCLEAR.value:  # an English yes / no that starts a longer sentence
+        if re.match(r"(yes|yeah|yep|yup|sure|of course|absolutely|we do|we have|it is|it's)\b", t):
+            u = _u(Intent.YES, confident=False)
+        elif re.match(r"(no|nope|not|we don'?t|we do not)\b", t):
+            u = _u(Intent.NO, confident=False)
+    if was_price or (price_step and u.intent in carriers and not _BUSY_SLOT.search(t)):
+        # a price (or a list / range of prices) in this reply, read with the archetype rules
+        ranged_text = bool(_RANGE.search(_MEASURE.sub(" ", t)))
+        prices, _pos = _ext_prices(raw, unit, loose=ranged_text, ka=True)
         if prices:
-            multi = len(set(prices)) >= 2
-            ranged = bool(_RANGE.search(t)) or multi
+            ranged = ranged_text or len(set(prices)) >= 2
             return _u(
                 Intent.PRICE_RANGE if ranged else Intent.GIVES_PRICE,
                 price_inr=max(prices), price_low_inr=min(prices) if ranged else None,
-                price_unit=unit,
+                price_unit=unit, duration_min=u.duration_min,
             )
+        if was_price:  # the core saw "numbers" that only measure the job (250 km, 2 din)
+            return _u(Intent.UNCLEAR, confident=False)
     return u
 
 

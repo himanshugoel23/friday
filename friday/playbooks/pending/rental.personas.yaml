@@ -1,0 +1,246 @@
+# Simulated rental vendors for `friday playbook dry-run rental --pending`.
+# Format: see friday/playbooks/data/salon_booking.personas.yaml. Replies are keyed by the line id
+# Friday last spoke: s3_ask (the rate), s2_ask (available for the dates?).
+# `preview_*` personas feed `friday playbook preview rental --pending`.
+
+version: 1
+playbook: rental
+
+brief:
+  user_first_name: Rahul
+  honorific: sir
+  services: "Swift self drive"
+  duration_text: "2 din"
+  date_window: "kal subah"
+  unit_phrase: "ek din ka kiraya"
+  business_name: "Speedy Rentals"
+  category: car_rental
+  price_min: 300
+  price_max: 15000
+
+personas:
+  - id: preview_rental
+    title: "Founder audio: car rental, rate per day, available"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "1800 rupaye per day, 250 km free"
+      s2_ask: "Haan kal subah ke liye available hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: preview_rental_deposit_info
+    title: "Founder audio: the vendor mentions a deposit (written down, never agreed)"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "1800 rupaye per day, 5000 rupaye security deposit lagega"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: deposit_alone_then_rate
+    title: "Only the deposit first: she asks the rate again, then gets it"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["5000 rupaye deposit lagega", "1800 rupaye per day"]
+      s2_ask: "Haan available hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: per_km_unit
+    title: "Cab: rate per km"
+    greeting: "Hello, City Cabs."
+    brief: {services: "Ertiga outstation", unit_phrase: "per km ka rate", business_name: "City Cabs", category: cab_taxi, price_min: 5, price_max: 200, duration_text: ""}
+    replies:
+      s3_ask: "14 rupaye per km, driver ka alag"
+      s2_ask: "Haan kal subah aa jayegi"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: per_hour_unit
+    title: "Equipment: rate per hour"
+    greeting: "Hello, Camera Rentals."
+    brief: {services: "DSLR camera", unit_phrase: "ek ghante ka rate", business_name: "Camera Rentals", category: equipment_rental, price_min: 50, price_max: 20000, duration_text: "4 ghante"}
+    replies:
+      s3_ask: "300 rupaye per hour"
+      s2_ask: "Haan available hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: bike_per_day_range
+    title: "Bike: a range depending on the model"
+    greeting: "Hello, Bike Rentals."
+    brief: {services: "scooty", unit_phrase: "ek din ka kiraya", business_name: "Bike Rentals", category: bike_rental, price_min: 100, price_max: 5000}
+    replies:
+      s3_ask: "400 se 700 rupaye per day, model ke hisaab se"
+      s2_ask: "Haan available hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: rate_in_words
+    title: "Rate in words (aath sau)"
+    greeting: "Hello, Bike Rentals."
+    brief: {services: "Activa", business_name: "Bike Rentals", category: bike_rental, price_min: 100, price_max: 5000}
+    replies:
+      s3_ask: "Aath sau rupaye ek din ka"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: not_available
+    title: "Not available for those dates (the rate is still reported)"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "1800 rupaye per day"
+      s2_ask: "Kal subah ke liye gaadi nahi hai, sab book hain"
+    expect: {outcome: NOT_AVAILABLE}
+
+  - id: not_available_plain_no
+    title: "A plain 'nahi'"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "1800 rupaye per day"
+      s2_ask: "Nahi ji"
+    expect: {outcome: NOT_AVAILABLE}
+
+  - id: no_dates_in_the_task
+    title: "The task names no date: 'aaj ya kal'"
+    greeting: "Hello, Speedy Rentals."
+    brief: {date_window: ""}
+    replies:
+      s3_ask: "1800 rupaye per day"
+      s2_ask: "Haan aaj available hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: price_depends_on_car
+    title: "Depends on the car: no price"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "Gaadi ke hisaab se alag alag rate hai"
+      s2_ask: "Haan available hai"
+    expect: {outcome: PRICE_ON_REQUEST}
+
+  - id: refuses_rate
+    title: "No rate on the phone"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "Phone par rate nahi batate"
+      s2_ask: "Haan available hai"
+    expect: {outcome: PRICE_ON_REQUEST}
+
+  - id: whatsapp_rate_card_then_rate
+    title: "'WhatsApp pe rate card bhej do', then says the rate"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["WhatsApp pe rate card bhej do", "Theek hai, 1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: whatsapp_insists
+    title: "Insists on WhatsApp: polite close, flagged"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["WhatsApp pe rate card bhej do", "Nahi, WhatsApp pe hi bhej do"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: busy_callback
+    title: "Busy, call later"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "Abhi busy hain, baad mein call karna"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: puts_on_hold
+    title: "Goes to check the fleet: hold, then answers"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: [{say: "Ek minute hold kijiye", hold_s: 25, then: "Haan boliye, kya poochh rahi thi?"}, "1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: hold_too_long
+    title: "Hold and never comes back"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: {say: "Ek minute ruko", hold_s: 300, then: "Haan boliye"}
+    expect: {call_outcome: hold_timeout}
+
+  - id: wrong_number
+    title: "Wrong number at the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Nahi, yeh toh dukaan hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: rude_hangs_up
+    title: "Rude, then hangs up"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+    expect: {outcome: REFUSED}
+
+  - id: dnc_request
+    title: "Asks not to be called again"
+    stop_request: true
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "Dobara call mat karna, number hata do"
+    expect: {outcome: REFUSED}
+
+  - id: ai_robot_at_identity
+    title: "Asks 'robot hai kya?' at the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Yeh robot hai kya?"
+      s3_ask: "1800 rupaye per day"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: ai_asked_at_availability
+    title: "Asks 'insaan ho ya machine?' at the availability question"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: "1800 rupaye per day"
+      s2_ask: ["Aap insaan ho ya machine?", "Haan ho jayega"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: vendor_asks_licence
+    title: "Asks for the driving licence / ID: she does not give any, says she will ask"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["Licence aur Aadhaar ki copy chahiye hogi", "1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: absurd_rate_asked_again
+    title: "Rs 1 lakh per day is not trusted: she asks again"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["45000 rupaye per day", "Sorry, 1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_customer_phone
+    title: "Asks for the customer's number: she does not share it"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["Unka number kya hai?", "1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_otp
+    title: "Asks for an OTP: she never shares secrets"
+    greeting: "Hello, Speedy Rentals."
+    replies:
+      s3_ask: ["Pehle OTP bata dijiye", "1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: noisy_then_clear
+    title: "Noisy line, clear after the re-ask"
+    greeting: "Hello?"
+    replies:
+      s3_ask: ["kkh... hmm...", "1800 rupaye per day"]
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: silent_after_identity
+    title: "Says nothing after the identity question"
+    greeting: "Hello?"
+    default: {silence: true}
+    replies:
+      disclosure: {silence: true}
+      s0_who: {silence: true}
+    expect: {call_outcome: hung_up}
