@@ -46,3 +46,8 @@ res.shortlist.items            # RankedItem: rank, place.candidate (phone, name)
 res.shortlist.best_in_range / nearest_good / widened
 ```
 Use `items[i].place.candidate` to build CallTasks. If `len(items) < N` the PM may call again with a larger `radius_km` (capped by code) after asking the user when `beyond_default_radius` items appear. Agents 13 (explainer) can turn `reasons` into WhatsApp text.
+
+## Live scout-report (2026-10-12, Sector 56 Gurgaon, 1 query per category, 20 results max)
+Phone present 60-100% (lowest: pg_rental 60%, appliance_repair/pest_control/car_service/florist_gift 70%). Hours 70-100%.
+**Type match is the weak spot**: our guessed Google types match only 0% pest_control, 0% driving_school, 5% coaching_classes, 10% appliance_repair, 20% event_services, 50% packers_movers/pg_rental/wedding_vendors. The eligibility filter would drop real vendors in these categories; fix the `types` lists in `categories.py` (inspect the real `types` of the results) before enabling them. Salon, clinic, lab, restaurant, gym, vet are fine (>= 95-100%).
+Note: pest_control returned 10 and driving_school 5 places for one query (thin supply; add queries).
