@@ -213,7 +213,8 @@ class LineMatcher:
                 found.append((m.start(), lid))
                 # a line already explained ends with "." so a shorter line's pattern (which cannot
                 # cross . ! ?) never starts inside it and reorders the lines
-                work = work[: m.start()] + "\x00" * (m.end() - m.start() - 1) + "." + work[m.end() :]
+                gap = "\x00" * (m.end() - m.start() - 1) + "."
+                work = work[: m.start()] + gap + work[m.end() :]
         leftover = re.sub(r"[\x00\W_]+", "", work)
         return [lid for _p, lid in sorted(found)], leftover
 

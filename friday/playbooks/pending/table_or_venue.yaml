@@ -1,0 +1,304 @@
+# PENDING playbook: table_or_venue (vendor archetype). NOT loaded by production (`select`, calls).
+# Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
+# (hear-before-change). Promote only with: friday playbook promote table_or_venue
+# (needs the founder's marker file table_or_venue.approved next to this file).
+#
+# Date, time, how many people, the rate (per plate / per head / per night) and whether it is
+# available. Mode quote_only (default): availability and rate are reported. Mode book only with a
+# delegation (restaurant / cafe tables); banquets and hotel rooms stay quote_only (see the pack).
+# The category pack (friday/vendors/categories/table_or_venue.yaml) only changes the VOCABULARY (what the
+# user wants, the unit phrase, the sane price range, which questions are asked); the words below
+# do not change.
+# Same rules as salon_booking v6 (founder): identity question first, then "virtual assistant" and
+# the purpose, price asked FIRST and subtly, no negotiation, no advance / cancellation question
+# unless the vendor raises it, AI answered truthfully on request, booking ONLY with a delegation and
+# the code-level commit check (only archetypes that can book have a commit line).
+
+version: 1
+id: table_or_venue
+archetype: table_or_venue
+title: Table or venue (restaurant, cafe, banquet, hotel room)
+language: hinglish
+
+inputs:
+  user_first_name: {required: true}
+  user_spoken: {}
+  honorific: {default: sir}
+  business_name: {required: true}
+  business_name_spoken: {}
+  service: {required: true}
+  services: {}
+  services_spoken: {}
+  playbook_mode: {default: quote_only}
+  price_min: {}              # category sanity range: a price outside it is not trusted
+  price_max: {}
+  category: {}
+  date_window: {required: true}
+  fallback_when: {}
+  fallback_day: {}
+  party_size: {required: true}
+  unit_phrase: {required: true}   # "per plate ka rate", "per head ka kharcha", "ek raat ka room rate"
+  budget: {}
+  explore_options: {default: "no"}
+
+outputs: [price_inr, price_low_inr, price_unit, advance_needed, outcome]
+
+limits:
+  max_duration_s: 150
+  max_repeats: 4
+  max_unclear_per_step: 2
+  hold_max_s: 60
+  max_turns: 28
+
+disclosure: disclosure
+ai_disclosure: on_request
+reintro: reintro
+
+confusion:
+  line: sorry
+  outcome: UNCLEAR
+  close: bye_unclear
+
+lines:
+  disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  recording_notice: "Yeh call quality ke liye record ho sakta hai."
+  intro: "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant."
+  ai_yes: "Haan ji, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
+  bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
+  bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
+  bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
+  bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
+  wa_decline: "Sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  s5_no_advance: "Advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
+  no_number: "{user_spoken} {honorific} ka number main share nahi kar sakti."
+  q_close: "Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you."
+  sorry: "Sorry, ek baar phir?"
+  offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
+  no_secrets: "Yeh jaankari main share nahi kar sakti."
+  intro_venue: "{user_spoken} {honorific} ko {party_size} logon ke liye {services_spoken} chahiye, {date_window}."
+  s3_ask_first: "Toh sir, {unit_phrase} kitna rahega?"
+  s3_ask: "Sir, {unit_phrase} kitna hoga?"
+  s2_ask_first: "Theek hai sir. Kya {date_window} ke liye available rahega?"
+  s2_ask: "Kya {date_window} ke liye available rahega?"
+  s2_ask_time: "Kitne baje ka?"
+  s2f_ask: "Achha, nahi ho sakta. Toh kya {fallback_day} ke liye available rahega?"
+  s2b_ask: "Toh kaun sa time free hai?"
+  s2b_ask_two: "Toh kaun se do time free hain?"
+  s2b_none: "Koi baat nahi, main {user_spoken} {honorific} ko bata dungi. Shukriya."
+  s7_close: "Theek hai, shukriya. Main {user_spoken} {honorific} se poochh kar aapko batati hoon."
+  s7_commit_free:
+    text: "Theek hai sir, toh {slot} ka {services_spoken} {party_size} logon ke liye book kar lijiye. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you."
+    commit: true
+  s7_commit_fallback:
+    text: "Theek hai sir, phir {slot} ka {services_spoken} {party_size} logon ke liye book kar lete hain. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you."
+    commit: true
+
+routes:
+  after_slot:
+    - {when: [mode_book], goto: S7}
+    - {goto: S7q}
+
+defaults:
+  STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
+  RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
+  WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+  BUSY_LATER: {say: [bye_busy], outcome: CALL_BACK_LATER}
+  ARE_YOU_BOT: {say: [ai_yes], repeat: true}
+  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  ASKS_REPEAT: {repeat: true, max_uses: 3}
+  HOLD_ON: {hold_s: 60, max_uses: 3}
+  ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
+  ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
+  ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
+  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
+  # "WhatsApp pe bhej do": asked once to say it here (in the price step), then a polite close
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: S7w}
+  NEEDS_ADVANCE:
+    - {when: [slot_known], say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: SLOT_OFFERED}
+    - {say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: ADVANCE_ASKED}
+  VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: "@after_slot"}
+
+start: S0
+commit_step: S7
+
+steps:
+  S0:   # identity check; the runner already asked the identity question; Friday WAITS
+    branches:
+      YES: {goto: S3}
+      CONTINUE: {goto: S3}
+      ACK: {goto: S3}
+      NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+      WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
+      ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S3}
+      ASKS_OFFTOPIC: {say: [s0_who], stay: true}
+      ASKS_SECRET: {say: [s0_who], stay: true}
+      ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
+      WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
+
+  S3:   # ONE turn: who, how many, what, when; then the rate
+    ask:
+      - {line: intro, when: [first_ask]}
+      - {line: recording_notice, when: [recording, first_ask]}
+      - {line: intro_venue, when: [first_ask]}
+      - {line: s3_ask_first, when: [first_ask]}
+      - {line: s3_ask, when: ["!first_ask"]}
+    branches:
+      GIVES_PRICE:
+        - {when: [price_known], goto: S2}
+        - {repeat: true}
+      PRICE_RANGE:
+        - {when: [price_known], goto: S2}
+        - {repeat: true}
+      PRICE_DEPENDS: {set: {price_note: depends}, goto: S2}
+      REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: S2}
+      VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: S2}
+      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
+      NEEDS_APPOINTMENT: {set: {walk_in_only: "yes"}, goto: S2}
+      CONTINUE: {repeat: true}
+      YES: {repeat: true}
+      ASKS_REPEAT: {say: [intro], repeat: true, max_uses: 1}
+
+  S2:   # availability for the date (and time)
+    ask:
+      - {line: s2_ask_first, when: [first_ask]}
+      - {line: s2_ask, when: ["!first_ask"]}
+    branches:
+      SLOT_FREE:
+        - {when: [slot_known], goto: "@after_slot"}
+        - {when: [mode_book], goto: S2t}
+        - {goto: "@after_slot"}
+      YES:
+        - {when: [has_requested_time], use_requested_time: true, goto: "@after_slot"}
+        - {when: [mode_book], goto: S2t}
+        - {set: {slot_free: "yes"}, goto: "@after_slot"}
+      GIVES_TIME: {goto: "@after_slot"}
+      OFFERS_SLOTS: {goto: "@after_slot"}
+      SLOT_BUSY:
+        - {when: [has_fallback], goto: S2f}
+        - {goto: S2b}
+      NO:
+        - {when: [has_fallback], goto: S2f}
+        - {goto: S2b}
+      NEEDS_APPOINTMENT: {set: {walk_in_only: "yes"}, goto: "@after_slot"}
+      CONTINUE: {repeat: true}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+
+  S2t:  # book mode: yes, but which time
+    ask: [s2_ask_time]
+    branches:
+      GIVES_TIME: {goto: "@after_slot"}
+      SLOT_FREE:
+        - {when: [slot_known], goto: "@after_slot"}
+        - {repeat: true}
+      OFFERS_SLOTS: {goto: "@after_slot"}
+      SLOT_BUSY: {goto: S2b}
+      NO: {goto: S2b}
+
+  S2f:  # the first time was busy and the task names a second one: ask that, once
+    day_input: fallback_when
+    max_visits: 1
+    ask: [s2f_ask]
+    branches:
+      SLOT_FREE:
+        - {when: [slot_known], goto: "@after_slot"}
+        - {when: [has_fallback], use_fallback_time: true, set: {fallback_used: "yes"}, goto: "@after_slot"}
+        - {goto: S2b}
+      YES:
+        - {when: [has_fallback], use_fallback_time: true, set: {fallback_used: "yes"}, goto: "@after_slot"}
+        - {goto: S2b}
+      GIVES_TIME: {goto: "@after_slot"}
+      OFFERS_SLOTS: {goto: "@after_slot"}
+      SLOT_BUSY: {goto: S2b}
+      NO: {goto: S2b}
+      ANY: {goto: S2b}
+
+  S2b:  # nothing suits: ONE alternative (two only when the owner wants to compare)
+    ask:
+      - {line: s2b_ask_two, when: [explore_options]}
+      - {line: s2b_ask, when: ["!explore_options"]}
+    branches:
+      OFFERS_SLOTS:
+        - {when: [slot_known], goto: "@after_slot"}
+        - {repeat: true}
+      SLOT_FREE:
+        - {when: [slot_known], goto: "@after_slot"}
+        - {repeat: true}
+      GIVES_TIME:
+        - {when: [slot_known], goto: "@after_slot"}
+        - {repeat: true}
+      SLOT_BUSY: {say: [s2b_none], outcome: NO_SLOT}
+      NO: {say: [s2b_none], outcome: NO_SLOT}
+
+  S7:   # book-mode close: ONE line, nothing asked. The first matching action runs.
+    final: true
+    branches:
+      ANY:
+        - {when: [can_commit, used_fallback], say: [s7_commit_fallback], commit: true, outcome: BOOKED}
+        - {when: [can_commit], say: [s7_commit_free], commit: true, outcome: BOOKED}
+        - {when: [slot_known], say: [s7_close], outcome: SLOT_OFFERED}
+        - {when: [price_known], say: [s7_close], outcome: QUOTE_COLLECTED}
+        - {say: [bye_unclear], outcome: UNCLEAR}
+
+  S7q:  # quote-only close: availability and rate go to the user
+    final: true
+    branches:
+      ANY:
+        - {when: [slot_known, price_known], say: [q_close], outcome: SLOT_OFFERED}
+        - {when: [available, price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {when: [slot_known], say: [q_close], outcome: SLOT_OFFERED}
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: PRICE_ON_REQUEST}
+
+  S7w:  # they asked to send it on WhatsApp (and would not say it here)
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: WHATSAPP_REQUESTED}
+
+outcomes:
+  QUOTE_COLLECTED:
+    call_outcome: partial
+    description: rate (price_inr, price_low_inr, price_unit) and availability (slot_free) collected, nothing booked
+    needs_quote: true
+  SLOT_OFFERED:
+    call_outcome: pending_approval
+    description: rate and a time collected, awaiting the user's approval
+    needs_quote: true
+  BOOKED:
+    call_outcome: success
+    description: booked under the user's delegation
+    needs_quote: true
+  NO_SLOT:
+    call_outcome: declined
+    description: not available
+  REFUSED:
+    call_outcome: declined
+    description: asked not to be called again, or hostile (no retry)
+  CALL_BACK_LATER:
+    call_outcome: callback_later
+    description: they asked us to call later
+  WRONG_NUMBER:
+    call_outcome: declined
+    description: wrong number / not this kind of business
+    collected: {wrong_number: "yes"}
+  WHATSAPP_REQUESTED:
+    call_outcome: partial
+    description: they wanted to send details on WhatsApp instead of saying them
+    collected: {whatsapp_requested: "yes"}
+  PRICE_ON_REQUEST:
+    call_outcome: partial
+    description: no price on the phone / it depends
+  ADVANCE_ASKED:
+    call_outcome: partial
+    description: they asked for an advance; Friday did not agree
+  UNCLEAR:
+    call_outcome: partial
+    description: could not understand them
+  NO_ANSWER:
+    call_outcome: no_answer
+    description: nobody picked up (set by the call runner)

@@ -486,7 +486,8 @@ _WA = _rx(
     r"details\s+(bhej|send)|price\s*list\s+(bhej|send)|catalog(ue)?\s+(bhej|send)"
 )
 _VISIT = _rx(
-    r"aake\s+(hi\s+)?(dekh|bata|poochh|pooch|puch)|aa\s*kar\s+(hi\s+)?(dekh|bata)|"
+    r"aa(ke|kar)\s+(\w+\s+){0,2}(dekh|dikha|mil|baat)|(dekh|dekhiye|dekhlo|dekhlijiye)\s+(lijiye|lo|"
+    r"lein|kar\s+hi|ke\s+hi)|visit\s+(kijiye|kariye)|aake\s+(hi\s+)?(dekh|bata|poochh|pooch|puch)|aa\s*kar\s+(hi\s+)?(dekh|bata)|"
     r"aakar\s+(hi\s+)?(dekh|bata)|dekh\s*(ke|kar)\s+(hi\s+)?(bata|batay|bol|quote|estimate|"
     r"kah|keh)|dekhne\s+ke\s+baad|dekhna\s+(padega|hoga|padta)|visit\s+(karna|karke|ke\s+baad|"
     r"ke\s+bina)|site\s+(visit|par\s+dekh|pe\s+dekh)|inspection|survey|check\s+karna\s+padega|"

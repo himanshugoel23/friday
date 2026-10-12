@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Slot reading (rules first), language detection, yes/no and cancel detection, question writer.
 
 ``SlotExtractor`` is a Protocol: the rule-based one here is the offline baseline; an LLM extractor

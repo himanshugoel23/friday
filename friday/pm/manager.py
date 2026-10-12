@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Agent 2: the project manager. A deterministic state machine over a persisted ``TaskRecord``.
 
 Rules (docs/PROJECT_MANAGER.md): it never calls vendors and never writes vendor-facing words;
@@ -402,10 +403,8 @@ class ProjectManager:
         for s in task.plan[i:]:
             s.status, s.reason = "pending", None
             task.outputs.pop(s.name, None)
-        for k in ("_consent_user", "_over_budget_ack"):
-            if i <= names.index("consent") if k == "_consent_user" and "consent" in names else True:
-                if k == "_over_budget_ack":
-                    task.outputs.pop(k, None)
+        task.outputs.pop("_over_budget_ack", None)
+        task.outputs.pop("_over_budget", None)
         if "consent" in names and i <= names.index("consent"):
             task.outputs.pop("_consent_user", None)
         if reset_radius and i <= (names.index("search") if "search" in names else 0):

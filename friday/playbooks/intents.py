@@ -127,5 +127,6 @@ PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {"slot", "price_inr", "duration_min
 SETTABLE: frozenset[str] = frozenset(
     {"advance_needed", "price_unknown", "slot_free", "price_note", "do_not_call", "rude",
      "wrong_number", "fallback_used", "visit_needed", "whatsapp_requested", "in_stock",
-     "out_of_stock", "delivery", "demo", "estimate_on_visit", "price_free", "not_available"}
+     "out_of_stock", "delivery", "demo", "estimate_on_visit", "price_free", "not_available",
+     "walk_in_only"}
 )

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Agent 1: the intake classifier. ONE job: message -> {bucket, category, confidence}.
 
 * ``Classifier`` is the interface; ``LLMClassifier`` (real, via the repo's ``LLMClient`` e.g.

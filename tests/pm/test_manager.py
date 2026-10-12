@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import json
 
 import pytest
@@ -344,7 +345,7 @@ async def test_resume_reruns_a_step_caught_mid_run():
     t.outputs["_consent_user"] = True
     t.plan[6].status = "done"
     pm.store.save(t)
-    r = await pm.resume("t1")
+    await pm.resume("t1")
     assert pm.store.load("t1").status == Status.DONE and "resumed_step" in log_kinds(pm)
 
 

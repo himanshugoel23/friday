@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The task record: everything the PM knows, JSON-serialisable so a restart can resume it."""
 
 from __future__ import annotations
