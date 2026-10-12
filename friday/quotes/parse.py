@@ -43,6 +43,9 @@ REQUEST_CUES = re.compile(
     r"looking|quote|rate|price|get a|i'?d like|चाहिए|करवाना|कटवाना|बुक",
     re.I,
 )
+TIME_CUES = re.compile(
+    r"\b(kal|aaj|parso|tomorrow|today|tonight|baje|\d{1,2}\s?(am|pm))\b|कल|आज|बजे", re.I
+)
 QUOTE_WORDS = re.compile(
     r"quote|rate|price|kitna|kitne|charges?|bhav|cost|कोट|रेट|कीमत|कितना|कितने|चार्ज", re.I
 )
@@ -176,7 +179,7 @@ def looks_like_request(text: str | None) -> bool:
         return False
     if not SALON_WORDS.search(text):
         return False
-    if not VENUE_WORDS.search(text) and not REQUEST_CUES.search(text):
+    if not (VENUE_WORDS.search(text) or REQUEST_CUES.search(text) or TIME_CUES.search(text)):
         return False  # "haan beard bhi": a service word alone is an answer, not a request
     for m in NAMED_BUSINESS_RE.finditer(text):
         words = [w for w in m.group(1).split() if w]

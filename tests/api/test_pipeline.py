@@ -377,8 +377,8 @@ async def test_invites_for_regular_user(pipeline, channel, brain):
 
 async def test_voice_note_transcribed_for_brain(pipeline, channel, brain):
     await onboard(pipeline, channel)
-    await say(pipeline, channel, ADMIN, "/voice kal shaam haircut book karo")
-    assert brain.seen[-1] == "kal shaam haircut book karo"
+    await say(pipeline, channel, ADMIN, "/voice kal shaam dentist book karo")
+    assert brain.seen[-1] == "kal shaam dentist book karo"
 
 
 async def test_location_pin_add_place(pipeline, channel, brain):

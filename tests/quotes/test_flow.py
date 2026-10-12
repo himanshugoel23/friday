@@ -33,7 +33,7 @@ async def test_quote_only_happy_path_then_book(qf, rahul):
     assert qf.calls.placed == []  # nobody is called before the approval
 
     out = await rahul.tap("Haan")
-    assert out == ["Theek hai, call kar rahi hoon. Saare quotes ek saath bhejungi."]
+    assert out == []  # no stage pings: silence until the outcome (founder rule)
     assert qf.calls.names() == ["Glow Salon"]  # one at a time by default
     assert qf.calls.placed[0]["mode"] == "quote_only"
     await qf.calls.finish("Glow Salon", Outcome.QUOTE, 450)
@@ -52,7 +52,7 @@ async def test_quote_only_happy_path_then_book(qf, rahul):
     out = await rahul.tap("Book Glow")  # the time was only "kal shaam": one question
     assert out == ["Kitne baje ka slot book karun? Jaise: 6 baje."]
     out = await rahul.say("6 baje")
-    assert "Glow Salon ko kal shaam 6 baje ke liye book karne call kar rahi hoon" in out[0]
+    assert out == []  # no "calling now" ping
     book = qf.calls.placed[-1]
     assert book["kind"] == "book" and book["name"] == "Glow Salon" and book["ceiling"] == 450
     await qf.calls.finish("Glow Salon", Outcome.BOOKED, 450)
@@ -68,7 +68,7 @@ async def test_exact_time_gives_book_buttons_with_the_time(qf, rahul):
     titles = [b.title for b in rahul.last_msg().buttons]
     assert titles[0] == "Book Glow Salon 6 PM"[:20] and all(len(t) <= 20 for t in titles)
     out = await rahul.tap("Book Glow")  # no further question: time and price are known
-    assert "book karne call kar rahi hoon" in out[0]
+    assert out == []
     book = qf.calls.placed[-1]
     assert book["ceiling"] == 450 and book["kind"] == "book"
 
@@ -261,8 +261,8 @@ async def test_new_request_replaces_an_open_shortlist(qf, rahul):
 
 async def test_text_yes_works_like_the_button(qf, rahul):
     await to_shortlist(qf, rahul)
-    out = await rahul.say("haan")
-    assert out[0].startswith("Theek hai, call kar rahi hoon")
+    assert await rahul.say("haan") == []
+    assert qf.calls.names() == ["Glow Salon"]
 
 
 async def test_voice_note_asks_for_text(qf, rahul):
@@ -338,7 +338,8 @@ async def test_outside_9_to_7_calls_are_queued_not_placed(qf, rahul):
     qf.clock.advance(hours=8)  # 19:00 IST
     await to_shortlist(qf, rahul)
     out = await rahul.tap("Haan")
-    assert out == ["Abhi unhe call karne ka time nahi hai. kal subah 9 baje call karungi, phir quotes bhejungi."]
+    assert out == []  # queued silently; "status" explains
+    assert (await rahul.say("status"))[0] == "Calls kal subah 9 baje shuru hongi. Quotes aate hi message karungi."
     assert qf.calls.placed == []
     await qf.flow.tick()
     assert qf.calls.placed == []
@@ -367,7 +368,8 @@ async def test_kill_switch_is_respected(qf, rahul, tmp_path):
     assert out[0].startswith("Main thodi der ke break par hoon")
     assert qf.calls.placed == []
     qf.c.settings.paused = False
-    assert (await rahul.tap("Haan"))[0].startswith("Theek hai, call kar rahi hoon")
+    assert await rahul.tap("Haan") == []
+    assert qf.calls.names() == ["Glow Salon"]
 
 
 async def test_test_mode_refuses_real_vendors(qf, rahul):
@@ -425,3 +427,23 @@ async def test_flow_can_be_switched_off(qf, rahul):
 
 
 _ = (FakeDirectory, timedelta)
+
+
+async def test_no_stage_pings_by_default_only_ack_questions_and_outcome(qf, rahul):
+    await rahul.say(REQ)
+    await rahul.say("Sector 56 Gurgaon")
+    await rahul.tap("Haan")
+    n = len(rahul.msgs())
+    await qf.calls.finish("Glow Salon", Outcome.QUOTE, 450)
+    await qf.calls.finish("Royal Cuts", Outcome.NO_ANSWER)
+    assert len(rahul.msgs()) == n  # per-vendor results and call starts send nothing
+    assert [t.split(":")[0][:12] for t in rahul.texts()][:2] == ["Aap kahan ha", "Theek hai, a"]
+
+
+async def test_updates_switch_turns_progress_messages_on_per_request(qf, rahul):
+    await rahul.say(REQ)
+    await rahul.say("Sector 56 Gurgaon")
+    assert (await rahul.say("updates on"))[0].startswith("Theek hai, is request ke progress updates")
+    out = await rahul.tap("Haan")
+    assert out == ["Theek hai, call kar rahi hoon. Saare quotes ek saath bhejungi."]
+    assert (await rahul.say("updates band"))[0].startswith("Theek hai, updates nahi bhejungi")

@@ -74,8 +74,8 @@ async def test_real_engine_quote_only_then_booking(real):
     tasks = [t for t in await rahul.tasks() if t.role == "vendor_quote"]
     assert len(tasks) == 3 and all(t.status == TaskStatus.COMPLETED for t in tasks)
     assert (await conv_of(f)).state == State.AWAITING_BOOK
-    # no per-call chatter: the user got the searching note, the shortlist, "calling", the quotes
-    assert len(rahul.msgs()) == 4
+    # no per-call chatter: the searching ack, the shortlist question, the quotes
+    assert len(rahul.msgs()) == 3
 
     first_book = next(b for b in rahul.last_msg().buttons if b.id.split(":")[2] == "book")
     await rahul.tap_id(first_book.id)
