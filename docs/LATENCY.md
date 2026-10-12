@@ -147,3 +147,17 @@ Compare with the `reply gap` log lines, stream on vs off, on the same script.
 What is left for <1 s on every turn: (a) start the model on the stable partial BEFORE the commit (speculative understanding: hides ~0.65 s of the
 model call), (b) a faster inference host or small intent classifier, (c) stream the model's words into the voice, (d) a short acknowledgement
 ("ji") while a slow turn works (needs founder audio).
+
+## 2026-10-12 Measured FROM the Bangalore server (deploy/latency_probe.sh) and what it changed
+| What | From the server |
+|---|---|
+| OpenAI tiny completion (gpt-5.4-mini, no reasoning) | 1.3-1.5 s first byte (0.65 s from a US machine); TCP only 18 ms: it is the route/host, not the connection |
+| ElevenLabs Flash TTS stream first byte | ~0.27-0.5 s |
+| Sarvam TTS stream first byte | ~0.10 s (faster than ElevenLabs from India; the earlier US-side comparison was backwards for this server) |
+The live call showed the same: call_turn model call 2161 ms (out=28 tokens) -> reply gap 3637 ms.
+**Fix (opt-in): `FRIDAY_LLM_CALL_TURN_PROVIDER=sarvam`** routes ONLY the call-turn job (understanding the vendor's reply) to Sarvam's India-hosted
+`sarvam-105b-conversations` (`/v1/chat/completions`; `/v2` needs beta access, `sarvam-105b` is a reasoning model and returns empty answers at small token
+budgets). Benchmark on the playbook intent task: 10/10 correct with json_schema, p50 ~455 ms from the US (expect far less from Bangalore). Falls back to OpenAI on any
+Sarvam error/timeout (`FRIDAY_SARVAM_LLM_TIMEOUT_S`, default 3 s). `friday/brain/sarvam_llm.py`, `RoutedLLM`.
+**Streaming STT with ElevenLabs is NOT accurate enough on real phone speech** (it heard "जी यह उधर है" for "haan ji bataiye"; Sarvam REST heard it correctly):
+keep `FRIDAY_VOICE_STREAM_STT=false` until both are compared on recorded real audio.

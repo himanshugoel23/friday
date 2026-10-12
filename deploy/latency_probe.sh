@@ -18,6 +18,14 @@ echo "== OpenAI: tiny chat completion (the call-turn model, no reasoning, 8 toke
 [ -n "$OPENAI_KEY" ] && run "openai gpt-5.4-mini" https://api.openai.com/v1/chat/completions \
   -H "Authorization: Bearer $OPENAI_KEY" -H "Content-Type: application/json" \
   -d '{"model":"gpt-5.4-mini","messages":[{"role":"user","content":"Reply with the word ok"}],"max_completion_tokens":8,"reasoning_effort":"none"}'
+echo "== OpenAI: same tiny task on the smaller gpt-5.4-nano"
+[ -n "$OPENAI_KEY" ] && run "openai gpt-5.4-nano" https://api.openai.com/v1/chat/completions \
+  -H "Authorization: Bearer $OPENAI_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"gpt-5.4-nano","messages":[{"role":"user","content":"Reply with the word ok"}],"max_completion_tokens":8,"reasoning_effort":"none"}'
+echo "== Sarvam chat (hosted in India): the same tiny task on sarvam-105b-conversations"
+[ -n "$SARVAM_KEY" ] && run "sarvam 105b-conversations" https://api.sarvam.ai/v1/chat/completions \
+  -H "api-subscription-key: $SARVAM_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"sarvam-105b-conversations","messages":[{"role":"user","content":"Reply with the word ok"}],"max_tokens":8}'
 echo "== ElevenLabs: text-to-speech stream, first byte"
 [ -n "$EL_KEY" ] && run "elevenlabs flash stream" "https://api.elevenlabs.io/v1/text-to-speech/OtEfb2LVzIE45wdYe54M/stream?output_format=pcm_8000" \
   -H "xi-api-key: $EL_KEY" -H "Content-Type: application/json" \

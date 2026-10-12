@@ -280,7 +280,12 @@ class Container:
         path = self.factory_path(component)
         factory = _load(path)
         log.debug("building %s via %s", component, path)
-        return factory(self)
+        built = factory(self)
+        if component == "llm":  # live call turns may go to a faster, India-hosted model
+            from friday.brain.sarvam_llm import route_call_turns
+
+            built = route_call_turns(built, self.settings)
+        return built
 
     # ------------------------------------------------------------------ typed accessors
     @property
