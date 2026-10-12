@@ -76,3 +76,17 @@ instead of 900 ms, saving about 250 ms on every short turn. Long sentences keep 
 mid-sentence are not cut. NOT tested on a live call: listen for chopped answers on the next test call and set the
 value to 0 if it happens. Remaining levers: streaming STT (needs Sarvam's streaming STT API), starting TTS of the
 likely next line while the vendor is still speaking.
+
+## 2026-10-12 founder test call: 4.85 s after "haan ji bataiye"
+Server log: `llm purpose=call_turn ... out=103 latency_ms=2160` then `p95 turn latency 4852ms (budget 1500)`. The reply was not
+recognised by the rules ("bataiye" was not in the confident patterns), so the model was asked. Fixes, in order of generality:
+1. **General (all model turns):** `openai_relaxed_call_schema` is now ON: the model writes only the keys it has (`{"intent":"YES"}`,
+   ~13 tokens) instead of 11 fields padded with null (~65-100 tokens). Benchmark (this sandbox, gpt-5.4-mini, 20 varied replies):
+   p50 824 -> 672 ms, p90 1051 -> 898 ms, 0 repairs. On the 1 vCPU droplet the gain should be bigger (it was 2160 ms there).
+2. **General:** LLM connection warm-up (`friday/core/warmup.py`) at runtime start and at `friday livecall` start, so the first call turn does
+   not pay a cold TLS handshake (a fresh `livecall` process is cold: likely part of the 2.16 s).
+3. **Targeted:** common polite replies ("haan ji bataiye", "ji boliye", Devanagari too) are now confident in the rules (`_CONTINUE`).
+4. Still to do: speculative understanding on the early transcript (start the model while the caller's pause is still being timed out,
+   saves up to ~0.5 s), streaming STT, a trained small intent classifier (no model call for the closed intent set), and a short
+   backchannel word ("ji") while the model works (needs founder audio approval).
+Benchmark scripts are one-off (scratchpad); re-measure on the server from `last-run.log` (the `llm purpose=call_turn` lines).

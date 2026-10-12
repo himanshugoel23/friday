@@ -68,6 +68,12 @@ _NOTES_FORMAT = (
     "Reply with ONLY the JSON object for the schema. Use null (or []) for fields that do not "
     "apply. Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
 )
+# relaxed call schema (latency): every written token costs time, so no null padding
+_NOTES_FORMAT_RELAXED = (
+    "\nProvider notes (output format only; the rules above still decide everything):\n"
+    "Reply with ONLY the JSON object. OMIT every field that does not apply (never write null "
+    "or []). Plain speakable words in any `text`: no markdown, no emojis, no lists.\n"
+)
 _NOTES_CALL_TURN = (
     "Language mirroring: if the last callee turn carries a `language` tag, your `language` MUST "
     "equal that tag and `text` must be in it (tag hi -> Hindi in Devanagari, en -> English, "
@@ -88,7 +94,7 @@ _NOTES_INTERPRET = (
     "check in on a family member -> new_task wellbeing_checkin (not remember).\n"
 )
 # Call turns need only these keys (the rest default safely when omitted: commits_booking=false).
-_CALL_TURN_REQUIRED = ("type", "text", "language", "outcome", "commits_booking")
+_CALL_TURN_REQUIRED = ("type", "text", "language", "outcome", "commits_booking", "intent")
 # Fallback when a model has no row in the price table (a mini-class guess; ESTIMATE).
 _DEFAULT_PRICE = (0.75, 0.075, 4.50)
 
@@ -394,10 +400,13 @@ class OpenAILLM:
         model = model or self.default_model
         notes = ""
         strict = True
-        if json_schema and purpose == "call_turn" and self.relaxed_call_schema:
+        relaxed = bool(json_schema and purpose == "call_turn" and self.relaxed_call_schema)
+        if relaxed:
             json_schema, strict = relax_call_schema(json_schema), False
         if json_schema:
-            notes = _NOTES_FORMAT + (_NOTES_CALL_TURN if purpose == "call_turn" else "")
+            notes = (_NOTES_FORMAT_RELAXED if relaxed else _NOTES_FORMAT) + (
+                _NOTES_CALL_TURN if purpose == "call_turn" else ""
+            )
             notes += _NOTES_INTERPRET if purpose == "interpret" else ""
         api_messages = self._messages(system, messages, attachments, notes)
         reasoning = self._effort_for(purpose, model, effort)
@@ -459,6 +468,14 @@ class OpenAILLM:
         if finish == "length" and "response_format" in kwargs:
             raise ProviderError("openai", f"output truncated ({purpose})", retryable=True)
         return text, finish, served, in_tok, out_tok
+
+    async def warm(self) -> None:
+        """Open the HTTPS connection to OpenAI now (a free GET, no tokens), so the first live
+        call turn does not pay the TLS handshake. Best effort: never raises."""
+        try:
+            await self._client.models.list()
+        except Exception as e:  # noqa: BLE001
+            log.info("openai warm-up skipped: %s", type(e).__name__)
 
     async def aclose(self) -> None:
         close = getattr(self._client, "close", None)

@@ -243,9 +243,14 @@ _YES_WORDS = (
 )
 _YES = re.compile(rf"^(?:(?:{_YES_WORDS})[\s.!,]*)+$", _R)
 _CONTINUE = _rx(
-    r"^(haan\s+|ji\s+|yes\s+|ji\s+haan\s+|ha\s+)?(boliye|boliyega|bolo|bol|kahiye|kahiyega|"
-    r"bataiye|batao|go\s+ahead|yes\s+please|speak|tell\s+me|boliye\s+na|"
-    r"बोलिए|बोलो|कहिए|बताइए)[\s.!?,]*$",
+    # "haan ji bataiye", "ji boliye", "हाँ जी बताइए": yes-words, then an invitation to speak,
+    # then an optional sir/madam/ji. Confident on purpose: the model call costs ~2 s on a phone.
+    r"^((haan|han|ha|haa|ji|jee|yes|yeah|हाँ|हां|जी)[\s,.]+)*"
+    r"(boliye|boliyega|bolie|boliyae|bolo|bol|kahiye|kahiyega|bataiye|bataiyega|bataiyye|"
+    r"batayiye|bataye|batao|bataaiye|sunaiye|sunao|go\s+ahead|please\s+go\s+ahead|yes\s+please|"
+    r"speak|tell\s+me|boliye\s+na|kya\s+kaam\s+hai|kya\s+baat\s+hai|"
+    r"बोलिए|बोलिये|बोलो|कहिए|कहिये|बताइए|बताइये|बताइएगा|बताओ|बताएं|सुनाइए|क्या\s+काम\s+है|"
+    r"क्या\s+बात\s+है)(\s+(sir|madam|ji|jee|सर|मैडम|जी))?[\s.!?,।]*$",
 )
 _ACK = _rx(r"^(ok|okay|thik\s+hai|theek\s+hai|accha|achha|thanks|thank\s+you|shukriya|dhanyavaad|"
            r"dhanyawad|धन्यवाद|शुक्रिया|ठीक\s+है)[\s.!,]*$")

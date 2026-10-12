@@ -447,6 +447,10 @@ async def run_livecall(
         out(f"REFUSED: {e}")
         return 2
     c = Container(settings)
+    from friday.core.warmup import warm_llm
+
+    # open the model connection while we set up (first call turn stays warm)
+    _warm = asyncio.create_task(warm_llm(c))  # noqa: F841
     server: Any = None
     server_task: asyncio.Task | None = None
     app: Any = None

@@ -87,6 +87,9 @@ class Runtime:
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.subscribe()
         if background:
+            from friday.core.warmup import warm_llm
+
+            self._warm = asyncio.create_task(warm_llm(self.c))  # first call turn stays warm
             await self._start_roles()
             await self._resume_pm()
         self.running = True
