@@ -172,6 +172,9 @@ class InboundPipeline:
         self.limiter = AbuseLimiter(self.settings, self.clock, self.repos)
         self.onboarding = OnboardingFlow(self)
         self.callbacks = CallbackService(c)
+        from friday.quotes.flow import QuotesFlow
+
+        self.quotes = QuotesFlow(c, self)  # WhatsApp quotes flow (docs/WHATSAPP_QUOTES_FLOW.md)
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -573,6 +576,9 @@ class InboundPipeline:
     async def _active(self, user: User, msg: InboundMessage) -> None:
         pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None and await self._continue_pending(user, msg, pending):
+            return
+
+        if await self.quotes.handle(user, msg):
             return
 
         if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):

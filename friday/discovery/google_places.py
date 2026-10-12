@@ -64,6 +64,23 @@ DETAIL_FIELDS = ",".join(
         "businessStatus",
     )
 )
+LEAN_DETAIL_FIELDS = ",".join(
+    (
+        "id",
+        "displayName",
+        "formattedAddress",
+        "location",
+        "rating",
+        "userRatingCount",
+        "googleMapsUri",
+        "internationalPhoneNumber",
+        "nationalPhoneNumber",
+        "regularOpeningHours",
+        "currentOpeningHours.openNow",
+        "primaryType",
+        "businessStatus",
+    )
+)
 _PRICE_LEVELS = {
     "PRICE_LEVEL_FREE": 0,
     "PRICE_LEVEL_INEXPENSIVE": 1,
@@ -98,7 +115,13 @@ class GooglePlacesDirectory:
 
     # ------------------------------------------------------------------ protocol
     async def search(
-        self, query: str, location: str, *, near: GeoPoint | None = None, limit: int = 10
+        self,
+        query: str,
+        location: str,
+        *,
+        near: GeoPoint | None = None,
+        limit: int = 10,
+        radius_m: float | None = None,
     ) -> list[BusinessCandidate]:
         text = f"{query} in {location}" if location else query
         body: dict[str, Any] = {
@@ -111,19 +134,20 @@ class GooglePlacesDirectory:
             body["locationBias"] = {
                 "circle": {
                     "center": {"latitude": near.lat, "longitude": near.lng},
-                    "radius": self.bias_radius_m,
+                    "radius": min(float(radius_m or self.bias_radius_m), 50000.0),
                 }
             }
         data = await self._request("POST", "/places:searchText", SEARCH_FIELDS, json=body)
         out: list[BusinessCandidate] = []
         for place in data.get("places", []):
-            if place.get("businessStatus") == "CLOSED_PERMANENTLY":
+            if place.get("businessStatus") in ("CLOSED_PERMANENTLY", "CLOSED_TEMPORARILY"):
                 continue
             out.append(self._candidate(place, near=near))
         return out[:limit]
 
-    async def details(self, place_id: str) -> BusinessCandidate | None:
-        place = await self._details(place_id)
+    async def details(self, place_id: str, *, lean: bool = False) -> BusinessCandidate | None:
+        """``lean`` skips review text (cheaper SKU): phone, rating, hours, status only."""
+        place = await self._details(place_id, lean=lean)
         return self._candidate(place) if place else None
 
     async def business_hours(self, place_id: str) -> BusinessHours | None:
@@ -131,18 +155,22 @@ class GooglePlacesDirectory:
         return parse_opening_hours(place.get("regularOpeningHours")) if place else None
 
     # ------------------------------------------------------------------ internals
-    async def _details(self, place_id: str) -> dict[str, Any] | None:
-        if place_id in self._details_cache:
-            return self._details_cache[place_id]
+    async def _details(self, place_id: str, *, lean: bool = False) -> dict[str, Any] | None:
+        cache_key = f"{place_id}:lean" if lean else place_id
+        if cache_key in self._details_cache:
+            return self._details_cache[cache_key]
         try:
             data = await self._request(
-                "GET", f"/places/{place_id}", DETAIL_FIELDS, params={"languageCode": self.language}
+                "GET",
+                f"/places/{place_id}",
+                LEAN_DETAIL_FIELDS if lean else DETAIL_FIELDS,
+                params={"languageCode": self.language},
             )
         except ProviderError as e:
             if "404" in str(e):
                 return None
             raise
-        self._details_cache[place_id] = data
+        self._details_cache[cache_key] = data
         return data
 
     async def _request(self, method: str, path: str, fields: str, **kw: Any) -> dict[str, Any]:

@@ -426,6 +426,27 @@ class Settings(BaseSettings):
     discovery_max_candidates: int = 10  # fetched from the directory
     discovery_shortlist_size: int = 3  # called after the brain shortlists
     discovery_min_rating: float = 3.8
+    # ------------------------------------------------------------------ WhatsApp quotes flow
+    # docs/WHATSAPP_QUOTES_FLOW.md: text -> questions -> Places shortlist -> approve -> calls -> quotes
+    quotes_flow_enabled: bool = True
+    quotes_radius_km: float = 5.0
+    quotes_max_requests_per_day: int = 3  # per user (counted when the Places search runs)
+    quotes_max_places_calls_per_request: int = 8  # hard cost cap: searches + detail lookups
+    quotes_places_cache_ttl_s: int = 6 * 3600
+    quotes_call_window_start: str = "09:00"  # IST, vendor calls only inside this window
+    quotes_call_window_end: str = "19:00"
+    quotes_max_concurrent_calls: int = 1  # vendor calls at once per request (1-3)
+    quotes_retry_after_min: int = 10  # one retry per vendor, after the first pass
+    quotes_stale_hours: int = 24  # an unanswered question / shortlist expires after this
+    # TEST REDIRECT: when set (E.164), every vendor call dials THIS number instead of the real
+    # vendor, but the script still uses the real vendor name. Empty (default) = real vendors.
+    # The pilot allow-list is checked against the number actually dialled.
+    vendor_call_redirect_to: str | None = None
+    # Delivery of the result (docs/HANDOFF.md 2b): WhatsApp first; if the send fails, or no
+    # delivery receipt arrives within N minutes, an SMS summary; a voice call-back only if allowed.
+    quotes_delivery_receipt_wait_min: int = 20
+    quotes_sms_fallback: bool = True
+    quotes_voice_fallback: bool = False
     # number safety (B16, C26)
     verify_numbers: bool = True  # NumberVerifier before every first call to a number
     scam_numbers_path: str | None = None  # extra known-scam list (one E.164 per line)
@@ -639,6 +660,19 @@ class Settings(BaseSettings):
         if not self.pilot_blocks_business_calls:
             return False
         return not phone or phone not in set(self.pilot_allowed_numbers)
+
+    @field_validator("vendor_call_redirect_to", mode="before")
+    @classmethod
+    def _redirect_e164(cls, v: object) -> object:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        from friday.core.models import normalize_phone
+
+        return normalize_phone(str(v).strip(), "+91")
+
+    def vendor_dial_number(self, phone: str | None) -> str | None:
+        """The number a vendor call really dials: the redirect target in test mode."""
+        return self.vendor_call_redirect_to or phone
 
     def beta_expedia_configured(self) -> bool:
         return bool(self.expedia_rapid_api_key and self.expedia_rapid_shared_secret)

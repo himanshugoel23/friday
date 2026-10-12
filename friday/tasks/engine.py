@@ -119,12 +119,15 @@ ROLE_CARE_FOLLOWUP = TaskRole.CARE_FOLLOWUP.value  # C25 follow-up at promised d
 ROLE_CALLBACK = TaskRole.CALLBACK.value  # business called back about a resolved booking (E.32/37)
 ROLE_CLOSE_LOOP = TaskRole.CLOSE_LOOP.value  # polite "need already met" call-back (E.37)
 ROLE_RETRY = TaskRole.RETRY.value  # user asked to try again later / tomorrow
+# WhatsApp quotes flow (friday/quotes): one vendor call of a request; the flow, not the engine,
+# talks to the user (comparison message), so the engine reports nothing for these tasks.
+ROLE_VENDOR_QUOTE = "vendor_quote"
 
 
 # children created as part of satisfying the parent's need (cancelled when it resolves)
 _NEED_ROLES = {ROLE_FANOUT}
 # children that are reported to the user individually
-_SILENT_ROLES = {ROLE_FANOUT, ROLE_CLOSE_LOOP}
+_SILENT_ROLES = {ROLE_FANOUT, ROLE_CLOSE_LOOP, ROLE_VENDOR_QUOTE}
 
 CHILD_TYPE = {TaskType.DISCOVERY: TaskType.QUOTE}
 BOOKING_TYPES = {
@@ -1315,7 +1318,9 @@ class TaskEngine:
         SECURITY-21: hard per-user daily cap and per-target caps across all users."""
         if task.target is None:
             return None
-        if self.settings.pilot_dial_blocked(task.target.phone):  # pilot: allow-list only
+        if self.settings.pilot_dial_blocked(  # pilot: allow-list only (checks the dialled number)
+            self.settings.vendor_dial_number(task.target.phone)
+        ):
             await self._audit(task, "call.blocked_pilot")
             await self._fail(task, PILOT_NO_REAL_CALLS)
             return "pilot"
@@ -1447,7 +1452,9 @@ class TaskEngine:
         if (
             inbound_leg is None
             and task.target is not None
-            and self.settings.pilot_dial_blocked(task.target.phone)
+            and self.settings.pilot_dial_blocked(
+                self.settings.vendor_dial_number(task.target.phone)
+            )
         ):  # defence in depth: never dial a real business in the pilot
             if from_number and self.pool is not None:
                 await self.pool.release(from_number)
@@ -1472,6 +1479,24 @@ class TaskEngine:
         brief = brief.model_copy(
             update={"from_number": caller_id, "number_changed": number_changed}
         )
+        redirected = False
+        if (
+            inbound_leg is None
+            and self.settings.vendor_call_redirect_to
+            and task.target is not None
+            and task.target.kind == TargetKind.BUSINESS
+        ):
+            # TEST REDIRECT (FRIDAY_VENDOR_CALL_REDIRECT_TO): dial the test number, keep the
+            # real vendor name/city in the script. The real vendor is never dialled.
+            brief = brief.model_copy(
+                update={
+                    "target": brief.target.model_copy(
+                        update={"phone": self.settings.vendor_call_redirect_to}
+                    )
+                }
+            )
+            redirected = True
+            await self._audit(task, "call.redirected", to=mask_phone(brief.target.phone))
         try:
             result = await self._run_call(
                 task, brief, inbound_leg=inbound_leg, from_number=caller_id
@@ -1479,6 +1504,8 @@ class TaskEngine:
         finally:
             if pooled and self.pool is not None:
                 await self.pool.release(from_number)
+        if redirected and task.target is not None:  # records stay keyed by the real vendor
+            result = result.model_copy(update={"to_phone": task.target.phone})
         if caller_id and not getattr(result, "from_number", None):
             result = result.model_copy(update={"from_number": caller_id})  # BUG-16
         if pooled and self.pool is not None and task.target is not None:
@@ -1740,7 +1767,7 @@ class TaskEngine:
         if o == CallOutcome.PENDING_APPROVAL or (o == CallOutcome.USER_TIMEOUT and result.quotes):
             summary = await self._summarize(task, result)
             await self._vendor_memory(task, result, summary, committed=False)
-            if role in (ROLE_FANOUT, ROLE_CLOSE_LOOP):
+            if role in (ROLE_FANOUT, ROLE_CLOSE_LOOP, ROLE_VENDOR_QUOTE):
                 task.result = summary
                 await self._transition(task, S.COMPLETED)
                 if role == ROLE_CLOSE_LOOP:
@@ -1961,6 +1988,7 @@ class TaskEngine:
         # end-of-call business touch (BRIEF #8)
         if (
             summary.business_touch
+            and not self.settings.vendor_call_redirect_to  # test mode: never message the vendor
             and result.outcome == CallOutcome.SUCCESS
             and task.target
             and task.target.kind == TargetKind.BUSINESS

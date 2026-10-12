@@ -51,6 +51,7 @@ from friday.quality.hook import install_quality_hook
 log = get_logger(__name__)
 
 CONSUMED_KINDS = ("inbound.message", "message.send")
+QUOTES_TICK_S = 30.0
 RETENTION_POLL_S = 900.0  # real-time cadence; the job itself runs once per IST day
 
 
@@ -84,6 +85,7 @@ class Runtime:
         await self.c.startup()
         self.callbacks.subscribe()
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
+        self.pipeline.quotes.subscribe()
         if background:
             await self._start_roles()
         self.running = True
@@ -93,6 +95,7 @@ class Runtime:
         voice_worker = self._build_voice_worker() if s.has_role("voice") else None
         if s.has_role("task"):
             self._tasks.append(asyncio.create_task(self.worker_loop(), name="friday-worker"))
+            self._tasks.append(asyncio.create_task(self.quotes_loop(), name="friday-quotes"))
             await self._start_component("task_engine")
         if voice_worker is not None:
             await voice_worker.start()
@@ -117,6 +120,16 @@ class Runtime:
         if engine is not None:
             engine.claim_calls = False
         return worker
+
+    async def quotes_loop(self) -> None:
+        """WhatsApp quotes flow timers: queued calls, the single retry, resume after a restart,
+        SMS fallback when the result was not delivered (docs/WHATSAPP_QUOTES_FLOW.md)."""
+        while True:
+            try:
+                await self.pipeline.quotes.tick()
+            except Exception:  # noqa: BLE001
+                log.exception("quotes tick failed")
+            await asyncio.sleep(QUOTES_TICK_S)
 
     async def retention_loop(self) -> None:
         """SECURITY-32: ``repos.retention.run`` once per IST day (exactly once across
@@ -149,6 +162,7 @@ class Runtime:
     async def stop(self) -> None:
         self.callbacks.unsubscribe()
         self.c.bus.unsubscribe(CallFinished, self._on_call_finished)
+        self.pipeline.quotes.unsubscribe()
         for comp in reversed(self._started):
             if callable(getattr(comp, "stop", None)):
                 try:

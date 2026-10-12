@@ -62,8 +62,15 @@ class SimulatedDirectory:
 
     # ------------------------------------------------------------------ protocol
     async def search(
-        self, query: str, location: str, *, near: GeoPoint | None = None, limit: int = 10
+        self,
+        query: str,
+        location: str,
+        *,
+        near: GeoPoint | None = None,
+        limit: int = 10,
+        radius_m: float | None = None,
     ) -> list[BusinessCandidate]:
+        radius_km = radius_m / 1000.0 if radius_m else self.radius_km
         q = tokens(query)
         loc = tokens(location)
         scored: list[tuple[float, BusinessCandidate]] = []
@@ -72,7 +79,7 @@ class SimulatedDirectory:
                 continue
             dist = haversine_km(near, GeoPoint(lat=b.lat, lng=b.lng)) if near else None
             if near is not None:
-                if dist is None or dist > self.radius_km:
+                if dist is None or dist > radius_km:
                     continue
             elif loc and not (loc & tokens(f"{b.city} {b.area}")):
                 continue
@@ -82,7 +89,7 @@ class SimulatedDirectory:
         scored.sort(key=lambda x: x[0])
         return [c for _, c in scored[:limit]]
 
-    async def details(self, place_id: str) -> BusinessCandidate | None:
+    async def details(self, place_id: str, *, lean: bool = False) -> BusinessCandidate | None:
         b = self.world.by_id(place_id)
         return self._candidate(b, full=True) if b else None
 

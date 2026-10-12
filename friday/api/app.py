@@ -97,6 +97,13 @@ def create_app(
         if accepted and c.settings.has_role("task"):
             background_tasks.add_task(runtime.drain)  # in-process worker (after the 200)
         for st in batch.statuses:
+            if st.provider_message_id:  # delivery receipts feed the quotes flow's SMS fallback
+                background_tasks.add_task(
+                    runtime.pipeline.quotes.on_delivery_status,
+                    st.provider_message_id,
+                    st.status,
+                    st.error,
+                )
             if st.provider_message_id and st.status == "failed":
                 background_tasks.add_task(
                     c.repos.messages.update_status,
