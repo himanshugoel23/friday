@@ -72,6 +72,17 @@ Mode: calls are `quote_only` unless the first message explicitly says to book AN
 a budget ("book kar do haircut kal 6 baje 600 tak"); then calls use `book` mode with a delegation for that
 time and ceiling, and the first vendor who books ends the run.
 
+## Notification policy (founder rule)
+
+Friday does not message at each stage. The user gets: one short acknowledgement when the request is
+understood ("dhoondh rahi hoon"), questions only the user can answer (missing slots, the shortlist
+approval), and then NOTHING until an outcome: the quotes, a booking result, a real problem (no places,
+Google down, kill switch, test mode), or a question. "Calling now", "calls start tomorrow", per-vendor
+results and "booking call started" are NOT sent. Silence is not a dead end: `status` returns progress
+("kaam chal raha hai" / "calls kal subah 9 baje shuru hongi") or the stored result.
+Optional per-request switch: the user types `updates on` (or `updates band` to stop) and then the
+"Progress messages" below are sent for that request only. Default off.
+
 ## Rules in code
 
 - One question at a time; location is required (pin, or text like "Sector 56 Gurgaon"). A bare city is
@@ -83,7 +94,7 @@ time and ceiling, and the first vendor who books ends the run.
   (`FRIDAY_QUOTES_MAX_PLACES_CALLS_PER_REQUEST`) and 3 requests per user per day
   (`FRIDAY_QUOTES_MAX_REQUESTS_PER_DAY`).
 - Vendor calls only 09:00-19:00 IST (`FRIDAY_QUOTES_CALL_WINDOW_START/END`); outside it the request is queued
-  and the user is told when the calls will start. The kill switch (`friday pause`) holds queued calls.
+  silently (`status` says when the calls start). The kill switch (`friday pause`) holds queued calls.
 - Idempotency: Meta retries are dropped by provider message id (runtime idempotency store, the message log,
   and the ids stored on the conversation); a repeated button tap changes nothing; a button of another user is
   ignored.
@@ -125,7 +136,7 @@ is not on the list is refused too. `friday doctor` shows whether the redirect is
 | Wrong city | `wrong_city`, request closed |
 | Voice note | `voice_note` (asks for text) |
 | Daily cap reached | `daily_cap` |
-| Calling hours over | `queued`; calls start next morning at 09:00 |
+| Calling hours over | queued silently; calls start next morning at 09:00; `status_queued` on request |
 | Kill switch on | `paused` at approval; queued calls wait |
 | Allow-list / test mode | `test_mode_blocked`, nobody called |
 | WhatsApp send fails | SMS fallback (see Delivery) |
@@ -278,7 +289,7 @@ Abhi sirf Gurgaon aur Bangalore mein kaam karti hoon. Jaldi aur shehar aayenge.
 अभी सिर्फ़ गुड़गाँव और बेंगलुरु में काम करती हूँ। जल्दी और शहर आएँगे।
 ```
 
-### Shortlist and approval
+### Acknowledgement, shortlist and approval
 
 **searching**
 
@@ -426,47 +437,7 @@ Button dabaiye, ya doosra area bataiye.
 बटन दबाइए, या दूसरा एरिया बताइए।
 ```
 
-### Calling
-
-**calling**
-
-- en:
-
-```
-Okay, calling them now. I will send all the quotes together.
-```
-
-- hinglish:
-
-```
-Theek hai, call kar rahi hoon. Saare quotes ek saath bhejungi.
-```
-
-- hi:
-
-```
-ठीक है, कॉल कर रही हूँ। सारे कोट्स एक साथ भेजूँगी।
-```
-
-**queued**
-
-- en:
-
-```
-They are closed for calls now. I will call at {when} and send the quotes.
-```
-
-- hinglish:
-
-```
-Abhi unhe call karne ka time nahi hai. {when} call karungi, phir quotes bhejungi.
-```
-
-- hi:
-
-```
-अभी उन्हें कॉल करने का समय नहीं है। {when} कॉल करूँगी, फिर कोट्स भेजूँगी।
-```
+### Real problems at approval
 
 **paused**
 
@@ -566,6 +537,108 @@ Pichli request abhi chal rahi hai. Rokni ho to 'cancel' likhiye.
 
 ```
 पिछली रिक्वेस्ट अभी चल रही है। रोकनी हो तो 'cancel' लिखिए।
+```
+
+### Progress messages (OFF by default, only after the user types `updates on`)
+
+**calling**
+
+- en:
+
+```
+Okay, calling them now. I will send all the quotes together.
+```
+
+- hinglish:
+
+```
+Theek hai, call kar rahi hoon. Saare quotes ek saath bhejungi.
+```
+
+- hi:
+
+```
+ठीक है, कॉल कर रही हूँ। सारे कोट्स एक साथ भेजूँगी।
+```
+
+**queued**
+
+- en:
+
+```
+They are closed for calls now. I will call at {when} and send the quotes.
+```
+
+- hinglish:
+
+```
+Abhi unhe call karne ka time nahi hai. {when} call karungi, phir quotes bhejungi.
+```
+
+- hi:
+
+```
+अभी उन्हें कॉल करने का समय नहीं है। {when} कॉल करूँगी, फिर कोट्स भेजूँगी।
+```
+
+**book_calling**
+
+- en:
+
+```
+Okay, calling {name} to book {when}.
+```
+
+- hinglish:
+
+```
+Theek hai, {name} ko {when} ke liye book karne call kar rahi hoon.
+```
+
+- hi:
+
+```
+ठीक है, {name} को {when} के लिए बुक करने कॉल कर रही हूँ।
+```
+
+**updates_on**
+
+- en:
+
+```
+Okay, I will send progress updates for this request.
+```
+
+- hinglish:
+
+```
+Theek hai, is request ke progress updates bhejungi.
+```
+
+- hi:
+
+```
+ठीक है, इस रिक्वेस्ट के प्रोग्रेस अपडेट भेजूँगी।
+```
+
+**updates_off**
+
+- en:
+
+```
+Okay, no progress updates. I will message you with the result.
+```
+
+- hinglish:
+
+```
+Theek hai, updates nahi bhejungi. Result aate hi message karungi.
+```
+
+- hi:
+
+```
+ठीक है, अपडेट नहीं भेजूँगी। रिज़ल्ट आते ही मैसेज करूँगी।
 ```
 
 ### Result
@@ -830,27 +903,7 @@ Doosre dekho
 दूसरे देखो
 ```
 
-### Booking
-
-**book_calling**
-
-- en:
-
-```
-Okay, calling {name} to book {when}.
-```
-
-- hinglish:
-
-```
-Theek hai, {name} ko {when} ke liye book karne call kar rahi hoon.
-```
-
-- hi:
-
-```
-ठीक है, {name} को {when} के लिए बुक करने कॉल कर रही हूँ।
-```
+### Booking outcome
 
 **booked**
 
@@ -972,7 +1025,7 @@ baat poori nahi ho payi
 बात पूरी नहीं हो पाई
 ```
 
-### Control and edge cases
+### Control, status and edge cases
 
 **cancelled**
 
@@ -1092,6 +1145,26 @@ Abhi kaam chal raha hai. Quotes aate hi message karungi.
 
 ```
 अभी काम चल रहा है। कोट्स आते ही मैसेज करूँगी।
+```
+
+**status_queued**
+
+- en:
+
+```
+Calls start {when}. I will message you when the quotes are ready.
+```
+
+- hinglish:
+
+```
+Calls {when} shuru hongi. Quotes aate hi message karungi.
+```
+
+- hi:
+
+```
+कॉल {when} शुरू होंगी। कोट्स आते ही मैसेज करूँगी।
 ```
 
 **status_none**

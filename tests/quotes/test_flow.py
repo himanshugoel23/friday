@@ -443,7 +443,8 @@ async def test_no_stage_pings_by_default_only_ack_questions_and_outcome(qf, rahu
 async def test_updates_switch_turns_progress_messages_on_per_request(qf, rahul):
     await rahul.say(REQ)
     await rahul.say("Sector 56 Gurgaon")
+    go = rahul.last_msg().buttons[0].id
     assert (await rahul.say("updates on"))[0].startswith("Theek hai, is request ke progress updates")
-    out = await rahul.tap("Haan")
+    out = await rahul.tap_id(go)
     assert out == ["Theek hai, call kar rahi hoon. Saare quotes ek saath bhejungi."]
     assert (await rahul.say("updates band"))[0].startswith("Theek hai, updates nahi bhejungi")
