@@ -154,3 +154,6 @@ without the user sharing it; a switched-off phone cannot receive anything until 
 
 ## Decision note (2026-10-12): scope = vendor categories + request buckets
 Founder clarified: NOT scraping JustDial; only look at which vendor categories and offerings it shows, to size the scope. Next: identify the top 10/20/30 vendor categories, then define "buckets" of user requests (quote, booking, booking confirmation, availability, general request...). A classifier routes each user request to a bucket; each bucket has its own call agent/playbook. Deliverable: docs/SCOPE_BUCKETS.md.
+
+## Decision note (2026-10-12): Wave 1 = at least 20 categories
+Founder: Wave 1 must have >= 20 vendor categories (10 is too small). docs/SCOPE_BUCKETS.md updated: wave 1 = 20 (old wave 1 + 10 from wave 2).

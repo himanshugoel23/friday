@@ -5,7 +5,7 @@ Source of categories: Justdial's own public annual search reports (self-reported
 ## 1. Vendor categories (what people look for locally)
 Justdial reports name: schools, restaurants, hospitals, beauty parlours, PG accommodation, hobby classes, dermatologists/dentists/ENT, packers and movers, pest control, AC repair, mobile dealers.
 
-### Wave 1 (beta, ~10): high volume and a phone call really helps
+### Wave 1 (beta, 20 categories): high volume and a phone call really helps
 1. Salon / parlour / spa (quote, book)
 2. Doctors / dentists / dermatologists / clinics (appointment, fee, timings)
 3. Diagnostic labs (test price, home collection slot)
@@ -16,10 +16,19 @@ Justdial reports name: schools, restaurants, hospitals, beauty parlours, PG acco
 8. Car service / garage / car wash (quote, slot)
 9. Restaurants / banquet / caterers (table booking, availability, quote)
 10. Coaching / hobby classes / schools (fees, demo class, admission enquiry)
+11. PG / rental / real-estate enquiry (availability, rent, visit slot)
+12. Mobile and electronics dealers (stock, price)
+13. Gyms and yoga (membership price, trial)
+14. Event services: photographer, decorator, DJ (quote, date availability)
+15. Vets and pet grooming (appointment, price)
+16. Wedding vendors: makeup, mehendi, planners (quote, date)
+17. Driving schools (fees, batch timing)
+18. Cab hire / travel agents (quote, availability)
+19. Laundry / dry-clean / tailors (rate, pickup slot)
+20. Florists and gift shops (price, same-day delivery)
 
-### Wave 2 (~20): PG / rental / real-estate enquiry, mobile and electronics dealers (stock, price), gyms and yoga (membership price, trial), event services (photographer, decorator, DJ), vets and pet grooming, wedding vendors, driving schools, travel agents and cab hire, laundry and dry-clean, tailors, florists and gift shops, opticians.
+### Wave 2 (next ~15): opticians, home cleaning, interior designers, CA/tax services, tutors, courier, insurance agents, water tanker / RO service, hospitals (department, bed enquiry), legal services, car rental, furniture shops, catering for home events, printing, security services.
 
-### Wave 3 (~30): CA/legal/tax services, interior designers, home cleaning, water tanker / RO service, tutors, courier, hospitals (department, bed enquiry), insurance agents.
 
 ## 2. Request buckets (what the user wants the agent to do)
 The user speaks on WhatsApp; a classifier picks ONE bucket (plus a vendor category), and the bucket's agent runs the call. Unsure → ask one clarifying question on WhatsApp.
@@ -46,7 +55,7 @@ Each (category x bucket) pair is a playbook; most are small variations of 4 arch
 4. Unmapped request → bucket 10 and we store it for the wishlist, which drives which playbooks to build next.
 
 ## 4. Open decisions for the founder
-- Is Wave 1 right, or should some be swapped (e.g. restaurants out, home cleaning in)?
-- Beta limited to salon + 2-3 more from Wave 1? (Suggest: salon, clinic, AC/plumber.)
+- Is the 20-category Wave 1 right, or should some be swapped?
+- Beta calls live for salon + 2-3 more first (suggest: salon, clinic, AC/plumber); the other categories are built and tested but enabled one by one.
 - Bucket 3/4/5 (booking changes) only with explicit delegation; OK?
 - Complaints stay out of the beta; OK?
