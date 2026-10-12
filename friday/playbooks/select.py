@@ -40,7 +40,21 @@ def matching_playbook(
             k in text for k in sel.keywords if k
         ):
             return pb
-    return None
+    return _vendor_playbook(category, goal, directory)
+
+
+def _vendor_playbook(category: str | None, goal: str | None, directory: Any) -> Playbook | None:
+    """Archetype playbook for a non-salon category (friday/vendors). Only once it is PROMOTED
+    (in production data/): a pending playbook is never found here, so no call uses it."""
+    from friday.vendors.packs import pack_for
+
+    pack = pack_for(category) or pack_for(goal)
+    if pack is None or pack.archetype == "salon_booking":
+        return None
+    try:
+        return get_playbook(pack.archetype, directory)
+    except PlaybookError:
+        return None
 
 
 _EN_TO_HINGLISH = {
@@ -168,6 +182,40 @@ def book_now_delegation(
     ), fb
 
 
+def _vendor_inputs(
+    pb: Playbook, inputs: dict[str, str], category: str | None, goal: str | None,
+    item: str | None, constraints: list[str],
+) -> None:
+    """Category-pack values for an archetype playbook (no-op for salon_booking)."""
+    from friday.vendors.packs import ARCHETYPES, pack_for
+
+    if pb.id not in ARCHETYPES:
+        return
+    pack = pack_for(category) or pack_for(goal)
+    if pack is None:
+        return
+    wanted = clean_input(item or "") or pack.default_service
+    inputs["service"] = wanted
+    inputs["services"] = wanted
+    inputs["category"] = pack.key
+    for name, val in (("price_min", pack.price_min), ("price_max", pack.price_max),
+                      ("estimate_max", pack.estimate_max)):
+        if val is not None and name in pb.inputs:
+            inputs[name] = str(val)
+    if pack.unit_phrase and "unit_phrase" in pb.inputs:
+        inputs["unit_phrase"] = pack.unit_phrase
+    for k, v in pack.switches.items():
+        if k in pb.inputs:
+            inputs[k] = v
+    for cons in constraints:
+        m = re.match(r"\s*(party_size|guests|people)\s*[:=]\s*(\d{1,4})\s*$", cons, re.I)
+        if m and "party_size" in pb.inputs:
+            inputs["party_size"] = m.group(2)
+        m = re.match(r"\s*(duration|days)\s*[:=]\s*(.{1,20})$", cons, re.I)
+        if m and "duration_text" in pb.inputs:
+            inputs["duration_text"] = clean_input(m.group(2), 20)
+
+
 def _name_inputs(inputs: dict[str, str], speller: Any) -> None:
     """Worked out ONCE, when the task/call is set up: how the voice reads the names."""
     from friday.voice.names import default_speller
@@ -266,6 +314,7 @@ def playbook_fields(
         )
     if business_name and "test business" not in business_name.lower():
         inputs["business_name"] = clean_input(business_name, 40)
+    _vendor_inputs(pb, inputs, category, goal, item, constraints)
     _name_inputs(inputs, name_speller)
     if any(spec.required and not inputs.get(n) for n, spec in pb.inputs.items()):
         return {}  # a required input is unknown: the normal policy handles this call

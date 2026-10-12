@@ -122,6 +122,7 @@ class Conv(BaseModel):
     shortlist: list[Vendor] = Field(default_factory=list)
     alternates: list[Vendor] = Field(default_factory=list)
     mode: str = "quote_only"  # quote_only | book
+    category: str = "salon"  # scouting/vendors category key (friday/vendors/packs.py)
     places_calls: int = 0
     seen_ids: list[str] = Field(default_factory=list)  # provider message ids already handled
     queued_until: datetime | None = None

@@ -79,7 +79,7 @@ class EngineVendorCalls:
             goal=f"{'Book' if book else 'Get a price for'} {services} at {v.name}",
             business_name=v.name,
             business_phone=v.phone,
-            category="salon",
+            category=conv.category or "salon",
             item=services,
             when_text=when_text,
             window_start=sl.when_start,
