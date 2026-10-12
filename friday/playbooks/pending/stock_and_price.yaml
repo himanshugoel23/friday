@@ -1,0 +1,229 @@
+# PENDING playbook: stock_and_price (vendor archetype). NOT loaded by production (`select`, calls).
+# Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
+# (hear-before-change). Promote only with: friday playbook promote stock_and_price
+# (needs the founder's marker file stock_and_price.approved next to this file).
+#
+# Shops: "X hai? kitne ka?". In stock or not, the price (a unit price or a range is fine), and
+# (when the category asks it) delivery or pickup. Quote only: nothing is ordered or paid.
+# The category pack (friday/vendors/categories/stock_and_price.yaml) only changes the VOCABULARY (what the
+# user wants, the unit phrase, the sane price range, which questions are asked); the words below
+# do not change.
+# Same rules as salon_booking v6 (founder): identity question first, then "virtual assistant" and
+# the purpose, price asked FIRST and subtly, no negotiation, no advance / cancellation question
+# unless the vendor raises it, AI answered truthfully on request, booking ONLY with a delegation and
+# the code-level commit check (only archetypes that can book have a commit line).
+
+version: 1
+id: stock_and_price
+archetype: stock_and_price
+title: Stock and price (pharmacy, electronics, hardware, grocery, optician, books, ...)
+language: hinglish
+
+inputs:
+  user_first_name: {required: true}
+  user_spoken: {}
+  honorific: {default: sir}
+  business_name: {required: true}
+  business_name_spoken: {}
+  service: {required: true}
+  services: {}
+  services_spoken: {}
+  playbook_mode: {default: quote_only}
+  price_min: {}              # category sanity range: a price outside it is not trusted
+  price_max: {}
+  category: {}
+  q_delivery: {default: "yes"}   # category question switches (friday/vendors): yes asks, no skips
+  q_brand: {default: "no"}       # yes: if they ask which brand, "jo bhi available ho, uska rate bata dijiye"
+
+outputs: [price_inr, price_low_inr, price_unit, advance_needed, outcome]
+
+limits:
+  max_duration_s: 150
+  max_repeats: 4
+  max_unclear_per_step: 2
+  hold_max_s: 60
+  max_turns: 28
+
+disclosure: disclosure
+ai_disclosure: on_request
+reintro: reintro
+
+confusion:
+  line: sorry
+  outcome: UNCLEAR
+  close: bye_unclear
+
+lines:
+  disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  recording_notice: "Yeh call quality ke liye record ho sakta hai."
+  intro: "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant."
+  ai_yes: "Haan ji, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
+  bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
+  bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
+  bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
+  bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
+  wa_decline: "Sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  s5_no_advance: "Advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
+  no_number: "{user_spoken} {honorific} ka number main share nahi kar sakti."
+  q_close: "Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you."
+  sorry: "Sorry, ek baar phir?"
+  offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
+  no_secrets: "Yeh jaankari main share nahi kar sakti."
+  intro_stock: "{user_spoken} {honorific} ko {services_spoken} chahiye."
+  s2_ask_first: "Aapke yahan hai? Kitne ka rahega?"
+  s2_ask: "{services_spoken} hai aapke yahan?"
+  s3_ask: "Kitne ka rahega sir?"
+  s3_options: "Do-teen options ke rate bata dijiye please."
+  any_brand: "Jo bhi available ho, uska rate bata dijiye."
+  s5_ask: "Delivery ho jayegi, ya aana padega?"
+  oos_close: "Achha ji, theek hai. Main {user_spoken} {honorific} ko bata deti hoon. Thank you."
+
+routes:
+  after_price:
+    - {when: [q_delivery], goto: S5}
+    - {goto: S7q}
+
+defaults:
+  STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
+  RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
+  WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+  BUSY_LATER: {say: [bye_busy], outcome: CALL_BACK_LATER}
+  ARE_YOU_BOT: {say: [ai_yes], repeat: true}
+  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  ASKS_REPEAT: {repeat: true, max_uses: 3}
+  HOLD_ON: {hold_s: 60, max_uses: 3}
+  ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
+  ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
+  ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
+  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
+  # "WhatsApp pe bhej do": asked once to say it here (in the price step), then a polite close
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: S7w}
+  NEEDS_ADVANCE: {say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: ADVANCE_ASKED}
+  PRICE_DEPENDS: {set: {price_unknown: "yes"}, goto: S7q}
+  REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: S7q}
+
+start: S0
+
+steps:
+  S0:   # identity check; the runner already asked the identity question; Friday WAITS
+    branches:
+      YES: {goto: S2}
+      CONTINUE: {goto: S2}
+      ACK: {goto: S2}
+      NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+      WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
+      ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S2}
+      ASKS_OFFTOPIC: {say: [s0_who], stay: true}
+      ASKS_SECRET: {say: [s0_who], stay: true}
+      ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
+      WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
+
+  S2:   # ONE turn: who, what, then "hai? kitne ka?"
+    ask:
+      - {line: intro, when: [first_ask]}
+      - {line: recording_notice, when: [recording, first_ask]}
+      - {line: intro_stock, when: [first_ask]}
+      - {line: s2_ask_first, when: [first_ask]}
+      - {line: s2_ask, when: ["!first_ask"]}
+    branches:
+      GIVES_PRICE:
+        - {when: [price_known], set: {in_stock: "yes"}, goto: "@after_price"}
+        - {repeat: true}
+      PRICE_RANGE:
+        - {when: [price_known], set: {in_stock: "yes"}, goto: "@after_price"}
+        - {repeat: true}
+      YES: {set: {in_stock: "yes"}, goto: S3}
+      SLOT_FREE: {set: {in_stock: "yes"}, goto: S3}
+      NO: {set: {out_of_stock: "yes"}, goto: S7o}
+      OUT_OF_STOCK: {set: {out_of_stock: "yes"}, goto: S7o}
+      SLOT_BUSY: {set: {out_of_stock: "yes"}, goto: S7o}
+      PRICE_DEPENDS: {goto: S3}
+      CONTINUE: {repeat: true}
+      ASKS_OFFTOPIC: {say: [{line: any_brand, when: [q_brand]}, {line: offscript, when: ["!q_brand"]}], repeat: true, max_uses: 3}
+      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
+
+  S3:   # it is in stock; the price
+    ask: [s3_ask]
+    branches:
+      GIVES_PRICE:
+        - {when: [price_known], goto: "@after_price"}
+        - {repeat: true}
+      PRICE_RANGE:
+        - {when: [price_known], goto: "@after_price"}
+        - {repeat: true}
+      PRICE_DEPENDS: {say: [s3_options], repeat: true, max_uses: 1}
+      CONTINUE: {repeat: true}
+      YES: {repeat: true}
+      NO: {set: {out_of_stock: "yes"}, goto: S7o}
+      OUT_OF_STOCK: {set: {out_of_stock: "yes"}, goto: S7o}
+      ASKS_OFFTOPIC: {say: [{line: any_brand, when: [q_brand]}, {line: offscript, when: ["!q_brand"]}], repeat: true, max_uses: 3}
+      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
+
+  S5:   # delivery or pickup (only if the category asks it)
+    skip_when: ["!q_delivery"]
+    max_visits: 1
+    ask: [s5_ask]
+    branches:
+      YES: {set: {delivery: "yes"}, goto: S7q}
+      NO: {set: {delivery: pickup_only}, goto: S7q}
+      ANY: {goto: S7q}
+
+  S7q:  # the price goes to the user
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: PRICE_ON_REQUEST}
+
+  S7o:  # not in stock
+    final: true
+    branches:
+      ANY:
+        - {say: [oos_close], outcome: OUT_OF_STOCK}
+
+  S7w:  # they asked to send it on WhatsApp (and would not say it here)
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: WHATSAPP_REQUESTED}
+
+outcomes:
+  QUOTE_COLLECTED:
+    call_outcome: partial
+    description: in stock and the price collected (price_inr, price_low_inr, price_unit, delivery), nothing ordered
+    needs_quote: true
+  OUT_OF_STOCK:
+    call_outcome: declined
+    description: not in stock
+    collected: {out_of_stock: "yes"}
+  REFUSED:
+    call_outcome: declined
+    description: asked not to be called again, or hostile (no retry)
+  CALL_BACK_LATER:
+    call_outcome: callback_later
+    description: they asked us to call later
+  WRONG_NUMBER:
+    call_outcome: declined
+    description: wrong number / not this kind of business
+    collected: {wrong_number: "yes"}
+  WHATSAPP_REQUESTED:
+    call_outcome: partial
+    description: they wanted to send details on WhatsApp instead of saying them
+    collected: {whatsapp_requested: "yes"}
+  PRICE_ON_REQUEST:
+    call_outcome: partial
+    description: no price on the phone / it depends
+  ADVANCE_ASKED:
+    call_outcome: partial
+    description: they asked for an advance; Friday did not agree
+  UNCLEAR:
+    call_outcome: partial
+    description: could not understand them
+  NO_ANSWER:
+    call_outcome: no_answer
+    description: nobody picked up (set by the call runner)

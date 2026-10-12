@@ -368,3 +368,13 @@ Behaviour changes other owners should know about:
 * `FridayBrain.understand_reply` (purpose `call_turn`, 160 max tokens): the only model use of a scripted call. `_ask` / `_call` accept an optional `max_tokens`. The fake LLM answers it with the offline rules (`handlers.h_call_turn`).
 * `friday livecall --playbook NAME ...`, `friday playbook list|validate|dry-run`.
 * The simulator's business agent understands three more scripted-call lines (permission ask, number read-back, advance/cancellation question); three e2e tests were adjusted: `test_booking_approval` (scripted wording; a price list with no hint of who it is for, "men 400, women 700", is quoted at the upper price, ₹700), `test_discovery_stock_recurring` (standing delegation ₹800 instead of ₹500 for the same reason) and `test_delegation_midcall_retries` (runs with `playbooks_enabled=False`: a scripted salon call never asks the user mid-call, it calls back after approval).
+
+## 2026-10-12: WhatsApp quotes flow (friday/quotes)
+| # | Change | Where |
+| --- | --- | --- |
+| 1 | Task role `vendor_quote` (`ROLE_VENDOR_QUOTE`) is silent like fan-out children: the engine reports nothing to the user for these tasks and never asks offer approval for them; `friday/quotes` sends the one comparison message | `tasks/engine.py` |
+| 2 | **Test redirect** `Settings.vendor_call_redirect_to` (`FRIDAY_VENDOR_CALL_REDIRECT_TO`, empty by default): `_call` replaces `brief.target.phone` with the redirect number (real vendor name kept), records stay keyed by the real vendor number, no end-of-call vendor touch. The pilot allow-list (`pilot_dial_blocked`) is now checked against `Settings.vendor_dial_number(phone)`, the number actually dialled | `tasks/engine.py`, `core/config.py` |
+| 3 | New table `quote_conversations` (migration 0005), erased by `purge_user` | `quotes/dbmodel.py`, `db/migrations`, `db/repositories/purge.py` |
+| 4 | `GooglePlacesDirectory.search(radius_m=)` and `details(lean=True)` (no review text, cheaper); simulator accepts the same keywords; text search also drops `CLOSED_TEMPORARILY` places | `discovery/` |
+| 5 | `InboundPipeline.quotes` (`QuotesFlow`) runs before the brain for active users; `Runtime` subscribes it to task events and runs a 30 s timer loop; the WhatsApp webhook feeds delivery receipts to `QuotesFlow.on_delivery_status` | `api/` |
+| 6 | Simworld: six Gurgaon salons and two Gurgaon places added (additive) | `simworld/world.json` |
