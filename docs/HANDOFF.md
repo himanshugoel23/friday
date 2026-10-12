@@ -157,3 +157,6 @@ Founder clarified: NOT scraping JustDial; only look at which vendor categories a
 
 ## Decision note (2026-10-12): Wave 1 = at least 20 categories
 Founder: Wave 1 must have >= 20 vendor categories (10 is too small). docs/SCOPE_BUCKETS.md updated: wave 1 = 20 (old wave 1 + 10 from wave 2).
+
+## Decision note (2026-10-12): no vendor DB for now
+Founder: do NOT build a vendor database yet. Search Google Places live on each request. Only after we see Google returns good data (right category, phone numbers, open hours) do we consider a vendor DB. Overture/FSQ seeding pipeline is shelved. Measure instead: per category, % of Google results with a phone number and correct type.
