@@ -117,6 +117,13 @@ _NOT_NAMES = {"me", "myself", "us", "you", "him", "her", "them", "the", "a", "an
 BOOK_RE = re.compile(r"\b(book\s+(kar|karo|kardo|it|this|that)|pakka\s+kar|slot\s+book|book\s+kar)", re.I)
 
 
+_NOISE = {
+    "kal", "aaj", "parso", "shaam", "subah", "raat", "dopahar", "haircut", "parlour", "parlor",
+    "salon", "saloon", "mein", "me", "in", "at", "near", "for", "a", "the", "chahiye", "hai",
+    "hoon", "main", "mai", "i", "am", "karwana", "karna", "book", "beard", "trim", "facial",
+    "tomorrow", "today", "evening", "morning", "need", "want", "pm", "am", "baje", "and",
+    "aur", "to", "ke", "ka", "ki", "se", "pas", "paas", "city", "please", "hair", "cut",
+}
 BAJE_RE = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(?:baje|bje|बजे)", re.I)
 
 
@@ -247,7 +254,13 @@ def parse_location_phrase(text: str) -> str | None:
             return cand
     c = CITY_RE.search(t)
     if c:
-        return c.group(1)  # only a city: the flow asks for the area
+        before = re.findall(r"[A-Za-z0-9\u0900-\u097F]+", t[: c.start()])
+        area: list[str] = []
+        for w in reversed(before[-3:]):
+            if w.lower() in _NOISE:
+                break
+            area.insert(0, w)
+        return " ".join([*area, c.group(1)])  # a bare city is too wide: the flow asks for the area
     return None
 
 

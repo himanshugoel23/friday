@@ -173,6 +173,7 @@ async def doctor(settings: Settings, env_path: Path | None = None,
     else:
         ok(f"{len(settings.pilot_allowed_numbers)} phone number(s) allowed for test calls")
 
+    _doctor_quotes(settings, out, ok, bad)
     out("\nInternet checks:")
     base = settings.public_base_url.rstrip("/")
     if (msg := settings.public_url_problem()) is not None:
@@ -227,6 +228,37 @@ async def doctor(settings: Settings, env_path: Path | None = None,
     out("Everything looks ready." if problems == 0
         else f"{problems} thing(s) to fix before a live test call (see [FIX] above).")
     return 0 if problems == 0 else 1
+
+
+def _doctor_quotes(settings: Settings, out, ok, bad) -> None:  # noqa: ANN001
+    """WhatsApp quotes flow: where Meta must point, which settings are filled (names only)."""
+    base = settings.public_base_url.rstrip("/")
+    out("\nWhatsApp quotes flow (docs/WHATSAPP_QUOTES_FLOW.md):")
+    out(f"  Webhook URL for Meta (Callback URL):  {base}/webhooks/whatsapp")
+    out("  Verify token = the value of WHATSAPP_VERIFY_TOKEN in the server .env")
+    if not settings.quotes_flow_enabled:
+        out("  [OFF]  FRIDAY_QUOTES_FLOW_ENABLED=false: the quotes flow is switched off")
+        return
+    checks = {
+        "WHATSAPP_ACCESS_TOKEN": settings.whatsapp_access_token,
+        "WHATSAPP_PHONE_NUMBER_ID": settings.whatsapp_phone_number_id,
+        "WHATSAPP_APP_SECRET": settings.whatsapp_app_secret,
+        "GOOGLE_PLACES_API_KEY": settings.google_places_api_key,
+    }
+    for name, value in checks.items():
+        (ok if value else bad)(f"{name} is {'set' if value else 'EMPTY'}")
+    if settings.whatsapp_verify_token.get_secret_value() == "friday-dev-verify":
+        bad("WHATSAPP_VERIFY_TOKEN is still the development default: set your own value")
+    if settings.vendor_call_redirect_to:
+        out("  [TEST] FRIDAY_VENDOR_CALL_REDIRECT_TO is set: every vendor call dials that number "
+            "instead of the vendor (the script still uses the real vendor name)")
+    else:
+        out("  FRIDAY_VENDOR_CALL_REDIRECT_TO is empty: vendor calls go to the real vendor numbers"
+            + (" (blocked by the allow-list while it is active)"
+               if settings.pilot_blocks_business_calls else ""))
+    out(f"  Vendor calls only {settings.quotes_call_window_start}-{settings.quotes_call_window_end} "
+        f"IST, {settings.quotes_max_concurrent_calls} at a time, "
+        f"{settings.quotes_max_requests_per_day} requests per user per day")
 
 
 async def _doctor_inbound_link(settings: Settings, out: Callable[[str], None]) -> None:

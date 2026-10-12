@@ -390,6 +390,15 @@ def main(argv: list[str] | None = None) -> int:
     worker = sub.add_parser("worker", help="run background roles without the HTTP server")
     worker.add_argument("--roles", default=None, help="api,task,voice,proactive,batch (CSV)")
     sub.add_parser("chat")
+    wsim = sub.add_parser(
+        "whatsapp-sim", help="chat through the WhatsApp quotes flow in the terminal (offline)"
+    )
+    wsim.add_argument("--phone", default="+919811100001")
+    wsim.add_argument("--name", default="Rahul")
+    wsim.add_argument("--lang", choices=["en", "hinglish", "hi"], default="hinglish")
+    wsim.add_argument("--redirect", default=None, help="vendor calls dial THIS number instead")
+    wsim.add_argument("--real-hours", action="store_true",
+                      help="keep the 9:00-19:00 calling window (default: open all day)")
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -627,6 +636,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             _print_load(result)
         return 0 if result["pass"] else 1
+    if args.cmd == "whatsapp-sim":
+        from friday.quotes.sim import run
+
+        return run(args)
     if args.cmd == "chat":
         try:
             chat = importlib.import_module("friday.channels.cli")

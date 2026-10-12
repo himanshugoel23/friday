@@ -36,7 +36,7 @@ from friday.core.models import (
     UserAnswer,
 )
 from friday.playbooks import slots as sl
-from friday.playbooks.intents import ANY, Intent
+from friday.playbooks.intents import ANY, QUESTION_INPUTS, Intent
 from friday.playbooks.model import (
     Action,
     LineRef,
@@ -128,6 +128,14 @@ class CallState:
     advance_needed: str | None = None
     slot_free: str | None = None
     is_range: bool = False
+    # vendor archetypes (all stay empty on a salon call)
+    price_low: int | None = None  # lower end of a price range
+    price_unit: str | None = None  # plate / kg / head / hour / ... (None = flat)
+    deposit_inr: int | None = None  # information only, never agreed to
+    estimate_inr: int | None = None  # rough job estimate (upper end)
+    estimate_low: int | None = None
+    suspects: list[int] = field(default_factory=list)  # prices outside the sane range
+    notes: dict[str, str] = field(default_factory=dict)  # step.note: the vendor's own words
     flags: dict[str, str] = field(default_factory=dict)
     asked: Counter = field(default_factory=Counter)
     unclear: Counter = field(default_factory=Counter)
@@ -211,6 +219,9 @@ def resolve_inputs(pb: Playbook, brief: CallBrief) -> dict[str, str]:
     if name := out.get("budget"):
         digits = re.sub(r"\D", "", name)
         out["budget"] = digits if digits else ""
+    for key in ("price_min", "price_max", "estimate_max", "party_size"):
+        if key in out:
+            out[key] = re.sub(r"\D", "", out[key])[:7]
     _derive_spoken(pb, brief, raw, out)
     return out
 
@@ -323,7 +334,7 @@ class PlaybookPolicy:
             "has_stylist_pref": bool(c.inputs.get("stylist_pref")),
             "time_known": len(st.times) == 1,
             "slot_known": len(st.times) >= 1,
-            "price_known": price is not None,
+            "price_known": price is not None or st.flags.get("price_free") == "yes",
             "duration_known": st.duration_min is not None,
             "is_range": st.is_range,
             "has_offered": len(st.times) >= 2,
@@ -333,6 +344,11 @@ class PlaybookPolicy:
             "mode_quote": c.inputs.get("playbook_mode") != "book",
             "has_fallback": self._fallback(c) is not None,
             "used_fallback": st.flags.get("fallback_used") == "yes",
+            "has_date_window": bool(c.inputs.get("date_window")),
+            "estimate_known": st.estimate_inr is not None,
+            "price_suspect": bool(st.suspects),
+            "price_free": st.flags.get("price_free") == "yes",
+            **{q: truthy(c.inputs.get(q)) for q in QUESTION_INPUTS},
         }[key]
         return (not val) if neg else bool(val)
 
@@ -517,7 +533,8 @@ class PlaybookPolicy:
         st, pb = c.st, c.pb
         if is_stop_request(reply):  # hard rule: no model needed, none trusted
             return Understanding(intent=Intent.STOP_CALLING.value, confident=True)
-        h = heuristic(reply, step=st.step, known={"hints": hints_of(c)})
+        ext = self._ext_known(pb, st.step)
+        h = heuristic(reply, step=st.step, known={"hints": hints_of(c), **ext})
         use_llm = self.llm_mode == "always" or (self.llm_mode == "auto" and not h.confident)
         if self.llm_mode == "never" or not use_llm:
             return h
@@ -527,7 +544,9 @@ class PlaybookPolicy:
                 friday_said=st.last_friday,
                 step=st.step,
                 allowed=self._allowed(pb, st.step),
-                known={"slot": c.slot_text, "price_inr": st.price_inr, "hints": hints_of(c)},
+                known={
+                    "slot": c.slot_text, "price_inr": st.price_inr, "hints": hints_of(c), **ext
+                },
                 task_id=c.brief.task_id,
             )
             st.llm_calls += 1
@@ -541,8 +560,42 @@ class PlaybookPolicy:
             return h
         return u
 
+    @staticmethod
+    def _ext_known(pb: Playbook, step_id: str) -> dict[str, Any]:
+        """What the extended (archetype) understanding needs to know about this step."""
+        if not pb.archetype:
+            return {}
+        s = pb.steps[step_id]
+        allowed = {k for k in s.branches if k != ANY} | set(pb.defaults)
+        return {
+            "extended": True,
+            "archetype": pb.archetype,
+            "allowed": sorted(allowed),
+            "price_step": bool(allowed & {Intent.GIVES_PRICE.value, Intent.PRICE_RANGE.value}),
+        }
+
     # ------------------------------------------------------------------ applying an intent
-    def _merge_slots(self, st: CallState, u: Understanding, day: str | None = None) -> None:
+    def _sane(self, c: Ctx | None, price: int, *, estimate: bool) -> bool:
+        """Is this price inside the category's sane range? Without a range it always is. The same
+        out-of-range price heard twice is believed (a pricey place is not an absurd parse)."""
+        if c is None:
+            return True
+        st = c.st
+        lo_raw = "" if estimate else c.inputs.get("price_min", "")
+        hi_raw = c.inputs.get("estimate_max" if estimate else "price_max", "")
+        lo = int(lo_raw) if lo_raw.isdigit() else 0
+        hi = int(hi_raw) if hi_raw.isdigit() else 0
+        if price >= lo and (not hi or price <= hi):
+            return True
+        if price in st.suspects:
+            st.flags["price_unusual"] = "yes"
+            return True
+        st.suspects.append(price)
+        return False
+
+    def _merge_slots(
+        self, st: CallState, u: Understanding, day: str | None = None, c: Ctx | None = None
+    ) -> None:
         intent = u.intent
         if intent in (Intent.SLOT_FREE, Intent.GIVES_TIME, Intent.OFFERS_SLOTS) or (
             intent == Intent.NEEDS_ADVANCE and u.time
@@ -557,15 +610,31 @@ class PlaybookPolicy:
         elif intent == Intent.SLOT_BUSY:
             st.slot_free = "no"
         if intent in (Intent.GIVES_PRICE, Intent.PRICE_RANGE):
-            if u.price_inr is not None:
+            estimate = c is not None and c.pb.steps[st.step].captures == "estimate"
+            if u.price_inr is not None and estimate:
+                if self._sane(c, u.price_inr, estimate=True):
+                    st.estimate_inr = u.price_inr
+                    st.estimate_low = u.price_low_inr if intent == Intent.PRICE_RANGE else None
+            elif u.price_inr is not None and self._sane(c, u.price_inr, estimate=False):
                 st.price_inr = u.price_inr
                 st.is_range = intent == Intent.PRICE_RANGE
+                if c is not None and c.pb.archetype:
+                    st.price_low = u.price_low_inr if intent == Intent.PRICE_RANGE else None
+                    st.price_unit = u.price_unit
+                    st.suspects.clear()
             if u.duration_min is not None:
                 st.duration_min = u.duration_min
+            if c is not None and c.pb.archetype:  # a deposit next to the rate: information only
+                if u.advance_needed:
+                    st.advance_needed = "yes"
+                if u.deposit_inr is not None:
+                    st.deposit_inr = u.deposit_inr
         if intent == Intent.GIVES_STYLIST and u.stylist:
             st.stylist = u.stylist
         if intent == Intent.NEEDS_ADVANCE:
             st.advance_needed = "yes"
+            if c is not None and c.pb.archetype and u.deposit_inr is not None:
+                st.deposit_inr = u.deposit_inr
         elif intent == Intent.NO_ADVANCE:
             st.advance_needed = "no"
 
@@ -598,8 +667,9 @@ class PlaybookPolicy:
     def _apply_intent(self, c: Ctx, u: Understanding, reply: str) -> CallAction:
         pb, st = c.pb, c.st
         day_key = pb.steps[st.step].day_input or "date_window"
-        self._merge_slots(st, u, day=sl.find_day(c.inputs.get(day_key, "")))
+        self._merge_slots(st, u, day=sl.find_day(c.inputs.get(day_key, "")), c=c)
         intent = u.intent
+        self._note(c, intent, reply)
         if (intent == Intent.SLOT_FREE or (intent == Intent.NEEDS_ADVANCE and u.slot_free)) and (
             not st.times
         ):
@@ -618,6 +688,24 @@ class PlaybookPolicy:
             return self._confusion(c)
         st.uses[key] += 1
         return self._run(c, action)
+
+    _NOT_INFORMATIVE = frozenset(
+        {
+            Intent.UNCLEAR, Intent.ASKS_REPEAT, Intent.HOLD_ON, Intent.WHO_IS_THIS,
+            Intent.ARE_YOU_BOT, Intent.ACK, Intent.CONTINUE, Intent.RUDE, Intent.STOP_CALLING,
+            Intent.WRONG_NUMBER, Intent.BUSY_LATER, Intent.ASKS_OFFTOPIC, Intent.ASKS_SECRET,
+            Intent.ASKS_CUSTOMER_PHONE, Intent.YES, Intent.NO,
+        }
+    )
+
+    def _note(self, c: Ctx, intent: str, reply: str) -> None:
+        """A step with ``note:`` keeps the vendor's own words (never spoken, only reported)."""
+        key = c.pb.steps[c.st.step].note
+        if not key or intent in self._NOT_INFORMATIVE or not reply.strip():
+            return
+        text = re.sub(r"\d{7,}", "", clean_input(reply, 80))
+        if text.strip():
+            c.st.notes[key] = re.sub(r"\s+", " ", text).strip()
 
     def _take_requested(self, c: Ctx) -> None:
         """She said yes to the time we asked for: that time is the slot (never invented)."""
@@ -831,6 +919,17 @@ class PlaybookPolicy:
             out["stylist"] = st.stylist
         if st.advance_needed:
             out["advance_needed"] = st.advance_needed
+        if st.price_low is not None:
+            out["price_low_inr"] = str(st.price_low)
+        if st.price_unit:
+            out["price_unit"] = st.price_unit
+        if st.deposit_inr is not None:
+            out["deposit_inr"] = str(st.deposit_inr)
+        if st.estimate_inr is not None:
+            out["estimate_inr"] = str(st.estimate_inr)
+        if st.estimate_low is not None:
+            out["estimate_low_inr"] = str(st.estimate_low)
+        out.update(st.notes)
         out.update(st.flags)
         return out
 
@@ -839,14 +938,18 @@ class PlaybookPolicy:
         if st.price_inr is None and not st.times:
             return None
         budget = c.inputs.get("budget")
+        price_text = (
+            f"Rs {st.price_inr}{' (upper end of a range)' if st.is_range else ''}"
+            if st.price_inr is not None
+            else "price not given on the phone"
+        )
+        notes = f"duration about {st.duration_min} min" if st.duration_min is not None else None
+        if c.pb.archetype:  # unit, range, estimate and deposit travel with the quote
+            price_text, notes = self._archetype_texts(c, price_text)
         return Quote(
             business_name=c.brief.target.name,
             amount_inr=st.price_inr,
-            price_text=(
-                f"Rs {st.price_inr}{' (upper end of a range)' if st.is_range else ''}"
-                if st.price_inr is not None
-                else "price not given on the phone"
-            ),
+            price_text=price_text,
             available_slots=[
                 sl.slot_label(t, asked_day=sl.find_day(c.inputs.get("date_window", "")))
                 for t in st.times
@@ -854,10 +957,30 @@ class PlaybookPolicy:
             within_budget=(st.price_inr <= int(budget))
             if (st.price_inr is not None and budget)
             else None,
-            notes=(
-                f"duration about {st.duration_min} min" if st.duration_min is not None else None
-            ),
+            notes=notes,
         )
+
+    @staticmethod
+    def _archetype_texts(c: Ctx, base: str) -> tuple[str, str | None]:
+        st = c.st
+        text = base
+        if st.price_inr is not None and st.price_low is not None:
+            text = f"Rs {st.price_low} to {st.price_inr}"
+        elif st.price_inr is None and st.flags.get("price_free") == "yes":
+            text = "free (no charge)"
+        if st.price_unit:
+            text += f" per {st.price_unit}"
+        notes: list[str] = []
+        if st.estimate_inr is not None:
+            rng = f"{st.estimate_inr}"
+            if st.estimate_low:
+                rng = f"{st.estimate_low} to {st.estimate_inr}"
+            notes.append(f"rough estimate Rs {rng}")
+        if st.deposit_inr is not None:
+            notes.append(f"deposit mentioned: Rs {st.deposit_inr} (information only)")
+        if st.duration_min is not None:
+            notes.append(f"duration about {st.duration_min} min")
+        return text, "; ".join(notes) or None
 
     # ------------------------------------------------------------------ special cases
     def _hung_up(self, c: Ctx) -> CallAction:
@@ -865,9 +988,11 @@ class PlaybookPolicy:
         st.finished = True
         if st.flags.get("rude") or st.flags.get("do_not_call"):
             oid = "REFUSED"
-        elif st.times and st.price_inr is not None:
+        elif st.times and st.price_inr is not None and "SLOT_OFFERED" in pb.outcomes:
             oid = "SLOT_OFFERED"  # she gave slot and price, then hung up: still worth approval
-        elif st.price_inr is not None and "QUOTE_COLLECTED" in pb.outcomes:
+        elif (
+            st.price_inr is not None or st.flags.get("price_free") == "yes"
+        ) and "QUOTE_COLLECTED" in pb.outcomes:
             oid = "QUOTE_COLLECTED"  # a price check: the price is all we came for
         else:
             oid = None
@@ -961,7 +1086,9 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
         if not pb.line_def(lid).commit:
             add(render(lid))
     mode_book = inputs.get("playbook_mode") == "book"
-    known_conds = {"first_ask": True, "mode_book": mode_book, "mode_quote": not mode_book}
+    known_conds = {"first_ask": True, "mode_book": mode_book, "mode_quote": not mode_book,
+                   "has_date_window": bool(inputs.get("date_window")),
+                   **{q: truthy(inputs.get(q)) for q in QUESTION_INPUTS}}
 
     def first_ask_ids(items: list[str | LineRef]) -> list[str]:
         # first entry into a step: lines needing only `first_ask` (and the call's mode, known from
