@@ -135,3 +135,4 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 - 2026-10-11 round 5 creative names (Tell Tilly, Dial Dixie, Ping Pippa, Ring Roxie...) in docs/BRAND_NAMES.md; audio sent.
 - 2026-10-11 round 6 day/month names (Avril, Abril, Lunes, July, Thursday, October) in docs/BRAND_NAMES.md; audio sent.
 - 2026-10-11 round 7 creative day/month names (Mercuri, Monami, Octavia, Dessa, Jovia, Sundae) in docs/BRAND_NAMES.md; audio sent.
+- 2026-10-12 founder decisions: VOICE FINAL (Ritu, pace 0.9, temp 0.9); KEEP the name "Friday" for now (brand/agent-name search paused; research in docs/BRAND_NAMES.md). NEXT focus: inbound customer calls (user calls Friday and gives instructions, incl. random requests); proactive calls later. Plan: scope router (closed intents) + fixed lines + short chit-chat + wishlist capture.
