@@ -65,3 +65,8 @@ Everything it decides is logged on the task record (resumable after restart).
 2. The PM should be mostly deterministic code (plan templates per bucket x category). An LLM PM that invents plans is the main hallucination risk; templates plus a few LLM calls for language are safer.
 3. Start with the 4 call types (quote, availability/booking, service visit, information) and 3-4 live categories; add templates for the rest later, they are mostly configuration.
 4. The user can interrupt at any time ("cancel", "change time"); the PM re-plans from the task record.
+
+## Added 2026-10-12 (founder): conversation-based proactiveness
+| 21 | Memory extractor | After each conversation/call: extract follow-ups, dates, concerns, preferences the USER said, each with the exact quote + message/call id (code verifies the quote exists); nothing inferred from outside Friday | yes (checked) | {followups[], dates[], concerns[], prefs[]} |
+| 22 | Proactive planner | Turn stored follow-ups into scheduled actions (what, when, channel WhatsApp or call), obeying: opt-in, quiet hours, max 2/week, transactional wording only, dedupe, cancel when the user already did it | no (rules) | scheduled actions |
+Users can see ("what do you remember?"), delete one/all, or switch proactive off. Agent 20 (follow-up planner) is merged into 22.
