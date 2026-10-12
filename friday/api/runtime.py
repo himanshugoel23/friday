@@ -88,7 +88,18 @@ class Runtime:
         self.pipeline.quotes.subscribe()
         if background:
             await self._start_roles()
+            await self._resume_pm()
         self.running = True
+
+    async def _resume_pm(self) -> None:
+        """Project-manager jobs that were running when the server stopped continue now."""
+        try:
+            gw = self.pipeline.pm_gateway
+            n = await gw.resume_all() if gw.enabled else 0
+            if n:
+                log.info("pm: resumed %d unfinished job(s)", n)
+        except Exception:  # noqa: BLE001 - never block startup
+            log.exception("pm resume failed")
 
     async def _start_roles(self) -> None:
         s = self.c.settings
