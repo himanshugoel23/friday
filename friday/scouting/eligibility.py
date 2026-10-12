@@ -2,11 +2,56 @@
 
 from __future__ import annotations
 
-from friday.discovery.geo import haversine_km, is_toll_free, names_match, phone_key
+import re
+
+from friday.discovery.geo import haversine_km, is_toll_free, phone_key
 from friday.scouting.categories import Category
 from friday.scouting.models import DropReason, EligibilityResult, ScoutPlace, SearchResult
 
 _DUP_DISTANCE_KM = 0.15
+_GENERIC_NAME_WORDS = {
+    "salon",
+    "saloon",
+    "unisex",
+    "beauty",
+    "parlour",
+    "parlor",
+    "studio",
+    "spa",
+    "hair",
+    "and",
+    "the",
+    "for",
+    "him",
+    "her",
+    "sector",
+    "sec",
+    "gurgaon",
+    "gurugram",
+    "bangalore",
+    "bengaluru",
+    "luxury",
+    "family",
+    "pvt",
+    "ltd",
+    "in",
+    "at",
+    "makeup",
+    "clinic",
+    "new",
+}
+
+
+def _name_core(name: str) -> set[str]:
+    toks = re.findall(r"[a-z]+", name.lower())  # digits dropped: sector numbers are not identity
+    return {t for t in toks if t not in _GENERIC_NAME_WORDS}
+
+
+def _same_name(a: str, b: str) -> bool:
+    ta, tb = _name_core(a), _name_core(b)
+    if not ta or not tb:
+        return False
+    return len(ta & tb) / len(ta | tb) >= 0.6
 
 
 def _type_ok(place: ScoutPlace, category: Category) -> bool:
@@ -38,9 +83,7 @@ def filter_eligible(
         )
 
     # strongest listing first, so a duplicate drops the weaker one
-    ordered = sorted(
-        result.places, key=lambda p: (-p.candidate.review_count, p.candidate.place_id)
-    )
+    ordered = sorted(result.places, key=lambda p: (-p.candidate.review_count, p.candidate.place_id))
     for p in ordered:
         c = p.candidate
         if p.business_status in ("CLOSED_PERMANENTLY", "CLOSED_TEMPORARILY"):
@@ -73,6 +116,6 @@ def _is_duplicate(a: ScoutPlace, b: ScoutPlace) -> bool:
     ca, cb = a.candidate, b.candidate
     if ca.phone and cb.phone and phone_key(ca.phone) == phone_key(cb.phone):
         return True
-    if ca.location and cb.location and names_match(ca.name, cb.name):
+    if ca.location and cb.location and _same_name(ca.name, cb.name):
         return haversine_km(ca.location, cb.location) <= _DUP_DISTANCE_KM
     return False

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The WhatsApp quotes conversation, end to end, with a scripted vendor-call port."""
 
 from __future__ import annotations

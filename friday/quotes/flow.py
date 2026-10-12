@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """WhatsApp quotes flow: the conversation state machine (docs/WHATSAPP_QUOTES_FLOW.md).
 
     COLLECTING -> CONFIRMING -> QUEUED/CALLING -> AWAITING_BOOK -> BOOKING -> DONE
@@ -51,7 +52,7 @@ from friday.quotes.models import (
     Vendor,
     VStatus,
 )
-from friday.quotes.store import Conflict, QuoteStore
+from friday.quotes.store import QuoteStore
 
 if TYPE_CHECKING:
     from friday.api.inbound import InboundPipeline
@@ -240,10 +241,9 @@ class QuotesFlow:
             if is_btn:
                 return await self._on_button(user, msg, got)
             if msg.kind == MessageKind.VOICE_NOTE:
-                if got is not None or P.looks_like_request(text) or not text:
-                    if got is not None or text:
-                        await self._reply_new(user, got, "voice_note", pid, text)
-                        return True
+                if got is not None or (text and P.looks_like_request(text)):
+                    await self._reply_new(user, got, "voice_note", pid, text)
+                    return True
                 return False
             if msg.kind not in (MessageKind.TEXT, MessageKind.LOCATION):
                 return False
@@ -251,6 +251,9 @@ class QuotesFlow:
                 return await self._status(user, latest, pid)
             if got is None:
                 if msg.kind == MessageKind.TEXT and P.looks_like_request(text):
+                    open_q = await self.c.repos.tasks.open_question_for_user(user.id)
+                    if open_q is not None:
+                        return False  # the user is answering a mid-call question
                     return await self._new(user, msg, text)
                 return False
             conv, _ = got
@@ -761,100 +764,96 @@ class QuotesFlow:
     async def _pump(self, conv_id: str) -> None:
         """Advance a conversation: place due calls, schedule the retry pass, or finish.
         Safe to call any number of times (claim-then-act under compare-and-set)."""
-        for _ in range(4):
-            got = await self.store.get(conv_id)
-            if got is None:
-                return
-            conv, _ = got
-            if conv.state == State.BOOKING:
-                await self._pump_booking(conv)
-                return
-            if conv.state not in (State.QUEUED, State.CALLING):
-                return
-            now = self.clock.now()
-            claims: list[tuple[int, str]] = []
-            action: dict[str, Any] = {"finish": False}
-
-            def fn(c: Conv) -> None:
-                claims.clear()
-                action["finish"] = False
-                if c.state not in (State.QUEUED, State.CALLING):
-                    return
-                inflight = sum(1 for v in c.shortlist if v.status == VStatus.CALLING)
-                stop_book = c.mode == "book" and any(
-                    v.outcome == Outcome.BOOKED for v in c.shortlist
-                )
-                first_pass = [
-                    i for i, v in enumerate(c.shortlist)
-                    if v.status == VStatus.PENDING and v.attempts == 0
-                ]
-                if stop_book:
-                    for v in c.shortlist:
-                        if v.status == VStatus.PENDING:
-                            v.status = VStatus.DONE
-                    first_pass = []
-                retry_pool = [
-                    i for i, v in enumerate(c.shortlist)
-                    if v.status == VStatus.PENDING and v.attempts == 1
-                    and v.outcome is not None and v.outcome.retryable
-                ]
-                if not first_pass and inflight == 0 and retry_pool:
-                    for i in retry_pool:
-                        v = c.shortlist[i]
-                        if v.next_try_at is None:
-                            v.next_try_at = now + timedelta(
-                                minutes=self.settings.quotes_retry_after_min
-                            )
-                due = list(first_pass) + [
-                    i for i in retry_pool
-                    if not first_pass and c.shortlist[i].next_try_at is not None
-                    and c.shortlist[i].next_try_at <= now
-                ]
-                waiting = [
-                    i for i in retry_pool
-                    if c.shortlist[i].next_try_at is not None and c.shortlist[i].next_try_at > now
-                ]
-                if not (first_pass or inflight or retry_pool):
-                    if all(v.status == VStatus.DONE for v in c.shortlist):
-                        c.state = State.AWAITING_BOOK  # finish() decides the final state
-                        action["finish"] = True
-                    return
-                slots = max(1, min(3, self.settings.quotes_max_concurrent_calls)) - inflight
-                if due and slots > 0 and self._window_ok(now) and not is_paused(self.settings):
-                    for i in due[:slots]:
-                        v = c.shortlist[i]
-                        v.status, v.attempts = VStatus.CALLING, v.attempts + 1
-                        v.task_id, v.claimed_at, v.next_try_at = new_id(), now, None
-                        claims.append((i, v.task_id))
-                    c.state = State.CALLING
-                    return
-                if inflight:
-                    c.state = State.CALLING
-                    return
-                c.state = State.QUEUED
-                if due or first_pass:  # waiting for the calling window / kill switch
-                    c.queued_until = (
-                        now + timedelta(minutes=5)
-                        if is_paused(self.settings)
-                        else self._next_window(now)
-                    )
-                elif waiting:
-                    c.queued_until = min(c.shortlist[i].next_try_at for i in waiting)  # type: ignore[type-var]
-
-            try:
-                conv = await self.store.mutate(conv_id, fn)
-            except Conflict:
-                continue
-            if conv is None:
-                return
-            if action["finish"]:
-                await self._finish(conv_id)
-                return
-            for i, task_id in list(claims):
-                await self._place(conv_id, i, task_id)
-            if not claims:
-                return
+        got = await self.store.get(conv_id)
+        if got is None:
             return
+        conv = got[0]
+        if conv.state == State.BOOKING:
+            await self._pump_booking(conv)
+            return
+        if conv.state not in (State.QUEUED, State.CALLING):
+            return
+        now = self.clock.now()
+        claims: list[tuple[int, str]] = []
+        action: dict[str, Any] = {"finish": False}
+
+        def fn(c: Conv) -> None:
+            claims.clear()
+            action["finish"] = False
+            if c.state not in (State.QUEUED, State.CALLING):
+                return
+            inflight = sum(1 for v in c.shortlist if v.status == VStatus.CALLING)
+            stop_book = c.mode == "book" and any(
+                v.outcome == Outcome.BOOKED for v in c.shortlist
+            )
+            first_pass = [
+                i for i, v in enumerate(c.shortlist)
+                if v.status == VStatus.PENDING and v.attempts == 0
+            ]
+            if stop_book:
+                for v in c.shortlist:
+                    if v.status == VStatus.PENDING:
+                        v.status = VStatus.DONE
+                first_pass = []
+            retry_pool = [
+                i for i, v in enumerate(c.shortlist)
+                if v.status == VStatus.PENDING and v.attempts == 1
+                and v.outcome is not None and v.outcome.retryable
+            ]
+            if not first_pass and inflight == 0 and retry_pool:
+                for i in retry_pool:
+                    v = c.shortlist[i]
+                    if v.next_try_at is None:
+                        v.next_try_at = now + timedelta(
+                            minutes=self.settings.quotes_retry_after_min
+                        )
+            due = list(first_pass) + [
+                i for i in retry_pool
+                if not first_pass and c.shortlist[i].next_try_at is not None
+                and c.shortlist[i].next_try_at <= now
+            ]
+            waiting = [
+                i for i in retry_pool
+                if c.shortlist[i].next_try_at is not None and c.shortlist[i].next_try_at > now
+            ]
+            if not (first_pass or inflight or retry_pool):
+                if all(v.status == VStatus.DONE for v in c.shortlist):
+                    c.state = State.AWAITING_BOOK  # finish() decides the final state
+                    action["finish"] = True
+                return
+            slots = max(1, min(3, self.settings.quotes_max_concurrent_calls)) - inflight
+            if due and slots > 0 and self._window_ok(now) and not is_paused(self.settings):
+                for i in due[:slots]:
+                    v = c.shortlist[i]
+                    v.status, v.attempts = VStatus.CALLING, v.attempts + 1
+                    v.task_id, v.claimed_at, v.next_try_at = new_id(), now, None
+                    claims.append((i, v.task_id))
+                c.state = State.CALLING
+                return
+            if inflight:
+                c.state = State.CALLING
+                return
+            c.state = State.QUEUED
+            if due or first_pass:  # waiting for the calling window / kill switch
+                c.queued_until = (
+                    now + timedelta(minutes=5)
+                    if is_paused(self.settings)
+                    else self._next_window(now)
+                )
+            elif waiting:
+                c.queued_until = min(c.shortlist[i].next_try_at for i in waiting)  # type: ignore[type-var]
+
+        conv = await self.store.mutate(conv_id, fn)
+        if conv is None:
+            return
+        if action["finish"]:
+            await self._finish(conv_id)
+            return
+        for i, task_id in list(claims):
+            await self._place(conv_id, i, task_id)
+        if not claims:
+            return
+        return
 
     async def _place(self, conv_id: str, idx: int, task_id: str) -> None:
         got = await self.store.get(conv_id)
@@ -885,10 +884,6 @@ class QuotesFlow:
                 return
 
     async def _settle(self, conv_id: str, task_id: str) -> None:
-        got = await self.store.get(conv_id)
-        if got is None:
-            return
-        conv = got[0]
         rep = await self._calls().report(task_id)
         if not rep.finished:
             if rep.deferred:  # the vendor is closed right now: do not wait for them

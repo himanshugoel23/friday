@@ -1,0 +1,103 @@
+# The 20 Wave 1 categories (docs/SCOPE_BUCKETS.md). Keys match friday/scouting/categories.py.
+# radius_km / hard_max_km: docs/AGENT_ROSTER.md "Distance rule". keywords: lowercase, EN/Hinglish,
+# used by the keyword baseline classifier only (the LLM classifier does not read them).
+salon:
+  label: Salon / parlour / spa
+  radius_km: 5
+  hard_max_km: 10
+  keywords: [salon, saloon, parlour, parlor, haircut, hair cut, beard, shave, facial, waxing, wax, spa, massage, threading, manicure, pedicure, baal, hairstyle, cleanup, keratin]
+clinic:
+  label: Doctors / dentists / clinics
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [doctor, dentist, dental, dermatologist, clinic, appointment, checkup, check up, consultation, skin specialist, ent, paediatrician, pediatrician, physio, daant, dant, tooth, teeth, hospital]
+diagnostic_lab:
+  label: Diagnostic labs
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [lab, blood test, pathology, diagnostic, sample collection, home collection, thyroid, cbc, x-ray, xray, ultrasound, mri, ct scan, health package, full body checkup]
+appliance_repair:
+  label: AC / appliance repair
+  radius_km: 10
+  hard_max_km: 20
+  keywords: [ac repair, ac service, ac thik, ac ठीक, ac kharab, appliance, washing machine, fridge, refrigerator, geyser, microwave, tv repair, air conditioner, ac gas, ac mechanic, ac ki service]
+home_repair:
+  label: Plumber / electrician / carpenter
+  radius_km: 10
+  hard_max_km: 20
+  keywords: [plumber, electrician, carpenter, painter, nal, tap leak, leakage, bijli, mistri, wiring, switch board, fan repair, door repair, wardrobe, locksmith, paint]
+packers_movers:
+  label: Packers and movers
+  radius_km: 20
+  hard_max_km: 40
+  keywords: [packers, movers, shifting, relocation, saman shift, house shift, home shift, flat shift, office shift]
+pest_control:
+  label: Pest control
+  radius_km: 10
+  hard_max_km: 20
+  keywords: [pest, cockroach, termite, deemak, bed bug, khatmal, rodent, chuha, keede, makode, mosquito, machhar, fumigation]
+car_service:
+  label: Car service / garage / car wash
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [car service, car wash, garage, car repair, gaadi, gadi, denting, dent, tyre, tire, wheel alignment, car mechanic, car detailing, oil change, servicing]
+restaurant_banquet:
+  label: Restaurants / banquet / caterers
+  radius_km: 5
+  hard_max_km: 12
+  keywords: [restaurant, table, banquet, caterer, catering, party hall, dinner, lunch, buffet, birthday party venue, reservation, cafe, dawat, hotel for dinner]
+coaching_classes:
+  label: Coaching / hobby classes / schools
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [coaching, tuition, classes, school, admission, jee, neet, upsc, ielts, dance class, music class, guitar, drawing class, nursery, demo class, hobby, kg admission]
+pg_rental:
+  label: PG / rental / real estate
+  radius_km: 3
+  hard_max_km: 8
+  keywords: [pg, paying guest, flat for rent, rent, kiraya, bhk, property, real estate, hostel, room for rent, 1bhk, 2bhk, 3bhk, broker]
+electronics_dealer:
+  label: Mobile and electronics dealers
+  radius_km: 5
+  hard_max_km: 10
+  keywords: [mobile shop, phone, iphone, samsung, oneplus, laptop, macbook, charger, earphone, headphone, electronics, mobile dealer, tv price, stock]
+gym_yoga:
+  label: Gyms and yoga
+  radius_km: 5
+  hard_max_km: 10
+  keywords: [gym, yoga, zumba, fitness, membership, personal trainer, workout, aerobics, crossfit, pilates]
+event_services:
+  label: Event services (photographer, decorator, DJ)
+  radius_km: 20
+  hard_max_km: 40
+  keywords: [photographer, decorator, decoration, dj, event, party planner, videographer, balloon, birthday decor, sound system, event planner]
+vet_pet:
+  label: Vets and pet grooming
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [vet, veterinary, pet, dog, cat, grooming, puppy, kutta, billi, vaccination for dog, pet clinic]
+wedding_vendors:
+  label: Wedding vendors (makeup, mehendi, planners)
+  radius_km: 20
+  hard_max_km: 40
+  keywords: [wedding, shaadi, bridal, mehendi, mehndi, henna, bride, sangeet, wedding planner, pre wedding, makeup artist]
+driving_school:
+  label: Driving schools
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [driving school, driving class, learn driving, gaadi sikhni, car sikhna, driving lesson, driving licence, driving license, scooty sikhni, driving training]
+cab_travel:
+  label: Cab hire / travel agents
+  radius_km: 20
+  hard_max_km: 40
+  keywords: [cab, taxi, outstation, tempo traveller, travel agent, tour package, airport drop, car rental, car on rent, tour operator, holiday package]
+laundry_tailor:
+  label: Laundry / dry-clean / tailors
+  radius_km: 10
+  hard_max_km: 20
+  keywords: [laundry, dry clean, dry-clean, dryclean, tailor, darji, stitching, alteration, ironing, press, blouse stitch, kapde]
+florist_gift:
+  label: Florists and gift shops
+  radius_km: 5
+  hard_max_km: 10
+  keywords: [florist, flowers, bouquet, gift, cake, hamper, phool, rose, same day delivery, flower delivery, gift shop]

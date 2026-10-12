@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Vendor discovery for the quotes flow: Places search -> filter -> rank -> shortlist.
 
 * Text search around the user's point (radius ~5 km), then a lean detail lookup only for

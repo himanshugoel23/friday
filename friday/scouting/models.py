@@ -19,7 +19,7 @@ class ScoutRequest(_M):
     area: str  # free text, e.g. "Sector 56 Gurgaon"
     services: list[str] = Field(default_factory=list)  # what the user wants, free text
     near: GeoPoint | None = None  # skip geocoding when the pin is known
-    radius_km: float = 5.0
+    radius_km: float | None = None  # None = category default; widening is capped at its max
     budget_inr: int | None = None
     gender_pref: Literal["men", "women", "unisex"] | None = None
     home_visit: bool = False
@@ -51,7 +51,7 @@ class DropReason(_M):
         "outside_radius",
         "duplicate",
         "toll_free_number",
-        "suspicious_reviews"
+        "suspicious_reviews",
     ]
     detail: str = ""
 
@@ -136,6 +136,8 @@ class FitScore(_M):
 class RankedItem(_M):
     rank: int
     place: ScoutPlace
+    distance_km: float | None = None
+    beyond_default_radius: bool = False  # user must be asked before showing/choosing these
     score: float
     components: dict[str, float]
     reasons: list[str]
@@ -144,6 +146,11 @@ class RankedItem(_M):
 
 class RankedShortlist(_M):
     items: list[RankedItem]
+    best_in_range: RankedItem | None = None  # best inside the DEFAULT radius
+    nearest_good: RankedItem | None = None  # nearest acceptable; differs from best sometimes
+    radius_km: float = 0.0  # effective radius used
+    default_radius_km: float = 0.0
+    widened: bool = False
     excluded: list[DropReason] = Field(default_factory=list)
 
 

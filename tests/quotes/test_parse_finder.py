@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Understanding the request and finding vendors (no chat, no calls)."""
 
 from __future__ import annotations

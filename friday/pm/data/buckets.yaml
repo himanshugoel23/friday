@@ -1,0 +1,42 @@
+# The 10 request buckets (docs/SCOPE_BUCKETS.md section 2). archetype = which plan family runs it.
+# keywords drive only the keyword baseline classifier.
+quote:
+  label: Price quote
+  archetype: quote
+  keywords: [kitna, kitne, price, rate, rates, charges, charge, cost, quote, quotation, how much, kya rate, fees, fee, paise, kharcha, lagega, lega, estimate, membership price, compare]
+availability:
+  label: Availability check
+  archetype: availability
+  keywords: [available, availability, slot hai, slot milega, slot mil, free hai, khali, table hai, hai kya, mil jayega, stock mein, in stock, aaj shaam, can i get a slot, any slot, open hai, jagah hai]
+book:
+  label: Book (delegated)
+  archetype: book
+  keywords: [book kar do, book kardo, book karo, book kar dijiye, book it, book a, book me, please book, reserve, fix kar do, confirm kar do booking, book my, book kr do]
+confirm:
+  label: Booking confirmation or reminder
+  archetype: handoff
+  keywords: [confirm karo, confirm my booking, kal ki booking, reconfirm, booking confirm, reminder, confirm kar do kal, appointment confirm]
+reschedule_cancel:
+  label: Reschedule or cancel
+  archetype: handoff
+  keywords: [reschedule, cancel my, cancel kar do, booking cancel, appointment cancel, kal nahi, parso karo, postpone, change the time, time badal, shift my appointment, prepone]
+information:
+  label: Information enquiry
+  archetype: information
+  keywords: [timing, timings, address, kab tak khula, kitne baje tak, open until, services, kya services, location, contact number, kaun kaun si, do you offer, kya aap, offer karte, home visit karte, parking, which services, ladies staff, what time does]
+service_visit:
+  label: Service visit request
+  archetype: service_visit
+  keywords: [aa sakte, aa sakta, aayega, ghar aa, visit, thik karne, theek karne, repair karna, kharab ho gaya, not working, leak ho raha, band ho gaya, send someone, someone to fix, mechanic bhejo, technician, aaj aa, fix karne, kaam karne]
+followup:
+  label: Follow-up or status
+  archetype: handoff
+  keywords: [ready hai, status, mera order, order ready, repair ready, kab milega, abhi tak, update on, kya hua, pending hai, delivery kab, is it ready]
+complaint:
+  label: Complaint or escalation
+  archetype: handoff
+  keywords: [complaint, shikayat, galat, bura, refund, kharab service, bad service, cheated, overcharged, worst, disappointed, dhokha]
+other:
+  label: Anything else
+  archetype: handoff
+  keywords: []

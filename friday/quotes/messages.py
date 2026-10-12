@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """EVERY user-facing WhatsApp text of the quotes flow, in one table (en / hinglish / hi).
 
 Edit copy HERE only; docs/WHATSAPP_QUOTES_FLOW.md lists the same texts (a test keeps them in

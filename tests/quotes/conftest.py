@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Fixtures for the WhatsApp quotes flow: the real app (Runtime + pipeline) on the simulator
 channel, a fake directory (counts every call), a fake vendor-call port, a fake clock."""
 

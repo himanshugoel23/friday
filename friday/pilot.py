@@ -256,7 +256,8 @@ def _doctor_quotes(settings: Settings, out, ok, bad) -> None:  # noqa: ANN001
         out("  FRIDAY_VENDOR_CALL_REDIRECT_TO is empty: vendor calls go to the real vendor numbers"
             + (" (blocked by the allow-list while it is active)"
                if settings.pilot_blocks_business_calls else ""))
-    out(f"  Vendor calls only {settings.quotes_call_window_start}-{settings.quotes_call_window_end} "
+    window = f"{settings.quotes_call_window_start}-{settings.quotes_call_window_end}"
+    out(f"  Vendor calls only {window} "
         f"IST, {settings.quotes_max_concurrent_calls} at a time, "
         f"{settings.quotes_max_requests_per_day} requests per user per day")
 

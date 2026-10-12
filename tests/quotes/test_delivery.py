@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Server-side principle (docs/HANDOFF.md 2b): the job finishes without the user's phone,
 the result is delivered later and never lost, and "status" returns it."""
 
@@ -6,7 +7,7 @@ from __future__ import annotations
 from friday.quotes.models import Outcome, State
 from tests.e2e.harness import Friday
 from tests.quotes.conftest import USER_PHONE, FakeCalls, FakeDirectory, cand, make_user
-from tests.quotes.test_flow import REQ, conv_of, to_shortlist
+from tests.quotes.test_flow import conv_of, to_shortlist
 
 VENDORS = (("Glow Salon", 450), ("Royal Cuts", 800), ("Trendz Studio", 550))
 

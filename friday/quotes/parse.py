@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Offline understanding of a WhatsApp salon request (English / Hindi / Hinglish).
 
 Deterministic on purpose: it runs without an LLM key and the same way in tests. It extracts
@@ -34,6 +35,12 @@ SERVICE_PATTERNS: list[tuple[str, str]] = [
 SALON_WORDS = re.compile(
     r"salon|saloon|parlou?r|barber|beauty|पार्लर|सैलून|सलून|"
     + "|".join(p for _, p in SERVICE_PATTERNS),
+    re.I,
+)
+VENUE_WORDS = re.compile(r"salon|saloon|parlou?r|barber|पार्लर|सैलून|सलून", re.I)
+REQUEST_CUES = re.compile(
+    r"chahiye|chaiye|karwana|karwani|karana|karna hai|kaatna|katwana|book|appointment|need|want|"
+    r"looking|quote|rate|price|get a|i'?d like|चाहिए|करवाना|कटवाना|बुक",
     re.I,
 )
 QUOTE_WORDS = re.compile(
@@ -121,7 +128,7 @@ _NOISE = {
     "kal", "aaj", "parso", "shaam", "subah", "raat", "dopahar", "haircut", "parlour", "parlor",
     "salon", "saloon", "mein", "me", "in", "at", "near", "for", "a", "the", "chahiye", "hai",
     "hoon", "main", "mai", "i", "am", "karwana", "karna", "book", "beard", "trim", "facial",
-    "tomorrow", "today", "evening", "morning", "need", "want", "pm", "am", "baje", "and",
+    "tomorrow", "today", "evening", "morning", "need", "want", "pm", "baje", "and",
     "aur", "to", "ke", "ka", "ki", "se", "pas", "paas", "city", "please", "hair", "cut",
 }
 BAJE_RE = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(?:baje|bje|बजे)", re.I)
@@ -169,6 +176,8 @@ def looks_like_request(text: str | None) -> bool:
         return False
     if not SALON_WORDS.search(text):
         return False
+    if not VENUE_WORDS.search(text) and not REQUEST_CUES.search(text):
+        return False  # "haan beard bhi": a service word alone is an answer, not a request
     for m in NAMED_BUSINESS_RE.finditer(text):
         words = [w for w in m.group(1).split() if w]
         if words and not all(w.lower().strip(".,") in _STOP_NAMES for w in words):

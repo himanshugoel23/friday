@@ -15,7 +15,7 @@ from friday.core.models import GeoPoint
 from friday.discovery.geo import haversine_km
 from friday.discovery.google_geocoder import GoogleGeocoder
 from friday.discovery.google_places import SEARCH_FIELDS, GooglePlacesDirectory
-from friday.scouting.categories import build_queries, get_category
+from friday.scouting.categories import build_queries, effective_radius_km, get_category
 from friday.scouting.models import ScoutPlace, ScoutRequest, SearchResult
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
@@ -76,7 +76,9 @@ class GooglePlaceSearcher:
 
     async def search(self, req: ScoutRequest, *, max_queries: int = 3) -> SearchResult:
         near = req.near or await self._resolver.resolve(req.area)
-        queries = build_queries(get_category(req.category), req.area, max_queries=max_queries)
+        cat = get_category(req.category)
+        radius_km = effective_radius_km(cat, req.radius_km)
+        queries = build_queries(cat, req.area, max_queries=max_queries)
         seen: dict[str, ScoutPlace] = {}
         for q in queries:
             body: dict[str, Any] = {
@@ -89,10 +91,12 @@ class GooglePlaceSearcher:
                 body["locationBias"] = {
                     "circle": {
                         "center": {"latitude": near.lat, "longitude": near.lng},
-                        "radius": min(req.radius_km * 1000.0, 50000.0),
+                        "radius": min(radius_km * 1000.0, 50000.0),
                     }
                 }
-            raw = await self._dir._request("POST", "/places:searchText", WIDE_SEARCH_FIELDS, json=body)
+            raw = await self._dir._request(
+                "POST", "/places:searchText", WIDE_SEARCH_FIELDS, json=body
+            )
             for sp in parse_places(raw, near):
                 seen.setdefault(sp.candidate.place_id, sp)
         return SearchResult(places=list(seen.values()), near=near, queries=queries, source="google")

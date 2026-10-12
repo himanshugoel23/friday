@@ -427,7 +427,7 @@ class Settings(BaseSettings):
     discovery_shortlist_size: int = 3  # called after the brain shortlists
     discovery_min_rating: float = 3.8
     # ------------------------------------------------------------------ WhatsApp quotes flow
-    # docs/WHATSAPP_QUOTES_FLOW.md: text -> questions -> Places shortlist -> approve -> calls -> quotes
+    # docs/WHATSAPP_QUOTES_FLOW.md: text -> questions -> shortlist -> approve -> calls -> quotes
     quotes_flow_enabled: bool = True
     quotes_radius_km: float = 5.0
     quotes_max_requests_per_day: int = 3  # per user (counted when the Places search runs)

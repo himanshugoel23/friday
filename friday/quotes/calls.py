@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Vendor calls for the quotes flow, placed through the existing task engine.
 
 One engine task per vendor call (type BOOKING, so the salon playbook runs: ``quote_only`` mode

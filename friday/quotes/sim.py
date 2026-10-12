@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """``friday whatsapp-sim``: chat through the whole quotes flow in the terminal, offline.
 
 Everything is simulated (fake WhatsApp, the simworld directory with Gurgaon and Bangalore

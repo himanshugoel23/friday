@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The flow on the REAL task engine, playbook and simulated telephony/directory/geocoder
 (no network, no keys), including the test redirect and the pilot allow-list."""
 
@@ -8,7 +9,7 @@ import pytest
 from friday.core.models import TaskStatus
 from friday.quotes.models import State
 from tests.e2e.harness import Friday
-from tests.quotes.conftest import USER_PHONE, make_user
+from tests.quotes.conftest import make_user
 from tests.quotes.test_flow import conv_of
 
 FOUNDER = "+918607549916"

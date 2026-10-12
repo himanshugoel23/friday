@@ -1,0 +1,278 @@
+{
+ "pGood1": {
+  "reviews": [
+   {
+    "name": "places/x/reviews/g1",
+    "rating": 5,
+    "text": {
+     "text": "Got a haircut and beard trim here. The stylist listened and the place was very clean. Charged Rs 450 for the haircut, fair for the area.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-09-02T10:00:00Z",
+    "authorAttribution": {
+     "displayName": "Rohit"
+    }
+   },
+   {
+    "name": "places/x/reviews/g2",
+    "rating": 4,
+    "text": {
+     "text": "Facial and cleanup done by a polite lady. Waited about 20 minutes though, a bit crowded on Sunday.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-07-15T12:30:00Z",
+    "authorAttribution": {
+     "displayName": "Neha"
+    }
+   },
+   {
+    "name": "places/x/reviews/g3",
+    "rating": 5,
+    "text": {
+     "text": "Been coming for two years for my son's haircut. Staff is friendly and hygienic tools.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-05-20T09:10:00Z",
+    "authorAttribution": {
+     "displayName": "Amit"
+    }
+   },
+   {
+    "name": "places/x/reviews/g4",
+    "rating": 4,
+    "text": {
+     "text": "Hair colour was done well but slightly expensive at 2500.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-03-11T16:45:00Z",
+    "authorAttribution": {
+     "displayName": "Sana"
+    }
+   },
+   {
+    "name": "places/x/reviews/g5",
+    "rating": 4,
+    "text": {
+     "text": "Good haircut, will visit again. Parking is tough.",
+     "languageCode": "en"
+    },
+    "publishTime": "2025-12-01T18:00:00Z",
+    "authorAttribution": {
+     "displayName": "Vik"
+    }
+   }
+  ]
+ },
+ "pGood2": {
+  "reviews": [
+   {
+    "name": "places/x/reviews/h1",
+    "rating": 5,
+    "text": {
+     "text": "Waxing and threading were quick and painless. Reasonable prices.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-08-10T11:00:00Z",
+    "authorAttribution": {
+     "displayName": "Priya"
+    }
+   },
+   {
+    "name": "places/x/reviews/h2",
+    "rating": 5,
+    "text": {
+     "text": "Bridal makeup trial was perfect, the artist is skilled and professional.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-06-01T11:00:00Z",
+    "authorAttribution": {
+     "displayName": "Megha"
+    }
+   },
+   {
+    "name": "places/x/reviews/h3",
+    "rating": 2,
+    "text": {
+     "text": "Rude receptionist and I waited a long time for my appointment.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-02-02T11:00:00Z",
+    "authorAttribution": {
+     "displayName": "Kunal"
+    }
+   },
+   {
+    "name": "places/x/reviews/h4",
+    "rating": 4,
+    "text": {
+     "text": "Massage and head massage was relaxing, clean place.",
+     "languageCode": "en"
+    },
+    "publishTime": "2025-11-20T11:00:00Z",
+    "authorAttribution": {
+     "displayName": "Divya"
+    }
+   }
+  ]
+ },
+ "pFake": {
+  "reviews": [
+   {
+    "name": "places/x/reviews/f1",
+    "rating": 5,
+    "text": {
+     "text": "Best salon ever",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-10-01T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "U1"
+    }
+   },
+   {
+    "name": "places/x/reviews/f2",
+    "rating": 5,
+    "text": {
+     "text": "Best salon ever!!",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-10-01T09:20:00Z",
+    "authorAttribution": {
+     "displayName": "U2"
+    }
+   },
+   {
+    "name": "places/x/reviews/f3",
+    "rating": 5,
+    "text": {
+     "text": "Nice service",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-10-01T10:05:00Z",
+    "authorAttribution": {
+     "displayName": "U3"
+    }
+   },
+   {
+    "name": "places/x/reviews/f4",
+    "rating": 5,
+    "text": {
+     "text": "Excellent",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-10-01T11:40:00Z",
+    "authorAttribution": {
+     "displayName": "U4"
+    }
+   },
+   {
+    "name": "places/x/reviews/f5",
+    "rating": 5,
+    "text": {
+     "text": "Amazing glow queen is the best parlour for bridal makeup facial haircut cheap price",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-10-01T13:00:00Z",
+    "authorAttribution": {
+     "displayName": "U5"
+    }
+   }
+  ]
+ },
+ "pFew": {
+  "reviews": [
+   {
+    "name": "places/x/reviews/w1",
+    "rating": 5,
+    "text": {
+     "text": "Superb",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-09-20T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "W1"
+    }
+   },
+   {
+    "name": "places/x/reviews/w2",
+    "rating": 5,
+    "text": {
+     "text": "Good",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-09-21T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "W2"
+    }
+   },
+   {
+    "name": "places/x/reviews/w3",
+    "rating": 5,
+    "text": {
+     "text": "Awesome",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-09-25T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "W3"
+    }
+   }
+  ]
+ },
+ "pMid": {
+  "reviews": [
+   {
+    "name": "places/x/reviews/m1",
+    "rating": 4,
+    "text": {
+     "text": "Decent haircut and shave, fair price of Rs 300.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-08-01T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "M1"
+    }
+   },
+   {
+    "name": "places/x/reviews/m2",
+    "rating": 4,
+    "text": {
+     "text": "Beard trim was good. Place is cramped.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-06-01T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "M2"
+    }
+   },
+   {
+    "name": "places/x/reviews/m3",
+    "rating": 3,
+    "text": {
+     "text": "Average service, ok for a quick cut.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-04-01T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "M3"
+    }
+   }
+  ]
+ },
+ "pFar": {
+  "reviews": [
+   {
+    "name": "places/x/reviews/z1",
+    "rating": 5,
+    "text": {
+     "text": "Fantastic haircut.",
+     "languageCode": "en"
+    },
+    "publishTime": "2026-09-01T09:00:00Z",
+    "authorAttribution": {
+     "displayName": "Z1"
+    }
+   }
+  ]
+ }
+}

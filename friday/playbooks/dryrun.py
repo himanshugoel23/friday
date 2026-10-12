@@ -49,6 +49,7 @@ from friday.core.models import (
 from friday.core.safety import check_speech, looks_like_commitment
 from friday.playbooks import slots as sl
 from friday.playbooks.engine import PlaybookPolicy, resolve_inputs, static_utterances
+from friday.playbooks.intents import ARCHETYPE_INPUTS
 from friday.playbooks.model import DATA_DIR, Playbook, get_playbook
 from friday.playbooks.understand import BrainUnderstander, HeuristicUnderstander
 from friday.voice.session import CallRunner
@@ -124,6 +125,9 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
         "user_first_name", "service", "services", "date_window", "budget", "stylist_pref",
         "fallback_when", "honorific", "business_name", "business_name_spoken", "user_spoken",
     ):
+        if cfg.get(k) not in (None, ""):
+            inputs[k] = str(cfg[k])
+    for k in sorted(ARCHETYPE_INPUTS | {"for_whom"}):  # vendor archetypes (category vocabulary)
         if cfg.get(k) not in (None, ""):
             inputs[k] = str(cfg[k])
     # the owner's instruction: book needs a delegation; no delegation means a price check only
@@ -291,7 +295,7 @@ class PersonaLeg:
         if not question:
             return
         qid = question[-1]
-        if qid.startswith("bye") or qid in (
+        if qid.startswith(("bye", "close_")) or qid in (
             "s2b_none", "s7_close", "s7_commit_free", "s7_commit_fallback", "q_close",
             "s5_no_advance",
         ):

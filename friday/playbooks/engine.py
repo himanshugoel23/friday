@@ -345,6 +345,9 @@ class PlaybookPolicy:
             "has_fallback": self._fallback(c) is not None,
             "used_fallback": st.flags.get("fallback_used") == "yes",
             "has_date_window": bool(c.inputs.get("date_window")),
+            "has_duration": bool(c.inputs.get("duration_text")),
+            "available": st.slot_free in ("yes", "other_time")
+            or st.flags.get("slot_free") == "yes",
             "estimate_known": st.estimate_inr is not None,
             "price_suspect": bool(st.suspects),
             "price_free": st.flags.get("price_free") == "yes",
@@ -561,6 +564,14 @@ class PlaybookPolicy:
         return u
 
     @staticmethod
+    def _price_step(pb: Playbook, step_id: str) -> bool:
+        """Does this step take a price? (An archetype never stores a price heard elsewhere:
+        a delivery charge is not the product's price.)"""
+        return bool(
+            set(pb.steps[step_id].branches) & {Intent.GIVES_PRICE.value, Intent.PRICE_RANGE.value}
+        )
+
+    @staticmethod
     def _ext_known(pb: Playbook, step_id: str) -> dict[str, Any]:
         """What the extended (archetype) understanding needs to know about this step."""
         if not pb.archetype:
@@ -609,7 +620,9 @@ class PlaybookPolicy:
                 st.slot_free = "other_time"
         elif intent == Intent.SLOT_BUSY:
             st.slot_free = "no"
-        if intent in (Intent.GIVES_PRICE, Intent.PRICE_RANGE):
+        if intent in (Intent.GIVES_PRICE, Intent.PRICE_RANGE) and (
+            c is None or not c.pb.archetype or self._price_step(c.pb, st.step)
+        ):
             estimate = c is not None and c.pb.steps[st.step].captures == "estimate"
             if u.price_inr is not None and estimate:
                 if self._sane(c, u.price_inr, estimate=True):
@@ -691,7 +704,7 @@ class PlaybookPolicy:
 
     _NOT_INFORMATIVE = frozenset(
         {
-            Intent.UNCLEAR, Intent.ASKS_REPEAT, Intent.HOLD_ON, Intent.WHO_IS_THIS,
+            Intent.ASKS_REPEAT, Intent.HOLD_ON, Intent.WHO_IS_THIS,
             Intent.ARE_YOU_BOT, Intent.ACK, Intent.CONTINUE, Intent.RUDE, Intent.STOP_CALLING,
             Intent.WRONG_NUMBER, Intent.BUSY_LATER, Intent.ASKS_OFFTOPIC, Intent.ASKS_SECRET,
             Intent.ASKS_CUSTOMER_PHONE, Intent.YES, Intent.NO,
@@ -704,7 +717,7 @@ class PlaybookPolicy:
         if not key or intent in self._NOT_INFORMATIVE or not reply.strip():
             return
         text = re.sub(r"\d{7,}", "", clean_input(reply, 80))
-        if text.strip():
+        if re.search(r"[A-Za-z]{3}|\d", text):
             c.st.notes[key] = re.sub(r"\s+", " ", text).strip()
 
     def _take_requested(self, c: Ctx) -> None:
@@ -1088,6 +1101,7 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
     mode_book = inputs.get("playbook_mode") == "book"
     known_conds = {"first_ask": True, "mode_book": mode_book, "mode_quote": not mode_book,
                    "has_date_window": bool(inputs.get("date_window")),
+                   "has_duration": bool(inputs.get("duration_text")),
                    **{q: truthy(inputs.get(q)) for q in QUESTION_INPUTS}}
 
     def first_ask_ids(items: list[str | LineRef]) -> list[str]:

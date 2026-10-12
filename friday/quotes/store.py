@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Persistence for quote conversations: optimistic concurrency, one row per request."""
 
 from __future__ import annotations

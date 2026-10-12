@@ -462,6 +462,20 @@ def main(argv: list[str] | None = None) -> int:
     from friday.playbooks.cli import register as register_playbooks
 
     register_playbooks(sub)  # `friday playbook list|validate|dry-run` (docs/PLAYBOOKS.md)
+    sc = sub.add_parser("scout", help="find best vendors (live Google if key, else fixtures)")
+    sc.add_argument("--category", required=True)
+    sc.add_argument("--area", required=True)
+    sc.add_argument("--services", default="", help="comma separated, e.g. 'haircut,beard'")
+    sc.add_argument("--top", type=int, default=3)
+    sc.add_argument("--radius-km", type=float, default=None, help="widen; capped at category max")
+    sc.add_argument("--gender", choices=["men", "women", "unisex"], default=None)
+    sc.add_argument("--budget", type=int, default=None)
+    sc.add_argument("--home-visit", action="store_true")
+    sc.add_argument("--fixtures", action="store_true", help="force recorded fixtures")
+    sr = sub.add_parser("scout-report", help="per category: % with phone/hours/type (live only)")
+    sr.add_argument("--categories", default="all")
+    sr.add_argument("--areas", default=None, help="semicolon separated")
+    sr.add_argument("--max-queries", type=int, default=2)
     load = sub.add_parser("loadtest", help="S-11: N users, M concurrent simulated calls")
     load.add_argument("--users", type=int, default=100)
     load.add_argument("--calls", type=int, default=20, help="max concurrent calls in flight")
@@ -484,6 +498,11 @@ def main(argv: list[str] | None = None) -> int:
 
         return run_eval_command(args, Settings)
     settings = Settings()
+    if args.cmd in ("scout", "scout-report"):
+        from friday.scouting import cli as scout_cli
+
+        return (scout_cli.run_scout if args.cmd == "scout" else scout_cli.run_scout_report)(
+            args, settings)
     if args.cmd == "tts-dict":
         from friday.voice.tts import pronunciation as pron
 

@@ -76,6 +76,8 @@ CONDITIONS: frozenset[str] = frozenset(
         "used_fallback",  # the slot in hand is that fallback time (the salon accepted it)
         # --- archetype playbooks
         "has_date_window",  # the task names a day / part of day
+        "has_duration",  # the task names for how long (rental: "2 din ke liye")
+        "available",  # the vendor said it is available (a slot / stock / a vehicle)
         "estimate_known",  # a rough estimate (home-service visit) was heard
         "price_suspect",  # a price outside the category's sane range was heard (not trusted)
         "price_free",  # the vendor said it is free (no charge)

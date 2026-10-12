@@ -1,0 +1,1135 @@
+{
+ "_fixture": {
+  "note": "synthetic, shaped like Places searchText responses; not real businesses",
+  "center": {
+   "lat": 28.4217,
+   "lng": 77.1064
+  }
+ },
+ "places": [
+  {
+   "id": "pGood1",
+   "displayName": {
+    "text": "Looks Unisex Salon",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Looks Unisex Salon, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.428900000000002,
+    "longitude": 77.1064
+   },
+   "rating": 4.6,
+   "userRatingCount": 812,
+   "types": [
+    "hair_salon",
+    "beauty_salon",
+    "point_of_interest"
+   ],
+   "primaryType": "hair_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pGood1",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 11111",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pGood2",
+   "displayName": {
+    "text": "Studio 56 Hair & Beauty",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Studio 56 Hair & Beauty, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.435200000000002,
+    "longitude": 77.1064
+   },
+   "rating": 4.4,
+   "userRatingCount": 230,
+   "types": [
+    "beauty_salon",
+    "hair_care"
+   ],
+   "primaryType": "beauty_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pGood2",
+   "currentOpeningHours": {
+    "openNow": false
+   },
+   "internationalPhoneNumber": "+91 98100 22222",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pFake",
+   "displayName": {
+    "text": "Glow Queen Parlour",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Glow Queen Parlour, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.439700000000002,
+    "longitude": 77.1064
+   },
+   "rating": 5.0,
+   "userRatingCount": 42,
+   "types": [
+    "beauty_salon"
+   ],
+   "primaryType": "beauty_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pFake",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 33333",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pFew",
+   "displayName": {
+    "text": "Royal Cuts",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Royal Cuts, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.4307,
+    "longitude": 77.1064
+   },
+   "rating": 4.9,
+   "userRatingCount": 6,
+   "types": [
+    "hair_salon"
+   ],
+   "primaryType": "hair_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pFew",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 44444",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pMid",
+   "displayName": {
+    "text": "Hair Hub 56",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Hair Hub 56, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.4847,
+    "longitude": 77.1064
+   },
+   "rating": 4.2,
+   "userRatingCount": 150,
+   "types": [
+    "hair_salon",
+    "beauty_salon"
+   ],
+   "primaryType": "hair_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pMid",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 55555",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pFar",
+   "displayName": {
+    "text": "Star Salon Delhi",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Star Salon Delhi, Sector 56, Gurugram",
+   "location": {
+    "latitude": 29.3217,
+    "longitude": 77.1064
+   },
+   "rating": 5.0,
+   "userRatingCount": 2000,
+   "types": [
+    "beauty_salon"
+   ],
+   "primaryType": "beauty_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pFar",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 66666",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pClosed",
+   "displayName": {
+    "text": "Old Style Salon",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Old Style Salon, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.4325,
+    "longitude": 77.1064
+   },
+   "rating": 4.8,
+   "userRatingCount": 300,
+   "types": [
+    "hair_salon"
+   ],
+   "primaryType": "hair_salon",
+   "businessStatus": "CLOSED_PERMANENTLY",
+   "googleMapsUri": "https://maps.google.com/?cid=pClosed",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 77777",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pNoPhone",
+   "displayName": {
+    "text": "Quiet Cuts",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Quiet Cuts, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.4316,
+    "longitude": 77.1064
+   },
+   "rating": 4.5,
+   "userRatingCount": 90,
+   "types": [
+    "hair_salon"
+   ],
+   "primaryType": "hair_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pNoPhone",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pWrong",
+   "displayName": {
+    "text": "Raymond Showroom",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Raymond Showroom, Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.4298,
+    "longitude": 77.1064
+   },
+   "rating": 4.3,
+   "userRatingCount": 500,
+   "types": [
+    "clothing_store",
+    "store"
+   ],
+   "primaryType": "clothing_store",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pWrong",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "+91 98100 88888",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "pDup",
+   "displayName": {
+    "text": "Looks Salon (new listing)",
+    "languageCode": "en"
+   },
+   "formattedAddress": "Looks Salon (new listing), Sector 56, Gurugram",
+   "location": {
+    "latitude": 28.428900000000002,
+    "longitude": 77.1064
+   },
+   "rating": 4.0,
+   "userRatingCount": 12,
+   "types": [
+    "beauty_salon"
+   ],
+   "primaryType": "beauty_salon",
+   "businessStatus": "OPERATIONAL",
+   "googleMapsUri": "https://maps.google.com/?cid=pDup",
+   "currentOpeningHours": {
+    "openNow": true
+   },
+   "internationalPhoneNumber": "098100 11111",
+   "regularOpeningHours": {
+    "periods": [
+     {
+      "open": {
+       "day": 0,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 0,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 1,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 1,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 2,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 2,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 3,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 3,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 4,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 4,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 5,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 5,
+       "hour": 21,
+       "minute": 0
+      }
+     },
+     {
+      "open": {
+       "day": 6,
+       "hour": 10,
+       "minute": 0
+      },
+      "close": {
+       "day": 6,
+       "hour": 21,
+       "minute": 0
+      }
+     }
+    ]
+   }
+  }
+ ]
+}
