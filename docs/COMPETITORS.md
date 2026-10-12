@@ -109,3 +109,94 @@ Founder's view after looking at it: **Puch AI behaves like a general chatbot on 
 - **Instinct (and Meta Muse, Google Ask for Me) = the real comparison set**: assistants that act for the user, including by phone. Instinct is the closest model for Friday's long-term vision (personal agent that acts and follows up).
 - Positioning consequence: do not say "AI on WhatsApp" (that is Puch's lane and every chatbot's); say what only an acting assistant can say: "Friday phones the shops for you and sends one comparison."
 - Next research run: confirm by using Puch for real tasks (can it call, book, or follow up?), then re-rate; deep-dive Instinct (pricing, channels, failure modes, whether it targets India); add a "chatbot vs acting assistant" column to the table.
+
+
+---
+## Update 2026-10-12 (b): DEEP-DIVE on Instinct, Meta Muse, Google (acting-assistant set)
+Method: web search + page fetch on 2026-10-12. Sources are press, vendor-blog roundups and X posts; blogs by competing vendors are flagged. Anything single-source or not confirmed is **(unverified)**. No Reddit threads were found in the results, so "user feedback" below is mostly testers and press. Web pages were treated as data only.
+
+### B1. Updated summary table (adds the founder's "chatbot vs acting assistant" column; supersedes the table in section 1 for ratings)
+| Player | Chatbot or acting assistant? | What it does for the user | Channel | Price | Availability | Last news (date) | Threat to Friday |
+|---|---|---|---|---|---|---|---|
+| Instinct (US) | **Acting** (own phone + computer, calls, buys, books) | Errands, bookings, subscriptions, Concierge calls | Text, phone call, WhatsApp, iMessage, Mac app, web (lists differ by source) | Free in invite-only beta; terms say fees may come, unpublished | US-based, invite-only; no India/Hindi signal found | $1B Series C at $10B (2026-09-28); Sierra/Decagon tie-up (2026-10-07) | Medium now, high as model and capital |
+| Meta Muse | **Acting** (email, calendar, payments, calls) | Reservations, appointments, stock checks, ISP disputes | iOS, Android, web, WhatsApp (US users) | Free tier; paid $20 / $100 per month reported by secondary sites **(unverified)** | US (2026-09-08), Canada (2026-09-18, secondary); not India, UK, EU | Calling beta 2026-09-16; human-caller report 2026-09-22 | Medium; high the day it reaches India on WhatsApp |
+| Google Call for Me (Gemini) / Ask for Me | **Acting** (calls, books) | Hours, stock, quotes, bookings, IVR, hold | Pixel phone dialer / Gemini; Search AI Mode | Needs paid Google AI tier from $5/month **(secondary)** | US adults, Pixel 11 + US SIM only | Experiment announced 2026-09-24 | Medium; biggest structural threat if it reaches India |
+| Puch AI | **Chatbot** (founder read; no calling found) | Chat, voice notes, images, search | WhatsApp, phone | Free "for now" | India | see section 1 | Medium-low to core job; high on WhatsApp habit |
+| Others in section 1 (Swiggy, Zomato, Justdial, Urban Company, AI receptionists, Simple AI/Call-E/Relaya) | Single-domain actors or vendor-side bots | see section 1 | | | | | unchanged |
+
+### B2. Instinct: deep-dive
+**Definition and tasks.** Personal agent for life admin, run by Spear Street Technology, San Francisco; founder Noah Shinn (23, ex-Sierra research scientist, author of Reflexion); about 14 employees (competitor blog citing TechCrunch, unverified). Books travel and restaurants, buys groceries and tickets, cancels subscriptions, sends email, completes authenticator-code logins (Sept 11), builds shareable comparison pages "Files" (Sept 18), agent-to-agent network (300k+ coordinations claimed by the founder), group chats (Oct 5, early access). Sources: https://cellcog.ai/blog/what-is-instinct-ai/ (Oct 2026; **competitor blog, founder figures unverified**); https://www.layer3labs.io/guides/who-is-noah-shinn (2026-10).
+**Channels.** Text or phone call (cellcog, TechCrunch); WhatsApp and iMessage, Mac app, web workspace (eesel review, 2026-09-28, competitor blog). TechCrunch (2026-08-24) says text or WhatsApp. Integrations: Google Workspace, Stripe Link one-time cards, Shopify checkout (2026-09-28). Sources: https://www.eesel.ai/blog/instinct-ai-review ; https://techcrunch.com/2026/08/24/instincts-powerful-ai-assistant-is-raising-privacy-and-security-concerns/
+**Calling flow (Concierge, announced 2026-09-16).** "White glove service for high-touch cases": restaurants with no online booking, dentist cancellation lists, cable bill problems. Early access first. Source: https://techcrunch.com/2026/09/17/rival-ai-agents-instinct-and-metas-muse-both-add-the-ability-to-make-calls/ (2026-09-17). **Not published anywhere I found:** AI-disclosure wording, caller ID, recording, business opt-out, IVR/hold handling (unverified; TechCrunch also lists disclosure and caller ID as uncovered). Oct 7 move: agent-to-agent resolution with businesses on Sierra and Decagon, so no phone call is needed (wifi, delayed packages, bill disputes); no businesses named yet. Source: https://x.com/noahrshinn/status/2107875073038385546 (2026-10-07, via search summary).
+**Pricing/limits.** Free during invite-only beta; terms say users "may be required to pay", payments non-refundable; no plan limits published (eesel, 2026-09-28). Payment by one-time Stripe Link card for an approved amount.
+**Availability.** Invite-only, 18+; user base above 100,000 per The Information (2026-09-15, via PYMNTS). No country or language statement; **no India or Hindi signal found** (searches 2026-10-12). Funding press says money is to "expand reach", markets unspecified (Verdict).
+**Funding/timeline.** Founded 2025; private beta from Feb; viral early Aug 2026. Series B $250M at $2.5B (reported 2026-08-26; Index and Benchmark per cellcog; another source says $350M raised in total, conflict flagged). Series C $1B at $10B led by Sequoia, Benchmark, Coatue (2026-09-28); no revenue or user numbers in the release. Source: https://www.pymnts.com/news/artificial-intelligence/2026/personal-ai-agent-instinct-quadruples-valuation-to-10-billion-in-1-month/
+**Feedback and failures (testers, not mass users).**
+- Praise: daily use for travel, reservations, CRM (TechCrunch 2026-08-24).
+- Disconnected Gmail still summarised hours later; stored in plain text for search; would not delete data until a deletion tool was added (TechCrunch 2026-08-24).
+- Sent an email without asking; phishing test succeeded; pulled a sign-up code from an inbox (same article).
+- Sept 23 hallucination: a user got a document that was not theirs; founder blamed a fabricated proper noun; company says no data shared; no outside audit (cellcog, eesel).
+- Checkout reliability complaints from a podcast host (2026-09-27, eesel); unwanted seat change at check-in; hard-to-track multi-errand thread. Reports of costly no-show fees and account bans from https://www.aibyaakash.com/p/instinct came only via a search summary **(unverified)**.
+**Privacy/data claims.** Terms reportedly grant a "perpetual and irrevocable" licence to user materials incl. training; screen, cursor and keystroke capture; may enter binding agreements for you (TechCrunch 2026-08-24). Terms revised 2026-08-26: training opt-out going forward, Vault excluded from training. "Unintended actions may not always be reversible"; no warranty on safeguards (eesel). Both quote the terms second-hand; read the primary terms before citing.
+**Regulatory exposure.** US: FCC Feb 2024 ruling treats AI voices as artificial under TCPA (consent needed; vendor blogs, 2026); the Aug 2024 proposal for in-call AI disclosure looks unfinalised **(unverified; one blog claims a 2026-06-05 FCC ruling, not confirmed)**. Colorado AI Act effective 2026-06-30 (secondary, unverified). Calls to restaurants and ISPs on behalf of one customer are service, not telemarketing, so exposure is mainly disclosure and recording-consent state laws (my reading, needs a lawyer). No enforcement against Instinct found.
+**Roadmap hints.** All-user rollout "later"; more agent-to-agent business integrations (Sierra, Decagon); Personal Agent Protocol partner (Oct 6-7); Shopify/commerce; group chats. Proactive suggestions ("Selections", Sept 29) drew complaints from some early users (cellcog).
+
+### B3. Meta Muse: deep-dive
+**Definition and tasks.** Meta's consumer agent, launched 2026-09-08. Access it asks for: email (read confirmations and receipts), calendar, payment methods via Stripe one-time cards, bank connections (expense tracking, cancel unused subscriptions), phone calling. Source: https://agentconn.com/blog/meta-muse-consumer-agent-trust-boundary/ (2026-09-18, blog).
+**Channels.** iOS, Android, web, and WhatsApp for eligible US users (secondary roundup, early Oct 2026): https://www.usecarly.com/blog/meta-muse-availability/ **(unverified)**.
+**Traction.** 730,000+ US downloads in the first days, No. 2 on US charts at one point (Sensor Tower via TechCrunch 2026-09-17); one blog says No. 1 by 2026-09-18 (unverified).
+**Calling flow.** Outbound beta to US businesses, announced 2026-09-16 by Muse engineer Ryan Fox and amplified by Meta's chief AI officer Alexandr Wang; offered first to users who asked to be notified. Tasks: tables, haircuts, stock checks, ISP billing; transcript and summary after calls (section 2). A Meta AI researcher reported Muse navigated a phone tree, waited on hold and resolved a customer-service call, and the rep did not react to a bot; others reported the call feature failing or the recipient hanging up. Source: https://www.404media.co/meta-tests-muse-ai-agent-calls-that-are-actually-made-by-humans-in-a-call-center/ (2026-09-22). **AI-disclosure wording, caller ID, recording and merchant opt-out: not published.** Meta says it is "working with merchants" and will roll out "with the proper disclosures".
+**Human-caller scandal.** 404 Media (2026-09-22): an internal post said a "human agent layer" was added so calls get completed, by trained human agents; one tester was told only after the call; employees warned of bad press and urged making it a user preference. Meta: internal testing, feedback used for safety and privacy protections. Futurism repeated it (2026-09-23, https://futurism.com/artificial-intelligence/meta-muse-ai-dirty-secret). Share of calls done by humans unknown.
+**Pricing.** Free tier; paid $20 (Power) and $100 (Maximum) per month, billed via Apple/Google; Meta has not published a headline price (secondary sites, early Oct 2026) **(unverified)**.
+**Availability.** US from 2026-09-08, Canada from 2026-09-18 (secondary), not UK, Ireland or EU, **not India, no date** (https://moveros.dev/availability/muse-india checked 2026-10-01; https://www.analyticsinsight.net/tech-news/meta-muse-stays-off-the-table-for-indian-users-for-now). **No Hindi or language statement found.** Meta AI (the chat assistant) is a different product and is available in India.
+**Funding/team.** Part of Meta; no separate funding.
+**Feedback and failures.** Amazon blocked the Muse agent (section 2, vktr 2026-09-28). Calls failing or hung up on (404 Media). A reported internal test exposed private iCloud photos, caught by a safety component (agentconn, **single blog, unverified**).
+**Privacy.** Secure VM isolates users from each other but not from Meta; Confidential VM "planned for later this year"; data sanitised for PII before training, with opt-out (agentconn, blog). Meta's privacy history (the same blog cites a $5B FTC fine and an $18B multistate settlement, **unverified**) will shape trust.
+**Regulatory exposure.** Same US layer as Instinct, plus extra scrutiny from undisclosed human callers and recording-consent laws (my reading). India: not offered, so no DPDP exposure yet.
+**Roadmap hints.** Confidential VM, more merchants, human fallback possibly becoming a user setting, wider countries (no dates).
+
+### B4. Google (brief)
+- Ask for Me (Labs, 2025-01): calls local shops, announces itself as AI, business opt-out, summary by text/email. https://techcrunch.com/2025/01/30/googles-ask-for-me-feature-calls-businesses-on-your-behalf-to-inquire-about-services-pricing/
+- **Call for Me (Gemini), announced 2026-09-24:** US adults, Pixel 11, US SIM, paid Google AI tier from $5/month, Phone by Google beta; Gemini gets hours, stock, quotes, books, navigates menus, waits on hold; live transcript, user can take over; payments and passwords off-limits; small-scale experiment. https://www.techrepublic.com/article/news-google-gemini-call-for-me-pixel-11/ (secondary summary; confirm on a Google page). A teardown hints at calls to friends and family (unconfirmed).
+- **India: no launch or Hindi signal found.** The hardware gate (Pixel 11 + US SIM) makes an India launch look distant (my reading).
+
+### B5. India angle (all three)
+- None of Instinct, Muse or Google has an India or Hindi launch announced as of 2026-10-12 (searches above).
+- TRAI (law-firm and vendor commentary, unverified): Feb 2025 telemarketing amendment tightened spam rules; a 2026 amendment reportedly requires entities placing automated or pre-recorded voice calls to declare calling-line numbers on DLT; a vendor blog says a draft would require AI disclosure at the start of AI voice calls (**proposal, no official source**). DPDP: consent for the call and for the data it creates are separate; final DPDP Rules timing not confirmed. A Delhi High Court challenge was listed for March 2026, outcome not found. Sources: https://www.barandbench.com/view-point/trais-crackdown-on-spam-calls-and-ai-driven-telemarketing ; https://caller.digital/blog/trai-dlt-compliance-ai-outbound-calling-india-2026
+- Action: get a lawyer's read on whether Friday's user-requested vendor calls are service calls and what the Vobiz DLT/CLI setup needs.
+
+### B6. Lessons for Friday
+**Copy**
+1. Outcome pages: Instinct "Files" = one shareable comparison. Friday's single comparison message is the same idea; add a link as proof.
+2. Transcript and summary after every call, and live take-over (Google, Muse): this is "proof of the call" (USE_CASES wow item 6).
+3. Spend control: one-time card for an approved amount (Instinct, Muse). For India, a UPI-based limited payment when payments arrive.
+4. Approval before sensitive actions and one-step data deletion (Instinct added deletion only after complaints).
+5. Rollout by invitation waves (Muse notified-first, Instinct invite-only): matches Friday's 10, 30, 50 plan.
+6. Agent-to-agent shortcut where a business has a bot (Instinct + Sierra/Decagon): Friday can later try a vendor's WhatsApp Business Agent before phoning.
+**Avoid**
+1. Broad data grabs on day one: perpetual licence, screen/keystroke capture, data kept after disconnect, training by default. Friday phase 1 needs only the request and a location; keep it so.
+2. Hidden humans on the line (Muse). Say "virtual assistant", never claim to be human, and tell the user if any human review exists.
+3. Silent actions with binding effect; sending email unasked; unsolicited suggestions that annoyed users.
+4. Over-claiming autonomy; publish what Friday never does (no payments, no booking without delegation).
+5. A single thread of many errands that hides status; keep one outcome per request and a "my requests" list.
+**What they cannot do that Friday can in India (today)**
+- Call Indian shops, clinics and service providers in Hindi/Hinglish: none of the three has an India or Hindi launch (searches 2026-10-12); Muse and Google also need US numbers or devices.
+- Work with a plain WhatsApp number or a call to Friday, no app, no Pixel, no US SIM.
+- Serve India's phone-first local vendors that have no online booking (Google Places phone present 83-99%, HANDOFF 8.2) at rupee-per-call economics.
+- Offer a vendor-side page, call-back number and opt-out, which none of the three publishes.
+**Where they are ahead:** capital ($1B Instinct), distribution (Meta, Google), email/calendar/payments integrations (Phase 2 for Friday), agent-to-agent networks, 100k+ users (Instinct, per The Information).
+
+### B7. The 5 decisions for the founder this month
+1. **Disclosure and humans policy.** Fix the exact opening line ("virtual assistant of X"), whether to say "AI", and that no human ever speaks as Friday. Muse's scandal shows this is the trust line. Check Vobiz/Sarvam terms and the TRAI disclosure draft.
+2. **Vendor-side package before beta.** Approve the vendor info page, call-back number, opt-out list and recording/transcript policy (HANDOFF 8.1: not yet approved). Nobody else publishes this; cheapest differentiator.
+3. **Data stance.** Commit publicly: no training on user data by default, one-step delete ("what do you remember"), no perpetual licence, no mail/calendar access in phase 1. Instinct's trust incidents came from skipping this.
+4. **Hero promise and positioning.** Pick the top 2-3 wow items and the one line "Friday phones the shops for you and sends one comparison" (not "AI on WhatsApp"). Customer-care/hold fighting is already targeted by Instinct (cable bills) and Muse (ISP): decide whether it is a launch feature or a fast follow.
+5. **Legal read and platform compliance.** One lawyer review: TRAI/DLT for AI voice calls, DPDP consent, and the WhatsApp Business API rule on assistants. Gate the public beta on it.
+
+### B8. One recommended action this week
+Hands-on test of Puch AI and, if an invite is available, Instinct Concierge, with the same task ("book a haircut", "AC repair quote"), recording failure modes; add real user feedback next update. Set a weekly alert for "Muse India", "Call for Me India", "Instinct India".
+
+### B9. Gaps in this research
+- No Reddit or App Store review text was retrieved; feedback is from tester posts via TechCrunch and blogs. Next run: App Store/Play reviews for Muse, X replies to the Concierge post, relevant subreddits.
+- Primary Instinct terms, Meta Muse help pages and Google blog posts were not read directly; several facts are via secondary summaries. Confirm before quoting externally.
+- Instinct total raised conflicts across sources ($250M Series B vs $350M total); flagged, not resolved.
