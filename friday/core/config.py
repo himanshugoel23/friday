@@ -354,6 +354,7 @@ class Settings(BaseSettings):
     sarvam_pronunciation_dict_id: str | None = None  # else var/tts/dict_id.json
     # FRIDAY_SARVAM_TTS_TEMPERATURE: bulbul:v3 expressiveness, 0.01-1.0 (founder pick: 0.9)
     sarvam_tts_temperature: float | None = Field(default=0.9, ge=0.01, le=1.0)
+    voice_early_commit_words: int = 6  # close short complete answers early (0 = off)
     voice_short_end_silence_ms: int = 650  # close short answers sooner (0 = off; long speech 900)
     sarvam_tts_streaming: bool = True  # FRIDAY_SARVAM_TTS_STREAMING: stream uncached call lines
     deepgram_api_key: SecretStr | None = Field(

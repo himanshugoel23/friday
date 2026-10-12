@@ -146,3 +146,60 @@ async def test_speech_resuming_throws_the_early_guess_away():
     for f in _frames(0.3, 0.9):
         leg.on_media(f)
     assert leg._spec is None
+
+
+class _TextSTT:
+    name = "text"
+
+    def __init__(self, text):
+        self.text = text
+
+    async def transcribe(self, clip, *, language_hint=None):
+        from friday.core.models import Language, Transcription
+
+        return Transcription(text=self.text, language=Language.HINGLISH, confidence=0.9)
+
+
+async def _commit_case(text):
+    leg, _ = await _leg()
+    leg.tel.stt = _TextSTT(text)
+    for f in _frames(1.0, 0.9) + _silence_frames(0.4):
+        leg.on_media(f)
+    await asyncio.sleep(0.05)  # the early guess finishes
+    return leg
+
+
+async def test_short_complete_answer_is_closed_early():
+    leg = await _commit_case("हाँ जी बताइए।")
+    seg = leg._segments.get_nowait()  # no more silence was fed: it did not wait out the pause
+    assert seg is not None
+    t = await leg._transcribe(seg)
+    assert t is not None and t.text == "हाँ जी बताइए।"
+
+
+async def test_unfinished_or_long_speech_waits_for_the_normal_pause():
+    leg = await _commit_case("haan ji bataiye")  # no final punctuation: maybe unfinished
+    assert leg._segments.empty()
+    leg = await _commit_case("haan ji main ye kehna chahta tha ki aap kal aa jaiye.")  # long
+    assert leg._segments.empty()
+
+
+async def test_early_commit_can_be_switched_off():
+    leg, _ = await _leg()
+    leg.tel.early_commit_max_words = 0
+    leg.tel.stt = _TextSTT("haan ji.")
+    for f in _frames(1.0, 0.9) + _silence_frames(0.4):
+        leg.on_media(f)
+    await asyncio.sleep(0.05)
+    assert leg._segments.empty()
+
+
+async def test_reply_gap_is_measured_from_the_end_of_the_callers_speech():
+    leg, _ = await _leg()
+    for f in _frames(0.6, 0.9):
+        leg.on_media(f)
+    await asyncio.sleep(0.05)
+    await leg._play_audio(b"\xff" * 160, wait=False)
+    assert len(leg.reply_gaps) == 1 and 40 <= leg.reply_gaps[0] < 2000
+    await leg._play_audio(b"\xff" * 160, wait=False)  # same reply, second chunk: not counted
+    assert len(leg.reply_gaps) == 1

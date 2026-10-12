@@ -278,6 +278,8 @@ class SarvamCallLeg(TwilioCallLeg):
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
         self._loud_run = 0
         self._spec: asyncio.Future[Any] | None = None  # early speech-to-text
+        self._last_loud_t: float | None = None  # when the caller last made sound
+        self.reply_gaps: list[float] = []  # ms from "caller stopped" to "first audio queued"
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -310,6 +312,8 @@ class SarvamCallLeg(TwilioCallLeg):
                     self._spec = None
                 self._watch_for_barge_in(frame)
             else:
+                if rms(frame) >= self._segmenter.threshold:
+                    self._last_loud_t = time.perf_counter()
                 self._watch_for_early_pause(frame)
             for seg in self._segmenter.feed_pcm16(frame):
                 if self._playing and not self._barged:
@@ -337,6 +341,31 @@ class SarvamCallLeg(TwilioCallLeg):
         if dur >= self.EARLY_STT_MIN_S:
             snap = Segment(pcm, seg.sample_rate, dur, False)
             self._spec = asyncio.ensure_future(super()._transcribe(snap))
+            self._spec.add_done_callback(self._maybe_commit_early)
+
+    def _maybe_commit_early(self, fut: asyncio.Future[Any]) -> None:
+        """A short, complete-looking answer ("haan ji bataiye.") is closed as soon as its guess
+        is ready instead of waiting out the rest of the pause: saves ~300-550 ms a turn. Long
+        or unfinished speech keeps the normal wait, so nobody is cut mid-sentence."""
+        limit = getattr(self.tel_s, "early_commit_max_words", 0)
+        if not limit or fut.cancelled() or fut is not self._spec or self.hold_mode:
+            return
+        try:
+            t = fut.result()
+        except Exception:  # noqa: BLE001
+            return
+        text = (getattr(t, "text", "") or "").strip()
+        seg = self._segmenter
+        if (
+            not text
+            or not seg._active
+            or seg._silence_ms < self.EARLY_STT_SILENCE_MS
+            or len(text.split()) > limit
+            or text[-1] not in ".?!।"
+        ):
+            return
+        for done in seg.flush():
+            self._segments.put_nowait(done)
 
     async def _transcribe(self, seg: Segment) -> Transcription | None:
         spec, self._spec = self._spec, None
@@ -540,6 +569,11 @@ class SarvamCallLeg(TwilioCallLeg):
 
     async def _play_audio(self, ulaw: bytes, wait: bool = True) -> None:
         assert self._send is not None
+        if self._last_loud_t is not None:  # first audio of a reply: what the caller felt
+            gap = (time.perf_counter() - self._last_loud_t) * 1000
+            self._last_loud_t = None
+            self.reply_gaps.append(gap)
+            log.info("reply gap %.0f ms (caller stopped speaking -> first audio queued)", gap)
         for i in range(0, len(ulaw), FRAME_BYTES * 10):
             await self._send(
                 json.dumps(
@@ -669,8 +703,10 @@ class SarvamTelephony:
         enable: frozenset[str] | set[str] = frozenset(),
         disable: frozenset[str] | set[str] = frozenset(),
         short_end_silence_ms: int = 650,
+        early_commit_max_words: int = 6,
     ) -> None:
         self.short_end_silence_ms = short_end_silence_ms  # 0 = off (voice_short_end_silence_ms)
+        self.early_commit_max_words = early_commit_max_words  # 0 = off (voice_early_commit_words)
         self.enabled = frozenset(enable) & UNVERIFIED_CAPABILITIES
         self.disabled = frozenset(disable)  # ops kill switch, e.g. {"bridge_transfer"}
         self.auth_id = auth_id
@@ -1054,4 +1090,5 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
         inbound_claim_timeout_s=s.inbound_claim_timeout_s,
         disable=frozenset(getattr(s, "sarvam_disabled_capabilities", None) or ()),
         short_end_silence_ms=s.voice_short_end_silence_ms,
+        early_commit_max_words=s.voice_early_commit_words,
     )

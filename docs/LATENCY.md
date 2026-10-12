@@ -108,3 +108,23 @@ streams 8 kHz PCM straight into the call (`ElevenLabsTTS.synthesize_stream`, no 
 ElevenLabs fails, the line is spoken by Sarvam (Ritu) so the call never drops. Other settings: `FRIDAY_ELEVENLABS_MODEL` (default
 eleven_flash_v2_5), `FRIDAY_ELEVENLABS_STREAMING` (default true). Founder-chosen candidates: Zara `OtEfb2LVzIE45wdYe54M`, Neha P `X1aCu8g69vgtNfFwu68G`
 (library voices; need the paid plan). The Sarvam pronunciation dictionary does not apply to ElevenLabs; names are already sent in Devanagari.
+
+## 2026-10-12 What a caller actually feels: the "reply gap" (caller stops -> first audio of the reply)
+The old per-call report (`latency p50/p95`) only added STT + policy + TTS. It left out the end-of-speech wait and the
+send to the phone, so the real gap was longer than the log said (the 4.85 s turn was really about 5.5 s). The call leg now logs
+`reply gap N ms (caller stopped speaking -> first audio queued)` on every turn (`SarvamCallLeg.reply_gaps`). Judge speed by THIS number.
+Target: under 1 s for every turn, scripted or open.
+
+| # | Block | Today | Fix | Status |
+|---|---|---|---|---|
+| 1 | End-of-speech wait (silence before we close the utterance) | 650 ms short / 900 ms long | early commit for short complete answers (~340 ms); then semantic end-of-turn on streaming STT | early commit DONE (`FRIDAY_VOICE_EARLY_COMMIT_WORDS`, 0 = off); rest TODO |
+| 2 | Speech-to-text after the pause | REST per utterance, started 340 ms into the pause: ~0.5-1 s | Sarvam **realtime streaming STT** (`wss .../speech-to-text-realtime/ws`, saaras:v3-realtime): text is ready as the caller finishes | TODO (biggest single gain, ~0.5-0.9 s) |
+| 3 | Understanding by the model | 0.65-1.2 s (was 2.2 s on the droplet) | compact output (DONE), connection warm-up (DONE), speculative start on the early/partial transcript, faster inference host or a small trained intent classifier | partly done |
+| 4 | Next line | instant (playbook choice is code) | n/a | OK |
+| 5 | Text-to-speech first audio | cached 0 ms; uncached Sarvam 260 ms; ElevenLabs Flash 170 ms | ElevenLabs Flash streaming (DONE, opt-in); pre-render every line incl. likely branches while the phone rings | partly done |
+| 6 | Send to the phone (Vobiz queue + network) | not measured | now visible via the reply gap vs. the sum of 1-5 | measure |
+| 7 | Anything a script did not foresee | the model answers (call_turn), 1-2 s | stream the model's reply sentence by sentence into TTS (time to first token ~0.3 s), a short pre-approved acknowledgement ("ji, ek second") if it will take longer | TODO |
+
+Why not "hard-code every reply": the scripted path stays for control flow and safety (what Friday may promise), but speed comes from
+overlapping the stages (stream the speech in, start the model on the partial text, start the voice on the first words), not from adding
+rules per sentence. Early commit and the polite-reply rules only remove waiting where the answer is already obvious.
