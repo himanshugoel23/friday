@@ -4,7 +4,7 @@ Founder instruction (verbatim intent): keep everything we discuss and decide in 
 read it and continue without losing context. **At the START of every task, update this file first** (what was just
 asked, any decision, any mistake or lesson), commit and push it, **then** do the task. Never put secrets in it.
 
-Last updated: 2026-10-10 (salon v6 built; read this file first).
+Last updated: 2026-10-12 (read section 8 "START HERE" at the END of this file first: it is the newest summary).
 
 ---
 
@@ -189,3 +189,40 @@ Founder: do NOT send the user a message at every stage. Friday is outcome-based:
 ## Decision note (2026-10-12): classifier is channel-agnostic (WhatsApp AND inbound calls)
 Founder: the classifier (and project manager) must not be WhatsApp-only. Users will also CALL the Friday number; the same classifier + PM handle the spoken request. Input = text from any channel (WhatsApp text, WhatsApp voice note transcript, live call STT transcript, SMS). Call-specific needs: short utterances, STT errors, Hinglish, ask clarifying questions by voice (one short question), hand off to WhatsApp for long details (address, pin) and for the final outcome.
 - 2026-10-12 DONE (scouting): `friday/scouting/` (agents 6-12 + category table with radii, distance hard-filter rule), CLI `friday scout` / `friday scout-report`, docs/SCOUTING.md, tests/scouting (51 tests). Live smoke run of `friday scout` used the real Google key from env (a handful of calls; key never printed). Lesson: a loose name-match marked chain-style neighbours as duplicates; duplicates now need same phone or same distinctive name core within 150 m. Not yet wired: a real LLM for EvidenceLLM / TextPatternJudge.
+
+
+## 8. START HERE (newest summary, written 2026-10-12 before the chat ran out of credits)
+
+### 8.1 What the founder wants now (phase 1 = vendor calling only)
+Flow: user request (WhatsApp text/voice OR a call to the Friday number) -> Agent 1 classifier (bucket + category) -> Agent 2 project manager (clarifying questions, plan, dispatch) -> scouting (best AND near, hard radius per category) -> consent/safety gate -> voice calls to vendors -> result extraction -> comparison/booking reply on WhatsApp. Full roster of 20 single-job agents: docs/AGENT_ROSTER.md. Wave 1 = 20 categories + buckets: docs/SCOPE_BUCKETS.md. Google Places live search, NO vendor DB for now. Messaging is outcome-based: one acknowledgement, then silence until an outcome or a question only the user can answer (optional per-request updates switch, default off). Parked: MCP/app integrations (Swiggy/Zomato/others), connected apps (Gmail/Calendar), proactive/safety features, inbound random-request router, vendor DB. Vendor-side experience (vendor info page, call-back number, opt-out list) proposed, founder has not yet said yes. Brand: keep "Friday". Voice final: Ritu, pace 0.9, temp 0.9.
+
+### 8.2 Facts measured
+Google Places live search, Delhi NCR (5 areas x 20 categories): every category hit the 100-result cap; phone present 83-99%, hours present mostly (PG/rental 68%); table docs/NCR_VENDOR_COUNTS.md. Scouting `friday scout-report` live run per category still TODO (types per category are guesses).
+
+### 8.3 Builders (background agents) and their state at this moment
+1. WhatsApp quotes flow (friday/quotes/*, friday/channels/*, api, tasks; docs/WHATSAPP_QUOTES_FLOW.md): RUNNING/unfinished. Last full suite: 3 failures in tests/quotes/test_flow.py (2) and tests/api/test_pipeline.py (1). Told to remove stage-update messages (outcome-based).
+2. Vendor archetypes + category packs (friday/vendors/*, friday/playbooks/pending/*, docs/VENDOR_CALLING.md): RUNNING/unfinished. New spoken lines are PENDING, never live until the founder hears audio.
+3. Scouting agents 5-12 (friday/scouting/*, docs/SCOUTING.md): DONE, 51 tests pass. Open: real LLM for evidence/text judge not wired; Google gives max 5 reviews and no reviewer history.
+4. Classifier + project manager (friday/pm/*, docs/PROJECT_MANAGER.md): RUNNING/unfinished. Must be channel-agnostic (whatsapp_text | whatsapp_voice | call | sms), turn-based interface handle_turn(task_id, text, channel), no progress pings.
+Stop-hook note: auto "WIP: builders in progress" commits sweep unfinished builder files onto branch claude/friday-phase-1 (pushed). Nothing is promoted or live because of them.
+If the builders are gone in the new chat: read each doc above and the git log, run `uv run pytest -q` and `uv run ruff check .`, fix remaining failures, then finish the missing parts.
+
+### 8.4 First things the next chat should do
+1. Run full tests + ruff; list failures per area; finish or delegate fixes.
+2. Wire scouting into the quotes flow (call friday.scouting.pipeline.scout; ask the user before using beyond_default_radius items); connect PM to channels.
+3. Run `friday scout-report` live (limited calls) to verify Google types per category.
+4. When vendor scripts are ready: generate AUDIO of all pending lines (hear-before-change), send to founder, wait for approval before `friday playbook promote`.
+5. Show the founder all WhatsApp message texts for review.
+6. Server update and live test call (pull, alembic upgrade head, friday tts-dict sync, deploy/call-me.sh).
+
+### 8.5 Open founder decisions / questions not yet answered
+- Wave 1 list OK? Which categories live first in beta (suggest salon, clinic, AC/plumber)? Booking/reschedule/cancel only with explicit delegation? Complaints out of beta?
+- Add vendor-side experience pieces now? First supervised real vendor calls (with approval) before 30-50 users?
+- Per-request updates switch: keep (default off) or drop?
+- Onboarding places form and connected apps decisions; beta decisions in docs/BETA_LAUNCH_PLAN.md (size, domain, grievance email).
+
+### 8.6 Founder-side to-dos (not code)
+Restrict/rotate the Google key pasted in chat (and set budget alerts), type the new one into the server .env; delete leftover GitHub deploy key/token; ask Vobiz to switch call queue OFF; rotate other keys pasted earlier (Sarvam, OpenAI, Anthropic, Vobiz); check Meta WhatsApp test number and a Supabase project (Mumbai) when the DB phase starts; check Sarvam/Vobiz terms on AI disclosure.
+
+### 8.7 Standing rules (unchanged, obey)
+HEAR BEFORE CHANGE (audio first for any spoken line/voice/pace/pronunciation); update this file at the start of every task, commit, push; PUBLIC repo: no keys/tokens/passwords ever, never read or print .env, never commit .env or var/; no real calls except allow-listed founder number +918607549916 and only with approval; short chat replies, heavy work to builder agents; founder writes Hindi/Hinglish/English mixed, reply in English; do not assume pronouns.
