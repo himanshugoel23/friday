@@ -161,3 +161,8 @@ budgets). Benchmark on the playbook intent task: 10/10 correct with json_schema,
 Sarvam error/timeout (`FRIDAY_SARVAM_LLM_TIMEOUT_S`, default 3 s). `friday/brain/sarvam_llm.py`, `RoutedLLM`.
 **Streaming STT with ElevenLabs is NOT accurate enough on real phone speech** (it heard "जी यह उधर है" for "haan ji bataiye"; Sarvam REST heard it correctly):
 keep `FRIDAY_VOICE_STREAM_STT=false` until both are compared on recorded real audio.
+
+## 2026-10-12 21:39 live test call (Zara voice, Sarvam for call turns, streaming STT OFF): first sub-second replies
+`llm sarvam model=sarvam-105b-conversations ... latency_ms=305` (the same job took 2161 ms on OpenAI from this server). Reply gaps (caller stopped -> first audio queued): 624 ms, 779 ms,
+then 31 ms for a turn that needed no new caller speech; call summary `latency p50=269 ms p95=577 ms over 2 turns`; 7 turns, 24 s, no warnings. 3 measured turns only: repeat on a full
+script (price, slot) before calling it fixed. Open: the model returned 103 output tokens (full schema); a leaner prompt/schema may save another ~50-100 ms.
