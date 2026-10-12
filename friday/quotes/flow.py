@@ -52,6 +52,7 @@ from friday.quotes.models import (
     Vendor,
     VStatus,
 )
+from friday.quotes.scout_finder import ScoutingVendorFinder
 from friday.quotes.store import QuoteStore
 
 if TYPE_CHECKING:
@@ -169,8 +170,14 @@ class QuotesFlow:
     def finder(self) -> VendorFinder:
         if self._finder is None:
             s = self.settings
-            self._finder = VendorFinder(
-                self._opt("directory"),
+            directory = self._opt("directory")
+            cls = (
+                ScoutingVendorFinder
+                if s.quotes_use_scouting and ScoutingVendorFinder.usable(directory)
+                else VendorFinder
+            )
+            self._finder = cls(
+                directory,
                 cache=self._opt("cache"),
                 pool=self._opt("number_pool"),
                 radius_km=s.quotes_radius_km,

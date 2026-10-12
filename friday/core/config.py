@@ -430,6 +430,7 @@ class Settings(BaseSettings):
     # docs/WHATSAPP_QUOTES_FLOW.md: text -> questions -> shortlist -> approve -> calls -> quotes
     quotes_flow_enabled: bool = True
     quotes_radius_km: float = 5.0
+    quotes_use_scouting: bool = False  # best-and-near via friday.scouting
     quotes_max_requests_per_day: int = 3  # per user (counted when the Places search runs)
     quotes_max_places_calls_per_request: int = 8  # hard cost cap: searches + detail lookups
     quotes_places_cache_ttl_s: int = 6 * 3600
