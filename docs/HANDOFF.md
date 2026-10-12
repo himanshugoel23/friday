@@ -178,3 +178,6 @@ Orchestrator ask: build `friday/pm/` = Agent 1 classifier (closed lists, LLM beh
 
 ## Note (2026-10-12): MCP of Indian apps
 Founder asked about Zepto/Blinkit/Zomato/Swiggy MCP. Findings: Swiggy has official MCP servers (Food, Instamart, Dineout; builders page mcp.swiggy.com/builders); Zomato has an official MCP server (food ordering); Blinkit/Zepto only unofficial projects found. Idea: use these as "connected apps" tools (orders/table booking) instead of phone calls where available.
+
+## Decision note (2026-10-12): PHASE 1 = vendor calling only
+Founder: phase 1 is based on calling vendors only. Build it scalable, with proper experience for BOTH users and vendors. Out of phase 1: MCP/app integrations (Swiggy/Zomato), connected apps (Gmail/Calendar), proactive/safety features, vendor database, inbound random-request router. In: WhatsApp request -> classify -> project manager -> scout best-and-near vendors -> calls -> comparison/booking reply; vendor-side experience (respectful short calls, call-back/opt-out, calling hours, optional vendor info page); scale (queues, concurrency limits, retries, per-vendor rate limits, cost tracking, monitoring).
