@@ -61,7 +61,10 @@ def _type_ok(place: ScoutPlace, category: Category) -> bool:
         got.add(place.candidate.category)
     if not got:
         return True
-    return bool(got & set(category.expected_types))
+    if got & set(category.expected_types):
+        return True
+    name = place.candidate.name.lower()
+    return any(k in f" {name} " for k in category.name_keywords)
 
 
 def filter_eligible(

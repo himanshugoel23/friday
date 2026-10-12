@@ -27,6 +27,8 @@ class Category(BaseModel):
         5.0  # nothing beyond this is ranked best (AGENT_ROSTER distance rule)
     )
     max_radius_km: float = 10.0  # hard cap: never shown beyond this, even if the caller widens
+    # Google gives some trades only the generic type "service": accept those when the NAME says it
+    name_keywords: list[str] = Field(default_factory=list)
 
 
 def _c(key, label, queries, types, services, home_visit=False) -> Category:
@@ -552,3 +554,41 @@ def match_services(category: Category, wanted: list[str]) -> list[str]:
 
 def service_terms(category: Category, label: str) -> list[str]:
     return category.services.get(label) or [label.replace("_", " ")]
+
+
+# Measured 2026-10-12 (docs/SCOUTING.md): for these, Google's types are generic ("service"), so the
+# place name must carry one of these words (lowercase substring) as well.
+_NAME_KEYWORDS: dict[str, list[str]] = {
+    "appliance_repair": [
+        "ac ", "a.c", "air con", "appliance", "refrigerator", "fridge", "washing machine",
+        "repair", "cooling", "geyser", "microwave", "hvac", "service centre", "service center",
+    ],
+    "pest_control": ["pest", "termite", "fumigation", "disinfect", "cockroach", "rodent", "sanit"],
+    "home_repair": [
+        "plumb", "electric", "carpent", "paint", "repair", "handyman", "contractor", "interior",
+        "locksmith", "waterproof", "maintenance", "fabricat",
+    ],
+    "coaching_classes": [
+        "coaching", "classes", "academy", "tutorial", "tuition", "institute", "education",
+        "learning", "ielts", "study", "training",
+    ],
+    "driving_school": ["driving", "motor training", "car training", "learn"],
+    "event_services": [
+        "event", "decor", "wedding", "planner", "photo", "catering", "dj", "entertain", "tent",
+        "party", "balloon",
+    ],
+    "wedding_vendors": [
+        "wedding", "bridal", "bride", "makeup", "mehendi", "mehandi", "photo", "planner", "decor",
+    ],
+    "packers_movers": ["packers", "movers", "relocation", "shifting", "logistics", "transport"],
+}
+for _k, _w in _NAME_KEYWORDS.items():
+    CATEGORIES[_k].name_keywords = _w
+_EXTRA_TYPES = {
+    "appliance_repair": ["electrician", "general_contractor", "home_goods_store"],
+    "packers_movers": ["transportation_service", "shipping_service"],
+    "wedding_vendors": ["makeup_artist", "body_art_service"],
+    "event_services": ["wedding_venue", "florist"],
+}
+for _k, _t in _EXTRA_TYPES.items():
+    CATEGORIES[_k].expected_types += [t for t in _t if t not in CATEGORIES[_k].expected_types]
