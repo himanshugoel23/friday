@@ -354,6 +354,12 @@ class Settings(BaseSettings):
     sarvam_pronunciation_dict_id: str | None = None  # else var/tts/dict_id.json
     # FRIDAY_SARVAM_TTS_TEMPERATURE: bulbul:v3 expressiveness, 0.01-1.0 (founder pick: 0.9)
     sarvam_tts_temperature: float | None = Field(default=0.9, ge=0.01, le=1.0)
+    voice_stream_stt: bool = False  # Sarvam realtime streaming STT (opt-in; live-test first)
+    # auto = ElevenLabs when its key is set, else Sarvam
+    voice_stream_stt_provider: Literal["auto", "elevenlabs", "sarvam"] = "auto"
+    voice_stream_stt_language: str = "hi-IN"  # fixed on purpose: "auto" misreads Hindi partials
+    voice_stream_stt_silence_ms: int = 300  # the stream's own end-of-speech wait
+    voice_stream_stt_stable_ms: int = 220  # a partial unchanged this long may be acted on (short)
     voice_early_commit_words: int = 6  # close short complete answers early (0 = off)
     voice_short_end_silence_ms: int = 650  # close short answers sooner (0 = off; long speech 900)
     sarvam_tts_streaming: bool = True  # FRIDAY_SARVAM_TTS_STREAMING: stream uncached call lines

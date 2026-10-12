@@ -160,11 +160,14 @@ from friday.voice.audio import (
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
 from friday.voice.events import InboundCallReceived, MissedCallReceived
+from friday.voice.langs import from_vendor_code, refine_hindi
 from friday.voice.signals import block_signal
+from friday.voice.stt.sarvam_stream import BaseStreamSTT, StreamSTTConfig
+from friday.voice.stt.stream import make_stream_stt
 from friday.voice.telephony.exotel import exotel_token as _token
 from friday.voice.telephony.media import Segment
 from friday.voice.telephony.twilio import FRAME_BYTES, TwilioCallLeg
-from friday.voice.text import strip_fillers
+from friday.voice.text import detect_language, strip_fillers
 from friday.voice.tts.cache import cached_tts
 
 log = get_logger(__name__)
@@ -279,6 +282,12 @@ class SarvamCallLeg(TwilioCallLeg):
         self._loud_run = 0
         self._spec: asyncio.Future[Any] | None = None  # early speech-to-text
         self._last_loud_t: float | None = None  # when the caller last made sound
+        self._sstt: BaseStreamSTT | None = None  # streaming speech-to-text (opt-in)
+        self._sstt_ready_t: float | None = None
+        self._committed_idx = -1  # last stream utterance already handed to the call
+        self._partial_text = ""
+        self._partial_lang: str | None = None
+        self._stable_task: asyncio.Task | None = None
         self.reply_gaps: list[float] = []  # ms from "caller stopped" to "first audio queued"
 
     in_encoding = "audio/x-l16"
@@ -298,6 +307,9 @@ class SarvamCallLeg(TwilioCallLeg):
             return
         raw = base64.b64decode(payload_b64)
         if self.in_encoding == "audio/x-mulaw":
+            if self._sstt is not None and self._sstt.healthy:
+                self._sstt.feed(raw)
+                self.stt_seconds += len(raw) / 8000
             pcm = ulaw_to_pcm16(raw)
             rate = 8000
         else:  # L16 signed 16-bit; byte order undocumented, so we request mu-law (stream_xml)
@@ -327,7 +339,7 @@ class SarvamCallLeg(TwilioCallLeg):
         """Speculative speech-to-text: when the caller pauses, transcribe what they said so far
         while we wait out the rest of the pause. If they carry on, the guess is thrown away."""
         seg = self._segmenter
-        if self.hold_mode or not seg._active:
+        if self.hold_mode or not seg._active or self._stream_active():
             return
         if rms(frame) >= seg.threshold:
             if self._spec is not None:
@@ -368,6 +380,8 @@ class SarvamCallLeg(TwilioCallLeg):
             self._segments.put_nowait(done)
 
     async def _transcribe(self, seg: Segment) -> Transcription | None:
+        if self._stream_handles(seg):
+            return None  # the words come from the stream (partials / final)
         spec, self._spec = self._spec, None
         if spec is not None and not seg.forced_cut and not self.hold_mode:
             try:
@@ -377,6 +391,103 @@ class SarvamCallLeg(TwilioCallLeg):
         elif spec is not None:
             spec.cancel()
         return await super()._transcribe(seg)
+
+    # ------------------------------------------------------------------ streaming speech-to-text
+    def attach_stream(self, stream_sid: str, send: Any) -> None:
+        super().attach_stream(stream_sid, send)
+        cfg = getattr(self.tel_s, "stream_stt", None)
+        if cfg is not None and self._sstt is None and not self.bridged and not self.listen_only:
+            self._sstt = make_stream_stt(
+                cfg, on_partial=self._stt_partial, on_final=self._stt_final
+            )
+            task = asyncio.ensure_future(self._start_stream_stt())
+            self.tel_s._bg.add(task)
+            task.add_done_callback(self.tel_s._bg.discard)
+
+    async def _start_stream_stt(self) -> None:
+        sstt = self._sstt
+        if sstt is not None and await sstt.start():
+            self._sstt_ready_t = time.perf_counter()
+            log.info("stream stt ready (request %s)", sstt.request_id)
+
+    def _stream_active(self) -> bool:
+        return (
+            self._sstt is not None
+            and self._sstt.healthy
+            and self.in_encoding == "audio/x-mulaw"
+            and not self.hold_mode
+        )
+
+    def _stream_handles(self, seg: Segment) -> bool:
+        """Does the stream own this utterance? Not for hold music / forced cuts, and not for speech
+        that began before the stream was ready (its words would be cut)."""
+        if not self._stream_active() or seg.forced_cut or self._sstt_ready_t is None:
+            return False
+        started = time.perf_counter() - seg.duration_s - 1.0
+        return started >= self._sstt_ready_t
+
+    def _stt_partial(self, text: str, lang: str | None, idx: int) -> None:
+        text = text.strip()
+        if not text or idx <= self._committed_idx or self.hold_mode:
+            return
+        if text != self._partial_text:
+            self._partial_text, self._partial_lang = text, lang
+        if self._stable_task is not None:
+            self._stable_task.cancel()
+        self._stable_task = asyncio.ensure_future(self._commit_if_stable(text, idx))
+
+    async def _commit_if_stable(self, text: str, idx: int) -> None:
+        """A short answer whose partial text stopped changing is acted on now, not after the
+        server's own end-of-speech wait + finaliser (~0.9 s). Long speech waits for the final."""
+        cfg = self._sstt.cfg if self._sstt is not None else None
+        if cfg is None:
+            return
+        await asyncio.sleep(cfg.stable_ms / 1000)
+        seg = self._segmenter
+        if (
+            text != self._partial_text
+            or idx <= self._committed_idx
+            or (self._playing and not self._barged)
+            or len(text.split()) > cfg.max_words
+            or not seg._active
+            or seg._silence_ms < 200  # the caller is still making sound
+        ):
+            return
+        self._emit_stream_utterance(text, self._partial_lang, None, idx)
+
+    def _stt_final(self, text: str, lang: str | None, conf: float | None, idx: int) -> None:
+        text = text.strip()
+        if not text or idx <= self._committed_idx or self.hold_mode:
+            return
+        if self._playing and not self._barged:
+            return  # her own voice coming back down the line, not the caller
+        self._emit_stream_utterance(text, lang, conf, idx)
+
+    def _emit_stream_utterance(
+        self, text: str, lang: str | None, conf: float | None, idx: int
+    ) -> None:
+        self._committed_idx = idx
+        self._partial_text = ""
+        if self._stable_task is not None:
+            self._stable_task.cancel()
+            self._stable_task = None
+        language = refine_hindi(from_vendor_code(lang), text) or detect_language(
+            text, default=Language.HINGLISH
+        )
+        if self._last_loud_t is not None:
+            self.last_stt_ms = (time.perf_counter() - self._last_loud_t) * 1000
+        for _ in self._segmenter.flush():  # the local segment is not needed any more
+            pass
+        self._utterances.put_nowait(Transcription(text=text, language=language, confidence=conf))
+
+    def _end(self) -> None:
+        super()._end()
+        sstt, self._sstt = self._sstt, None
+        if sstt is not None:
+            with contextlib.suppress(RuntimeError):
+                task = asyncio.ensure_future(sstt.aclose())
+                self.tel_s._bg.add(task)
+                task.add_done_callback(self.tel_s._bg.discard)
 
     BARGE_IN_FRAMES = 15  # 300 ms of clearly loud speech while she talks
     BARGE_IN_LEVEL = 2.5  # times the normal speech threshold, so echo does not interrupt her
@@ -704,7 +815,9 @@ class SarvamTelephony:
         disable: frozenset[str] | set[str] = frozenset(),
         short_end_silence_ms: int = 650,
         early_commit_max_words: int = 6,
+        stream_stt: StreamSTTConfig | None = None,
     ) -> None:
+        self.stream_stt = stream_stt  # None = per-utterance REST speech-to-text only
         self.short_end_silence_ms = short_end_silence_ms  # 0 = off (voice_short_end_silence_ms)
         self.early_commit_max_words = early_commit_max_words  # 0 = off (voice_early_commit_words)
         self.enabled = frozenset(enable) & UNVERIFIED_CAPABILITIES
@@ -1066,6 +1179,25 @@ class SarvamTelephony:
         await self._http.aclose()
 
 
+def _stream_stt_config(s: Any) -> StreamSTTConfig | None:
+    if not s.voice_stream_stt:
+        return None
+    provider = s.voice_stream_stt_provider
+    if provider == "auto":
+        provider = "elevenlabs" if s.elevenlabs_api_key else "sarvam"
+    key = s.elevenlabs_api_key if provider == "elevenlabs" else s.sarvam_api_key
+    if not key:
+        return None
+    return StreamSTTConfig(
+        api_key=key.get_secret_value(),
+        provider=provider,
+        silence_ms=s.voice_stream_stt_silence_ms,
+        language_code=s.voice_stream_stt_language,
+        stable_ms=s.voice_stream_stt_stable_ms,
+        max_words=s.voice_early_commit_words or 6,
+    )
+
+
 def build_sarvam_telephony(c: Container) -> SarvamTelephony:
     s = c.settings
     if not (s.sarvam_telephony_auth_id and s.sarvam_telephony_auth_token):
@@ -1091,4 +1223,5 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
         disable=frozenset(getattr(s, "sarvam_disabled_capabilities", None) or ()),
         short_end_silence_ms=s.voice_short_end_silence_ms,
         early_commit_max_words=s.voice_early_commit_words,
+        stream_stt=_stream_stt_config(s),
     )

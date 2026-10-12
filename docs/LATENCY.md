@@ -128,3 +128,22 @@ Target: under 1 s for every turn, scripted or open.
 Why not "hard-code every reply": the scripted path stays for control flow and safety (what Friday may promise), but speed comes from
 overlapping the stages (stream the speech in, start the model on the partial text, start the voice on the first words), not from adding
 rules per sentence. Early commit and the polite-reply rules only remove waiting where the answer is already obvious.
+
+## 2026-10-12 Streaming speech-to-text: what we measured and what was built (opt-in)
+Measured from the sandbox, same clips (a "haan ji bataiye", a price, a time, a long question), seconds after the caller stopped:
+| Path | Text available at |
+|---|---|
+| Sarvam REST (today; spec starts 340 ms into the pause, ~450-550 ms call) | ~850-900 ms |
+| Sarvam realtime stream, final | ~780-900 ms (its partials keep drifting until ~730 ms; `language_code=auto` even turns Hindi partials into English) |
+| ElevenLabs Scribe v2 realtime, commit (vad 0.3 s) | 670-890 ms |
+| ElevenLabs realtime, stable partial acted on by the leg | ~200-600 ms when partials exist (2 of 4 clips), else the commit |
+So streaming is NOT a 1 s fix by itself: the typical gain is ~0-300 ms, up to ~650 ms on some turns. It is built because it is the base for the next steps.
+Built: `friday/voice/stt/{sarvam_stream,elevenlabs_stream,stream}.py` (provider-agnostic client; never raises; falls back to REST when unhealthy) and
+`SarvamCallLeg` integration (audio forwarded as mu-law 8 kHz; a partial unchanged for `FRIDAY_VOICE_STREAM_STT_STABLE_MS` (220) on a short answer
+(<= `FRIDAY_VOICE_EARLY_COMMIT_WORDS` words) is acted on at once, otherwise the commit; own-voice echo ignored; hold music and forced cuts stay on REST).
+Switches (default OFF): `FRIDAY_VOICE_STREAM_STT=true`, `FRIDAY_VOICE_STREAM_STT_PROVIDER=auto|elevenlabs|sarvam` (auto = ElevenLabs if its key is set),
+`FRIDAY_VOICE_STREAM_STT_LANGUAGE=hi-IN` (fixed on purpose; an English-only call should keep the REST path), `FRIDAY_VOICE_STREAM_STT_SILENCE_MS=300`.
+Compare with the `reply gap` log lines, stream on vs off, on the same script.
+What is left for <1 s on every turn: (a) start the model on the stable partial BEFORE the commit (speculative understanding: hides ~0.65 s of the
+model call), (b) a faster inference host or small intent classifier, (c) stream the model's words into the voice, (d) a short acknowledgement
+("ji") while a slow turn works (needs founder audio).
