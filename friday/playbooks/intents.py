@@ -40,6 +40,12 @@ class Intent(StrEnum):
     ASKS_SECRET = "ASKS_SECRET"  # OTP / PIN / card details
     STOP_CALLING = "STOP_CALLING"  # do not call us again (DNC)
     RUDE = "RUDE"  # abuse / hostile
+    # --- archetype playbooks only (vendor calling): the heuristic produces these only for a
+    # playbook that declares an ``archetype`` (salon_booking never sees them)
+    OUT_OF_STOCK = "OUT_OF_STOCK"  # khatam / stock mein nahi / not available right now
+    VISIT_NEEDED = "VISIT_NEEDED"  # aake dekhna padega: no price without seeing the job
+    WHATSAPP_PLEASE = "WHATSAPP_PLEASE"  # "WhatsApp pe bhej do" / "message kar do"
+    NO_CHARGE = "NO_CHARGE"  # free: visit free hai / demo free / koi charge nahi
     UNCLEAR = "UNCLEAR"  # could not understand / noise / silence
 
 
@@ -68,6 +74,19 @@ CONDITIONS: frozenset[str] = frozenset(
         "mode_quote",  # price check only: no slot question, nothing is booked
         "has_fallback",  # the task names a second specific time (e.g. "kal shaam 5 baje")
         "used_fallback",  # the slot in hand is that fallback time (the salon accepted it)
+        # --- archetype playbooks
+        "has_date_window",  # the task names a day / part of day
+        "estimate_known",  # a rough estimate (home-service visit) was heard
+        "price_suspect",  # a price outside the category's sane range was heard (not trusted)
+        "price_free",  # the vendor said it is free (no charge)
+        "q_delivery",  # category question switches (see QUESTION_INPUTS)
+        "q_estimate",
+        "q_today",
+        "q_arrival",
+        "q_batch",
+        "q_demo",
+        "q_brand",
+        "q_availability",
     }
 )
 
@@ -84,16 +103,27 @@ SLOT_NAMES: frozenset[str] = frozenset(
         "price_unknown",
     }
 )
+# per-category question switches (vendor packs): "yes" asks the question, "no" skips the step
+QUESTION_INPUTS: frozenset[str] = frozenset(
+    {"q_delivery", "q_estimate", "q_today", "q_arrival", "q_batch", "q_demo", "q_brand",
+     "q_availability"}
+)
+# inputs only archetype playbooks use (set from the category pack, see friday/vendors)
+ARCHETYPE_INPUTS: frozenset[str] = frozenset(
+    {"unit_phrase", "party_size", "duration_text", "price_min", "price_max", "estimate_max",
+     "category"} | QUESTION_INPUTS
+)
 INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",
      "callback_number", "honorific", "business_name", "negotiate", "explore_options",
      "business_name_spoken", "user_spoken", "services", "services_spoken", "playbook_mode",
      "fallback_when", "fallback_day"}
-)
+) | ARCHETYPE_INPUTS
 PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {"slot", "price_inr", "duration_min", "stylist"}
 
 # what the engine may write into ``set:`` of a branch (fixed values only)
 SETTABLE: frozenset[str] = frozenset(
     {"advance_needed", "price_unknown", "slot_free", "price_note", "do_not_call", "rude",
-     "wrong_number", "fallback_used"}
+     "wrong_number", "fallback_used", "visit_needed", "whatsapp_requested", "in_stock",
+     "out_of_stock", "delivery", "demo", "estimate_on_visit", "price_free", "not_available"}
 )

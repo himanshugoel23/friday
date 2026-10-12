@@ -42,6 +42,14 @@ from friday.voice.text import strip_fillers
 
 DATA_DIR = Path(__file__).with_name("data")
 SUPPORTED_VERSIONS = frozenset({1})
+# the vendor-calling archetypes (docs/VENDOR_CALLING.md); a playbook may declare one
+ARCHETYPES: tuple[str, ...] = (
+    "quote_and_slot", "stock_and_price", "home_service_visit", "table_or_venue", "rental",
+    "enquiry",
+)
+# intents only an archetype playbook may use (the salon heuristic never produces them)
+ARCHETYPE_INTENTS = frozenset({"OUT_OF_STOCK", "VISIT_NEEDED", "WHATSAPP_PLEASE", "NO_CHARGE"})
+_NOTE_KEY = re.compile(r"[a-z][a-z_]{2,29}")
 MAX_LINE_CHARS = 240
 
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
@@ -79,6 +87,8 @@ _SAMPLE: dict[str, str] = {
     "negotiate": "no", "explore_options": "no", "business_name_spoken": "Shreya saloon",
     "user_spoken": "Rahul", "services": "haircut", "services_spoken": "haircut",
     "playbook_mode": "book", "fallback_when": "kal shaam 5 baje", "fallback_day": "kal",
+    "unit_phrase": "per plate ka rate", "party_size": "4", "duration_text": "2 din ke liye",
+    "price_min": "100", "price_max": "5000", "estimate_max": "20000", "category": "restaurant",
 }  # fmt: skip
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 
@@ -150,6 +160,12 @@ class Step(_Strict):
     # input whose day word ("aaj"/"kal") a bare time heard in this step belongs to
     # (default: date_window; the fallback step uses fallback_when)
     day_input: str | None = None
+    # archetype playbooks: which value a price heard in this step is stored as
+    #   price (default)  the main price (price_inr)       estimate  a rough job estimate
+    captures: Literal["price", "estimate"] = "price"
+    # archetype playbooks: keep the vendor's words of this step (sanitised, <= 80 chars) in the
+    # result under this key (e.g. batch timings); never spoken, only reported
+    note: str | None = None
 
     @field_validator("skip_when", mode="before")
     @classmethod
@@ -213,6 +229,9 @@ class Playbook(_Strict):
     steps: dict[str, Step]
     outcomes: dict[str, OutcomeDef]
     commit_step: str | None = None  # the only step allowed to book
+    # vendor archetype (quote_and_slot, stock_and_price, ...): switches on the extended reply
+    # understanding (stock / visit / WhatsApp / per-unit prices). None = the salon behaviour.
+    archetype: str | None = None
 
     # filled by the loader, not by the file
     warnings: list[str] = Field(default_factory=list, exclude=True)
@@ -458,6 +477,27 @@ def _identity_problems(pb: Playbook) -> list[str]:
     return p
 
 
+def _archetype_problems(pb: Playbook) -> list[str]:
+    """Rules for vendor archetype playbooks (and the features only they may use)."""
+    p: list[str] = []
+    if pb.archetype is not None:
+        if pb.archetype not in ARCHETYPES:
+            p.append(f"archetype '{pb.archetype}' unknown (allowed: {', '.join(ARCHETYPES)})")
+        if pb.ai_disclosure != "on_request":
+            p.append("an archetype playbook must use ai_disclosure: on_request (founder decision)")
+    used = {i for _w, i, _a in pb.all_actions()}
+    if pb.archetype is None:
+        bad = sorted(used & ARCHETYPE_INTENTS)
+        if bad:
+            p.append(f"intents {bad} are only for archetype playbooks (set `archetype:`)")
+    for sid, st in pb.steps.items():
+        if st.captures != "price" and pb.archetype is None:
+            p.append(f"steps.{sid}: `captures` is only for archetype playbooks")
+        if st.note is not None and (pb.archetype is None or not _NOTE_KEY.fullmatch(st.note)):
+            p.append(f"steps.{sid}: `note` needs an archetype playbook and a key like batch_note")
+    return p
+
+
 def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
     """Validate a parsed playbook dict. Raises ``PlaybookError`` with ALL problems."""
     problems: list[str] = []
@@ -476,6 +516,7 @@ def validate_data(data: dict[str, Any], name: str = "playbook") -> Playbook:
         problems.append("language must be 'hinglish' (founder decision: no language switching)")
     if pb.start not in pb.steps:
         problems.append(f"start step '{pb.start}' does not exist")
+    problems += _archetype_problems(pb)
     for need in ("user_first_name",):
         if need not in pb.inputs:
             problems.append(f"inputs must declare '{need}'")

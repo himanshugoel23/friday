@@ -90,7 +90,7 @@ class QuoteStore:
             for r in rows:
                 conv, ver = _conv(r)
                 d = conv.delivery
-                if d and d.text and not d.delivered and not d.sms_sent:
+                if d and d.text and not d.delivered and not (d.sms_sent and d.voice_requested):
                     out.append((conv, ver))
                 if len(out) >= 200:
                     break
