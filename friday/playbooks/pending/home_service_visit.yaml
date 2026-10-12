@@ -191,6 +191,7 @@ steps:
     ask: [s5b_ask]
     note: availability_note
     branches:
+      UNCLEAR: {goto: S7q}
       ANY: {goto: S7q}
 
   S6:   # the arrival window

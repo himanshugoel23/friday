@@ -16,9 +16,7 @@ from .taxonomy import categories
 SLOT_KEYS = ["where", "service", "when", "budget", "for_whom", "delegation", "details"]
 
 _HINGLISH = set(
-    "hai hain kya kitna kitne karo kar do chahiye chahie mujhe mera meri mere aaj kal parso shaam "
-    "subah mein me ke ki ka liye batao bata dijiye nahi haan ji theek aur ya se tak wala wale "
-    "ghar kab abhi lega lagega milega sakte sakta".split()
+    ["hai", "hain", "kya", "kitna", "kitne", "karo", "kar", "do", "chahiye", "chahie", "mujhe", "mera", "meri", "mere", "aaj", "kal", "parso", "shaam", "subah", "mein", "me", "ke", "ki", "ka", "liye", "batao", "bata", "dijiye", "nahi", "haan", "ji", "theek", "aur", "ya", "se", "tak", "wala", "wale", "ghar", "kab", "abhi", "lega", "lagega", "milega", "sakte", "sakta"]
 )
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 
@@ -69,6 +67,9 @@ _FOR_WHOM = re.compile(
     r"\b(?:for|ke liye|ki|ka)\s+(?:my\s+|meri\s+|mere\s+|apni\s+|apne\s+)?"
     r"(mummy|mom|mother|maa|papa|dad|father|wife|biwi|husband|pati|bhai|brother|behen|sister|"
     r"friend|dost|son|daughter|beta|beti|kid|child|parents|bhabhi|boss)\b", re.I)
+_FOR_WHOM_REV = re.compile(
+    r"\b(mummy|mom|mother|maa|papa|dad|father|wife|biwi|husband|pati|bhai|brother|behen|sister|"
+    r"parents|bhabhi)\s+(?:ke liye|ki|ka|ke)\b", re.I)
 _DELEGATE_YES = re.compile(r"\b(book kar do|book kardo|book karo|book kr do|book it|please book|"
                            r"book a|book me|book my|reserve|fix kar do|book kar dijiye)\b", re.I)
 _DELEGATE_NO = re.compile(r"\b(sirf|bas|only|just)\s+(price|rate|quote|availability|pooch|puch)", re.I)
@@ -76,14 +77,7 @@ _WHERE_TRAIL = re.compile(r"((?:[\w\-]+\s+){0,3}[\w\-]+)\s+(?:mein|me|ke paas|ke
                           r"ke aas paas|near)\b", re.I)
 _WHERE_LEAD = re.compile(r"\b(?:in|near|around|at|nearby)\s+((?:[\w\-]+\s*){1,4})", re.I)
 _SECTOR = re.compile(r"\b(sector\s*\d+[a-z]?(?:\s+[a-z]+)?)", re.I)
-_STOP = set((
-    "in at on ka ki ke mein hum mujhe mera meri mere kal aaj parso shaam subah raat today tomorrow tonight the a an is "
-    "kya kitna kitne lega lagega hai hain for and aur ya to please need want chahiye book kar do "
-    "karo koi achha good best my me i we you can could would nearby near ke paas se tak "
-    "abhi ghar haan ji ok ek do teen char paanch cost price rate fee fees much how does what "
-    "salon saloon parlour doctor dentist clinic gym vet plumber electrician restaurant table "
-    "haircut beard facial service repair dj cab tailor flowers lab test"
-).split())
+_STOP = set(["in", "at", "on", "ka", "ki", "ke", "mein", "hum", "mujhe", "mera", "meri", "mere", "kal", "aaj", "parso", "shaam", "subah", "raat", "today", "tomorrow", "tonight", "the", "a", "an", "is", "kya", "kitna", "kitne", "lega", "lagega", "hai", "hain", "for", "and", "aur", "ya", "to", "please", "need", "want", "chahiye", "book", "kar", "do", "karo", "koi", "achha", "good", "best", "my", "me", "i", "we", "you", "can", "could", "would", "nearby", "near", "ke", "paas", "se", "tak", "abhi", "ghar", "haan", "ji", "ok", "ek", "do", "teen", "char", "paanch", "cost", "price", "rate", "fee", "fees", "much", "how", "does", "what", "salon", "saloon", "parlour", "doctor", "dentist", "clinic", "gym", "vet", "plumber", "electrician", "restaurant", "table", "haircut", "beard", "facial", "service", "repair", "dj", "cab", "tailor", "flowers", "lab", "test"])
 _TIMEISH = re.compile(r"^\d")
 
 
@@ -131,7 +125,7 @@ class RuleSlotExtractor:
             if m and (b := _money(m.group(1), m.group(2))) is not None:
                 out["budget"] = b
                 break
-        if (m := _FOR_WHOM.search(low)):
+        if (m := _FOR_WHOM.search(low) or _FOR_WHOM_REV.search(low)):
             out["for_whom"] = m.group(1).lower()
         if _DELEGATE_NO.search(low):
             out["delegation"] = False
@@ -173,7 +167,11 @@ def parse_answer(slot: str, text: str) -> Any | None:
     if not t:
         return None
     if kind == "yesno":
-        return parse_yes_no(t)
+        yn = parse_yes_no(t)
+        if yn is None and slot == "delegation":
+            low = t.lower()
+            yn = False if _DELEGATE_NO.search(low) else True if _DELEGATE_YES.search(low) else None
+        return yn
     if kind == "money":
         m = re.search(r"(\d[\d,]*(?:\.\d+)?)\s*(k)?\b", t.lower())
         if m:

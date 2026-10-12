@@ -321,12 +321,13 @@ class ProjectManager:
             task.status = Status.RUNNING
             return
         # consent | widen | over_budget : yes / no
+        # New slot values in the reply ("nahi, Sector 45 mein") are a change, not a yes/no.
+        before = dict(task.slots)
+        await self._apply_changes(task, text, msgs, keep_pending=True)
+        if task.slots != before:
+            return
         yn = parse_yes_no(text)
         if yn is None:
-            before = dict(task.slots)
-            await self._apply_changes(task, text, msgs, keep_pending=True)
-            if task.slots != before:
-                return
             p.unclear += 1
             self._log(task, "answer_unclear", kind=p.kind, count=p.unclear)
             if p.unclear >= 2:
@@ -447,6 +448,10 @@ class ProjectManager:
     # ------------------------------------------------------------------ slot checking and plan
 
     async def _check_slots(self, task: TaskRecord, msgs: list[str]) -> None:
+        if task.archetype == "book" and task.slots.get("delegation") is False:
+            task.archetype = "availability"   # the user said: do not book, only check
+            self._log(task, "archetype_switch", to="availability", reason="delegation_declined")
+            self._say(task, msgs, self._m(task, "switched_to_check"))
         tpl = self._template(task)
         order = plans_raw()["ask_order"]
         missing = [s for s in order if s in tpl.required and s not in task.slots]

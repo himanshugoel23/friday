@@ -112,8 +112,7 @@ async def test_book_without_delegation_never_books():
     assert t.pending and t.pending.slot == "delegation"
     r = await pm.handle_message("sirf price batao", task_id="t1")
     t = pm.store.load("t1")
-    assert t.archetype == "availability" and "switched" in " ".join(log_kinds(pm)) or \
-        "archetype_switch" in log_kinds(pm)
+    assert t.archetype == "availability" and "archetype_switch" in log_kinds(pm)
     assert t.slots["delegation"] is False
     assert r.pending_kind == "consent"
 
@@ -294,12 +293,12 @@ async def test_cancel_at_any_time():
     assert all(s.status in ("done", "skipped") for s in t.plan)
     assert "calls" not in [s for s, _ in ag.calls]
     r = await say(pm, "haan")
-    assert "closed" in r.messages[0]
+    assert "band ho chuki" in r.messages[0]
 
 
 async def test_change_replans_from_the_affected_step():
     pm, ag = make()
-    await say(pm, "salon mein slot hai kal 5 pm Indiranagar", tid=None)
+    await say(pm, "is there a slot at a salon in Indiranagar tomorrow 5 pm", tid=None)
     n_search = [s for s, _ in ag.calls].count("search")
     r = await say(pm, "actually make it tomorrow 7 pm")
     t = pm.store.load("t1")
@@ -316,7 +315,7 @@ async def test_change_after_done_is_refused_cleanly_and_new_task_needed():
     await say(pm, "haircut Sector 45 Gurgaon kitna lega", tid=None)
     await say(pm, "haan")
     r = await say(pm, "kal 7 baje")
-    assert r.status == "done" and "closed" in r.messages[0]
+    assert r.status == "done" and "band ho chuki" in r.messages[0]
 
 
 # ------------------------------------------------------------------------- persistence
@@ -360,7 +359,7 @@ async def test_step_context_has_no_free_text_scripts():
 
 async def test_guarded_rewriter():
     async def good(t, lang):
-        return "Kis area mein dekhun?"
+        return "Kis area mein dekhun? (jaise Sector 45 Gurgaon)"
 
     async def lies(t, lang):
         return "Kis area mein dekhun? Call 9999999999?"
@@ -368,13 +367,13 @@ async def test_guarded_rewriter():
     async def boom(t, lang):
         raise RuntimeError
 
-    base = "Kis area mein dekhun?"
-    assert await GuardedRewriter(good).write("where", base, "hinglish") == "Kis area mein dekhun?"
+    base = "Kis area ya locality mein dekhun? (jaise Sector 45 Gurgaon)"
+    assert await GuardedRewriter(good).write("where", base, "hinglish") == "Kis area mein dekhun? (jaise Sector 45 Gurgaon)"
     assert await GuardedRewriter(lies).write("where", base, "hinglish") == base
     assert await GuardedRewriter(boom).write("where", base, "hinglish") == base
     pm, _ = make(writer=GuardedRewriter(good))
     r = await pm.handle_message("haircut kitna lega", task_id=None)
-    assert r.messages == ["Kis area mein dekhun?"]
+    assert r.messages == ["Kis area mein dekhun? (jaise Sector 45 Gurgaon)"]
 
 
 # ------------------------------------------------------------------------- channels
@@ -408,7 +407,7 @@ async def test_call_defers_long_input_to_whatsapp():
 async def test_call_stop_is_also_sent_on_whatsapp():
     pm, _ = make()
     t = await pm.handle_turn(None, "hello", "call")
-    assert t.reply_text == "Maaf kijiye, kaunsi service chahiye?"
+    assert t.reply_text == "Sorry, what service do you need?"
     t = await pm.handle_turn(t.task_id, "kuch", "call")
     t = await pm.handle_turn(t.task_id, "pata nahi", "call")
     assert t.done and len(t.whatsapp) == 1

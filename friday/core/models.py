@@ -132,13 +132,20 @@ _HUMAN_CLAIM_RX = re.compile(
 )
 
 
-def is_pure_identity_question(text: str, user_name: str | None = None) -> bool:
+def is_pure_identity_question(
+    text: str, user_name: str | None = None, business_names: tuple[str, ...] = ()
+) -> bool:
     """True for a single question that only asks who we reached: ends with '?', no digits, and no
-    service / price / booking / appointment words, nor the user's name."""
+    service / price / booking / appointment words, nor the user's name. The business's own name
+    (``business_names``) is the thing being asked about, so task words inside it ("Cool Air
+    Services", "The Table", "24x7 Pharmacy") do not count."""
     t = (text or "").strip()
     if not t.endswith("?") or t.count("?") != 1:
         return False
-    if _TASK_WORDS.search(t):
+    bare = t
+    for n in sorted((x.strip() for x in business_names if x and x.strip()), key=len, reverse=True):
+        bare = re.sub(re.escape(n), " ", bare, flags=re.I)
+    if _TASK_WORDS.search(bare):
         return False
     return not (user_name and re.search(rf"(?<![\w]){re.escape(user_name)}(?![\w])", t, re.I))
 
@@ -1673,7 +1680,14 @@ class CallBrief(_Model):
             and not repeat
             and self.playbook
             and self.ai_disclosure in ("after_identity", "on_request")
-            and is_pure_identity_question(t, self.on_behalf_of)
+            and is_pure_identity_question(
+                t, self.on_behalf_of,
+                (
+                    self.playbook_inputs.get("business_name_spoken", ""),
+                    self.playbook_inputs.get("business_name", ""),
+                    self.target.name or "",
+                ),
+            )
         ):
             return t
         r = self.redisclosure_text
