@@ -303,9 +303,17 @@ def alert_candidate(user_id, task_id, person_id, text, at) -> NudgeCandidate:
 
 
 def morning_briefing(
-    user_id: str, profile: Profile, tasks: list[Task], facts: list[Fact], now: datetime
+    user_id: str,
+    profile: Profile,
+    tasks: list[Task],
+    facts: list[Fact],
+    now: datetime,
+    deferred: list[tuple[str, str]] | None = None,
 ) -> list[NudgeCandidate]:
-    if not profile.morning_briefing:
+    """``deferred`` = (nudge id, text) of nudges held back by the daily cap / digest-only mode:
+    they ride in this digest, which is sent even if the user never switched the briefing on."""
+    deferred = deferred or []
+    if not profile.morning_briefing and not deferred:
         return []
     local = to_ist(now)
     if not profile.briefing_hour_ist <= local.hour < profile.briefing_hour_ist + 2:
@@ -318,19 +326,20 @@ def morning_briefing(
     ]
     due = [f for f in facts if f.due_on and today <= f.due_on <= today + timedelta(days=3)]
     open_ = [t for t in tasks if not t.status.is_terminal and t.parent_task_id is None]
-    if not (appts or due or open_):
+    if not (appts or due or open_ or deferred):
         return []  # nothing to say -> skip the day (US-9.5)
     lines = [f"{t.spec.goal} at {to_ist(t.result.appointment_at):%I:%M %p}" for t in appts]
     lines += [f"{f.key.replace('_', ' ')}: {f.value} ({f.due_on})" for f in due]
+    lines += [text for _, text in deferred]
     lines += [f"open: {t.spec.goal}" for t in open_[:3]]
     return [
         _cand(
             user_id,
             kind=NudgeKind.MORNING_BRIEFING,
             category=AutonomyCategory.BRIEFING,
-            reason="; ".join(lines[:6]),
+            reason="; ".join(lines[:8]),
             due_at=now,
             dedupe_key=f"briefing:{today}",
-            data={"lines": lines[:6]},
+            data={"lines": lines[:8], "digest_ids": [i for i, _ in deferred]},
         )
     ]

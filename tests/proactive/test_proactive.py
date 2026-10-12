@@ -119,8 +119,11 @@ async def test_daily_cap_three_and_urgent_exempt(env, pe):
         await add_fact(env, f"{key}{i}", today + timedelta(days=1))
     await pe.tick()
     assert len(sent(env)) == 3
-    sup = env.repos.nudges.by_status(NudgeStatus.SUPPRESSED)
-    assert len(sup) == 1 and sup[0].reason == "daily cap reached"
+    held = [
+        n for n in env.repos.nudges.by_status(NudgeStatus.SCHEDULED)
+        if n.reason.startswith("digest:")
+    ]
+    assert len(held) == 1 and "daily cap reached" in held[0].reason  # founder rule: -> digest
     await add_task(env, appt=env.clock.now() + timedelta(minutes=60))
     await pe.tick()
     assert len(sent(env)) == 4  # urgent reminder exempt
@@ -395,7 +398,9 @@ def test_guardrail_unit_order(env_settings):
         == "suppress"
     )
     day = ist(2026, 1, 5, 12, 0)
-    assert evaluate(c, now=day, settings=env_settings, sent_today=3).reason == "daily cap reached"
+    over = evaluate(c, now=day, settings=env_settings, sent_today=3)
+    assert over.action == "digest" and over.reason == "daily cap reached"
+    assert over.send_at is not None and over.send_at > day
     urgent = c.model_copy(update={"urgency": Urgency.URGENT})
     assert (
         evaluate(urgent, now=day, settings=env_settings, sent_today=3, ignore_streak=5).action
@@ -416,3 +421,63 @@ async def test_loop_start_stop_and_factory(env, pe, env_settings):
     from friday.core.container import Container
 
     assert type(Container(env_settings).proactive).__name__ == "ProactiveEngine"
+
+
+async def test_over_cap_nudge_rides_the_next_morning_digest(env, pe):
+    """Founder rule: 3 messages a day, the rest in ONE morning digest."""
+    today = to_ist(env.clock.now()).date()
+    for i, key in enumerate(["rent_due", "emi_due", "bill_due", "fee_due"]):
+        await add_fact(env, f"{key}{i}", today + timedelta(days=1))
+    await pe.tick()
+    assert len(sent(env)) == 3
+    held = [n for n in env.repos.nudges.by_status(NudgeStatus.SCHEDULED)
+            if n.reason.startswith("digest:")]
+    assert len(held) == 1
+    tomorrow = today + timedelta(days=1)
+    env.clock.set(ist(tomorrow.year, tomorrow.month, tomorrow.day, 8, 5))
+    out = await pe.tick()
+    brief = [n for n in out if n.kind == NudgeKind.MORNING_BRIEFING]
+    assert len(brief) == 1  # sent even though the user never switched the briefing on
+    assert env.repos.nudges.items[held[0].id].status == NudgeStatus.SENT
+    assert "digest" in env.repos.nudges.items[held[0].id].reason
+
+
+async def test_digest_only_mode_sends_no_separate_nudges(env, pe):
+    pe.settings.proactive_digest_only = True
+    today = to_ist(env.clock.now()).date()
+    await add_fact(env, "rent_due", today + timedelta(days=1))
+    await pe.tick()
+    assert not [n for n in sent(env) if n.kind == NudgeKind.DATE_BASED]
+    assert [n for n in env.repos.nudges.by_status(NudgeStatus.SCHEDULED)
+            if n.reason.startswith("digest:")]
+
+
+# ------------------------------------------------------------------ vendor-lifecycle triggers
+async def test_vendor_cadence_open_quotes_and_unanswered(env, pe):
+    from friday.core.models import Delegation
+    from friday.tasks.engine import ROLE_VENDOR_QUOTE
+
+    now = env.clock.now()
+    salon = TaskSpec(type=TaskType.BOOKING, goal="Haircut", category="salon")
+    # a booked haircut 4 weeks ago -> cadence nudge
+    await add_task(env, appt=now - timedelta(days=28), spec=salon,
+                   created=now - timedelta(days=29))
+    cands = await pe.candidates(env.user.id)
+    assert any(c.dedupe_key.startswith("cadence:salon") for c in cands)
+    # quote-only calls 24 h ago: one with a price, one no answer -> open-quotes (not unanswered)
+    ac = TaskSpec(type=TaskType.BOOKING, goal="AC repair", category="appliance_repair")
+    for outcome in (CallOutcome.SUCCESS, CallOutcome.NO_ANSWER):
+        t = await add_task(env, spec=ac, created=now - timedelta(hours=24), role=ROLE_VENDOR_QUOTE)
+        t.last_outcome = outcome
+        await env.repos.tasks.save(t)
+    keys = [c.dedupe_key for c in await pe.candidates(env.user.id)]
+    assert any(k.startswith("openquotes:appliance_repair") for k in keys)
+    assert not any(k.startswith("unanswered:appliance_repair") for k in keys)
+    # only no-answers for another category -> retry offer
+    pest = TaskSpec(type=TaskType.BOOKING, goal="Pest control", category="pest_control")
+    t = await add_task(env, spec=pest, created=now - timedelta(hours=24), role=ROLE_VENDOR_QUOTE)
+    t.last_outcome = CallOutcome.NO_ANSWER
+    await env.repos.tasks.save(t)
+    keys = [c.dedupe_key for c in await pe.candidates(env.user.id)]
+    assert any(k.startswith("unanswered:pest_control") for k in keys)
+    assert Delegation  # imported to show quote tasks carry no delegation

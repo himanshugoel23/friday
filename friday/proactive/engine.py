@@ -41,7 +41,7 @@ from friday.core.models import (
 )
 from friday.core.scale import Job, JobPriority, MemoryLock, worker_id
 from friday.core.templates import first_name_param, make_template
-from friday.proactive import triggers
+from friday.proactive import triggers, vendor_triggers
 from friday.proactive.guardrails import CAP_EXEMPT_KINDS, Verdict, evaluate
 from friday.proactive.retention import RetentionJob
 from friday.tasks.categories import autonomy_for
@@ -53,6 +53,8 @@ from friday.tasks.ports import call_opt, repo
 log = get_logger(__name__)
 
 NUDGE_KINDS = ("nudge.evaluate", "nudge.send")
+DIGEST_PREFIX = "digest:"  # Nudge.reason of a nudge waiting for the morning digest
+DIGEST_MAX_LINES = 8
 
 
 def shard_of(user_id: str, shards: int) -> int:
@@ -270,12 +272,37 @@ class ProactiveEngine:
             *triggers.recurring_due(user_id, tasks, now),
             *triggers.stay_reminders(user_id, tasks, now),
             *triggers.wellbeing_alerts(user_id, tasks),
+            *vendor_triggers.category_cadence(user_id, tasks, now),
+            *vendor_triggers.open_quotes(user_id, tasks, now),
+            *vendor_triggers.unanswered_vendors(user_id, tasks, now),
         ]
+        deferred = await self._digest_waiting(user_id)
         if profile is not None:
-            out += triggers.morning_briefing(user_id, profile, tasks, facts, now)
+            out += triggers.morning_briefing(
+                user_id, profile, tasks, facts, now,
+                deferred=[(n.id, n.text or n.reason) for n in deferred],
+            )
         # rank: safety > urgent > normal, earliest due first (US-10.2 #6)
         order = {Urgency.SAFETY: 0, Urgency.URGENT: 1, Urgency.NORMAL: 2}
         return sorted(out, key=lambda c: (order[c.urgency], c.due_at))
+
+    async def _digest_waiting(self, user_id: str) -> list[Nudge]:
+        """Nudges held back for the morning digest (oldest first, still relevant)."""
+        held = [
+            n
+            for n in await self._history(user_id)
+            if n.status == NudgeStatus.SCHEDULED and n.reason.startswith(DIGEST_PREFIX)
+        ]
+        return sorted(held, key=lambda n: n.created_at)[:DIGEST_MAX_LINES] if held else []
+
+    async def _mark_digested(self, user_id: str, ids: list[str]) -> None:
+        """After the briefing went out: the nudges whose lines it carried count as delivered."""
+        now = self.clock.now()
+        for n in await self._digest_waiting(user_id):
+            if n.id in set(ids):
+                n.status, n.sent_at = NudgeStatus.SENT, now
+                n.reason = "delivered in the morning digest"
+                await self._store(n)
 
     async def _on_alert(self, ev: WellbeingAlertRaised) -> None:
         cand = triggers.alert_candidate(ev.user_id, ev.task_id, ev.person_id, ev.text, ev.at)
@@ -308,6 +335,13 @@ class ProactiveEngine:
         )
         if verdict.action == "suppress":
             nudge.status = NudgeStatus.SUPPRESSED
+            return await self._store(nudge)
+        if verdict.action == "digest":
+            # founder rule: over the daily cap (or digest-only) -> a line of the morning digest
+            nudge.status = NudgeStatus.SCHEDULED
+            nudge.scheduled_for = verdict.send_at
+            nudge.text = cand.reason
+            nudge.reason = f"{DIGEST_PREFIX}{verdict.reason}"
             return await self._store(nudge)
         if verdict.action == "schedule":
             nudge.status = NudgeStatus.SCHEDULED
@@ -360,10 +394,12 @@ class ProactiveEngine:
         if recipient:
             person = await call_opt(repo(self.repos, "people"), "get", recipient)
             consent_ok = bool(person and person.contact_consent == PersonConsent.OPTED_IN)
+        profile = await call_opt(repo(self.repos, "profiles"), "get", cand.user_id)
         return evaluate(
             cand,
             now=now,
             settings=self.settings,
+            briefing_hour_ist=getattr(profile, "briefing_hour_ist", 8) if profile else 8,
             autonomy=autonomy_for(autonomy or [], cand.category),
             sent_today=sent_today,
             ignore_streak=streak,
@@ -424,6 +460,8 @@ class ProactiveEngine:
                 [first_name_param(ctx.profile.name if ctx.profile else None), text[:900]],
             ),
         )
+        if cand.kind == NudgeKind.MORNING_BRIEFING and cand.data.get("digest_ids"):
+            await self._mark_digested(cand.user_id, list(cand.data["digest_ids"]))
         return nudge
 
     def _buttons(
@@ -472,6 +510,8 @@ class ProactiveEngine:
                 if n.status == NudgeStatus.SCHEDULED and n.scheduled_for and n.scheduled_for <= now
             ]
         for n in due:
+            if n.reason.startswith(DIGEST_PREFIX):
+                continue  # delivered inside the morning digest, never on its own
             if self.owns(n.user_id):
                 await self._enqueue(
                     "nudge.send", user_id=n.user_id, dedupe=f"nudge.send:{n.id}", nudge_id=n.id

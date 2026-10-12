@@ -33,8 +33,10 @@ async def test_proactive_daily_cap_is_three_per_ist_day(friday, rahul):
     repo = friday.c.repos.nudges
     user = await rahul.user_row()
     all_n = await repo.list_for_user(user.id)
-    suppressed = [n for n in all_n if n.status == NudgeStatus.SUPPRESSED]
-    assert len(suppressed) == 1 and "cap" in (suppressed[0].reason or "")
+    # founder rule (2026-10-12): the 4th is not dropped, it waits for the morning digest
+    held = [n for n in all_n if n.status == NudgeStatus.SCHEDULED]
+    assert len(held) == 1 and (held[0].reason or "").startswith("digest:")
+    assert "cap" in held[0].reason
     # no nudge is a dead end: each carries a way to postpone or dismiss it
     assert all(len(m.buttons) == 3 for m in nudges)
 

@@ -472,7 +472,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
     proactive_tick_s: int = 60
-    proactive_daily_cap: int = 3  # unprompted msgs per IST day (urgent exempt)
+    proactive_daily_cap: int = 3  # unprompted msgs/IST day; extras -> digest
+    proactive_digest_only: bool = False  # True: only one morning digest
     quiet_hours_start: int = 22  # IST hour, inclusive
     quiet_hours_end: int = 8  # IST hour, exclusive
     morning_briefing_hour: int = 8  # IST
