@@ -425,6 +425,10 @@ def main(argv: list[str] | None = None) -> int:
     say.add_argument("text")
     say.add_argument("--out", default="var/preview/say.wav")
     say.add_argument("--pace", type=float, default=None, help="0.5-2.0 (default: the setting)")
+    say.add_argument("--provider", choices=["sarvam", "elevenlabs"], default="sarvam",
+                     help="which voice vendor (elevenlabs needs ELEVENLABS_API_KEY + _VOICE_ID)")
+    say.add_argument("--phone", action="store_true",
+                     help="8 kHz mu-law round trip: what the business hears on a phone call")
     sub.add_parser("doctor", help="read-only, free checks for the laptop live test")
     live = sub.add_parser("livecall", help="place ONE real test call to an allow-listed number")
     live.add_argument("--to", required=True, help="your own phone, E.164 e.g. +919812345678")
@@ -558,15 +562,39 @@ def main(argv: list[str] | None = None) -> int:
 
         _c = _C()
         _c.settings = settings
-        tts = build_sarvam_tts(_c)  # type: ignore[arg-type]
+        if args.provider == "elevenlabs":
+            from friday.core.container import Container
+            from friday.voice.tts.elevenlabs import build_elevenlabs_tts
+
+            tts = build_elevenlabs_tts(Container(settings))
+        else:
+            tts = build_sarvam_tts(_c)  # type: ignore[arg-type]
         voice = tts.voice_for(Language.HINGLISH)
         if args.pace:
             voice = voice.model_copy(update={"speaking_rate": args.pace})
         clip = _aio.run(tts.synthesize(args.text, Language.HINGLISH, voice=voice))
+        data = clip.data
+        if args.phone:  # what the line carries: 8 kHz, mu-law (G.711) squeezed and expanded
+            from friday.voice.audio import (
+                clip_to_pcm16,
+                pcm16_to_ulaw,
+                pcm16_to_wav,
+                resample_pcm16,
+                ulaw_to_pcm16,
+            )
+
+            decoded = clip_to_pcm16(clip)
+            if decoded is None:
+                print("cannot decode this clip for --phone")
+                return 1
+            pcm, rate = decoded
+            narrow = ulaw_to_pcm16(pcm16_to_ulaw(resample_pcm16(pcm, rate, 8000)))
+            data = pcm16_to_wav(narrow, 8000)
         out = _P(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(clip.data)
-        print(f"wrote {out} (pace {voice.speaking_rate}, dictionary {tts.dict_id or 'none'})")
+        out.write_bytes(data)
+        print(f"wrote {out} ({args.provider}{', phone quality' if args.phone else ''}, "
+              f"pace {voice.speaking_rate}, dictionary {getattr(tts, 'dict_id', None) or 'none'})")
         return 0
     setup_logging(settings.log_level, settings.log_json)
     if args.cmd == "review":
