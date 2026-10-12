@@ -309,12 +309,13 @@ class TwilioCallLeg:
 
     def _deliver(self, t: Transcription) -> None:
         """Hand an utterance to the call loop, once. The same words twice within ~1.5 s are one
-        sentence heard by two paths (short acks like "haan haan" are real repeats, never dropped) (a stream result and a per-utterance one, or a retried STT),
-        and answering both would make Friday repeat herself."""
+        sentence heard by two paths (a stream result and a per-utterance one, or a retried STT),
+        and answering both would make Friday repeat herself. Short acks ("haan haan") are kept."""
         key = re.sub(r"\W+", " ", (t.text or "").lower()).strip()
         now = time.perf_counter()
         last = getattr(self, "_last_utt", None)
-        if len(key.split()) >= 3 and not self.hold_mode and last is not None and last[0] == key and now - last[1] < self.DUP_WINDOW_S:
+        same = last is not None and last[0] == key and now - last[1] < self.DUP_WINDOW_S
+        if len(key.split()) >= 3 and not self.hold_mode and same:
             log.info("dropped a duplicate utterance (%s)", key[:30])
             return
         self._last_utt = (key, now)
