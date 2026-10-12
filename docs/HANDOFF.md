@@ -256,3 +256,5 @@ friday/pm/ built: classifier (104 labelled examples; offline baseline 104/104 is
 
 - 2026-10-12 founder ask (new chat): pick up pending next actions from 8.4 (full tests + ruff, fix failures, wire scouting/PM, finish missing parts). Starting with tests/ruff.
 - 2026-10-12 DONE (this chat): full suite 2222 passed + ruff clean (earlier failures were already fixed). Scouting wired into the quotes flow: `friday/quotes/scout_finder.py` (`ScoutingVendorFinder`, same interface as `VendorFinder`), switch `FRIDAY_QUOTES_USE_SCOUTING` (default false; needs the real Google directory; beyond-default-radius vendors are never shown until the flow can ask the user). Tests: tests/quotes/test_scout_finder.py. Not yet live-tested. NEXT: PM-to-channels adapter, `friday scout-report` live run, audio of pending lines, WhatsApp copy review, server update + test call.
+
+- 2026-10-12 founder ask: use the Google key (shown in a screenshot) for a live scout-report now; founder rotates it later. Used only as an inline env var for one command, never written to a file or the repo.
