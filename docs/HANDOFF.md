@@ -169,3 +169,6 @@ Founder/orchestrator ask: build `friday/scouting/` = place searcher, eligibility
 
 ## Decision note (2026-10-12): Delhi NCR vendor-count research
 Founder asked: run the 20 Wave 1 categories in Delhi NCR only and see how many vendors Google returns. Script in scratchpad (not committed), results summarized in docs/NCR_VENDOR_COUNTS.md.
+
+## Decision note (2026-10-12): nearest AND best, and a Project Manager agent
+Founder: "best" must never be far away (no 100 km or 10 km best). Distance is a HARD limit per category (default radius, widened step by step only up to a hard max, and the user is told/asked before showing anything beyond the default). Agent 1 = classifier (bucket + category). Agent 2 = PROJECT MANAGER: asks clarifying questions when the request is unclear, identifies bucket/category, builds the plan and starts the other agents. Founder invites brainstorming on the framework. Spec: docs/AGENT_ROSTER.md section "Project manager and distance rule".
