@@ -272,6 +272,7 @@ class SarvamCallLeg(TwilioCallLeg):
         # Phone speech has pauses: wait longer before closing an utterance, and do not chop a
         # person mid-sentence (the 6 s cut is only for hold music).
         self._segmenter.end_silence_ms = 900
+        self._segmenter.short_end_silence_ms = getattr(tel, "short_end_silence_ms", 0)
         self._segmenter.max_continuous_ms = 20000
         self._playing = False  # Friday's voice is on the line
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
@@ -667,7 +668,9 @@ class SarvamTelephony:
         transport: httpx.AsyncBaseTransport | None = None,
         enable: frozenset[str] | set[str] = frozenset(),
         disable: frozenset[str] | set[str] = frozenset(),
+        short_end_silence_ms: int = 650,
     ) -> None:
+        self.short_end_silence_ms = short_end_silence_ms  # 0 = off (voice_short_end_silence_ms)
         self.enabled = frozenset(enable) & UNVERIFIED_CAPABILITIES
         self.disabled = frozenset(disable)  # ops kill switch, e.g. {"bridge_transfer"}
         self.auth_id = auth_id
@@ -1050,4 +1053,5 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
         record=s.call_record,
         inbound_claim_timeout_s=s.inbound_claim_timeout_s,
         disable=frozenset(getattr(s, "sarvam_disabled_capabilities", None) or ()),
+        short_end_silence_ms=s.voice_short_end_silence_ms,
     )

@@ -68,3 +68,11 @@ it does not include the 0.9 s end-of-speech wait or playback.
 - Streaming STT: STT is one REST call per utterance (plus the speculative early call). A streaming STT would
   remove most of step 2 after the caller stops.
 - Pre-render more lines while the phone rings (already done for the fixed script lines).
+
+## 2026-10-12: shorter end-of-speech wait for short answers
+`UtteranceSegmenter.short_end_silence_ms` (setting `FRIDAY_VOICE_SHORT_END_SILENCE_MS`, default 650, 0 = off): when the
+caller's speech so far is 1.5 s or less (a "haan ji", "nahi", a price), the utterance closes after 650 ms of silence
+instead of 900 ms, saving about 250 ms on every short turn. Long sentences keep the 900 ms wait, so people who pause
+mid-sentence are not cut. NOT tested on a live call: listen for chopped answers on the next test call and set the
+value to 0 if it happens. Remaining levers: streaming STT (needs Sarvam's streaming STT API), starting TTS of the
+likely next line while the vendor is still speaking.

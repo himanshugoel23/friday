@@ -30,6 +30,9 @@ class UtteranceSegmenter:
     noise_multiplier: float = 3.0
     start_frames: int = 3
     end_silence_ms: int = 700
+    # Short answers ("haan ji", "nahi") close sooner: saves ~250 ms on every yes/no turn.
+    short_end_silence_ms: int = 0  # 0 = off
+    short_utterance_ms: int = 1500
     max_continuous_ms: int = 6000
     noise_floor: float = 200.0
     _buf: bytearray = field(default_factory=bytearray)
@@ -62,7 +65,10 @@ class UtteranceSegmenter:
         self._buf += pcm
         self._silence_ms = 0 if loud else self._silence_ms + FRAME_MS
         dur_ms = len(self._buf) // 2 * 1000 // self.sample_rate
-        if self._silence_ms >= self.end_silence_ms:
+        end_ms = self.end_silence_ms
+        if self.short_end_silence_ms and dur_ms - self._silence_ms <= self.short_utterance_ms:
+            end_ms = min(end_ms, self.short_end_silence_ms)  # only the speech counts, not the wait
+        if self._silence_ms >= end_ms:
             out.append(self._emit(forced=False))
         elif dur_ms >= self.max_continuous_ms:
             out.append(self._emit(forced=True))
