@@ -103,5 +103,5 @@ async def test_llm_classifier_repairs_once_then_unsure():
     assert (await c.classify("x")).bucket == "quote" and c.repairs == 1
     c2 = LLMClassifier(FakeLLM(["garbage", '{"bucket":"zzz"}']))
     assert await c2.classify("x") == Classification.unsure()
-    c3 = LLMClassifier(FakeLLM([ProviderError("boom")]))
+    c3 = LLMClassifier(FakeLLM([ProviderError("openai", "boom")]))
     assert (await c3.classify("x")).confidence == 0.0
