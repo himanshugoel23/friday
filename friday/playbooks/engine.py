@@ -48,6 +48,7 @@ from friday.playbooks.understand import (
     Understander,
     Understanding,
     asks_if_ai,
+    ground,
     heuristic,
     is_stop_request,
 )
@@ -146,6 +147,7 @@ class CallState:
     first_at: datetime | None = None
     after_hold: bool = False
     last_friday: str = ""
+    said_norm: list[str] = field(default_factory=list)  # her recent lines (repeat guard)
     last_was_commit: bool = False
     commit_blocked: bool = False
     commit_slot: str | None = None
@@ -608,7 +610,7 @@ class PlaybookPolicy:
             return h
         if is_stop_request(reply):
             return Understanding(intent=Intent.STOP_CALLING.value, confident=True)
-        u = u.normalised()
+        u = ground(u.normalised(), reply)  # nothing the vendor did not say survives
         if u.intent == Intent.UNCLEAR.value and h.intent != Intent.UNCLEAR.value and h.confident:
             return h
         return u
@@ -906,7 +908,27 @@ class PlaybookPolicy:
         return self._say(c, text)
 
     # ------------------------------------------------------------------ results
+    @staticmethod
+    def _norm_line(text: str) -> str:
+        return re.sub(r"\W+", " ", (text or "").lower()).strip()
+
     def _say(self, c: Ctx, text: str) -> CallAction:
+        """Every spoken line goes through here: Friday never says the same line over and over.
+        The same line twice in a row is allowed once (the vendor asked her to repeat or did not
+        hear); a third time (or the same line 3 times in the last 6) ends the call politely."""
+        st, pb = c.st, c.pb
+        n = self._norm_line(text)
+        recent = st.said_norm[-6:]
+        run = 0
+        for prev in reversed(st.said_norm):
+            if prev != n:
+                break
+            run += 1
+        if n and (run >= 2 or recent.count(n) >= 3) and not st.finished:
+            log.info("repeat guard: ending instead of saying the same line again (%s)", n[:40])
+            st.flags["repeat_guard"] = "yes"
+            return self._end(c, pb.confusion.outcome, [], gave_up=True)
+        st.said_norm.append(n)
         return CallAction(
             type=CallActionType.SAY,
             text=text,

@@ -303,7 +303,22 @@ class TwilioCallLeg:
                 log.warning("twilio leg STT failed: %r", e)
                 continue
             if t is not None:
-                self._utterances.put_nowait(t)
+                self._deliver(t)
+
+    DUP_WINDOW_S = 1.5
+
+    def _deliver(self, t: Transcription) -> None:
+        """Hand an utterance to the call loop, once. The same words twice within ~1.5 s are one
+        sentence heard by two paths (a stream result and a per-utterance one, or a retried STT),
+        and answering both would make Friday repeat herself."""
+        key = re.sub(r"\W+", " ", (t.text or "").lower()).strip()
+        now = time.perf_counter()
+        last = getattr(self, "_last_utt", None)
+        if key and last is not None and last[0] == key and now - last[1] < self.DUP_WINDOW_S:
+            log.info("dropped a duplicate utterance (%s)", key[:30])
+            return
+        self._last_utt = (key, now)
+        self._utterances.put_nowait(t)
 
     async def _transcribe(self, seg: Segment) -> Transcription | None:
         clip = AudioClip(

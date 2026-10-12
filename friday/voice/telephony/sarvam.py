@@ -478,7 +478,7 @@ class SarvamCallLeg(TwilioCallLeg):
             self.last_stt_ms = (time.perf_counter() - self._last_loud_t) * 1000
         for _ in self._segmenter.flush():  # the local segment is not needed any more
             pass
-        self._utterances.put_nowait(Transcription(text=text, language=language, confidence=conf))
+        self._deliver(Transcription(text=text, language=language, confidence=conf))
 
     def _end(self) -> None:
         super()._end()

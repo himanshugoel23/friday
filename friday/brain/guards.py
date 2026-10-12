@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from typing import Any
 
 from friday.core.clock import utcnow
 from friday.core.models import (
@@ -268,7 +269,43 @@ def callback_action(brief: CallBrief, out: CallActionOut, reason: str) -> CallAc
     )
 
 
-def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswer]) -> CallAction:
+def _heard_and_known(brief: CallBrief, transcript: Any) -> str:
+    """What a spoken number may legitimately come from: the brief and the whole conversation."""
+    turns = getattr(transcript, "turns", None) or []
+    return norm(brief.model_dump_json() + " " + " ".join(t.text or "" for t in turns))
+
+
+def ungrounded_numbers(text: str, brief: CallBrief, transcript: Any) -> list[str]:
+    """Prices/amounts (>= 10) and clock times Friday is about to SAY that appear nowhere in the
+    brief or the conversation: a made-up price or time. Small counts ("ek minute") are fine."""
+    from friday.playbooks import slots as sl
+
+    known = _heard_and_known(brief, transcript)
+    known_nums = {v for v, _s, _e in sl.words_to_numbers(known)}
+    bad = [str(v) for v, _s, _e in sl.words_to_numbers(text) if v >= 10 and v not in known_nums]
+    known_times = {(p.hour24 % 12, p.minute) for p in sl.parse_times(known, limit=50)}
+    for p in sl.parse_times(text, limit=6):
+        if (p.hour24 % 12, p.minute) not in known_times:
+            bad.append(p.text)
+    return bad
+
+
+def repeats_last_line(text: str, transcript: Any) -> int:
+    """How many of Friday's last lines are the same as ``text`` (0 = fresh)."""
+    key = re.sub(r"\W+", " ", (text or "").lower()).strip()
+    n = 0
+    for t in reversed(getattr(transcript, "turns", None) or []):
+        if getattr(t.speaker, "value", t.speaker) != "friday":
+            continue
+        if re.sub(r"\W+", " ", (t.text or "").lower()).strip() != key:
+            break
+        n += 1
+    return n
+
+
+def to_call_action(
+    out: CallActionOut, brief: CallBrief, answers: list[UserAnswer], transcript: Any = None
+) -> CallAction:
     """Validate + guard a wire action and convert it to the core ``CallAction``."""
     text = strip_fillers(out.text)
     quote = quote_from(out.quote, brief)
@@ -305,6 +342,15 @@ def to_call_action(out: CallActionOut, brief: CallBrief, answers: list[UserAnswe
         # report it as an offer (call-back route) or as partial info, never as booked
         out.outcome = CallOutcome.PENDING_APPROVAL if quote is not None else CallOutcome.PARTIAL
         collected["guard"] = "unapproved_success_downgraded"
+
+    # ---- she never invents a price or a time, and never says the same thing again and again
+    speaks = out.type in (CallActionType.SAY, CallActionType.ASK_USER)
+    if text and transcript is not None and speaks:
+        invented = ungrounded_numbers(text, brief, transcript)
+        if invented:
+            return _safe_alternative(brief, out, f"ungrounded number(s) {invented}")
+        if repeats_last_line(text, transcript) >= 2:
+            return callback_action(brief, out, "repeating_herself")
 
     # ---- safety on speech / keys
     if text and out.type in (

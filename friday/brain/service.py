@@ -906,7 +906,7 @@ class FridayBrain:
                 task_id=brief.task_id,
                 fallback=fallback,
             )
-        action = guards.to_call_action(out, brief, list(answers))
+        action = guards.to_call_action(out, brief, list(answers), transcript)
         learned = learn_ivr_map(transcript, brief)
         if learned is not None and "ivr_map" not in action.collected:
             action.collected["ivr_map"] = learned.to_note()

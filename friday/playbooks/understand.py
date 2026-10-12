@@ -23,8 +23,11 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
+from friday.core.logging import get_logger
 from friday.playbooks import slots as sl
 from friday.playbooks.intents import INTENTS, Intent
+
+log = get_logger(__name__)
 
 SYSTEM_PROMPT = """You classify ONE reply from a business (salon, shop, clinic, restaurant, repair
 service, rental...) on a phone call.
@@ -108,6 +111,65 @@ class Understander(Protocol):
         self, *, reply: str, friday_said: str, step: str, allowed: list[str], known: dict[str, Any],
         task_id: str | None = None,
     ) -> Understanding: ...
+
+
+# --------------------------------------------------------------------------- grounding
+_K_NUM = re.compile(r"(\d+(?:\.\d+)?)\s*k\b")
+
+
+def _numbers_heard(reply: str) -> set[int]:
+    """Every number in the vendor's own words: digits, Hindi/Hinglish number words, "5k"."""
+    t = sl.normalise(reply)
+    nums = {v for v, _s, _e in sl.words_to_numbers(t)}
+    nums |= {int(float(m.group(1)) * 1000) for m in _K_NUM.finditer(t)}
+    return nums
+
+
+def ground(u: Understanding, reply: str) -> Understanding:
+    """Anti-hallucination for MODEL output: a price, deposit, duration, time or name the model
+    "found" must really be in the vendor's words, else it is dropped (the script then simply asks
+    again). Deterministic ``heuristic()`` output is built from the words and needs no check."""
+    heard = _numbers_heard(reply)
+    low = sl.normalise(reply)
+    drop: dict[str, Any] = {}
+    for f in ("price_inr", "price_low_inr", "deposit_inr"):
+        v = getattr(u, f)
+        if v is not None and v not in heard:
+            drop[f] = None
+    if u.duration_min is not None and not (
+        u.duration_min in heard
+        or (u.duration_min % 60 == 0 and u.duration_min // 60 in heard)
+        or (u.duration_min == 30 and re.search(r"aadha ghanta|half an hour|आधा घंटा", low))
+    ):
+        drop["duration_min"] = None
+    spoken = {(p.hour24 % 12, p.minute) for p in sl.parse_times(reply, limit=8)}
+    frac_words = r"saade|sadhe|saadhe|half|aadha|sawa|paune|quarter|साढ़े|सवा|पौने"
+    fractions = bool(re.search(frac_words, low))
+
+    def _heard_time(pt: sl.ParsedTime) -> bool:
+        if (pt.hour24 % 12, pt.minute) in spoken:
+            return True
+        # "shaam chhe" (no "baje"): the hour (and minutes) must be numbers the vendor said
+        hour_said = (pt.hour24 % 12 or 12) in heard or pt.hour24 in heard or pt.hour24 % 12 in heard
+        minute_ok = (
+            pt.minute == 0 or pt.minute in heard or (pt.minute in (15, 30, 45) and fractions)
+        )
+        return hour_said and minute_ok
+
+    keep_times: list[str] = []
+    for t in [u.time, *u.alt_times]:
+        pt = sl.parsed_from_clean(t) if t else None
+        if t and pt is not None and _heard_time(pt):
+            keep_times.append(t)
+    if [t for t in [u.time, *u.alt_times] if t] != keep_times:
+        drop["time"] = keep_times[0] if keep_times else None
+        drop["alt_times"] = keep_times[1:3]
+    if u.stylist and u.stylist.lower() not in low:
+        drop["stylist"] = None
+    if drop:
+        log.info("grounding dropped model values not in the vendor's words: %s", sorted(drop))
+        return u.model_copy(update=drop)
+    return u
 
 
 # --------------------------------------------------------------------------- hard stops

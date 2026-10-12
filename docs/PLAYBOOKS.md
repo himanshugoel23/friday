@@ -305,3 +305,15 @@ Every call is a clean pair: *what the salon said* and *which intent it was*. A r
 | `friday/playbooks/authoring/` | the script author: prompt, offline template, loop, report, promote. Drafts for OTHER business types are still built from `authoring/templates/salon_v1.*` (a frozen copy of the salon script before the v0.2 feedback); apply the v0.2 rules to that template before drafting new types |
 | `var/playbook_drafts/<type>/` | drafts (never in `data/`; not committed) |
 | `tests/playbooks/` | loader, every branch, approval rule, DNC, hold, Hinglish, scoring, cost |
+
+## Anti-hallucination and anti-repetition guards (founder priority, 2026-10-12)
+Facts and numbers on a call come from the vendor's words, never from a model's imagination; Friday never says the same thing again and again.
+1. **Grounding of model output** (`understand.ground`): a price, range low, deposit, duration, time or stylist the understanding model returns must really be in the vendor's reply
+   (digits, Hindi/Hinglish number words such as "teen sau", "dhai sau", "5k", a spoken hour like "shaam chhe"). Anything else is dropped, so the script simply asks again; nothing invented is recorded.
+2. **Repeat guard in the script engine** (`PlaybookPolicy._say`): the same line may be repeated once (the vendor asked, or did not hear); a third time in a row, or the same line three times in the last six,
+   ends the call politely with the "could not hear you well" close instead of looping.
+3. **Duplicate speech results dropped** (`TwilioCallLeg._deliver`): the same words arriving twice within 1.5 s (two paths, or a retried transcription) are one utterance, so she never answers twice.
+4. **LLM-written call lines** (free-form calls such as customer care; `brain.guards.to_call_action`): a price/amount >= 10 or a clock time she is about to say that appears nowhere in the brief or the conversation is
+   replaced by the safe alternative; a line identical to her last two ends the call politely (`repeating_herself`). Existing guards stay: no money promises, no commitments without approval/delegation, no secrets.
+5. Open-question answers (opt-in) have their own validator (docs/OPEN_QUESTIONS.md).
+Tests: tests/playbooks/test_grounding_and_repeats.py. Known cost: an understanding it cannot ground (an unusual spoken number form) makes her ask once more, never guess.
