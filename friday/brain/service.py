@@ -951,6 +951,23 @@ class FridayBrain:
         )
         return out.to_understanding()
 
+    async def answer_question(self, payload: dict[str, Any], task_id: str | None = None) -> Any:
+        """Scripted calls: one short grounded reply to a question the script did not foresee.
+        Purpose ``call_turn`` (the fast live lane). The caller validates the text in code."""
+        from friday.playbooks import answerer as pba
+
+        if getattr(self.llm, "provider", None) == "fake":
+            return pba.AnswerOut(say="")  # the offline fake has no opinion: the canned line is used
+        return await self._ask(
+            "call_turn",
+            payload,
+            pba.AnswerOut,
+            system=pba.SYSTEM_PROMPT,
+            task_id=task_id,
+            max_tokens=120,
+            fallback=lambda: pba.AnswerOut(say=""),
+        )
+
     def _call_shortcut(self, brief: CallBrief, transcript: Transcript) -> CallActionOut | None:
         transcript = normalize_transcript(transcript)
         last = transcript.turns[-1] if transcript.turns else None

@@ -170,6 +170,7 @@ class Ctx:
     now: datetime
     answers: list[UserAnswer]
     commit_ok: bool | None = None
+    dyn_answer: str | None = None  # a grounded reply to an open question (playbooks/answerer.py)
 
     @property
     def slot_text(self) -> str:
@@ -275,7 +276,11 @@ class PlaybookPolicy:
         recording: bool = False,
         clock: Any = None,
         playbooks: dict[str, Playbook] | None = None,
+        answerer: Any = None,
+        open_questions: bool = False,
     ) -> None:
+        self.answerer = answerer
+        self.open_questions = open_questions  # founder switch: model-written open answers
         self.understander = understander or HeuristicUnderstander()
         self.llm_mode = llm_mode
         self.recording = recording
@@ -405,6 +410,8 @@ class PlaybookPolicy:
 
     # ------------------------------------------------------------------ rendering
     def _render(self, pb: Playbook, line_id: str, c: Ctx) -> str:
+        if line_id == "offscript" and c.dyn_answer:  # grounded, validated reply
+            return c.dyn_answer
         return fill(pb.text(line_id), c.value)
 
     def _lines(self, pb: Playbook, items: list[str | LineRef], c: Ctx) -> list[tuple[str, str]]:
@@ -489,7 +496,50 @@ class PlaybookPolicy:
         else:
             u = await self._understand(c, reply_turn.text)
         st.intents.append(u.intent)
+        if (
+            self.open_questions
+            and self.answerer is not None
+            and u.intent == Intent.ASKS_OFFTOPIC.value
+            and reply_turn is not None
+        ):
+            c.dyn_answer = await self._open_answer(c, reply_turn.text)
         return self._apply(c, u, reply_turn.text if reply_turn else "")
+
+    def _facts(self, c: Ctx) -> dict[str, Any]:
+        """What Friday may say about this request (and nothing else)."""
+        i = c.inputs
+        spoken = lambda k, fb: i.get(k + "_spoken") or i.get(fb) or ""  # noqa: E731
+        facts: dict[str, Any] = {
+            "I_am": "Friday, a virtual assistant calling on behalf of the user",
+            "user": spoken("user", "user_first_name"),
+            "honorific": i.get("honorific") or "sir",
+            "business_called": spoken("business_name", "business_name"),
+            "user_wants": i.get("services") or i.get("service") or "",
+            "mode": i.get("playbook_mode") or "quote_only",
+            "why_calling": "to ask the charges"
+            + (" and a slot" if (i.get("playbook_mode") == "book") else "")
+            + " for the user",
+        }
+        for key, label in (("date_window", "wanted_when"), ("for_whom", "for_whom"),
+                           ("party_size", "party_size"), ("duration_text", "for_how_long")):
+            if i.get(key):
+                facts[label] = i[key]
+        st = c.st
+        if st.price_inr is not None:
+            facts["price_already_heard_rs"] = st.price_inr
+        if st.times:
+            facts["slot_already_heard"] = sl.join_slots(st.times)
+        return facts
+
+    async def _open_answer(self, c: Ctx, reply: str) -> str | None:
+        try:
+            return await self.answerer.answer(
+                question=reply, friday_said=c.st.last_friday, facts=self._facts(c),
+                task_id=c.brief.task_id,
+            )
+        except Exception as e:  # noqa: BLE001 - the canned line is always there
+            log.warning("open-question answer failed (%s); using the canned line", type(e).__name__)
+            return None
 
     # ------------------------------------------------------------------ understanding
     def _allowed(self, pb: Playbook, step_id: str) -> list[str]:

@@ -1632,6 +1632,7 @@ def _optional(c: Container, name: str) -> Any:
 def build_scripted_policy(c: Container) -> CallPolicy:
     """The runner's policy: scripted briefs (``brief.playbook``) walk their playbook, every
     other brief goes to the LLM-driven brain exactly as before (friday/playbooks)."""
+    from friday.playbooks.answerer import BrainAnswerer
     from friday.playbooks.engine import PlaybookPolicy, RoutingCallPolicy
     from friday.playbooks.understand import LazyBrainUnderstander
 
@@ -1642,6 +1643,8 @@ def build_scripted_policy(c: Container) -> CallPolicy:
             llm_mode=c.settings.playbooks_llm_mode,
             recording=bool(c.settings.call_record),
             clock=c.clock,
+            answerer=BrainAnswerer(lambda: c.brain),
+            open_questions=c.settings.playbooks_open_questions,
         ),
     )
 

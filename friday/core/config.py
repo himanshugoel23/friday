@@ -321,6 +321,8 @@ class Settings(BaseSettings):
     # when a scripted call asks the model to classify the other side's reply:
     # auto = only when the offline rules are unsure (cheapest), always, never (rules only)
     playbooks_llm_mode: Literal["auto", "always", "never"] = "auto"
+    # Model-written, fact-checked replies to unforeseen questions (off until founder hears samples)
+    playbooks_open_questions: bool = False
     call_record: bool = True
     call_ring_timeout_s: int = 30
     call_max_duration_s: int = 300
