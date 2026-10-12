@@ -924,7 +924,8 @@ class PlaybookPolicy:
             if prev != n:
                 break
             run += 1
-        if n and (run >= 2 or recent.count(n) >= 3) and not st.finished:
+        asked_ai = bool(st.intents) and st.intents[-1] == "ARE_YOU_BOT"  # a fresh question: re-ask is fair
+        if n and (run >= 2 or recent.count(n) >= 3) and not st.finished and not asked_ai:
             log.info("repeat guard: ending instead of saying the same line again (%s)", n[:40])
             st.flags["repeat_guard"] = "yes"
             return self._end(c, pb.confusion.outcome, [], gave_up=True)

@@ -275,14 +275,26 @@ def _heard_and_known(brief: CallBrief, transcript: Any) -> str:
     return norm(brief.model_dump_json() + " " + " ".join(t.text or "" for t in turns))
 
 
+_THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
+_DURATION = re.compile(
+    r"\d+(?:\s*(?:-|–|to|se|ya)\s*\d+)?\s*(?:minutes?|mins?|seconds?|secs?|ghant\w*|hours?|hrs?|din|days?"
+    r"|week\w*|hafte?|mahine?|months?|baar|times?|log|people|persons?"
+    r"|मिनट|घंटे?|घण्टे?|दिन|सेकंड|हफ़्ते?|हफ्ते?|महीने?|बार)(?![A-Za-z])",
+    re.I,
+)
+
+
 def ungrounded_numbers(text: str, brief: CallBrief, transcript: Any) -> list[str]:
     """Prices/amounts (>= 10) and clock times Friday is about to SAY that appear nowhere in the
     brief or the conversation: a made-up price or time. Small counts ("ek minute") are fine."""
     from friday.playbooks import slots as sl
 
-    known = _heard_and_known(brief, transcript)
+    # durations ("10-15 minute mein", "do ghante") are estimates, not prices or times
+    text = _DURATION.sub(" ", _THOUSANDS.sub("", text))
+    known = _THOUSANDS.sub("", _heard_and_known(brief, transcript))
     known_nums = {v for v, _s, _e in sl.words_to_numbers(known)}
-    bad = [str(v) for v, _s, _e in sl.words_to_numbers(text) if v >= 10 and v not in known_nums]
+    bare = re.sub(r"\d{1,2}:\d{2}", " ", text)  # clock times are checked below
+    bad = [str(v) for v, _s, _e in sl.words_to_numbers(bare) if v >= 10 and v not in known_nums]
     known_times = {(p.hour24 % 12, p.minute) for p in sl.parse_times(known, limit=50)}
     for p in sl.parse_times(text, limit=6):
         if (p.hour24 % 12, p.minute) not in known_times:
