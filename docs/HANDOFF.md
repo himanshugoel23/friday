@@ -166,3 +166,6 @@ Founder: build a separate scouting agent for Google (find vendors, fetch numbers
 
 ## Task note (2026-10-12): scouting package (agents 6-12)
 Founder/orchestrator ask: build `friday/scouting/` = place searcher, eligibility filter, review fetcher, review authenticity judge (rules first, optional LLM hook), service-evidence extractor (LLM behind interface; every claim needs a quote + review id verified by code), fit scorer, ranker; category table for the 20 Wave 1 categories; CLI `friday scout` and `friday scout-report`; docs/SCOUTING.md. Wraps (does not edit) discovery/google_places.py and google_geocoder.py. Tests use fixtures and fakes only. Raw review text stays in memory only.
+
+## Decision note (2026-10-12): Delhi NCR vendor-count research
+Founder asked: run the 20 Wave 1 categories in Delhi NCR only and see how many vendors Google returns. Script in scratchpad (not committed), results summarized in docs/NCR_VENDOR_COUNTS.md.
