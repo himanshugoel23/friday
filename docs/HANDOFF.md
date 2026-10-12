@@ -185,3 +185,6 @@ Founder: phase 1 is based on calling vendors only. Build it scalable, with prope
 
 ## Decision note (2026-10-12): outcome-based messaging, no stage updates
 Founder: do NOT send the user a message at every stage. Friday is outcome-based: one acknowledgement when the request is understood, then silence until there is an outcome (quotes ready, booking needs approval, a real problem, or a question only the user can answer). Optional per-request "send me updates" switch, off by default. Applies to WhatsApp quotes flow and project manager (no progress pings; failures are handled by the PM and only surfaced if the user must decide).
+
+## Decision note (2026-10-12): classifier is channel-agnostic (WhatsApp AND inbound calls)
+Founder: the classifier (and project manager) must not be WhatsApp-only. Users will also CALL the Friday number; the same classifier + PM handle the spoken request. Input = text from any channel (WhatsApp text, WhatsApp voice note transcript, live call STT transcript, SMS). Call-specific needs: short utterances, STT errors, Hinglish, ask clarifying questions by voice (one short question), hand off to WhatsApp for long details (address, pin) and for the final outcome.
