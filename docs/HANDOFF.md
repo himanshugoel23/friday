@@ -226,3 +226,6 @@ Restrict/rotate the Google key pasted in chat (and set budget alerts), type the 
 
 ### 8.7 Standing rules (unchanged, obey)
 HEAR BEFORE CHANGE (audio first for any spoken line/voice/pace/pronunciation); update this file at the start of every task, commit, push; PUBLIC repo: no keys/tokens/passwords ever, never read or print .env, never commit .env or var/; no real calls except allow-listed founder number +918607549916 and only with approval; short chat replies, heavy work to builder agents; founder writes Hindi/Hinglish/English mixed, reply in English; do not assume pronouns.
+
+### 8.8 Go-live estimate (2026-10-12, my estimate, not a promise)
+Original target (Oct 16) is NOT realistic after scope grew (agents, 20 categories). Estimate: internal + founder/friends supervised beta ~Oct 22-24; invite-only public beta (30-50 users, salon + 2-3 categories) ~Oct 30 - Nov 3. Gates: builders finished and integrated; full suite green; live test call confirmed; Meta WhatsApp Business verification and message templates approved (outside our control, can take days to weeks); legal/consent pages + grievance email; audio of all new lines approved; supervised real vendor calls; Sarvam/Vobiz AI-disclosure terms checked; Vobiz call queue off; keys rotated.
