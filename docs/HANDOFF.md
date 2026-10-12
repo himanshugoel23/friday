@@ -175,3 +175,6 @@ Founder: "best" must never be far away (no 100 km or 10 km best). Distance is a 
 
 ## Task note (2026-10-12): PM package (agents 1 and 2)
 Orchestrator ask: build `friday/pm/` = Agent 1 classifier (closed lists, LLM behind an interface, fake/keyword baseline, labelled Hinglish fixture, `friday classify`) and Agent 2 project manager (deterministic state machine on a resumable task record, YAML plan templates per bucket x category, one clarifying question at a time max 2 rounds, step-agent Protocol with fakes, failure handling, cancel/change re-plan, decision log, `friday pm-sim`). Never touches quotes/api/tasks/scouting/playbooks/discovery; PM never calls vendors or writes vendor-facing words. Docs: docs/PROJECT_MANAGER.md.
+
+## Note (2026-10-12): MCP of Indian apps
+Founder asked about Zepto/Blinkit/Zomato/Swiggy MCP. Findings: Swiggy has official MCP servers (Food, Instamart, Dineout; builders page mcp.swiggy.com/builders); Zomato has an official MCP server (food ordering); Blinkit/Zepto only unofficial projects found. Idea: use these as "connected apps" tools (orders/table booking) instead of phone calls where available.
