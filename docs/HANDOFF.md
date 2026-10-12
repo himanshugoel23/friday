@@ -259,3 +259,5 @@ friday/pm/ built: classifier (104 labelled examples; offline baseline 104/104 is
 
 - 2026-10-12 founder ask: use the Google key (shown in a screenshot) for a live scout-report now; founder rotates it later. Used only as an inline env var for one command, never written to a file or the repo.
 - 2026-10-12 DONE: live `friday scout-report` ran (key accepted; key never stored). Results in docs/SCOUTING.md: type lists are wrong for pest_control, driving_school, coaching_classes, appliance_repair, event_services (0-20% match): NEXT fix `friday/scouting/categories.py` types by inspecting real results. Founder will rotate the key later.
+
+- 2026-10-12 founder ask: gave the Sarvam key (typed "server" = Sarvam) to generate audio of the pending vendor-call lines for approval (hear-before-change). Used inline env only, never stored.
