@@ -1,0 +1,5 @@
+{"description": "Call: long detail (house size, destination) is requested on WhatsApp afterwards.",
+ "channel": "call",
+ "turns": [{"user": "packers movers ka rate chahiye Dwarka mein, kal", "channel": "call"},
+           {"user": "2 BHK Dwarka se Noida Sector 62", "channel": "whatsapp_text"},
+           {"user": "haan", "channel": "whatsapp_text"}]}

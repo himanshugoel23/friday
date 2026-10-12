@@ -171,8 +171,8 @@ class ProjectManager:
 
     # ------------------------------------------------------------------ helpers
 
-    def _log(self, task: TaskRecord, kind: str, **detail: Any) -> None:
-        task.log.append(Decision(ts=self.clock().isoformat(), kind=kind, detail=detail))
+    def _log(self, task: TaskRecord, event: str, /, **detail: Any) -> None:
+        task.log.append(Decision(ts=self.clock().isoformat(), kind=event, detail=detail))
 
     def _say(self, task: TaskRecord, msgs: list[str], text: str) -> None:
         msgs.append(text)

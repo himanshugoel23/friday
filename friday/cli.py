@@ -390,6 +390,15 @@ def main(argv: list[str] | None = None) -> int:
     worker = sub.add_parser("worker", help="run background roles without the HTTP server")
     worker.add_argument("--roles", default=None, help="api,task,voice,proactive,batch (CSV)")
     sub.add_parser("chat")
+    cls = sub.add_parser("classify", help="agent 1: bucket + category for one message")
+    cls.add_argument("text")
+    cls.add_argument("--channel", default="whatsapp_text",
+                     choices=["whatsapp_text", "whatsapp_voice", "call", "sms"])
+    pms = sub.add_parser("pm-sim", help="run a project-manager transcript against fakes (offline)")
+    pms.add_argument("scenario", nargs="?", default="happy_quote",
+                     help="built-in name or a JSON file")
+    pms.add_argument("--list", action="store_true", help="list built-in scenarios")
+    pms.add_argument("--log", action="store_true", help="also print the decision log")
     wsim = sub.add_parser(
         "whatsapp-sim", help="chat through the WhatsApp quotes flow in the terminal (offline)"
     )
@@ -493,6 +502,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.playbooks.cli import run_command as run_playbook_command
 
         return run_playbook_command(args)
+    if args.cmd == "pm-sim":  # offline: fakes only, never reads .env
+        from friday.pm.cli import run_pm_sim
+
+        return run_pm_sim(args)
     if args.cmd == "eval":  # offline scenarios: never reads .env unless --live
         from friday.quality.cli import run_eval_command
 
@@ -503,6 +516,10 @@ def main(argv: list[str] | None = None) -> int:
 
         return (scout_cli.run_scout if args.cmd == "scout" else scout_cli.run_scout_report)(
             args, settings)
+    if args.cmd == "classify":
+        from friday.pm.cli import run_classify
+
+        return run_classify(args, settings)
     if args.cmd == "tts-dict":
         from friday.voice.tts import pronunciation as pron
 

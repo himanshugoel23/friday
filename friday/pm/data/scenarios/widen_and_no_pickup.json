@@ -1,0 +1,7 @@
+{"description": "Nothing within the default radius: ask to widen; first vendor does not pick up.",
+ "channel": "whatsapp_text",
+ "fake": {"vendors": [
+   {"id": "a", "name": "Far Salon A", "distance_km": 7.0, "rating": 4.5},
+   {"id": "b", "name": "Far Salon B", "distance_km": 8.0, "rating": 4.3}],
+  "pickup": {"a": false}},
+ "turns": ["salon mein haircut ka rate Sector 45 Gurgaon", "haan", "haan"]}
