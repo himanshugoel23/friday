@@ -84,11 +84,16 @@ async def test_router_sends_only_call_turns_to_the_fast_model_and_falls_back():
     assert r2.fallbacks == 1
 
 
-def test_switch_is_off_by_default_and_needs_the_key():
+def test_default_is_sarvam_but_only_with_a_key_and_never_for_the_fake_llm():
     base = _Fake()
-    assert route_call_turns(base, Settings()) is base
-    assert route_call_turns(base, Settings(llm_call_turn_provider="sarvam")) is base  # no key
-    s = Settings(llm_call_turn_provider="sarvam", sarvam_api_key="k")
+    assert Settings().llm_call_turn_provider == "sarvam"
+    assert route_call_turns(base, Settings()) is base  # no Sarvam key: unchanged
+    off = Settings(llm_call_turn_provider="default", sarvam_api_key="k")
+    assert route_call_turns(base, off) is base
+    s = Settings(sarvam_api_key="k")
     routed = route_call_turns(base, s)
     assert isinstance(routed, RoutedLLM) and routed.primary is base
     assert routed.fast.model == "sarvam-105b-conversations"
+    fake = _Fake()
+    fake.provider = "fake"
+    assert route_call_turns(fake, s) is fake

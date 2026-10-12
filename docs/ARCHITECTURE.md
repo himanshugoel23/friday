@@ -535,3 +535,12 @@ signed, expiring URLs.
 **Observability:** metrics for queue depth, call concurrency, p95 turn latency, error
 rates and ₹/task. Tracing is per task (task_id as trace id). Alerts fire on dead letters,
 cost and number health.
+
+## Model routing policy (founder decision, 2026-10-12)
+Two lanes, chosen by what the job needs:
+1. **Real time (live calls): speed first.** Sarvam end to end where it is fastest from the India-hosted server: speech-to-text (Sarvam REST), the call-turn model that understands the vendor's reply
+   (`sarvam-105b-conversations`, ~0.3 s measured from the server, was 2.2 s on OpenAI), and the voice (Ritu on Sarvam, or an ElevenLabs voice the founder prefers; Sarvam is the faster of the two from Bangalore).
+   Scripted lines come from the playbooks, not a model. Target: first audio under 1 s after the caller stops. `FRIDAY_LLM_CALL_TURN_PROVIDER=sarvam` (default; falls back to the backend model on any Sarvam error).
+2. **Backend (everything not on a live call): accuracy first, speed does not matter.** GPT or Claude: reading the user's WhatsApp request, classification, project manager, planning,
+   summaries and comparisons, memory extraction, review judging, proactive wording, vision (menus, quote photos). Choose the model per job by accuracy on labelled examples, then cost.
+Rule: a model only takes a job after it is measured on that job (see docs/LATENCY.md for the call-turn benchmark).

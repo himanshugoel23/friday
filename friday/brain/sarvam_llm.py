@@ -192,6 +192,8 @@ def route_call_turns(llm: Any, settings: Any) -> Any:
     """Wrap ``llm`` so call turns go to Sarvam when ``FRIDAY_LLM_CALL_TURN_PROVIDER=sarvam``."""
     if getattr(settings, "llm_call_turn_provider", "default") != "sarvam" or not settings.sarvam_api_key:
         return llm
+    if getattr(llm, "provider", None) == "fake":  # tests and the simulator never call a real vendor
+        return llm
     fast = SarvamLLM(
         settings.sarvam_api_key.get_secret_value(),
         model=settings.sarvam_llm_model,

@@ -200,7 +200,7 @@ class Settings(BaseSettings):
     # the playbook understanding call: p50 824 -> 672 ms, 0 repairs in 20. (An older run of the
     # action schema showed no gain: watch `repairs` in the llm log lines.)
     # Live call turns (reply understanding) on Sarvam's India-hosted model; the rest is unchanged.
-    llm_call_turn_provider: Literal["default", "sarvam"] = "default"
+    llm_call_turn_provider: Literal["default", "sarvam"] = "sarvam"  # needs SARVAM_API_KEY
     sarvam_llm_model: str = "sarvam-105b-conversations"  # not sarvam-105b (reasoning: empty)
     sarvam_llm_timeout_s: float = 3.0  # then the normal provider answers
     openai_relaxed_call_schema: bool = True  # measured 1.2 s -> 0.65 s per understanding call
