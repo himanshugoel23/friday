@@ -160,3 +160,6 @@ Founder: Wave 1 must have >= 20 vendor categories (10 is too small). docs/SCOPE_
 
 ## Decision note (2026-10-12): no vendor DB for now
 Founder: do NOT build a vendor database yet. Search Google Places live on each request. Only after we see Google returns good data (right category, phone numbers, open hours) do we consider a vendor DB. Overture/FSQ seeding pipeline is shelved. Measure instead: per category, % of Google results with a phone number and correct type.
+
+## Decision note (2026-10-12): many small single-job agents; "best", not just nearest
+Founder: build a separate scouting agent for Google (find vendors, fetch numbers) and in general MANY small agents, each with one narrow job, handing structured output to the next, so none hallucinates. Vendor selection must be about the BEST, not just nearest: read Google reviews, judge whether they look genuine, and what service the place really provides. Design: docs/AGENT_ROSTER.md. Build: friday/scouting/ (new package). Rule: LLM agents only get small closed tasks with JSON schemas; code does everything deterministic (distance, ranking math, phone validation).
