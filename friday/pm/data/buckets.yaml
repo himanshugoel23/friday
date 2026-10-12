@@ -3,11 +3,11 @@
 quote:
   label: Price quote
   archetype: quote
-  keywords: [kitna, kitne, price, rate, rates, charges, charge, cost, quote, quotation, how much, kya rate, fees, fee, paise, kharcha, lagega, lega, estimate, membership price, compare]
+  keywords: [कितना, कितने, quotes, kitna, kitne, price, rate, rates, charges, charge, cost, quote, quotation, how much, kya rate, fees, fee, paise, kharcha, lagega, lega, estimate, membership price, compare]
 availability:
   label: Availability check
   archetype: availability
-  keywords: [available, availability, slot hai, slot milega, slot mil, free hai, khali, table hai, hai kya, mil jayega, stock mein, in stock, aaj shaam, can i get a slot, any slot, open hai, jagah hai]
+  keywords: [do you have, available, availability, slot hai, slot milega, slot mil, free hai, khali, table hai, hai kya, mil jayega, stock mein, in stock, aaj shaam, can i get a slot, any slot, open hai, jagah hai]
 book:
   label: Book (delegated)
   archetype: book
@@ -27,7 +27,7 @@ information:
 service_visit:
   label: Service visit request
   archetype: service_visit
-  keywords: [aa sakte, aa sakta, aayega, ghar aa, visit, thik karne, theek karne, repair karna, kharab ho gaya, not working, leak ho raha, band ho gaya, send someone, someone to fix, mechanic bhejo, technician, aaj aa, fix karne, kaam karne]
+  keywords: [आ सकता, आ सकते, aa sakte, aa sakta, aayega, ghar aa, visit, thik karne, theek karne, repair karna, kharab ho gaya, not working, leak ho raha, band ho gaya, send someone, someone to fix, mechanic bhejo, technician, aaj aa, fix karne, kaam karne]
 followup:
   label: Follow-up or status
   archetype: handoff

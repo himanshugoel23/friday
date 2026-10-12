@@ -41,6 +41,9 @@ from friday.playbooks.intents import (
 from friday.voice.text import strip_fillers
 
 DATA_DIR = Path(__file__).with_name("data")
+# New spoken lines wait here until the founder has heard the audio and approved them: nothing in
+# this folder is loaded by `select`, the engine or any call (see friday/playbooks/pending.py).
+PENDING_DIR = Path(__file__).with_name("pending")
 SUPPORTED_VERSIONS = frozenset({1})
 # the vendor-calling archetypes (docs/VENDOR_CALLING.md); a playbook may declare one
 ARCHETYPES: tuple[str, ...] = (

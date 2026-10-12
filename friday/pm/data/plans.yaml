@@ -1,0 +1,201 @@
+# Plan templates = base archetype + per-category overrides (docs/PROJECT_MANAGER.md).
+# The PM merges: archetype base -> categories.<cat>["*"] -> categories.<cat>[<archetype>].
+# Nothing here is spoken to a vendor: questions are WhatsApp text for the USER.
+
+step_order: [locate, search, filter, reviews, rank, shortlist, consent, calls, collect, compare, report]
+
+# Slots the PM can ask about. kind tells the answer parser how to read a free-text reply.
+slots:
+  where:
+    kind: text
+    en: "Which area or locality should I look in? (for example Sector 45 Gurgaon)"
+    hinglish: "Kis area ya locality mein dekhun? (jaise Sector 45 Gurgaon)"
+  service:
+    kind: text
+    en: "What exactly do you need?"
+    hinglish: "Aapko exactly kya chahiye?"
+  when:
+    kind: text
+    en: "When would you like it? (for example today evening, or tomorrow 5 pm)"
+    hinglish: "Kab chahiye? (jaise aaj shaam, ya kal 5 baje)"
+  budget:
+    kind: money
+    en: "Do you have a maximum budget in rupees?"
+    hinglish: "Kya aapka koi maximum budget hai (rupees mein)?"
+  for_whom:
+    kind: text
+    en: "Is this for you or someone else?"
+    hinglish: "Yeh aapke liye hai ya kisi aur ke liye?"
+  delegation:
+    kind: yesno
+    en: "Should I book it for you directly if I find a good match, or only share prices and availability first?"
+    hinglish: "Achha option mile toh kya main seedha book kar doon, ya pehle sirf price aur availability bataun?"
+  details:
+    kind: text
+    en: "Any detail that matters for this? (size, model, number of people)"
+    hinglish: "Koi zaroori detail? (size, model, kitne log)"
+
+# Order in which missing required slots are asked (one per round).
+ask_order: [service, where, when, details, budget, for_whom, delegation]
+
+messages:
+  category_unclear:
+    en: "I want to get this right. What kind of place or service are you looking for? (for example salon, doctor, AC repair, packers)"
+    hinglish: "Main sahi se samajhna chahti hoon. Aap kis tarah ki service ya jagah dhoondh rahe hain? (jaise salon, doctor, AC repair, packers)"
+  bucket_unclear:
+    en: "Do you want prices, availability or a booking?"
+    hinglish: "Aapko price chahiye, availability, ya booking?"
+  assumptions:
+    en: "Going ahead with: {assumed}."
+    hinglish: "Main yeh maan kar aage badh rahi hoon: {assumed}."
+  stop_missing:
+    en: "I could not get enough details ({missing}) to search properly. Message me again with them and I will start right away."
+    hinglish: "Mujhe poori detail ({missing}) nahi mili, isliye search nahi kar paayi. Woh bata dein toh main turant shuru kar dungi."
+  stop_category:
+    en: "Sorry, I could not work out what you need. Tell me the service and area and I will start."
+    hinglish: "Maaf kijiye, main samajh nahi paayi aapko kya chahiye. Service aur area bata dein toh main shuru kar dungi."
+  handoff:
+    en: "This one needs a person to look at it. I have noted it and someone from the team will get back to you."
+    hinglish: "Yeh request hamari team ko dekhni padegi. Maine note kar li hai, team aapko jald batayegi."
+  widen:
+    en: "I could not find a good option within {current_km} km. Shall I look up to {to_km} km?"
+    hinglish: "{current_km} km ke andar koi achha option nahi mila. Kya main {to_km} km tak dekhun?"
+  widen_stop:
+    en: "I found nothing good within {hard_max_km} km, which is as far as I will go for this. Try a different area or service and I will search again."
+    hinglish: "{hard_max_km} km tak koi achha option nahi mila, aur isse door main nahi dekhti. Doosra area ya service bata dein, main dobara dhoondhungi."
+  widen_declined:
+    en: "Okay, I will leave it here. Message me if you want me to try again."
+    hinglish: "Theek hai, yahin rok deti hoon. Dobara try karna ho toh bata dijiye."
+  consent:
+    en: "Shortlist ({count}):\n{list}\nShall I call these for you? (yes / no)"
+    hinglish: "Shortlist ({count}):\n{list}\nKya main inhe call karun? (haan / nahi)"
+  consent_declined:
+    en: "Okay, no calls will be made."
+    hinglish: "Theek hai, kisi ko call nahi karungi."
+  yesno_unclear:
+    en: "Sorry, was that a yes or a no?"
+    hinglish: "Maaf kijiye, yeh haan tha ya nahi?"
+  all_no_pickup:
+    en: "None of the places picked up. Message me later and I will try again."
+    hinglish: "Kisi ne phone nahi uthaya. Thodi der baad bata dijiye, main dobara try karungi."
+  over_budget:
+    en: "All the quotes are above your Rs {budget} budget (lowest Rs {lowest}). Shall I still show them? (yes / no)"
+    hinglish: "Saare quotes aapke Rs {budget} budget se upar hain (sabse kam Rs {lowest}). Phir bhi dikhaun? (haan / nahi)"
+  over_budget_declined:
+    en: "Okay. Tell me a new budget if you want me to look again."
+    hinglish: "Theek hai. Naya budget bata dein toh main dobara dekhungi."
+  cancelled:
+    en: "Done, I have cancelled this request."
+    hinglish: "Theek hai, maine yeh request cancel kar di."
+  replanned:
+    en: "Updated: {changes}. Redoing the affected steps."
+    hinglish: "Update kar diya: {changes}. Jo steps affect hue hain woh dobara kar rahi hoon."
+  step_failed:
+    en: "Something went wrong on my side while working on this. I have saved it and will retry shortly."
+    hinglish: "Mere side se kuch gadbad ho gayi. Maine yeh save kar liya hai, jaldi dobara try karungi."
+  switched_to_check:
+    en: "Understood, I will only check prices and availability and not book."
+    hinglish: "Theek hai, main sirf price aur availability check karungi, booking nahi."
+  terminal:
+    en: "This request is already closed. Send a new message to start another."
+    hinglish: "Yeh request band ho chuki hai. Nayi request ke liye naya message bhejiye."
+
+archetypes:
+  quote:
+    steps: [locate, search, filter, reviews, rank, shortlist, consent, calls, collect, compare, report]
+    required: [service, where]
+    optional: [when, budget, for_whom]
+    defaults: {for_whom: self, when: any day}
+    n_vendors: 3
+    call_mode: all            # call until n_vendors answered
+  availability:
+    steps: [locate, search, filter, reviews, rank, shortlist, consent, calls, collect, compare, report]
+    required: [service, where, when]
+    optional: [budget, for_whom]
+    defaults: {for_whom: self}
+    n_vendors: 3
+    call_mode: all
+  book:
+    steps: [locate, search, filter, reviews, rank, shortlist, consent, calls, collect, report]
+    required: [service, where, when, delegation]
+    optional: [budget, for_whom]
+    defaults: {for_whom: self}
+    n_vendors: 1
+    call_mode: first_success  # book at the first vendor that works, else next vendor
+  service_visit:
+    steps: [locate, search, filter, reviews, rank, shortlist, consent, calls, collect, compare, report]
+    required: [service, where, when]
+    optional: [budget, details]
+    defaults: {when: as soon as possible, for_whom: self}
+    n_vendors: 3
+    call_mode: all
+  information:
+    steps: [locate, search, filter, rank, shortlist, consent, calls, collect, report]
+    required: [service, where]
+    optional: [for_whom]
+    defaults: {for_whom: self}
+    n_vendors: 1
+    call_mode: first_success
+  handoff:
+    steps: []
+    required: []
+    optional: []
+    defaults: {}
+    n_vendors: 0
+    call_mode: none
+
+# Per-category overrides. "*" applies to every archetype of that category.
+# required_add / required_remove edit the archetype's required list; questions override slot wording.
+categories:
+  salon:
+    "*": {questions: {service: {en: "Which service do you want? (for example haircut, beard trim, facial)", hinglish: "Kaunsi service chahiye? (jaise haircut, beard trim, facial)"}}}
+  clinic:
+    "*": {questions: {service: {en: "Which kind of doctor, or what is the problem? (for example dentist, skin, general)", hinglish: "Kaunsa doctor chahiye ya kya takleef hai? (jaise dentist, skin, general)"}}}
+    book: {required_add: [for_whom]}
+    availability: {required_add: [for_whom]}
+  diagnostic_lab:
+    "*": {questions: {service: {en: "Which test or package?", hinglish: "Kaunsa test ya package?"}}}
+    service_visit: {defaults: {when: tomorrow morning}}
+  appliance_repair:
+    "*": {questions: {service: {en: "Which appliance and what is wrong with it?", hinglish: "Kaunsa appliance aur kya kharabi hai?"}}}
+    service_visit: {defaults: {when: today}}
+  home_repair:
+    "*": {questions: {service: {en: "What work is needed? (plumber, electrician, carpenter, painter)", hinglish: "Kya kaam karwana hai? (plumber, electrician, carpenter, painter)"}}}
+    service_visit: {defaults: {when: today}}
+  packers_movers:
+    "*": {required_add: [details], questions: {where: {en: "Where are you moving from (area/city)?", hinglish: "Kahan se shift kar rahe hain (area/city)?"}, details: {en: "How big is the house (1/2/3 BHK) and where are you moving to?", hinglish: "Ghar kitna bada hai (1/2/3 BHK) aur kahan shift karna hai?"}}}
+    quote: {required_add: [when]}
+  pest_control:
+    "*": {required_add: [details], questions: {details: {en: "How big is the place (BHK) and which pest?", hinglish: "Jagah kitni badi hai (BHK) aur kaunsa keeda?"}}}
+    service_visit: {defaults: {when: tomorrow}}
+  car_service:
+    "*": {required_add: [details], questions: {details: {en: "Which car (make and model)?", hinglish: "Kaunsi gaadi hai (company aur model)?"}}}
+  restaurant_banquet:
+    availability: {required_add: [details], questions: {details: {en: "For how many people?", hinglish: "Kitne log honge?"}}}
+    book: {required_add: [details], questions: {details: {en: "For how many people?", hinglish: "Kitne log honge?"}}}
+    quote: {required_add: [when, details], questions: {details: {en: "How many guests, and what kind of event?", hinglish: "Kitne mehmaan aur kis tarah ka event?"}}}
+  coaching_classes:
+    "*": {questions: {service: {en: "Which class or subject, and for which grade/age?", hinglish: "Kaunsi class ya subject, aur kis grade/age ke liye?"}}}
+  pg_rental:
+    "*": {questions: {service: {en: "PG or flat, and for boys, girls or family?", hinglish: "PG ya flat, aur ladko, ladkiyon ya family ke liye?"}}}
+    quote: {required_add: [budget]}
+  electronics_dealer:
+    "*": {questions: {service: {en: "Which product and model?", hinglish: "Kaunsa product aur model?"}}}
+  gym_yoga:
+    "*": {questions: {service: {en: "Gym, yoga or something else?", hinglish: "Gym, yoga ya kuch aur?"}}}
+  event_services:
+    "*": {required_add: [when, details], questions: {details: {en: "How many guests and what kind of event?", hinglish: "Kitne mehmaan aur kis tarah ka event?"}, when: {en: "What is the event date?", hinglish: "Event ki date kya hai?"}}}
+  vet_pet:
+    "*": {required_add: [details], questions: {details: {en: "Which pet (dog, cat) and what age?", hinglish: "Kaunsa pet hai (dog, cat) aur kitni age?"}}}
+  wedding_vendors:
+    "*": {required_add: [when], questions: {when: {en: "What is the wedding date?", hinglish: "Shaadi ki date kya hai?"}}}
+  driving_school:
+    "*": {}
+  cab_travel:
+    "*": {required_add: [when, details], radius_km: 20, questions: {details: {en: "Which route (from where to where) and how many people?", hinglish: "Kahan se kahan jana hai aur kitne log?"}}}
+  laundry_tailor:
+    "*": {}
+  florist_gift:
+    "*": {}
+    availability: {required_add: []}
+    quote: {optional_add: [when]}

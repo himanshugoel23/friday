@@ -1,0 +1,306 @@
+# Simulated vendors for `friday playbook dry-run quote_and_slot --pending`.
+# Format: see friday/playbooks/data/salon_booking.personas.yaml (replies are keyed by the PLAYBOOK
+# LINE ID Friday last spoke; `<line>@<previous line>` answers "Sorry, ek baar phir?"; a list is used
+# in order; a reply may be {say, hold_s, then, hangup, silence}). `expect.outcome` is checked.
+# `preview_*` personas feed `friday playbook preview quote_and_slot --pending` (audio for the founder).
+
+version: 1
+playbook: quote_and_slot
+
+brief:
+  user_first_name: Rahul
+  honorific: sir
+  services: "dental cleaning"
+  business_name: "Smile Dental Clinic"
+  category: dentist
+  price_min: 100
+  price_max: 20000
+
+personas:
+  - id: preview_quote
+    title: "Founder audio: a plain price check"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Cleaning 800 rupaye lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: preview_book
+    title: "Founder audio: delegated booking, the time is free"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye lagega"
+      s2_ask: "Haan ji, ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: preview_book_busy_fallback
+    title: "Founder audio: delegated booking, today busy, tomorrow free"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje, fallback_when: kal shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye lagega"
+      s2_ask: "Aaj shaam 5 baje to full hai"
+      s2f_ask: "Haan kal ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: quote_clinic_fees
+    title: "Doctor's consultation fee"
+    greeting: "Hello, clinic."
+    brief: {services: consultation, business_name: "Sharma Clinic", category: doctor_clinic}
+    replies:
+      s3_ask: "Fees 500 rupaye hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_free_trial
+    title: "Gym: the trial is free (no charge)"
+    greeting: "Hello, Iron Gym."
+    brief: {services: "gym trial", business_name: "Iron Gym", category: gym}
+    replies:
+      s3_ask: "Trial free hai ji"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_monthly_unit
+    title: "Gym: monthly fee, per-unit price"
+    greeting: "Hello, Iron Gym."
+    brief: {services: membership, business_name: "Iron Gym", category: gym}
+    replies:
+      s3_ask: "Monthly 2000 rupaye hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_per_kg_unit
+    title: "Laundry: rate per kg"
+    greeting: "Hello, Clean Laundry."
+    brief: {services: "laundry pickup", business_name: "Clean Laundry", category: laundry, price_min: 20, price_max: 500}
+    replies:
+      s3_ask: "80 rupaye per kg lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_price_range
+    title: "A price range: the upper number is taken, the lower is kept"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "800 se 1200 rupaye tak lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_two_services
+    title: "Two services: one total"
+    greeting: "Hello, Shine Car Care."
+    brief: {services: "car wash, interior cleaning", business_name: "Shine Car Care", category: car_wash}
+    replies:
+      s3_ask: "Dono ke 1500 rupaye lagenge"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_visit_needed
+    title: "Cannot quote without seeing it: visit needed"
+    greeting: "Hello, Shine Car Care."
+    brief: {services: "car dent paint", business_name: "Shine Car Care", category: car_service}
+    replies:
+      s3_ask: "Gaadi dekhni padegi, aake dekhne ke baad hi bata sakte hain"
+    expect: {outcome: NEEDS_VISIT}
+
+  - id: quote_whatsapp_then_price
+    title: "Asks to send it on WhatsApp; she asks them to say it here; they do"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["WhatsApp pe bhej do", "Theek hai, 600 rupaye lagega"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_whatsapp_insists
+    title: "Insists on WhatsApp: closes politely, flagged for the user"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["WhatsApp pe bhej do", "Nahi, WhatsApp pe hi bhej do"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: quote_busy_callback
+    title: "Busy now, asks to call later"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Abhi busy hain, baad mein call karna"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: quote_puts_on_hold
+    title: "Puts Friday on hold, then continues"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: [{say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye, kya poochh rahi thi?"}, "Cleaning 700 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_hold_too_long
+    title: "Hold and never comes back"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: {say: "Ek minute ruko", hold_s: 300, then: "Haan boliye"}
+    expect: {call_outcome: hold_timeout}
+
+  - id: quote_wrong_number
+    title: "Wrong number (says so at the identity question)"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Nahi, yeh toh restaurant hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: quote_wrong_number_later
+    title: "Wrong number (said after the intro)"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Yeh clinic nahi hai, galat number lagaya hai aapne"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: quote_rude_hangs_up
+    title: "Rude, then hangs up"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+    expect: {outcome: REFUSED}
+
+  - id: quote_dnc_request
+    title: "Asks not to be called again"
+    stop_request: true
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Dobara call mat karna, number hata do"
+    expect: {outcome: REFUSED}
+
+  - id: ai_robot_at_identity
+    title: "Asks 'robot hai kya?' instead of answering the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Yeh robot hai kya?"
+      s3_ask: "Cleaning 800 rupaye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: ai_insaan_at_price
+    title: "Asks 'insaan ho ya machine?' at the price question"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["Aap insaan ho ya machine?", "Cleaning 800 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: ai_asked_in_english
+    title: "Are you an AI? (English)"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["Is this an AI?", "800 rupees"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_price_depends
+    title: "Depends on the case: no price"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Case ke hisaab se alag alag hota hai"
+    expect: {outcome: PRICE_ON_REQUEST}
+
+  - id: quote_refuses_price
+    title: "Will not give a price on the phone"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Phone par rate nahi bata sakte, hum phone par price nahi dete"
+    expect: {outcome: PRICE_ON_REQUEST}
+
+  - id: quote_come_and_ask
+    title: "'Aake poochh lijiye': treated as a visit needed"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Phone par nahi bata sakte, aake poochh lijiye"
+    expect: {outcome: NEEDS_VISIT}
+
+  - id: quote_advance_with_price
+    title: "The vendor raises an advance with the price; she does not agree, the price is kept"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Cleaning 800 rupaye, 200 rupaye advance dena padega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_absurd_price_asked_again
+    title: "A price outside the sane range is not trusted: she asks again"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {price_min: 200, price_max: 5000}
+    replies:
+      s3_ask: ["Cleaning 5 rupaye", "Nahi nahi, 800 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_asks_who_first
+    title: "Asks who is calling before the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Kaun bol raha hai?"
+      s0_who: "Haan ji, yahi Smile Dental Clinic hai, boliye"
+      s3_ask: "Cleaning 800 rupaye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_asks_customer_phone
+    title: "Asks for the customer's number; she does not share it"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["Unka number kya hai?", "Cleaning 800 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_asks_otp
+    title: "Asks for an OTP; she never shares secrets"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["Pehle OTP bata dijiye", "Cleaning 800 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_noisy_then_clear
+    title: "Noisy line, clear after the re-ask"
+    greeting: "Hello?"
+    replies:
+      s3_ask: ["kkh... hmm...", "Cleaning 800 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: quote_book_mode_without_delegation
+    title: "Book mode asked for but no delegation: stays a price check"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {mode: book, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: book_free_today
+    title: "Delegated: the time is free and the price fits: books"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: book_busy_fallback_accepted
+    title: "Delegated: today busy, tomorrow free: books the fallback"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje, fallback_when: kal shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      s2_ask: "Aaj shaam 5 baje to full hai"
+      s2f_ask: "Haan kal ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: book_price_over_ceiling
+    title: "Delegated, but the price is above the ceiling: no booking, asks the owner"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 900 rupaye"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: book_nothing_free
+    title: "Delegated, nothing free at all"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      s2_ask: "Full hai"
+      s2b_ask: "Is hafte koi slot nahi hai"
+    expect: {outcome: NO_SLOT}
+
+  - id: silent_after_identity
+    title: "Says nothing after the identity question"
+    greeting: "Hello?"
+    default: {silence: true}
+    replies:
+      disclosure: {silence: true}
+      s0_who: {silence: true}
+    expect: {call_outcome: hung_up}

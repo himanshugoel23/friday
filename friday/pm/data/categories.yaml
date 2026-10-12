@@ -5,7 +5,7 @@ salon:
   label: Salon / parlour / spa
   radius_km: 5
   hard_max_km: 10
-  keywords: [salon, saloon, parlour, parlor, haircut, hair cut, beard, shave, facial, waxing, wax, spa, massage, threading, manicure, pedicure, baal, hairstyle, cleanup, keratin]
+  keywords: [सैलून, पार्लर, हेयरकट, salon, saloon, parlour, parlor, haircut, hair cut, beard, shave, facial, waxing, wax, spa, massage, threading, manicure, pedicure, baal, hairstyle, cleanup, keratin]
 clinic:
   label: Doctors / dentists / clinics
   radius_km: 8
@@ -25,7 +25,7 @@ home_repair:
   label: Plumber / electrician / carpenter
   radius_km: 10
   hard_max_km: 20
-  keywords: [plumber, electrician, carpenter, painter, nal, tap leak, leakage, bijli, mistri, wiring, switch board, fan repair, door repair, wardrobe, locksmith, paint]
+  keywords: [प्लंबर, लीकेज, plumber, electrician, carpenter, painter, nal, tap leak, leakage, bijli, mistri, wiring, switch board, fan repair, door repair, wardrobe, locksmith, paint]
 packers_movers:
   label: Packers and movers
   radius_km: 20
@@ -65,7 +65,7 @@ gym_yoga:
   label: Gyms and yoga
   radius_km: 5
   hard_max_km: 10
-  keywords: [gym, yoga, zumba, fitness, membership, personal trainer, workout, aerobics, crossfit, pilates]
+  keywords: [yoga classes, yoga class, gym, yoga, zumba, fitness, membership, personal trainer, workout, aerobics, crossfit, pilates]
 event_services:
   label: Event services (photographer, decorator, DJ)
   radius_km: 20
@@ -75,7 +75,7 @@ vet_pet:
   label: Vets and pet grooming
   radius_km: 8
   hard_max_km: 15
-  keywords: [vet, veterinary, pet, dog, cat, grooming, puppy, kutta, billi, vaccination for dog, pet clinic]
+  keywords: [vet ka, vet clinic, vet, veterinary, pet, dog, cat, grooming, puppy, kutta, billi, vaccination for dog, pet clinic]
 wedding_vendors:
   label: Wedding vendors (makeup, mehendi, planners)
   radius_km: 20
