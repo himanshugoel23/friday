@@ -95,7 +95,7 @@ lines:
   wa_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
   wa_read: "{captured_spoken}, yahi number hai na?"
   wa_ok: "Okay sir, main aapko WhatsApp kar deti hoon."
-  wa_decline: "Achha sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  wa_decline: "Theek hai sir, toh aap abhi yahin bata dijiye, main note kar leti hoon."
   s3r_ask: "Achha, toh koi estimated range bata sakte hain?"
   s2_ask_first: "{ack}, toh {date_window} ka slot booking ke liye aapke paas available hoga?"
   s2_ask_first_appt: "{ack}, toh {date_window} ki appointment aapke paas available hogi?"

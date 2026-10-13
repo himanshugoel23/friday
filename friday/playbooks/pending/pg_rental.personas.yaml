@@ -1,0 +1,411 @@
+# Simulated PG owners for `friday playbook dry-run pg_rental --pending`.
+# Format: see quote_and_slot.personas.yaml (replies are keyed by the PLAYBOOK LINE ID Friday last
+# spoke; a list is used in order; a reply may be {say, hold_s, then, hangup, silence}).
+# `mode: negotiate` / `mode: confirm` in a brief = the callback call (needs the dry-run mode hook).
+# `preview_*` personas feed `friday playbook preview pg_rental --pending` (audio for the founder).
+
+version: 1
+playbook: pg_rental
+
+brief:
+  user_first_name: Rahul
+  honorific: sir
+  services: "PG room"
+  business_name: "Sharma PG"
+  category: pg_rental
+  price_min: 2000
+  price_max: 60000
+  sharing_type: "double sharing"
+  move_in_date: "1 November"
+  occupant_name: "Aman"
+  occupant_from: "Lucknow"
+  occupant_job: "TCS"
+  occupant_location: "Lucknow"
+
+personas:
+  - id: preview_first_call
+    title: "Founder audio: the first call, full happy path (they ask the sharing type)"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Single chahiye ya double sharing?"
+      s3c_ask: "Double sharing mein 7000 rupaye lagega"
+      s4_ask: "Bed, almirah, table chair aur AC"
+      s5_ask: "Haan khana include hai"
+      s6_ask: "Meter ke hisaab se alag"
+      s7_ask: "Do mahine ka deposit"
+      s8_ask: "Ek mahine ka notice"
+      s9_say: "Theek hai ji"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: preview_callback_negotiate_visit
+    title: "Founder audio: callback, push 1 works, then the visit"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "7000", target_price: "6000", max_price: "6800"}
+    replies:
+      push1: "Theek hai, 6000 mein ho jayega"
+      visit_ask: "Kal shaam 5 baje aa jaiye"
+    expect: {outcome: VISIT_FIXED}
+
+  - id: rent_direct_price
+    title: "Gives the rent at once (no sharing question)"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Room ka rent 8000 rupaye hai"
+      s4_ask: "Bed aur almirah"
+      s5_ask: "Khana alag se"
+      s6_ask: "Electricity alag"
+      s7_ask: "Ek mahine ka"
+      s8_ask: "15 din ka notice"
+      s9_say: "Okay"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: rent_range
+    title: "A rent range"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "6000 se 9000 rupaye tak, sharing ke hisaab se"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_who_is_it_for
+    title: "Asks who the room is for: answered from the facts, the question is not skipped"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Room ka rent 8000 rupaye hai"
+      s4_ask: ["Room kiske liye hai, student hai ya job?", "Bed aur almirah"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_sharing_without_fact
+    title: "Asks single or double but the user did not say: she asks the user, then asks the rent again"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {sharing_type: ""}
+    replies:
+      s3_ask: ["Single chahiye ya double?", "Theek hai, 8000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: no_move_in_facts
+    title: "No move-in date known: the move-in line is skipped"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {move_in_date: ""}
+    replies:
+      s3_ask: "Room ka rent 8000 rupaye hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: no_room
+    title: "No room free"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Abhi koi room khali nahi hai"
+    expect: {outcome: NO_ROOM}
+
+  - id: busy_callback
+    title: "Busy now: she asks when to call back"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Abhi busy hoon, baad mein call karna"
+      busy_when: "Shaam 6 baje ke baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: busy_at_identity
+    title: "Busy at the identity question"
+    greeting: "Hello?"
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      disclosure: "Abhi busy hoon, baad mein baat karte hain"
+      busy_when: "Do baje call kar lijiye"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: resume_after_rent
+    title: "Retry call: the rent is known, the hook is the resume one, the rent is not asked again"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {resume: "yes", prior_price_inr: "7000"}
+    replies:
+      intro_resume: "Haan ji bataiye"
+      s4_ask: "Bed aur almirah"
+      s5_ask: "Haan include hai"
+      s6_ask: "Alag se"
+      s7_ask: "Ek mahine ka"
+      s8_ask: "Ek mahine ka"
+      s9_say: "Theek hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: resume_after_deposit_question
+    title: "Retry call cut at the security deposit: furnishing, food and electricity are not asked again"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {resume: "yes", prior_price_inr: "7000", prior_steps: "S0>S1>S3>S4>S5>S6>S7"}
+    replies:
+      intro_resume: "Haan ji bataiye"
+      s7_ask: "Do mahine ka deposit"
+      s8_ask: "Ek mahine ka notice"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: whatsapp_same_number
+    title: "WhatsApp pe bhej do, 'yahi number hai'"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "WhatsApp pe bhej do details"
+      wa_ask: "Yahi number hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: whatsapp_spoken_number
+    title: "WhatsApp: gives digits, she reads them back, 'haan'"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Message kar do WhatsApp pe"
+      wa_ask: "98111 22334"
+      wa_readback: "Haan ji sahi hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: whatsapp_number_corrected
+    title: "WhatsApp: the read-back is wrong, asks once more, the second is right"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "WhatsApp pe bhej do"
+      wa_ask: ["98111 22334", "98111 22335"]
+      wa_readback: ["Nahi nahi galat hai", "Haan sahi hai"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: whatsapp_not_available
+    title: "No WhatsApp: the details are said on the call, the questions go on"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["WhatsApp pe bhej do", "Rent 7500 rupaye hai"]
+      wa_ask: "Nahi nahi, hamare paas smartphone nahi hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: advance_raised_by_owner
+    title: "The owner raises an advance: she asks how much, passes it on, never agrees"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Rent 8000 hai, booking ke liye advance dena padega"
+      adv_ask: "Paanch hazaar advance lagega"
+    expect: {outcome: ADVANCE_ASKED}
+
+  - id: booking_amount_asked_by_user_request
+    title: "The user's request asks for the booking amount: she asks it once"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {q_ask_advance: "yes"}
+    replies:
+      s3_ask: "Room ka rent 8000 rupaye hai"
+      adv_ask_user: "Koi booking amount nahi lagta"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: booking_amount_not_asked_by_default
+    title: "Nobody mentions an advance: she never raises it"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Room ka rent 8000 rupaye hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  # ---- callback calls (mode negotiate: push 1, push 2, then the visit)
+  - id: nego_push1_works
+    title: "Push 1 at the target: agrees, then the visit"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "7000", target_price: "6000", max_price: "6800"}
+    replies:
+      push1: "Theek hai, 6000 mein ho jayega"
+      visit_ask: "Kal shaam 5 baje aa jaiye"
+    expect: {outcome: VISIT_FIXED}
+
+  - id: nego_push1_yes_only
+    title: "Push 1: a plain 'haan', then the visit"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "7000", target_price: "6000", max_price: "6800"}
+    replies:
+      push1: "Haan ji theek hai"
+      visit_ask: "Parso subah 10 baje"
+    expect: {outcome: VISIT_FIXED}
+
+  - id: nego_push2_works
+    title: "Push 1 refused, push 2 within the maximum: the visit"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "7000", target_price: "6000", max_price: "6800"}
+    replies:
+      push1: "Nahi, 6500 se kam nahi hoga"
+      push2: "Theek hai, 6500 kar dete hain"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: VISIT_FIXED}
+
+  - id: nego_both_refused
+    title: "Both pushes refused: their last price is recorded, call back after the user decides"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "7000", target_price: "6000", max_price: "6800"}
+    replies:
+      push1: "Nahi, 7000 hi lagega"
+      push2: "Nahi, 7000 se kam nahi hoga"
+    expect: {outcome: NEGOTIATION_FAILED}
+
+  - id: nego_price_already_at_target
+    title: "The recorded price is already within the target: no push, straight to the visit"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "5800", target_price: "6000", max_price: "6800"}
+    replies:
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: VISIT_FIXED}
+
+  - id: visit_no_concrete_time
+    title: "Visit: they give no time, she still promises the call before the visit"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "5800", target_price: "6000", max_price: "6800"}
+    replies:
+      visit_ask: "Jab bhi aana ho aa jaiye, koi problem nahi"
+    expect: {outcome: VISIT_PENDING}
+
+  - id: callback_busy
+    title: "Callback call: busy, asks when to call"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "7000", target_price: "6000", max_price: "6800"}
+    replies:
+      intro: "Abhi busy hoon, baad mein call karna"
+      busy_when: "Ek ghante baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  # ---- the usual vendor behaviours
+  - id: puts_on_hold
+    title: "Puts Friday on hold, then continues"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: [{say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye, kya poochh rahi thi?"}, "Rent 7000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: hold_too_long
+    title: "Hold and never comes back"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: {say: "Ek minute ruko", hold_s: 300, then: "Haan boliye"}
+    expect: {call_outcome: hold_timeout}
+
+  - id: wrong_number_at_identity
+    title: "Wrong number (said at the identity question)"
+    greeting: "Hello?"
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      disclosure: "Nahi, yeh toh dukaan hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: wrong_number_later
+    title: "Wrong number (said after the hook)"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Yeh PG nahi hai, galat number lagaya hai aapne"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: rude_hangs_up
+    title: "Rude, then hangs up"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+    expect: {outcome: REFUSED}
+
+  - id: dnc_request
+    title: "Asks not to be called again"
+    stop_request: true
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: "Dobara call mat karna, number hata do"
+    expect: {outcome: REFUSED}
+
+  - id: ai_robot_at_identity
+    title: "Asks 'robot hai kya?' at the identity question"
+    greeting: "Hello?"
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      disclosure: "Yeh robot hai kya?"
+      s3_ask: "Rent 7000 rupaye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: ai_asked_midway
+    title: "Asks 'insaan ho ya machine?' at the rent question"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["Aap insaan ho ya machine?", "Rent 7000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: ai_asked_in_english
+    title: "Are you an AI? (English)"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["Is this an AI?", "7000 rupees"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_who_first
+    title: "Asks who is calling before the identity question"
+    greeting: "Hello?"
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      disclosure: "Kaun bol raha hai?"
+      s0_who: "Haan ji, yahi Sharma PG hai, boliye"
+      s3_ask: "Rent 7000 rupaye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_customer_phone
+    title: "Asks for the user's number; she does not share it"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["Unka number kya hai?", "Rent 7000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_otp
+    title: "Asks for an OTP; she never shares secrets"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["Pehle OTP bata dijiye", "Rent 7000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: noisy_then_clear
+    title: "Noisy line, clear after the re-ask"
+    greeting: "Hello?"
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["kkh... hmm...", "Rent 7000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: absurd_rent_asked_again
+    title: "A rent outside the sane range is not trusted: she asks again"
+    greeting: "Hello, Sharma PG."
+    default: "Ji haan, woh sab theek hai"
+    replies:
+      s3_ask: ["Rent 50 rupaye", "Nahi nahi, 7000 rupaye"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: silent_after_identity
+    title: "Says nothing after the identity question"
+    greeting: "Hello?"
+    default: {silence: true}
+    replies:
+      disclosure: {silence: true}
+      s0_who: {silence: true}
+    expect: {call_outcome: hung_up}

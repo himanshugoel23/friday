@@ -145,6 +145,11 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
         inputs["explore_options"] = "yes"
     budget = int(inputs["budget"]) if inputs.get("budget", "").isdigit() else None
     delegation = Delegation()
+    if cfg.get("delegation_slot_only"):  # a table: only the slot is delegated, no price ceiling
+        delegation = Delegation(
+            granted=True, scope=["slot"], user_words="any slot around the requested time"
+        )
+        inputs["playbook_mode"] = "book"
     if cfg.get("delegation_max_price"):
         delegation = Delegation(
             granted=True,
@@ -186,7 +191,7 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
         ai_disclosure=pb.ai_disclosure,
     )
     resolved = resolve_inputs(pb, probe)
-    fill = lambda t: re.sub(r"\{([a-z_]+)\}", lambda m: resolved.get(m.group(1), ""), t)  # noqa: E731
+    fill = lambda t: re.sub(r"\{([a-z0-9_]+)\}", lambda m: resolved.get(m.group(1), ""), t)  # noqa: E731
     update = {"disclosure_text": fill(pb.text(pb.disclosure))}
     if pb.ai_disclosure == "on_request" and pb.reintro:
         update["redisclosure_text"] = fill(pb.text(pb.reintro))
@@ -209,7 +214,7 @@ class LineMatcher:
 
     @staticmethod
     def _rx(template: str) -> re.Pattern[str]:
-        parts = re.split(r"\{[a-z_]+\}", template)
+        parts = re.split(r"\{[a-z0-9_]+\}", template)
         return re.compile("[^.!?]{1,90}?".join(re.escape(p) for p in parts), re.I)
 
     def split(self, text: str) -> tuple[list[str], str]:
@@ -550,7 +555,9 @@ def safety_violations(
             bare = bare.replace(n, " ")  # names are read in Devanagari on purpose
         if _DEVANAGARI.search(bare):
             v.append("Devanagari in Friday's speech (Hinglish only)")
-        if _SECRET_WORD.search(t.text):
+        # asking the business for ITS UPI number/ID to pay it is fine (founder 13 Oct)
+        no_upi = re.sub(r"\bupi\s+(?:number|id)\b", "payment number", t.text, flags=re.I)
+        if _SECRET_WORD.search(no_upi):
             v.append("OTP/PIN/card style word spoken")
         if _HUMAN_CLAIM.search(t.text):
             v.append("claimed to be human")

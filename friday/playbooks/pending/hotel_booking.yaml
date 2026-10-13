@@ -57,6 +57,7 @@ inputs:
   prior_slot: {}
   prior_notes: {}
   prior_flags: {}
+  prior_steps: {}
 
 outputs: [price_inr, price_low_inr, price_unit, advance_needed, whatsapp_requested, captured_number, outcome]
 
@@ -102,7 +103,7 @@ lines:
   wa_readback: "{captured_spoken}, yahi number hai na?"
   wa_ok: "Okay sir, main aapko WhatsApp kar deti hoon."
   # GLUE (not in the founder's spec; needs his OK): no WhatsApp -> say it here
-  wa_decline: "Achha sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  wa_decline: "Theek hai sir, toh aap abhi yahin bata dijiye, main note kar leti hoon."
   # negotiation (callback, only when the user asked)
   push1: "Toh sir, {user_spoken} {honorific} se baat ho gayi hai, price thoda humare budget se upar hai. Humara budget {target_price} ka hai, toh isme bataiye kuch ho sakta hai kya?"
   push2: "Achha sir, thoda aur dekh lijiye na, kya {push2_price} tak ho payega?"
@@ -181,7 +182,9 @@ steps:
     ask:
       - {line: recording_notice, when: [recording, first_ask]}
       - {line: intro, when: ["!is_resume"]}
-      - {line: intro_resume, when: [is_resume]}
+      - {line: intro, when: [is_resume, mode_negotiate]}    # callbacks open with the plain hook
+      - {line: intro, when: [is_resume, mode_confirm]}
+      - {line: intro_resume, when: [is_resume, mode_quote]}
     branches:
       YES: {goto: "@after_hook"}
       CONTINUE: {goto: "@after_hook"}
@@ -228,32 +231,44 @@ steps:
       CONTINUE: {repeat: true, max_uses: 2}
       YES: {repeat: true, max_uses: 2}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
-      ANY: {goto: S9}
+      ANY: {goto: "@after_price"}
 
   S4:
+    skip_when: [step_answered]
+    note: tax_note
     ask: [tax_ask]
     branches:
       CONTINUE: {repeat: true, max_uses: 1}
       ANY: {goto: S5}
+      UNCLEAR: {goto: S5}
 
   S5:
+    skip_when: [step_answered]
+    note: breakfast_note
     ask: [bf_ask]
     branches:
       CONTINUE: {repeat: true, max_uses: 1}
       ANY: {goto: S6}
+      UNCLEAR: {goto: S6}
 
   S6:
+    skip_when: [step_answered]
+    note: timing_note
     ask: [time_ask]
     branches:
       CONTINUE: {repeat: true, max_uses: 1}
       ANY: {goto: S8}
+      UNCLEAR: {goto: S8}
 
   S8:
+    skip_when: [step_answered]
+    note: cancel_note
     ask: [canc_ask]
     branches:
       CONTINUE: {repeat: true, max_uses: 1}
       NEEDS_ADVANCE: {goto: "@after_details"}   # a cancellation charge is the answer, not an advance
       ANY: {goto: "@after_details"}
+      UNCLEAR: {goto: "@after_details"}
 
   AQ:   # ONLY when the user's own request asks for a booking amount
     ask: [adv_user]
@@ -265,6 +280,7 @@ steps:
       CONTINUE: {repeat: true, max_uses: 1}
       NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: AC}
       ANY: {set: {advance_needed: "yes"}, goto: AC}
+      UNCLEAR: {set: {advance_needed: "yes"}, goto: AC}
 
   AR:   # the business raised it; adv_raised was just said by the default
     note: booking_amount
@@ -342,6 +358,8 @@ steps:
     ask: [bye_busy]
     branches:
       ANY:
+        - {say: [bye_busy_ok], outcome: CALL_BACK_LATER}
+      UNCLEAR:
         - {say: [bye_busy_ok], outcome: CALL_BACK_LATER}
 
   S9:   # no room on those dates

@@ -1,0 +1,193 @@
+# Simulated restaurants for `friday playbook dry-run table_booking --pending`.
+# Replies are keyed by the line id Friday last spoke (req, req_again, s2b_ask, s2n_ask, extra_ask,
+# w_ask, w_readback, p_amount, busy_ask, ...). `preview_*` personas feed
+# `friday playbook preview table_booking --pending`.
+
+version: 1
+playbook: table_booking
+
+brief:
+  user_first_name: Rahul
+  user_full_name: "Rahul Sharma"
+  honorific: sir
+  services: "table"
+  service: "table"
+  business_name: "Spice Garden"
+  category: restaurant
+  date_window: "aaj shaam 7 baje"
+  people_count: "4"
+  delegation_slot_only: true
+
+personas:
+  - id: preview_available_book
+    title: "Founder audio: table available, delegated booking close"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Haan ji, ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: preview_available_no_delegation
+    title: "Founder audio: table available, no delegation (price-check style close)"
+    greeting: "Hello, Spice Garden."
+    brief: {delegation_slot_only: false, delegation_max_price: 0}
+    replies:
+      req: "Haan ji, ho jayega"
+    expect: {outcome: AVAILABLE}
+
+  - id: preview_not_available_nearest
+    title: "Founder audio: not available, nearest slot, no booking, call back"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Aaj 7 baje to full hai"
+      s2b_ask: "Nahi, uske aas-paas bhi kuch nahi hai"
+      s2n_ask: "Kal shaam 6 baje mil sakta hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: available_with_time
+    title: "Available, they repeat the time"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Haan 7 baje ka ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: not_available_alt_around
+    title: "Not available at 8, free at 9: never booked without the user's OK"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Nahi 7 baje ka nahi hai"
+      s2b_ask: "Haan 8 baje free hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: not_available_nothing
+    title: "Nothing at all"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Sab full hai"
+      s2b_ask: "Nahi"
+      s2n_ask: "Nahi, kuch nahi hai"
+    expect: {outcome: NO_SLOT}
+
+  - id: extras_asked
+    title: "The user asked for a window table"
+    greeting: "Hello, Spice Garden."
+    brief: {q_extras: "yes", extras_needed: "window table"}
+    replies:
+      req: "Haan ji, ho jayega"
+      extra_ask: "Haan window wala mil jayega"
+    expect: {outcome: BOOKED}
+
+  - id: advance_raised
+    title: "The restaurant asks a booking amount: she asks how much, tells the user"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Haan ho jayega, 500 rupaye advance dena padega"
+      p_amount: "500 rupaye"
+    expect: {outcome: ADVANCE_ASKED}
+
+  - id: whatsapp_same_number
+    title: "WhatsApp pe bhej do: this number"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "WhatsApp pe bhej do"
+      w_ask: "Yahi number hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: whatsapp_digits_read_back
+    title: "WhatsApp number given, read back, yes"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "WhatsApp pe bhej do"
+      w_ask: "98111 22334"
+      w_readback: "Haan ji"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: busy_callback
+    title: "Busy now: she asks when to call back"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Abhi busy hain, baad mein call karna"
+      busy_ask: "Ek ghante baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: interrupted_asks_who
+    title: "Asks who is calling, then answers"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: ["Kaun bol raha hai?", "Haan ho jayega"]
+    expect: {outcome: BOOKED}
+
+  - id: asks_name_for_booking
+    title: "Asks in whose name; she defers to the user (no invention)"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: ["Kis naam se booking karni hai?", "Haan ho jayega"]
+    expect: {outcome: BOOKED}
+
+  - id: ai_asked
+    title: "Robot hai kya?"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: ["Aap AI ho kya?", "Haan ho jayega"]
+    expect: {outcome: BOOKED}
+
+  - id: resume_after_busy
+    title: "Retry call: the hook says she called earlier"
+    greeting: "Hello, Spice Garden."
+    brief: {resume: "yes"}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      req: "Haan ji, ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: confirm_callback
+    title: "Confirmation call: the user confirmed, the booking close"
+    greeting: "Hello, Spice Garden."
+    brief: {mode: confirm, resume: "yes", prior_slot: "aaj shaam 7 baje", max_price: 5000}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+    expect: {outcome: BOOKED}
+
+  - id: asks_otp
+    title: "Asks for an OTP: never shared"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: ["Pehle OTP bata dijiye", "Haan ho jayega"]
+    expect: {outcome: BOOKED}
+
+  - id: puts_on_hold
+    title: "Puts Friday on hold, then continues"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: [{say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye"}, "Haan ho jayega"]
+    expect: {outcome: BOOKED}
+
+  - id: wrong_number
+    title: "Wrong number at the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Nahi, yeh toh salon hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: stop_calling
+    title: "Asks not to be called again"
+    greeting: "Hello, Spice Garden."
+    stop_request: true
+    replies:
+      req: "Dobara call mat karna"
+    expect: {outcome: REFUSED}
+
+  - id: rude
+    title: "Hostile"
+    greeting: "Hello, Spice Garden."
+    replies:
+      req: "Faltu tang mat karo"
+    expect: {outcome: REFUSED}
+
+  - id: silent_after_identity
+    title: "Says nothing after the identity question"
+    greeting: "Hello?"
+    default: {silence: true}
+    replies:
+      disclosure: {silence: true}
+      s0_who: {silence: true}
+    expect: {call_outcome: hung_up}

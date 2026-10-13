@@ -241,7 +241,7 @@ def _opening_texts(pb: Playbook, inputs: dict[str, str]) -> dict[str, Any]:
             shown[dst] = default_speller().spoken(shown.get(src, "")) or shown.get(src, "")
 
     def fill_(text: str) -> str:
-        return re.sub(r"\{([a-z_]+)\}", lambda m: shown.get(m.group(1), ""), text)
+        return re.sub(r"\{([a-z0-9_]+)\}", lambda m: shown.get(m.group(1), ""), text)
 
     out: dict[str, Any] = {"disclosure_text": fill_(pb.text(pb.disclosure))}
     if pb.ai_disclosure == "on_request" and pb.reintro:

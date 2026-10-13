@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 from friday.core.clock import IST, ensure_utc, to_ist
 
-MAX_PRICE_INR = 50_000
+MAX_PRICE_INR = 5_000_000  # banquets/weddings are lakhs; per-category ranges do the rest
 MAX_DURATION_MIN = 600
 
 _DEV_DIGITS = {ord(c): str(i) for i, c in enumerate("०१२३४५६७८९")}
@@ -36,6 +36,8 @@ _UNITS: dict[str, int] = {
 }  # fmt: skip
 _HUNDRED = {"sau", "सौ", "hundred"}
 _THOUSAND = {"hazaar", "hazar", "हजार", "हज़ार", "thousand"}
+_LAKH = {"lakh", "lakhs", "lac", "lacs", "lakhon", "लाख"}
+_CRORE = {"crore", "crores", "karod", "करोड़", "करोड"}
 _HALF_PREFIX = {"saadhe": 0.5, "sadhe": 0.5, "साढ़े": 0.5, "साढे": 0.5}
 _FRACTION = {"dedh": 1.5, "डेढ़": 1.5, "dhai": 2.5, "ढाई": 2.5}
 
@@ -58,10 +60,18 @@ def words_to_numbers(text: str) -> list[tuple[int, int, int]]:
     while i < len(toks):
         w, s, e = toks[i]
         if w.isdigit():
+            if i + 1 < len(toks) and (toks[i + 1][0] in _LAKH or toks[i + 1][0] in _CRORE):
+                mult = 100_000 if toks[i + 1][0] in _LAKH else 10_000_000
+                out.append((int(w) * mult, s, toks[i + 1][2]))  # "4 lakh" = 400000
+                i += 2
+                continue
             out.append((int(w), s, e))
             i += 1
             continue
-        if w in _UNITS or w in _FRACTION or w in _HALF_PREFIX or w in _HUNDRED or w in _THOUSAND:
+        if (
+            w in _UNITS or w in _FRACTION or w in _HALF_PREFIX or w in _HUNDRED
+            or w in _THOUSAND or w in _LAKH or w in _CRORE
+        ):
             total = 0.0
             cur = 0.0
             j = i
@@ -87,6 +97,14 @@ def words_to_numbers(text: str) -> list[tuple[int, int, int]]:
                     cur = 0
                 elif x in _THOUSAND:
                     cur = (cur or 1) * 1000
+                    total += cur
+                    cur = 0
+                elif x in _LAKH:
+                    cur = (cur or 1) * 100_000
+                    total += cur
+                    cur = 0
+                elif x in _CRORE:
+                    cur = (cur or 1) * 10_000_000
                     total += cur
                     cur = 0
                 else:

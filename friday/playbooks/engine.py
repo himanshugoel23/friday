@@ -38,7 +38,7 @@ from friday.core.models import (
     UserAnswer,
 )
 from friday.playbooks import slots as sl
-from friday.playbooks.intents import ANY, FACT_INPUTS, QUESTION_INPUTS, Intent
+from friday.playbooks.intents import ANY, FACT_INPUTS, QUESTION_INPUTS, RESUME_INPUTS, Intent
 from friday.playbooks.model import (
     Action,
     LineRef,
@@ -63,7 +63,7 @@ _SAFE_INPUT = re.compile(r"[^\w\s'.\-]", re.U)
 
 def fill(template: str, value: Any) -> str:
     """Fill ``{slots}`` of a line; a line that starts with a slot starts with a capital."""
-    out = re.sub(r"\{([a-z_]+)\}", lambda m: value(m.group(1)), template)
+    out = re.sub(r"\{([a-z0-9_]+)\}", lambda m: value(m.group(1)), template)
     return out[:1].upper() + out[1:] if template.startswith("{") else out
 
 
@@ -196,7 +196,7 @@ class Ctx:
         if name == "push2_price":
             t, m = _digits(self.inputs.get("target_price")), _digits(self.inputs.get("max_price"))
             if t and m:  # slightly higher than the first push, never above the user's maximum
-                return str(min(m, max(t, int(round((t + m) / 2 / 100.0)) * 100)))
+                return str(min(m, max(t, int((t + m) / 2 / 100.0 + 0.5) * 100)))
             if t or m:
                 return str(t or m)
         if name == "captured_number" and st.captured and st.captured != "same":
@@ -248,6 +248,9 @@ def resolve_inputs(pb: Playbook, brief: CallBrief) -> dict[str, str]:
         if name in ("services_spoken", "user_spoken", "business_name_spoken", "user_full_spoken"):
             continue  # derived below
         if name == "services":
+            continue
+        if name in RESUME_INPUTS:  # carried-in answers keep their ">" and JSON punctuation
+            out[name] = "".join(ch for ch in str(v or "") if ch.isprintable())[:400]
             continue
         out[name] = first_name(v) if name == "user_first_name" else clean_input(v)
     if name := out.get("budget"):
@@ -430,7 +433,8 @@ class PlaybookPolicy:
         if key.startswith("has_") and key[4:] in FACT_INPUTS:
             return (not bool(c.inputs.get(key[4:]))) if neg else bool(c.inputs.get(key[4:]))
         val = {
-            "recording": c.recording,
+            # founder 13 Oct: calls are recorded but it is never announced on the call
+            "recording": False,
             "has_budget": bool(budget),
             "over_budget": bool(price is not None and budget and price > int(budget)),
             # asking for a discount needs an EXPLICIT owner instruction (input negotiate: yes);
@@ -496,10 +500,17 @@ class PlaybookPolicy:
         st, b = c.st, c.brief
         if st.commit_blocked or not b.delegation.granted or not st.times:
             return False
-        if st.price_inr is None or st.advance_needed == "yes" or st.flags.get("price_unknown"):
+        # a restaurant table has no price to agree: only the slot (and, via the delegation, no
+        # price ceiling) is checked; every other archetype needs a known price
+        needs_price = c.pb.archetype != "table_booking" or truthy(c.inputs.get("q_price"))
+        if (
+            (needs_price and st.price_inr is None)
+            or st.advance_needed == "yes"
+            or st.flags.get("price_unknown")
+        ):
             return False
         budget = c.inputs.get("budget")
-        if budget and st.price_inr > int(budget):
+        if budget and st.price_inr is not None and st.price_inr > int(budget):
             return False
         from friday.voice.commit import commit_reasons
 
@@ -509,6 +520,7 @@ class PlaybookPolicy:
                 type=CallActionType.HANGUP,
                 commits_booking=True,
                 slot_at=slot_at,
+                collected={} if st.price_inr is not None else {"decision": "slot"},
                 quote=Quote(
                     business_name=b.target.name,
                     amount_inr=st.price_inr,

@@ -72,7 +72,8 @@ personas:
     title: "The hotel asks for an advance; she asks how much and passes it on"
     greeting: "Hello, Hotel Grand Palace."
     replies:
-      request: "Haan available hai, 4000 rupaye per night, 2000 rupaye advance dena padega"
+      request: "Haan available hai, 4000 rupaye per night"
+      tax_ask: "Tax included hai, bas 2000 rupaye advance dena padega"
       adv_raised: "2000 rupaye"
     expect: {outcome: ADVANCE_ASKED}
   - id: advance_payment_number
@@ -136,6 +137,7 @@ personas:
     brief: {resume: "yes", prior_price_inr: 4000}
     greeting: "Hello, Hotel Grand Palace."
     replies:
+      intro_resume: "Haan ji, bataiye"
       tax_ask: "Tax extra"
       bf_ask: "Haan"
       time_ask: "12 baje"
@@ -188,3 +190,41 @@ personas:
       disclosure: {silence: true}
       s0_who: {silence: true}
     expect: {call_outcome: hung_up}
+  - id: resume_steps_answered
+    title: "Retry: price, tax and breakfast were answered; only check-in/out and cancellation"
+    brief: {resume: "yes", prior_price_inr: 4000, prior_steps: "S0>S1>S2>S3>S4>S5"}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      time_ask: "12 baje"
+      canc_ask: "Free hai"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: negotiate_push1_accepted
+    title: "Callback: push 1 gets the target price, finalised"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: 5000, target_price: 4000, max_price: 4500}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      push1: "Theek hai, 4000 rupaye kar dete hain"
+    expect: {outcome: NEGOTIATED}
+  - id: negotiate_two_pushes
+    title: "Callback: push 1 refused, push 2 answered, their price recorded"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: 5000, target_price: 4000, max_price: 4500}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      push1: "Nahi sir, 4800 tak ho sakta hai"
+      push2: "4600 rupaye kar denge"
+    expect: {outcome: NEGOTIATED}
+  - id: negotiate_refused
+    title: "Callback: they will not move"
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: 5000, target_price: 4000, max_price: 4500}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      push1: "Nahi sir, nahi ho payega"
+      push2: "Nahi, 5000 rupaye hi lagenge"
+    expect: {outcome: NEGOTIATED}
+  - id: confirm_callback
+    title: "Callback: the user approved; she tells them to book"
+    brief: {mode: confirm, resume: "yes", prior_price_inr: 4000, prior_slot: "12 November", max_price: 5000, user_full_name: "Himanshu Goyal"}
+    greeting: "Hello, Hotel Grand Palace."
+    replies: {}
+    expect: {outcome: BOOKED}

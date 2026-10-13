@@ -18,8 +18,6 @@ swap:
   pushti: confirm
   suchit: inform
   aas paas: around      # founder 13 Oct: "4 baje ke around"
-  andaza: estimate
-  andaaza: estimate
 
 # Words that should not appear at all (the line is flagged, a human picks the replacement).
 avoid: []

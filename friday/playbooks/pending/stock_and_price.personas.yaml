@@ -27,10 +27,10 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     replies:
       s2_ask_first: "Haan ji hai"
-      s3_ask_first: "70000 ka hai"
+      s3_ask_first: "70000 rupaye ka hai"
       s5_ask: "Ek saal ki warranty milegi"
-      s6_ask: "Haan offer mil jayega"
-      s6b_ask: "Exchange mein 15000 milega, final 55000 padega"
+      s6_ask: "Haan ho jayega"
+      s6b_ask: "Exchange mein 15000 rupaye milega, final 55000 rupaye padega"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: preview_not_in_stock
@@ -55,10 +55,10 @@ personas:
     title: "Stock and price in one sentence"
     greeting: "Hello, Sharma Mobile Store."
     replies:
-      s2_ask_first: "Haan hai, 70000 ka hai"
+      s2_ask_first: "Haan hai, 70000 rupaye ka hai"
       s5_ask: "Ek saal ki"
-      s6_ask: "Haan"
-      s6b_ask: "15000 milega, 55000 padega"
+      s6_ask: "Haan ji"
+      s6b_ask: "15000 rupaye milega, 55000 rupaye padega"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: exchange_asks_model
@@ -66,10 +66,10 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     replies:
       s2_ask_first: "Haan hai"
-      s3_ask_first: "70000"
+      s3_ask_first: "70000 rupaye"
       s5_ask: "Ek saal"
-      s6_ask: ["Kaun sa model hai aapka phone?", "Kitna purana hai?"]
-      s6b_ask: ["Theek hai, 15000 milega, final 55000 padega"]
+      s6_ask: ["Phone ka model kya hai aapka?", "Kitna purana hai?"]
+      s6b_ask: "Theek hai, 15000 rupaye milega, final 55000 rupaye padega"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: exchange_facts_missing
@@ -78,10 +78,10 @@ personas:
     brief: {old_phone_model: "", old_phone_year: "", old_phone_condition: ""}
     replies:
       s2_ask_first: "Haan hai"
-      s3_ask_first: "70000"
+      s3_ask_first: "70000 rupaye"
       s5_ask: "Ek saal"
-      s6_ask: "Kaun sa model hai aapka phone?"
-      s6b_ask: "12000 milega, final 58000"
+      s6_ask: "Phone ka model kya hai aapka?"
+      s6b_ask: "12000 rupaye milega, final 58000 rupaye"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: no_exchange_asked
@@ -90,7 +90,7 @@ personas:
     brief: {q_exchange: "no"}
     replies:
       s2_ask_first: "Haan hai"
-      s3_ask_first: "70000"
+      s3_ask_first: "70000 rupaye"
       s5_ask: "Ek saal"
     expect: {outcome: QUOTE_COLLECTED}
 
@@ -108,7 +108,7 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: "Haan hai, hold karna hai to 5000 advance dena padega"
+      s2_ask_first: "Haan hai, booking ke liye 5000 rupaye advance dena padega"
       p_amount: "5000 rupaye"
       p_upi_ask: "98111 22334 pe bhej dena"
       w_readback: "Haan ji sahi hai"
@@ -119,8 +119,8 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: "Haan hai, 5000 advance dena padega"
-      p_amount: "5000"
+      s2_ask_first: "Haan hai, 5000 rupaye advance dena padega"
+      p_amount: "5000 rupaye"
       p_upi_ask: ["98111 22334", "98111 22335"]
       w_readback: ["Nahi", "Haan sahi hai"]
     expect: {outcome: PAYMENT_REQUESTED}
@@ -130,8 +130,8 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: "Haan hai, 5000 advance dena padega"
-      p_amount: "5000"
+      s2_ask_first: "Haan hai, 5000 rupaye advance dena padega"
+      p_amount: "5000 rupaye"
       p_upi_ask: "UPI nahi hai, WhatsApp pe QR bhej dete hain"
       p_wa_ask: "Haan yahi number pe"
     expect: {outcome: PAYMENT_REQUESTED}
@@ -141,10 +141,10 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: "Haan hai, 5000 advance dena padega"
-      p_amount: "5000"
+      s2_ask_first: "Haan hai, 5000 rupaye advance dena padega"
+      p_amount: "5000 rupaye"
       p_upi_ask: "UPI nahi hai, WhatsApp pe QR bhej dete hain"
-      p_wa_ask: "Nahi, WhatsApp nahi hai"
+      p_wa_ask: "Nahi nahi, hamare paas nahi hai"
       p_here: "Bank transfer kar dena, SBI account hai"
     expect: {outcome: PAYMENT_REQUESTED}
 
@@ -154,7 +154,7 @@ personas:
     brief: {q_extras: "no", q_exchange: "no", q_ask_advance: "yes"}
     replies:
       s2_ask_first: "Haan hai"
-      s3_ask_first: "70000"
+      s3_ask_first: "70000 rupaye"
       s7a_ask: "5000 rupaye lagega"
     expect: {outcome: QUOTE_COLLECTED}
 
@@ -198,7 +198,7 @@ personas:
       s2_ask_first: "Haan hai"
       s3_ask_first: "WhatsApp pe bhej do"
       w_ask: "Nahi, WhatsApp nahi hai"
-      w_none: "Theek hai, 70000 ka hai"
+      w_none: "Theek hai, 70000 rupaye ka hai"
     expect: {outcome: WHATSAPP_REQUESTED}
 
   - id: busy_callback
@@ -214,8 +214,9 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: ["Kaun bol raha hai?", "Haan hai"]
-      s3_ask_first: "70000"
+      s2_ask_first: "Kaun bol raha hai?"
+      s2_ask: "Haan hai"
+      s3_ask_first: "70000 rupaye"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: ai_asked
@@ -223,7 +224,8 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: ["Aap AI ho kya?", "Haan hai, 70000 ka hai"]
+      s2_ask_first: "Aap AI ho kya?"
+      s2_ask: "Haan hai, 70000 rupaye ka hai"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: ai_asked_at_identity
@@ -232,7 +234,7 @@ personas:
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
       disclosure: "Yeh robot hai kya?"
-      s2_ask_first: "Haan hai, 70000 ka hai"
+      s2_ask_first: "Haan hai, 70000 rupaye ka hai"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: absurd_price_asked_again
@@ -241,7 +243,7 @@ personas:
     brief: {q_extras: "no", q_exchange: "no", price_max: 100000}
     replies:
       s2_ask_first: "Haan hai"
-      s3_ask_first: ["Arre 7000000 ka hai", "Sorry, 70000 ka hai"]
+      s3_ask_first: ["Arre 7000000 rupaye ka hai", "Sorry, 70000 rupaye ka hai"]
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: asks_customer_phone
@@ -249,7 +251,8 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: ["Unka number kya hai?", "Haan hai, 70000 ka hai"]
+      s2_ask_first: "Unka number kya hai?"
+      s2_ask: "Haan hai, 70000 rupaye ka hai"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: asks_otp
@@ -257,7 +260,8 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: ["Pehle OTP bata dijiye", "Haan hai, 70000 ka hai"]
+      s2_ask_first: "Pehle OTP bata dijiye"
+      s2_ask: "Haan hai, 70000 rupaye ka hai"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: puts_on_hold
@@ -265,16 +269,55 @@ personas:
     greeting: "Hello, Sharma Mobile Store."
     brief: {q_extras: "no", q_exchange: "no"}
     replies:
-      s2_ask_first: [{say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye"}, "Haan hai, 70000 ka hai"]
+      s2_ask_first: {say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye"}
+      s2_ask: "Haan hai, 70000 rupaye ka hai"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: resume_after_busy
     title: "Retry call: the price is carried in, only the rest is asked"
     greeting: "Hello, Sharma Mobile Store."
-    brief: {resume: "yes", prior_price_inr: "70000", q_exchange: "no"}
+    brief: {resume: "yes", prior_price_inr: "70000 rupaye", q_exchange: "no"}
     replies:
+      intro_resume: "Haan ji, bataiye"
       s5_ask: "Ek saal ki warranty"
     expect: {outcome: QUOTE_COLLECTED}
+
+  - id: confirm_hold
+    title: "Confirmation call: the user confirmed, the shop is asked to hold the item"
+    greeting: "Hello, Sharma Mobile Store."
+    brief: {mode: confirm, resume: "yes", prior_price_inr: "70000", prior_slot: "aaj shaam 6 baje", max_price: 75000, q_exchange: "no"}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+    expect: {outcome: BOOKED}
+
+  - id: negotiate_florist_second_push
+    title: "Negotiation callback (florist): push 1 refused, push 2 answered, call back"
+    greeting: "Hello, Rose Flowers."
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "900", target_price: 700, max_price: 800, services: "red roses bouquet", business_name: "Rose Flowers", category: florist_gift, price_min: 100, price_max: 30000, q_extras: "no", q_exchange: "no", q_negotiate: "yes"}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      n_push1: "Nahi ji, 850 rupaye se kam nahi hoga"
+      n_push2: "Theek hai, 800 rupaye kar dete hain"
+    expect: {outcome: NEGOTIATED}
+
+  - id: negotiate_florist_agrees_at_target
+    title: "Negotiation callback: the shop agrees at the target in push 1"
+    greeting: "Hello, Rose Flowers."
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "900", target_price: 700, max_price: 800, services: "red roses bouquet", business_name: "Rose Flowers", category: florist_gift, price_min: 100, price_max: 30000, q_extras: "no", q_exchange: "no", q_negotiate: "yes"}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      n_push1: "Theek hai, 700 rupaye mein de denge"
+    expect: {outcome: NEGOTIATED}
+
+  - id: negotiate_florist_above_max
+    title: "Negotiation callback: the shop stays above the maximum; recorded, the user decides"
+    greeting: "Hello, Rose Flowers."
+    brief: {mode: negotiate, resume: "yes", prior_price_inr: "900", target_price: 700, max_price: 800, services: "red roses bouquet", business_name: "Rose Flowers", category: florist_gift, price_min: 100, price_max: 30000, q_extras: "no", q_exchange: "no", q_negotiate: "yes"}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      n_push1: "Nahi ji, 900 rupaye final hai"
+      n_push2: "Nahi, 880 rupaye se kam nahi hoga"
+    expect: {outcome: NEGOTIATION_FAILED}
 
   - id: wrong_number
     title: "Wrong number at the identity question"

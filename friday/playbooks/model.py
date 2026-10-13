@@ -79,12 +79,18 @@ _CLAIM = re.compile(
 _CONFIRM = re.compile(r"\bconfirm\w*\b", re.I)
 _NEGATED_OR_FUTURE = re.compile(
     r"\bnahi\b|\bnahin\b|\bnot\b|\bkarke\b|\bse confirm\b|\bapproval\b|\bpoochh\b|\bpuchh\b|"
-    r"\bcheck\b|\bpehle\b|"
-    # founder-approved wording that is not a booking claim: asking the business to confirm a
-    # phone number, "final confirmation leke call back", "baat ho gayi" (spoke to the user)
-    r"\bnumber (?:re)?confirm\b|\bconfirmation leke\b|\bbaat ho gayi\b",
+    r"\bcheck\b|\bpehle\b",
     re.I,
 )
+# founder-approved wording that is not a booking claim: asking the business to confirm a phone
+# number, "final confirmation leke call back", "baat ho gayi" (spoke to the user), "ne confirm kar
+# diya" (the USER decided). Not an exemption when the same sentence also says "book".
+_APPROVED_PHRASES = re.compile(
+    r"\bnumber (?:re)?confirm\b|\bconfirmation leke\b|\bbaat ho gayi\b|"
+    r"\bne confirm kar diya\b|\bfinal confirmation\b",
+    re.I,
+)
+_BOOK_WORD = re.compile(r"\bbook\b|\bhold\b|\bblock\b", re.I)
 _SENT_SPLIT = re.compile(r"(?<=[.!?।])\s+")
 
 # sample values used to render every line once at load time
@@ -101,7 +107,7 @@ _SAMPLE: dict[str, str] = {
     "unit_phrase": "per plate ka rate", "party_size": "4", "duration_text": "2 din ke liye",
     "price_min": "100", "price_max": "5000", "estimate_max": "20000", "category": "restaurant",
 }  # fmt: skip
-_PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
+_PLACEHOLDER = re.compile(r"\{([a-z0-9_]+)\}")
 
 
 class PlaybookError(ValueError):
@@ -347,6 +353,8 @@ def line_problems(line_id: str, text: str, *, commit: bool = False) -> list[str]
     if re.search(r"\{[^a-z_}]|\{\}|\}[^ ]*\{", text) and not _PLACEHOLDER.search(text):
         p.append(f"{where}: malformed braces")
     sample = _PLACEHOLDER.sub(lambda m: _SAMPLE.get(m.group(1), "x"), text)
+    # asking the BUSINESS for its UPI number/ID to pay it is fine; any other UPI wording is not
+    sample = re.sub(r"\bupi\s+(?:number|id)\b", "payment number", sample, flags=re.I)
     if _FORBIDDEN_WORDS.search(sample) or _SECRET_WORDS.search(sample):
         p.append(f"{where}: mentions OTP/PIN/card/password style words (never allowed)")
     if _HUMAN_CLAIM.search(sample):
@@ -354,7 +362,9 @@ def line_problems(line_id: str, text: str, *, commit: bool = False) -> list[str]
     if re.search(r"\d{6,}", sample):
         p.append(f"{where}: contains a long number")
     claims = looks_like_commitment(sample) or any(
-        (_CLAIM.search(s) or _CONFIRM.search(s)) and not _NEGATED_OR_FUTURE.search(s)
+        (_CLAIM.search(s) or _CONFIRM.search(s))
+        and not _NEGATED_OR_FUTURE.search(s)
+        and not (_APPROVED_PHRASES.search(s) and not _BOOK_WORD.search(s))
         for s in sentences(sample)
     )
     if claims and not commit:

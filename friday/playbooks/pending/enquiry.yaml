@@ -90,14 +90,14 @@ lines:
   s3_ask_first: "Toh sir, {services_spoken} ki estimated kya {price_word} rahegi?"
   s3_ask: "Sir, {services_spoken} ki estimated kya {price_word} rahegi?"
   s3e_ask_first: "{ack}, toh {services_spoken} ke estimated kya {price_word} rahenge?"
-  s3e_ask: "Sir, {services_spoken} ke estimated kya {price_word} rahenge?"
+  s3e_ask: "Toh sir, {services_spoken} ke estimated kya {price_word} rahenge?"
   s4_ask: "Toh batch ka timing kya rehta hai?"
   s5_ask: "Achha toh sir, kuch demo class bhi mil sakti hai?"
   s6_ask: "Achha, aane-jaane ka alag charge rahega kya?"
   # the business asks about the event: only from the user's facts
   ev_full: "Ji sir, {event_type} hai, {event_date} ko, {event_venue}, {event_city} mein."
   ev_short: "Ji sir, {event_type} hai, {event_date} ko."
-  ev_guests: "Aur {guests} log honge."
+  ev_full_g: "Ji sir, {event_type} hai, {event_date} ko, {event_venue}, {event_city} mein, aur {guests} log honge."
   people_ans: "Ji, {people_count} log hain."
   offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
   no_secrets: "Ji, yeh jaankari main share nahi kar sakti."
@@ -110,7 +110,7 @@ lines:
   wa_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
   wa_read: "{captured_spoken}, yahi number hai na?"
   wa_done: "Okay sir, main aapko WhatsApp kar deti hoon."
-  wa_decline: "Achha sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  wa_decline: "Theek hai sir, toh aap abhi yahin bata dijiye, main note kar leti hoon."
   # busy (rule 4)
   busy_when: "Ji koi baat nahi sir, main kab call kar sakti hoon?"
   busy_ok: "Theek hai sir, thank you."
@@ -145,14 +145,15 @@ defaults:
   NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
   ARE_YOU_BOT: {say: [ai_yes], repeat: true}
   WHO_IS_THIS:
-    - {say: [reintro, {line: intro, when: ["!q_date"]}, {line: intro_event, when: [q_date]}], repeat: true, max_uses: 1}
-    - {say: [{line: intro, when: ["!q_date"]}, {line: intro_event, when: [q_date]}], repeat: true, max_uses: 1}
+    - {say: [reintro], repeat: true, max_uses: 1}
+    - {repeat: true, max_uses: 1}
   ASKS_REPEAT: {repeat: true, max_uses: 3}
   HOLD_ON: {hold_s: 60, max_uses: 3}
   # "event kya hai, kab hai, kahan hai" / "kitne log": ONLY the user's facts; else ask the user
   ASKS_OFFTOPIC:
-    - {when: [has_event_type, has_event_date, has_event_venue, has_event_city], say: [ev_full, {line: ev_guests, when: [has_guests]}], repeat: true, max_uses: 2}
-    - {when: [has_event_type, has_event_date], say: [ev_short, {line: ev_guests, when: [has_guests]}], repeat: true, max_uses: 2}
+    - {when: [has_event_type, has_event_date, has_event_venue, has_event_city, has_guests], say: [ev_full_g], repeat: true, max_uses: 2}
+    - {when: [has_event_type, has_event_date, has_event_venue, has_event_city], say: [ev_full], repeat: true, max_uses: 2}
+    - {when: [has_event_type, has_event_date], say: [ev_short], repeat: true, max_uses: 2}
     - {when: [has_people_count], say: [people_ans], repeat: true, max_uses: 2}
     - {say: [offscript], repeat: true, max_uses: 3}
   ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
@@ -271,6 +272,8 @@ steps:
     note: advance_note
     ask: [adv_ask_user]
     branches:
+      NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: S7q}
+      NO_ADVANCE: {goto: S7q}
       UNCLEAR: {goto: S7q}
       ANY: {goto: S7q}
 
@@ -279,6 +282,7 @@ steps:
     note: advance_note
     ask: [adv_ask_biz]
     branches:
+      NEEDS_ADVANCE: {say: [adv_close], outcome: ADVANCE_ASKED}
       UNCLEAR: {say: [adv_close], outcome: ADVANCE_ASKED}
       ANY: {say: [adv_close], outcome: ADVANCE_ASKED}
 
@@ -298,9 +302,15 @@ steps:
       GIVES_NUMBER: {goto: W2}
       SAME_NUMBER: {goto: W3}
       NO: {say: [wa_decline], goto: "@wa_no"}
-      WHATSAPP_PLEASE: {repeat: true, max_uses: 1}
-      YES: {repeat: true, max_uses: 1}
-      CONTINUE: {repeat: true, max_uses: 1}
+      WHATSAPP_PLEASE:
+        - {repeat: true, max_uses: 1}
+        - {goto: S7w}
+      YES:
+        - {repeat: true, max_uses: 1}
+        - {goto: S7w}
+      CONTINUE:
+        - {repeat: true, max_uses: 1}
+        - {goto: S7w}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
       ANY: {goto: S7w}
 

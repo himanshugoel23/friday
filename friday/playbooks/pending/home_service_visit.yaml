@@ -1,23 +1,26 @@
-# PENDING playbook: home_service_visit (vendor archetype). NOT loaded by production (`select`, calls).
+# PENDING v7 (founder script review 13 Oct 2026, docs/SCRIPTS_SPEC.md section 4 + global rules).
+# PENDING playbook: home_service_visit (archetype). NOT loaded by production (`select`, calls).
 # Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
 # (hear-before-change). Promote only with: friday playbook promote home_service_visit
 # (needs the founder's marker file home_service_visit.approved next to this file).
 #
-# Home services: the visit charge first, a rough estimate range, can they come today or tomorrow,
-# and the arrival window. Quote only: no visit is booked, nothing is paid. "Dekh ke hi bata sakte"
-# is a normal answer for the estimate, not a failure.
-# The category pack (friday/vendors/categories/home_service_visit.yaml) only changes the VOCABULARY (what the
-# user wants, the unit phrase, the sane price range, which questions are asked); the words below
-# do not change.
-# Same rules as salon_booking v6 (founder): identity question first, then "virtual assistant" and
-# the purpose, price asked FIRST and subtly, no negotiation, no advance / cancellation question
-# unless the vendor raises it, AI answered truthfully on request, booking ONLY with a delegation and
-# the code-level commit check (only archetypes that can book have a commit line).
+# Appliance repair, home repair, packers and movers, pest control. Modes (playbook_mode):
+#   quote_only (default)  hook, visit charge, rough estimate, can they come, arrival time
+#   negotiate             callback: push 1 at target_price, push 2 at push2_price, never above
+#                         max_price; their final price is recorded either way
+#   confirm               callback: the user approved; the address is NEVER spoken: she asks for
+#                         the WhatsApp number, reads it back and sends the address there
+# Packers/movers: "kitna saaman, kahan se kahan, kaun si floor" answered ONLY from the user's facts
+# (items_description, from_place, to_place, floor_info), else "poochh kar bataungi".
+# Busy -> "kab call kar sakti hoon?"; a retry (`resume`) opens with intro_resume and skips the
+# answered questions. "WhatsApp pe bhej do" -> number capture and read-back.
+# Advance is never asked on her own; if the business raises it she asks the amount and hands it
+# to the user (the user pays the business directly; Friday never pays).
 
 version: 1
 id: home_service_visit
 archetype: home_service_visit
-title: Home service visit (plumber, electrician, AC repair, painter, pest control, packers, ...)
+title: Home service visit (appliance and home repair, packers and movers, pest control)
 language: hinglish
 
 inputs:
@@ -32,21 +35,37 @@ inputs:
   playbook_mode: {default: quote_only}
   price_min: {}              # category sanity range: a price outside it is not trusted
   price_max: {}
+  estimate_max: {}           # sanity ceiling for the rough estimate
   category: {}
   date_window: {}
-  estimate_max: {}            # sanity ceiling for the rough estimate
-  q_estimate: {default: "yes"}   # category question switches (friday/vendors)
+  q_estimate: {default: "yes"}      # category question switches (friday/vendors)
   q_today: {default: "yes"}
   q_arrival: {default: "yes"}
+  q_ask_advance: {default: "no"}    # the USER's request asks for the booking amount
+  # facts a packers / movers business asks for (never invented)
+  items_description: {}
+  from_place: {}
+  to_place: {}
+  floor_info: {}
+  # negotiation callback (never above max_price)
+  target_price: {}
+  max_price: {}
+  # a retry / callback call carries the earlier answers
+  resume: {}
+  prior_price_inr: {}
+  prior_estimate_inr: {}
+  prior_slot_free: {}
+  prior_notes: {}
+  prior_flags: {}
 
-outputs: [price_inr, price_low_inr, price_unit, advance_needed, outcome]
+outputs: [price_inr, price_low_inr, price_unit, estimate_inr, estimate_low_inr, slot_free, advance_needed, arrival_note, captured_number, outcome]
 
 limits:
-  max_duration_s: 150
+  max_duration_s: 180
   max_repeats: 4
   max_unclear_per_step: 2
   hold_max_s: 60
-  max_turns: 28
+  max_turns: 34
 
 disclosure: disclosure
 ai_disclosure: on_request
@@ -59,79 +78,132 @@ confusion:
 
 lines:
   disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
-  reintro: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
-  s0_who: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
   recording_notice: "Yeh call quality ke liye record ho sakta hai."
-  intro: "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant."
-  ai_yes: "Haan ji, main {user_spoken} {honorific} ki personal AI assistant hoon."
-  bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
-  bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
-  bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
-  bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
-  bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
-  wa_decline: "Sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
-  s5_no_advance: "Advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
-  no_number: "{user_spoken} {honorific} ka number main share nahi kar sakti."
-  q_close: "Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you."
-  sorry: "Sorry, ek baar phir?"
+  # the HOOK: one short line, the purpose of the call, then WAIT for "haan ji, bataiye"
+  intro: "Ji sir, actually maine aapko {services_spoken} ke kaam ke regarding call kiya tha."
+  intro_resume: "Ji sir, actually maine pehle {services_spoken} ke kaam ke regarding call kiya tha, bas ek-do cheezein reh gayi thi."
+  ai_yes: "Ji, haan, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  s3_ask_first: "Toh sir, visit ka estimated charge kitna rahega?"
+  s3_ask: "Sir, visit ka estimated charge kitna rahega?"
+  s4_ask: "Achha theek hai, aur kaam ka rough estimate kitna aa jata hai?"
+  s5_ask_date: "Achha toh sir, {date_window} visit ho sakta hai?"
+  s5_ask_open: "Achha toh sir, aaj ya kal visit ho sakta hai?"
+  s5b_ask: "Achha okay. Toh kab tak aa sakte hain?"
+  s6_ask: "Achha, aur aane ka time kya rahega?"
+  # packers / movers: the business asks quantity, from, to, floor: only the user's facts
+  ans_move: "Ji sir, {items_description}, {from_place} se {to_place}, {floor_info}."
+  ans_items: "Ji sir, {items_description}."
   offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
-  no_secrets: "Yeh jaankari main share nahi kar sakti."
-  intro_visit: "{user_spoken} {honorific} ke yahan {services_spoken} ka kaam hai."
-  s3_ask_first: "Toh sir, visit ka charge kitna rahega?"
-  s3_ask: "Sir, visit ka charge kitna hoga?"
-  s4_ask: "Aur kaam ka rough estimate kitna aa jata hai?"
-  s5_ask_date: "Visit {date_window} ho sakta hai?"
-  s5_ask_open: "Aaj ya kal visit ho sakta hai?"
-  s5b_ask: "Toh kab tak aa sakte hain?"
-  s6_ask: "Aane ka time kya rahega?"
+  no_secrets: "Ji, yeh jaankari main share nahi kar sakti."
+  no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
+  # negotiation (rule 10)
+  push1: "Toh sir, {user_spoken} {honorific} se baat ho gayi hai, price thoda humare budget se upar hai. Humara budget {target_price} ka hai, toh isme bataiye kuch ho sakta hai kya?"
+  push2: "Achha sir, thoda aur dekh lijiye na, kya {push2_price} tak ho payega?"
+  neg_fail: "Theek hai sir, main ek baar {user_spoken} {honorific} se final confirmation leke aapko call back karti hoon."
+  # confirmation call (WhatsApp address; the address is never spoken)
+  c_ask: "Theek hai sir, {user_spoken} {honorific} ne confirm kar diya hai. Main aapko WhatsApp pe final address aur location share kar deti hoon. Ek baar WhatsApp number confirm karenge?"
+  c_done: "Theek hai sir, main aapko WhatsApp pe final details share kar deti hoon. Thank you."
+  # advance / booking amount (rule 6): never on her own
+  adv_ask_user: "Achha theek hai sir, ek baar booking amount kitna lenge?"
+  adv_ask_biz: "{ack}, ek baar advance ya booking amount kitna hoga?"
+  adv_close: "Theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, wo aapko advance payment initiate kar denge. Thank you."
+  # WhatsApp (rule 5)
+  wa_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
+  wa_read: "{captured_spoken}, yahi number hai na?"
+  wa_done: "Okay sir, main aapko WhatsApp kar deti hoon."
+  wa_decline: "Theek hai sir, toh aap abhi yahin bata dijiye, main note kar leti hoon."
+  # busy (rule 4)
+  busy_when: "Ji koi baat nahi sir, main kab call kar sakti hoon?"
+  busy_ok: "Theek hai sir, thank you."
+  bye_wrong: "Ji maaf kijiye, galat number lag gaya. Thank you."
+  bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Thank you."
+  bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Thank you."
+  bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Thank you."
+  q_close: "{ack}, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
+  sorry: "Sorry, ek baar phir?"
 
 routes:
+  after_hook:
+    - {when: [mode_confirm], goto: SC}
+    - {when: [mode_negotiate, "!has_target_price"], goto: S7q}
+    - {when: [mode_negotiate, price_le_target], goto: SNok}
+    - {when: [mode_negotiate, price_known], goto: N1}
+    - {goto: S3}
   after_visit_charge:
-    - {when: [q_estimate], goto: S4}
-    - {goto: S5}
+    - {when: [estimate_known], goto: S5}    # a retry: the estimate is already known
+    - {goto: S4}
   after_estimate:
     - {goto: S5}
+  after_push1:
+    - {when: [price_le_target], goto: SNok}
+    - {goto: N2}
+  after_push2:
+    - {when: [price_le_max], goto: SNok}
+    - {goto: SNfail}
+  wa_no:
+    - {when: ["!price_known"], goto: S3}
+    - {goto: S7q}
+  wa_ok:
+    - {when: [mode_confirm], goto: C3}
+    - {goto: W3}
 
 defaults:
   STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
   RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
   WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
-  BUSY_LATER: {say: [bye_busy], outcome: CALL_BACK_LATER}
+  BUSY_LATER: {goto: SBL}
+  NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: SB}
+  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
   ARE_YOU_BOT: {say: [ai_yes], repeat: true}
-  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  WHO_IS_THIS:
+    - {say: [reintro], repeat: true, max_uses: 1}
+    - {repeat: true, max_uses: 1}
   ASKS_REPEAT: {repeat: true, max_uses: 3}
   HOLD_ON: {hold_s: 60, max_uses: 3}
-  ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
+  # packers / movers: "kitna saaman, kahan se kahan, kaun si floor": ONLY the user's facts
+  ASKS_OFFTOPIC:
+    - {when: [has_items_description, has_from_place, has_to_place, has_floor_info], say: [ans_move], repeat: true, max_uses: 2}
+    - {when: [has_items_description], say: [ans_items], repeat: true, max_uses: 2}
+    - {say: [offscript], repeat: true, max_uses: 3}
   ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
   ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
-  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
-  # "WhatsApp pe bhej do": asked once to say it here (in the price step), then a polite close
-  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: S7w}
-  NEEDS_ADVANCE: {say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: ADVANCE_ASKED}
-  VISIT_NEEDED: {set: {estimate_on_visit: "yes"}, goto: S7q}
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: W1}
+  VISIT_NEEDED: {set: {estimate_on_visit: "yes"}, goto: S5}
 
 start: S0
 
 steps:
   S0:   # identity check; the runner already asked the identity question; Friday WAITS
     branches:
-      YES: {goto: S3}
-      CONTINUE: {goto: S3}
-      ACK: {goto: S3}
+      YES: {goto: S1}
+      CONTINUE: {goto: S1}
+      ACK: {goto: S1}
       NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
       WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
       ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
-      ARE_YOU_BOT: {say: [ai_yes], goto: S3}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S1}
       ASKS_OFFTOPIC: {say: [s0_who], stay: true}
       ASKS_SECRET: {say: [s0_who], stay: true}
       ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
       WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
 
-  S3:   # ONE turn: who, why, then the visit charge
+  S1:   # the HOOK; then wait for "haan ji, bataiye"
     ask:
-      - {line: intro, when: [first_ask]}
+      - {line: intro_resume, when: [is_resume]}
+      - {line: intro, when: ["!is_resume"]}
+    branches:
+      YES: {goto: "@after_hook"}
+      CONTINUE: {goto: "@after_hook"}
+      ACK: {goto: "@after_hook"}
+      ASKS_REPEAT: {repeat: true, max_uses: 1}
+      ANY: {goto: "@after_hook"}
+
+  S3:   # the visit charge
+    skip_when: [price_known]
+    ask:
       - {line: recording_notice, when: [recording, first_ask]}
-      - {line: intro_visit, when: [first_ask]}
       - {line: s3_ask_first, when: [first_ask]}
       - {line: s3_ask, when: ["!first_ask"]}
     branches:
@@ -145,10 +217,10 @@ steps:
       VISIT_NEEDED: {set: {estimate_on_visit: "yes"}, goto: "@after_visit_charge"}
       PRICE_DEPENDS: {set: {price_unknown: "yes"}, goto: "@after_visit_charge"}
       REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: "@after_visit_charge"}
-      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
       CONTINUE: {repeat: true}
       YES: {repeat: true}
-      ASKS_REPEAT: {say: [intro], repeat: true, max_uses: 1}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: "@after_visit_charge"}
 
   S4:   # the rough estimate for the work (a range is fine; "dekh ke hi" is fine)
     skip_when: ["!q_estimate"]
@@ -167,41 +239,157 @@ steps:
       REFUSES_PRICE: {set: {estimate_on_visit: "yes"}, goto: "@after_estimate"}
       NO_CHARGE: {goto: "@after_estimate"}
       CONTINUE: {repeat: true}
-      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
       NO: {set: {estimate_on_visit: "yes"}, goto: "@after_estimate"}
       ANY: {goto: "@after_estimate"}
 
-  S5:   # can they come (the day the user wants, or today / tomorrow)
+  S5:   # can they come (the day the user wants)
     skip_when: ["!q_today"]
     max_visits: 1
+    note: availability_note
     ask:
       - {line: s5_ask_date, when: [has_date_window]}
       - {line: s5_ask_open, when: ["!has_date_window"]}
     branches:
       YES: {set: {slot_free: "yes"}, goto: S6}
       SLOT_FREE: {set: {slot_free: "yes"}, goto: S6}
-      GIVES_TIME: {goto: S6}
-      OFFERS_SLOTS: {goto: S6}
+      GIVES_TIME: {set: {slot_free: "yes"}, goto: S6}
       SLOT_BUSY: {goto: S5b}
       NO: {goto: S5b}
+      OFFERS_SLOTS: {goto: S6}
       CONTINUE: {repeat: true}
-      ANY: {goto: S7q}
+      ANY: {goto: S8}
 
-  S5b:  # not that day: when then (their answer is only reported)
-    ask: [s5b_ask]
+  S5b:  # not that day: when then (their words only)
+    max_visits: 1
     note: availability_note
+    ask: [s5b_ask]
     branches:
-      UNCLEAR: {goto: S7q}
-      ANY: {goto: S7q}
+      UNCLEAR: {goto: S8}
+      ANY: {goto: S8}
 
-  S6:   # the arrival window
+  S6:   # the arrival time (their words only)
     skip_when: ["!q_arrival"]
     max_visits: 1
-    ask: [s6_ask]
     note: arrival_note
+    ask: [s6_ask]
     branches:
+      UNCLEAR: {goto: S8}
+      ANY: {goto: S8}
+
+  S8:   # only if the USER's request asks for the booking amount
+    skip_when: ["!q_ask_advance"]
+    max_visits: 1
+    note: advance_note
+    ask: [adv_ask_user]
+    branches:
+      NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: S7q}
+      NO_ADVANCE: {goto: S7q}
       UNCLEAR: {goto: S7q}
       ANY: {goto: S7q}
+
+  N1:   # negotiation, push 1 (callback)
+    max_visits: 1
+    ask: [push1]
+    branches:
+      GIVES_PRICE: {goto: "@after_push1"}
+      PRICE_RANGE: {goto: "@after_push1"}
+      UNCLEAR: {goto: N2}
+      ANY: {goto: N2}
+
+  N2:   # negotiation, push 2 (callback); never above max_price, then their price is recorded
+    max_visits: 1
+    ask: [push2]
+    branches:
+      GIVES_PRICE: {goto: "@after_push2"}
+      PRICE_RANGE: {goto: "@after_push2"}
+      UNCLEAR: {goto: "@after_push2"}
+      ANY: {goto: "@after_push2"}
+
+  SC:   # confirmation call: the WhatsApp number for the address
+    max_visits: 1
+    ask: [c_ask]
+    branches:
+      GIVES_NUMBER: {goto: W2}
+      SAME_NUMBER: {goto: C3}
+      NO: {goto: W1}
+      YES: {repeat: true, max_uses: 1}
+      CONTINUE: {repeat: true, max_uses: 1}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: C3}
+
+  SB:   # the business raised an advance: ask the amount, hand it to the user
+    max_visits: 1
+    note: advance_note
+    ask: [adv_ask_biz]
+    branches:
+      NEEDS_ADVANCE: {say: [adv_close], outcome: ADVANCE_ASKED}
+      UNCLEAR: {say: [adv_close], outcome: ADVANCE_ASKED}
+      ANY: {say: [adv_close], outcome: ADVANCE_ASKED}
+
+  SBL:  # busy: when can she call back (their words noted)
+    max_visits: 2
+    note: callback_time
+    ask: [busy_when]
+    branches:
+      BUSY_LATER: {say: [busy_ok], outcome: CALL_BACK_LATER}
+      UNCLEAR: {say: [busy_ok], outcome: CALL_BACK_LATER}
+      ANY: {say: [busy_ok], outcome: CALL_BACK_LATER}
+
+  W1:   # WhatsApp: which number
+    max_visits: 2
+    ask: [wa_ask]
+    branches:
+      GIVES_NUMBER: {goto: W2}
+      SAME_NUMBER: {goto: "@wa_ok"}
+      NO: {say: [wa_decline], goto: "@wa_no"}
+      WHATSAPP_PLEASE:
+        - {repeat: true, max_uses: 1}
+        - {goto: S7w}
+      YES:
+        - {repeat: true, max_uses: 1}
+        - {goto: S7w}
+      CONTINUE:
+        - {repeat: true, max_uses: 1}
+        - {goto: S7w}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: S7w}
+
+  W2:   # read the number back
+    max_visits: 2
+    ask: [wa_read]
+    branches:
+      YES: {goto: "@wa_ok"}
+      SAME_NUMBER: {goto: "@wa_ok"}
+      NO: {goto: W1}
+      GIVES_NUMBER: {goto: W2}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: S7w}
+
+  W3:   # number settled (the business asked for WhatsApp)
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [wa_done], outcome: QUOTE_COLLECTED}
+        - {when: [estimate_known], say: [wa_done], outcome: QUOTE_COLLECTED}
+        - {say: [wa_done], outcome: WHATSAPP_REQUESTED}
+
+  C3:   # confirmation call: number settled, the address goes by WhatsApp
+    final: true
+    branches:
+      ANY:
+        - {say: [c_done], outcome: CONFIRMED}
+
+  SNok:   # negotiation done: their price is within what the user allows
+    final: true
+    branches:
+      ANY:
+        - {say: [q_close], outcome: NEGOTIATED}
+
+  SNfail:  # negotiation: not agreed; their final price is recorded
+    final: true
+    branches:
+      ANY:
+        - {say: [neg_fail], outcome: NOT_AGREED}
 
   S7q:  # the quote goes to the user
     final: true
@@ -211,7 +399,7 @@ steps:
         - {when: [estimate_known], say: [q_close], outcome: QUOTE_COLLECTED}
         - {say: [q_close], outcome: NEEDS_VISIT}
 
-  S7w:  # they asked to send it on WhatsApp (and would not say it here)
+  S7w:  # they asked for WhatsApp and no number could be settled
     final: true
     branches:
       ANY:
@@ -221,8 +409,23 @@ steps:
 outcomes:
   QUOTE_COLLECTED:
     call_outcome: partial
-    description: visit charge and/or rough estimate collected (price_inr, estimate_inr, estimate_low_inr), availability and arrival window noted, nothing booked
+    description: visit charge and/or rough estimate collected (price_inr, estimate_inr, estimate_low_inr), availability and arrival time noted, nothing booked
     needs_quote: true
+  NEGOTIATED:
+    call_outcome: partial
+    description: negotiation callback done; price_inr is their price, within what the user allows (awaits the user)
+    needs_quote: true
+  NOT_AGREED:
+    call_outcome: partial
+    description: negotiation callback done; their final price (price_inr) is above what the user allows (awaits the user)
+    needs_quote: true
+  CONFIRMED:
+    call_outcome: partial
+    description: confirmation callback done; the WhatsApp number (captured_number) was taken for the address, which the user sends
+  ADVANCE_ASKED:
+    call_outcome: partial
+    description: the booking / advance amount was asked (advance_note); the user pays the business directly
+    collected: {advance_needed: "yes"}
   NEEDS_VISIT:
     call_outcome: partial
     description: no price without seeing the job
@@ -232,21 +435,15 @@ outcomes:
     description: asked not to be called again, or hostile (no retry)
   CALL_BACK_LATER:
     call_outcome: callback_later
-    description: they asked us to call later
+    description: they were busy; callback_time has their words
   WRONG_NUMBER:
     call_outcome: declined
     description: wrong number / not this kind of business
     collected: {wrong_number: "yes"}
   WHATSAPP_REQUESTED:
     call_outcome: partial
-    description: they wanted to send details on WhatsApp instead of saying them
+    description: they will send the details on WhatsApp (captured_number)
     collected: {whatsapp_requested: "yes"}
-  PRICE_ON_REQUEST:
-    call_outcome: partial
-    description: no price on the phone / it depends
-  ADVANCE_ASKED:
-    call_outcome: partial
-    description: they asked for an advance; Friday did not agree
   UNCLEAR:
     call_outcome: partial
     description: could not understand them

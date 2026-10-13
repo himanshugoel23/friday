@@ -1,0 +1,455 @@
+# PENDING (founder script review 13 Oct 2026, SCRIPTS_SPEC section 5b): NOT loaded by production
+# until the founder has HEARD the audio and creates cab_booking.approved (hear-before-change).
+#
+# Cab booking. First call: the hook, then she volunteers the trip (from the user's facts), the
+# total price, the car, what is included, the toll estimate (only if not included), availability
+# for the pickup time, the price-check close. Callbacks (modes of this playbook):
+#   negotiate  push 1 at target_price, push 2 at push2_price, never above max_price
+#   confirm    the user approved: finalise at {vendor_price}, the booking name, the WhatsApp number
+#              for the pickup address (captured and read back), then the delegated commit line
+# Same shared rules as the other archetypes: identity question first, the hook, "busy" asks WHEN to
+# call back (retry hook = intro_resume), "WhatsApp pe bhej do" asks for the number and reads it
+# back, an advance is raised only by the business (or the user's request: q_ask_advance) and never
+# agreed to. AI is answered truthfully on request.
+#
+# Every spoken line is the founder's approved wording (docs/SCRIPTS_SPEC.md). Lines the engine
+# needs that are NOT in the spec are marked GLUE below.
+
+version: 1
+id: cab_booking
+archetype: cab_booking
+title: Cab booking (quote, negotiation, confirmation)
+language: hinglish
+
+inputs:
+  user_first_name: {required: true}
+  user_spoken: {}
+  honorific: {default: sir}
+  business_name: {required: true}
+  business_name_spoken: {}
+  service: {required: true}
+  services: {}
+  services_spoken: {}
+  playbook_mode: {default: quote_only}
+  price_min: {}
+  price_max: {}
+  category: {}
+  budget: {}
+  target_price: {}
+  max_price: {}
+  from_place: {}
+  to_place: {}
+  pickup_time: {}
+  people_count: {}
+  user_full_name: {}
+  user_full_spoken: {}
+  q_ask_advance: {default: "no"}
+  resume: {}
+  prior_price_inr: {}
+  prior_slot: {}
+  prior_notes: {}
+  prior_flags: {}
+  prior_steps: {}
+
+outputs: [price_inr, estimate_inr, advance_needed, price_note, whatsapp_requested, slot, outcome]
+
+limits:
+  max_duration_s: 240
+  max_repeats: 4
+  max_unclear_per_step: 2
+  hold_max_s: 60
+  max_turns: 40
+
+disclosure: disclosure
+ai_disclosure: on_request
+reintro: reintro
+
+confusion:
+  line: sorry
+  outcome: UNCLEAR
+  close: bye_unclear
+
+lines:
+  disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  recording_notice: "Yeh call quality ke liye record ho sakta hai."
+  # the HOOK, then WAIT for "haan ji, bataiye"; the retry hook asks only what is missing
+  intro: "Ji sir, actually maine aapko cab booking ke regarding call kiya tha."
+  intro_resume: "Ji sir, actually maine pehle cab booking ke regarding call kiya tha, bas ek-do cheezein reh gayi thi."
+  ai_yes: "Ji, haan, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  bye_wrong: "Ji maaf kijiye, galat number lag gaya. Thank you."
+  bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Thank you."
+  bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Thank you."
+  bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Thank you."
+  # busy: ask WHEN to call back (SCRIPTS_SPEC rule 4); the close is GLUE
+  busy_when: "Ji koi baat nahi sir, main kab call kar sakti hoon?"
+  bye_busy_time: "{ack}, main tab call kar leti hoon. Thank you."   # GLUE (same as the salon's busy_close)
+  # first call: the trip is volunteered, then the total price
+  trip: "Ji, hamko {from_place} se {to_place} jana hai, {pickup_time} ki cab book karani hai, hum {people_count} log hain."
+  s3_ask: "Toh sir, iska total estimated kitna charge rahega?"
+  s3_ask_again: "Sir, iska total estimated kitna charge rahega?"      # GLUE: the asked-again form
+  s4_ask: "Aur kaun si gaadi milegi isme?"
+  s5_ask: "Toh sir, is charge mein sab kuch include rahega na? Toll, khana-peena, driver ka khana, charges wagairah?"
+  s5t_ask: "Toh sir, estimated kitna toll lagta hai isme, kuch andaza hai?"
+  s6_ask: "Toh sir, {pickup_time} ke liye cab available hogi na?"
+  q_close: "{ack}, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
+  # callback (mode negotiate), SCRIPTS_SPEC rule 10
+  push1: "Toh sir, {user_spoken} {honorific} se baat ho gayi hai, price thoda humare budget se upar hai. Humara budget {target_price} ka hai, toh isme bataiye kuch ho sakta hai kya?"
+  push2: "Achha sir, thoda aur dekh lijiye na, kya {push2_price} tak ho payega?"
+  nego_fail: "Theek hai sir, main ek baar {user_spoken} {honorific} se final confirmation leke aapko call back karti hoon."
+  # callback (mode confirm): the approved text is ONE utterance; the engine's commit line must be the
+  # last (it ends the call), so it is spoken in this order: the WhatsApp number first (cab_wa_ask),
+  # then the commit line. Needs the founder's OK (see the report).
+  cab_wa_ask: "Main aapko WhatsApp par pickup address share kar deti hoon. Ek baar apna WhatsApp number confirm kar dijiye."
+  s7_confirm:
+    text: "{user_spoken} {honorific} ne final confirm kar diya hai, toh hum {vendor_price} pe final karte hain. Toh sir {pickup_time} ki booking aap {user_full_spoken} ke naam se kar lijiye. Thank you."
+    commit: true
+  s7_close: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
+  # advance (rule 6): only when the BUSINESS raises it, or the user's request asks (q_ask_advance)
+  adv_ask: "{ack}, ek baar advance ya booking amount kitna hoga?"
+  adv_close: "Theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, wo aapko advance payment initiate kar denge. Thank you."
+  adv_ask_user: "Achha theek hai sir, ek baar booking amount kitna lenge?"
+  # WhatsApp (rule 5)
+  wa_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
+  wa_readback: "{captured_spoken}, yahi number hai na?"
+  wa_done: "Okay sir, main aapko WhatsApp kar deti hoon."
+  wa_decline: "Theek hai sir, toh aap abhi yahin bata dijiye, main note kar leti hoon."   # GLUE
+  no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
+  sorry: "Sorry, ek baar phir?"
+  offscript: "Achha, yeh main {user_spoken} {honorific} se poochh kar bataungi."
+  no_secrets: "Ji, yeh jaankari main share nahi kar sakti."
+
+routes:
+  after_hook:
+    - {when: [mode_negotiate, price_le_target], goto: SP}
+    - {when: [mode_negotiate], goto: N1}
+    - {when: [mode_confirm], goto: C1}
+    - {goto: S3}
+  to_avail:
+    - {when: [has_pickup_time], goto: S6}
+    - {goto: "@before_close"}
+  before_close:
+    - {when: [q_ask_advance], goto: SA}
+    - {goto: S10}
+  back_to_questions:
+    - {when: ["!price_known"], goto: S3}
+    - {goto: S4}
+
+defaults:
+  STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
+  RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
+  WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+  BUSY_LATER: {goto: SBZ}
+  NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: SB}
+  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
+  ARE_YOU_BOT: {say: [ai_yes], repeat: true}
+  WHO_IS_THIS:
+    - {say: [reintro, intro], repeat: true, max_uses: 1}
+    - {say: [intro], repeat: true, max_uses: 1}
+  ASKS_REPEAT: {repeat: true, max_uses: 3}
+  HOLD_ON: {hold_s: 60, max_uses: 3}
+  ASKS_OFFTOPIC:
+    - {when: [has_from_place, has_to_place, has_pickup_time, has_people_count], say: [trip], repeat: true, max_uses: 1}
+    - {say: [offscript], repeat: true, max_uses: 3}
+  ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
+  ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: W1}
+
+start: S0
+commit_step: S7
+
+steps:
+  S0:   # identity check. The runner already asked the identity question; Friday WAITS.
+    branches:
+      YES: {goto: S1}
+      CONTINUE: {goto: S1}
+      ACK: {goto: S1}
+      NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+      WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
+      ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S1}
+      ASKS_OFFTOPIC: {say: [s0_who], stay: true}
+      ASKS_SECRET: {say: [s0_who], stay: true}
+      ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
+      WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
+
+  S1:   # the HOOK; then wait for "haan ji, bataiye"
+    ask:
+      - {line: intro, when: ["!is_resume"]}
+      - {line: intro_resume, when: [is_resume, "!mode_negotiate", "!mode_confirm"]}
+      - {line: intro, when: [is_resume, mode_negotiate]}
+      - {line: intro, when: [is_resume, mode_confirm]}
+    branches:
+      YES: &s1_next {goto: "@after_hook"}
+      CONTINUE: *s1_next
+      ACK: *s1_next
+      ASKS_REPEAT: {repeat: true, max_uses: 1}
+      GIVES_PRICE:
+        - {when: [mode_negotiate], goto: "@after_hook"}
+        - {when: [mode_confirm], goto: C1}
+        - {when: [price_known], goto: S4}
+        - {goto: S3}
+      ANY: *s1_next
+
+  S3:   # she volunteers the trip, then asks the total price
+    skip_when: [price_known]          # a retry call never asks the price again
+    ask:
+      - {line: recording_notice, when: [recording, first_ask]}
+      - {line: trip, when: [first_ask, has_from_place, has_to_place, has_pickup_time, has_people_count]}
+      - {line: s3_ask, when: [first_ask]}
+      - {line: s3_ask_again, when: ["!first_ask"]}
+    branches:
+      GIVES_PRICE:
+        - {when: [price_known], goto: S4}
+        - {repeat: true}
+      PRICE_RANGE:
+        - {when: [price_known], goto: S4}
+        - {repeat: true}
+      PRICE_DEPENDS: {set: {price_unknown: "yes"}, goto: S4}
+      REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: S4}
+      NO: {set: {not_available: "yes"}, goto: S10n}
+      SLOT_BUSY: {set: {not_available: "yes"}, goto: S10n}
+      CONTINUE: {repeat: true}
+      YES: {repeat: true}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: S4}                  # only reached when skipped (price already known)
+
+  S4:   # which car
+    skip_when: [step_answered]
+    max_visits: 1
+    note: car
+    ask: [s4_ask]
+    branches:
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S5}
+      ANY: {goto: S5}
+
+  S5:   # is everything included (toll, food, driver's food, charges)
+    skip_when: [step_answered]
+    max_visits: 1
+    note: inclusions
+    ask: [s5_ask]
+    branches:
+      YES: {goto: "@to_avail"}
+      NO_CHARGE: {goto: "@to_avail"}
+      NO: {goto: S5t}
+      GIVES_PRICE: {goto: S5t}
+      PRICE_RANGE: {goto: S5t}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S5t}
+      ANY:
+        - {when: [step_answered], goto: "@to_avail"}   # skipped on a retry call: do not ask the toll
+        - {goto: S5t}
+
+  S5t:  # not included: roughly how much toll (a rough figure is stored as the estimate)
+    skip_when: [step_answered]
+    max_visits: 1
+    captures: estimate
+    note: toll
+    ask: [s5t_ask]
+    branches:
+      GIVES_PRICE: {goto: "@to_avail"}
+      PRICE_RANGE: {goto: "@to_avail"}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: "@to_avail"}
+      ANY: {goto: "@to_avail"}
+
+  S6:   # is the cab available at the pickup time
+    skip_when: [step_answered]
+    max_visits: 1
+    ask: [s6_ask]
+    branches:
+      YES: {set: {slot_free: "yes"}, goto: "@before_close"}
+      SLOT_FREE: {set: {slot_free: "yes"}, goto: "@before_close"}
+      NO: {set: {not_available: "yes"}, goto: S10n}
+      SLOT_BUSY: {set: {not_available: "yes"}, goto: S10n}
+      GIVES_TIME: {set: {alt_offered: "yes"}, goto: "@before_close"}
+      OFFERS_SLOTS: {set: {alt_offered: "yes"}, goto: "@before_close"}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: "@before_close"}
+      ANY: {goto: "@before_close"}
+
+  SA:   # the user's request asks for the booking amount (q_ask_advance); never otherwise
+    max_visits: 1
+    note: booking_amount
+    ask: [adv_ask_user]
+    branches:
+      NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: S10}
+      NO_ADVANCE: {set: {advance_needed: "no"}, goto: S10}
+      NO: {set: {advance_needed: "no"}, goto: S10}
+      UNCLEAR: {goto: S10}
+      ANY: {goto: S10}
+
+  SB:   # the business raised an advance: ask how much, pass it on, never agree
+    max_visits: 1
+    note: advance_amount
+    ask: [adv_ask]
+    branches:
+      ANY: {say: [adv_close], outcome: ADVANCE_ASKED}
+
+  SBZ:  # busy: ask when to call back, note the time (retries are scheduled by the task layer)
+    max_visits: 1
+    note: callback_time
+    ask: [busy_when]
+    branches:
+      UNCLEAR: {say: [bye_busy_time], outcome: CALL_BACK_LATER}
+      ANY: {say: [bye_busy_time], outcome: CALL_BACK_LATER}
+
+  # ---- callback: negotiation
+  N1:   # push 1 (target_price)
+    max_visits: 1
+    ask: [push1]
+    branches:
+      GIVES_PRICE:
+        - {when: [price_le_target], goto: SP}
+        - {goto: N2}
+      PRICE_RANGE:
+        - {when: [price_le_target], goto: SP}
+        - {goto: N2}
+      YES: {set: {price_note: agreed_at_target}, goto: SP}
+      NO: {goto: N2}
+      ANY: {goto: N2}
+
+  N2:   # push 2 (push2_price, never above max_price)
+    max_visits: 1
+    ask: [push2]
+    branches:
+      GIVES_PRICE:
+        - {when: [price_le_max], goto: SP}
+        - {goto: NF}
+      PRICE_RANGE:
+        - {when: [price_le_max], goto: SP}
+        - {goto: NF}
+      YES: {set: {price_note: agreed_at_push2}, goto: SP}
+      NO: {goto: NF}
+      ANY: {goto: NF}
+
+  NF:   # not agreed: the user decides; their last price stays recorded
+    final: true
+    branches:
+      ANY: {say: [nego_fail], outcome: NEGOTIATION_FAILED}
+
+  SP:   # a price the user can accept is in hand: the usual close
+    final: true
+    branches:
+      ANY: {say: [q_close], outcome: PRICE_AGREED}
+
+  # ---- callback: confirmation (the user approved)
+  C1:   # the WhatsApp number for the pickup address
+    max_visits: 2
+    ask: [cab_wa_ask]
+    branches:
+      GIVES_NUMBER: {goto: C2}
+      SAME_NUMBER: {say: [wa_done], goto: S7}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      WHATSAPP_PLEASE: {repeat: true, max_uses: 1}
+      ANY: {goto: S7}
+
+  C2:   # read the number back
+    max_visits: 1
+    ask: [wa_readback]
+    branches:
+      YES: {say: [wa_done], goto: S7}
+      CONTINUE: {say: [wa_done], goto: S7}
+      NO: {goto: C1}
+      ANY: {say: [wa_done], goto: S7}
+
+  S7:   # the commit step: ONE line, nothing asked
+    final: true
+    branches:
+      ANY:
+        - {when: [mode_confirm, can_commit, "!alt_offered"], say: [s7_confirm], commit: true, outcome: BOOKED}
+        - {say: [s7_close], outcome: CONFIRM_PENDING}
+
+  # ---- WhatsApp (rule 5)
+  W1:
+    max_visits: 2
+    ask: [wa_ask]
+    branches:
+      GIVES_NUMBER: {goto: W2}
+      SAME_NUMBER: {goto: W3}
+      WHATSAPP_PLEASE:
+        - {repeat: true, max_uses: 1}
+        - {say: [wa_decline], goto: "@back_to_questions"}
+      NO: {say: [wa_decline], goto: "@back_to_questions"}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {say: [wa_decline], goto: "@back_to_questions"}
+
+  W2:
+    max_visits: 1
+    ask: [wa_readback]
+    branches:
+      YES: {goto: W3}
+      CONTINUE: {goto: W3}
+      NO: {goto: W1}
+      ANY: {goto: W3}
+
+  W3:
+    final: true
+    branches:
+      ANY: {say: [wa_done], outcome: WHATSAPP_REQUESTED}
+
+  S10:  # the price-check close
+    final: true
+    branches:
+      ANY:
+        - {when: [price_known], say: [q_close], outcome: QUOTE_COLLECTED}
+        - {say: [q_close], outcome: PRICE_ON_REQUEST}
+
+  S10n: # no cab available: the same close, flagged
+    final: true
+    branches:
+      ANY: {say: [q_close], outcome: NOT_AVAILABLE}
+
+outcomes:
+  QUOTE_COLLECTED:
+    call_outcome: partial
+    description: total price, car, inclusions, toll estimate and availability collected, nothing booked
+    needs_quote: true
+  PRICE_AGREED:
+    call_outcome: pending_approval
+    description: negotiation done, a price within the user's limits is recorded (price_inr, price_note)
+    needs_quote: true
+  NEGOTIATION_FAILED:
+    call_outcome: pending_approval
+    description: two pushes done, the last price heard is recorded; the user decides
+    needs_quote: true
+  BOOKED:
+    call_outcome: success
+    description: the user approved; finalised at vendor_price, the vendor books it under the user's name
+    needs_quote: true
+  CONFIRM_PENDING:
+    call_outcome: pending_approval
+    description: confirm call but the commit check did not pass; the user is asked again
+    needs_quote: true
+  NOT_AVAILABLE:
+    call_outcome: declined
+    description: no cab available for that time
+    collected: {not_available: "yes"}
+  CALL_BACK_LATER:
+    call_outcome: callback_later
+    description: they were busy (callback_time has the time they named)
+  WHATSAPP_REQUESTED:
+    call_outcome: partial
+    description: they will send the details on WhatsApp (captured_number is the number, or "same")
+    collected: {whatsapp_requested: "yes"}
+  ADVANCE_ASKED:
+    call_outcome: partial
+    description: they raised an advance or booking amount (advance_amount); Friday did not agree
+  PRICE_ON_REQUEST:
+    call_outcome: partial
+    description: no price on the phone
+  WRONG_NUMBER:
+    call_outcome: declined
+    description: wrong number / not a cab operator
+    collected: {wrong_number: "yes"}
+  UNCLEAR:
+    call_outcome: partial
+    description: could not understand them
+  REFUSED:
+    call_outcome: declined
+    description: asked not to be called again, or hostile (no retry)
+  NO_ANSWER:
+    call_outcome: no_answer
+    description: nobody picked up (set by the call runner)

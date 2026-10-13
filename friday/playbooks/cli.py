@@ -315,7 +315,7 @@ def _lines(args: argparse.Namespace) -> int:
     for lid in pb.lines:
         text = pb.text(lid)
         if not args.raw:
-            text = _re.sub(r"\{([a-z_]+)\}", lambda m: _SAMPLE.get(m.group(1), "x"), text)
+            text = _re.sub(r"\{([a-z0-9_]+)\}", lambda m: _SAMPLE.get(m.group(1), "x"), text)
         flag = " [COMMIT]" if pb.line_def(lid).commit else ""
         print(f"{lid:<20}{flag} {text}" + ("" if lid in used else "   (unused)"))
     return 0

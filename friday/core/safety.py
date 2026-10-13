@@ -308,6 +308,7 @@ _NOT_A_COMMIT = (
     "checking with", "like to book", "want to book", "chahiye tha", "what slots",
     "kaunse slot", "available", "kya aap", "could you", "can you", "kar sakte",
     "will confirm", "baad mein", "get back", "check karke", "hold kar", "share this",
+    "karani hai", "karana hai", "number confirm",  # "cab book karani hai": a request, not a booking
     "bata ke", "after checking", "wapas call", "phir call", "puchh", "pooch", "पूछकर",
     "वापस कॉल", "confirm nahi", "approval ke baad", "not confirm", "haven't confirmed",
 )  # fmt: skip
@@ -317,12 +318,19 @@ def _norm(text: str) -> str:
     return unicodedata.normalize("NFKC", text).lower()
 
 
+_NUMBER_CONFIRM = re.compile(
+    r"number\s+(?:re)?confirm(?:\s+(?:kar\s+(?:dijiye|do|sakte\s+hain|lijiye)|karenge|kijiye))?"
+)
+
+
 def looks_like_commitment(text: str | None) -> bool:
     """True when ``text`` reads as confirming a booking/order/price. When unsure and the
     text contains a commit verb next to a slot/price, we treat it as a commitment."""
     if not text:
         return False
     t = _norm(text)
+    # asking the business to confirm a phone NUMBER is not confirming a booking
+    t = _NUMBER_CONFIRM.sub(" ", t)
     if any(p in t for p in _PHRASES):
         return True
     if any(p in t for p in _NOT_A_COMMIT):

@@ -48,6 +48,7 @@ inputs:
   prior_slot: {}
   prior_notes: {}
   prior_flags: {}
+  prior_steps: {}
 
 outputs: [price_inr, price_low_inr, advance_needed, price_note, whatsapp_requested, slot, outcome]
 
@@ -112,7 +113,7 @@ lines:
   wa_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
   wa_readback: "{captured_spoken}, yahi number hai na?"
   wa_done: "Okay sir, main aapko WhatsApp kar deti hoon."
-  wa_decline: "Achha sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."   # GLUE
+  wa_decline: "Theek hai sir, toh aap abhi yahin bata dijiye, main note kar leti hoon."   # GLUE
   no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
   sorry: "Sorry, ek baar phir?"
   offscript: "Achha, yeh main {user_spoken} {honorific} se poochh kar bataungi."
@@ -238,50 +239,64 @@ steps:
       ANY: {goto: S4}
 
   S4:   # furnishing (their words are only noted)
+    skip_when: [step_answered]
     max_visits: 1
     note: furnishing
     ask: [s4_ask]
     branches:
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S5}
       ANY: {goto: S5}
 
   S5:   # food / mess
+    skip_when: [step_answered]
     max_visits: 1
     note: food_mess
     ask: [s5_ask]
     branches:
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S6}
       ANY: {goto: S6}
 
   S6:   # electricity
+    skip_when: [step_answered]
     max_visits: 1
     note: electricity
     ask: [s6_ask]
     branches:
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S7}
       ANY: {goto: S7}
 
   S7:   # security deposit
+    skip_when: [step_answered]
     max_visits: 1
     note: deposit
     ask: [s7_ask]
     branches:
+      NEEDS_ADVANCE: {goto: S8}      # "do mahine ka deposit" is the answer here, not an advance ask
+      NO_ADVANCE: {goto: S8}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S8}
       ANY: {goto: S8}
 
   S8:   # notice period
+    skip_when: [step_answered]
     max_visits: 1
     note: notice_period
     ask: [s8_ask]
     branches:
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: "@after_notice"}
       ANY: {goto: "@after_notice"}
 
   S9:   # the move-in date (said, not asked; they answer, then the close)
+    skip_when: [step_answered]
     max_visits: 1
     ask: [s9_say]
     branches:
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: "@before_close"}
       ANY: {goto: "@before_close"}
 
   SA:   # the user's request asks for the booking amount (q_ask_advance); never otherwise
@@ -381,7 +396,9 @@ steps:
     branches:
       GIVES_NUMBER: {goto: W2}
       SAME_NUMBER: {goto: W3}
-      WHATSAPP_PLEASE: {repeat: true, max_uses: 1}
+      WHATSAPP_PLEASE:
+        - {repeat: true, max_uses: 1}
+        - {say: [wa_decline], goto: "@back_to_questions"}
       NO: {say: [wa_decline], goto: "@back_to_questions"}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
       ANY: {say: [wa_decline], goto: "@back_to_questions"}

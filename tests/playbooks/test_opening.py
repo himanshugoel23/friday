@@ -50,11 +50,13 @@ async def test_book_mode_intro_says_booking_and_the_price_still_comes_first():
     assert run.said == [f"{WHO} {WHY_BOOK} {PRICE_Q}"]
 
 
-async def test_the_recording_notice_is_between_who_and_why_when_recording_is_on():
+async def test_the_recording_notice_is_never_spoken_even_when_recording_is_on():
+    """Founder 13 Oct: calls are recorded and the transcript kept, but it is not announced."""
     from friday.playbooks.engine import PlaybookPolicy
 
     run = await drive(["Haan ji"], ident=False, max_actions=2, policy=PlaybookPolicy(recording=True))
-    assert run.said[0].startswith(f"{WHO} Yeh call quality ke liye record ho sakta hai. {WHY_QUOTE}")
+    assert "record ho sakta hai" not in run.said[0]
+    assert run.said[0].startswith(WHO)
 
 
 async def test_the_price_answer_closes_a_price_check():

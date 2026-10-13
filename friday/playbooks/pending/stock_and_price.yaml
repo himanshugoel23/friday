@@ -44,6 +44,7 @@ inputs:
   resume: {}
   prior_price_inr: {}
   prior_estimate_inr: {}
+  prior_slot: {}
   prior_notes: {}
   prior_flags: {}
   old_phone_model: {}
@@ -91,8 +92,8 @@ lines:
   s6_ask: "{ack}, aur hamare paas purana phone hai exchange ke liye, uska koi offer mil jayega?"
   s6b_ask: "Toh sir, exchange mein uska kitna milega, aur final price kitna padega?"
   ex_model: "Ji, {old_phone_model} hai."
-  ex_year: "{old_phone_year} ka hai."
-  ex_cond: "{old_phone_condition}."
+  ex_year: "Aur {old_phone_year} ka hai."
+  ex_cond: "Aur wo {old_phone_condition}."
   s7d_ask: "{ack}, aap home delivery provide karte ho kya?"
   delivery_area_line: "Ji, {delivery_area} mein."
   s7a_ask: "Achha theek hai sir, ek baar booking amount kitna lenge?"
@@ -104,20 +105,17 @@ lines:
     commit: true
   s7_close: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
   # negotiation callback (mode negotiate, only when q_negotiate)
-  # APPROVED: "...se baat ho gayi hai, price..." ("ho gayi" trips the validator claim check: see report)
-  n_push1: "Toh sir, {user_spoken} {honorific} se maine baat ki hai, price thoda humare budget se upar hai. Humara budget {target_price} ka hai, toh isme bataiye kuch ho sakta hai kya?"
+  n_push1: "Toh sir, {user_spoken} {honorific} se baat ho gayi hai, price thoda humare budget se upar hai. Humara budget {target_price} ka hai, toh isme bataiye kuch ho sakta hai kya?"
   n_push2: "Achha sir, thoda aur dekh lijiye na, kya {push2_price} tak ho payega?"
-  # APPROVED: "...se final confirmation leke aapko call back karti hoon." (validator: "confirmation")
-  n_close: "Theek hai sir, main ek baar {user_spoken} {honorific} se final confirm karke aapko call back karti hoon."
+  n_close: "Theek hai sir, main ek baar {user_spoken} {honorific} se final confirmation leke aapko call back karti hoon."
   # WhatsApp pe bhej do (rule 5): number, read-back, done
-  # APPROVED: "...WhatsApp ka number confirm kar sakte hain?" (validator: "confirm")
-  w_ask: "Theek hai sir, ek baar aap please WhatsApp ka number bata sakte hain?"
+  w_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
   w_readback: "{captured_spoken}, yahi number hai na?"
   w_done: "Okay sir, main aapko WhatsApp kar deti hoon."
   w_none: "Achha sir, toh aap yahin bata dijiye please."
   # a booking payment (rule 6); the user pays the business directly
   p_amount: "{ack}, ek baar advance ya booking amount kitna hoga?"
-  p_upi_ask: "Theek hai sir, aap apna U.P.I. number de dijiye, main {user_spoken} {honorific} ko bolke aapko ek baar booking amount pay kara deti hoon."
+  p_upi_ask: "Theek hai sir, aap apna UPI number de dijiye, main {user_spoken} {honorific} ko bolke aapko ek baar booking amount pay kara deti hoon."
   p_wa_ask: "Theek hai sir, main aapko ek baar WhatsApp message kar deti hoon, isi number pe WhatsApp karna hai ya kuch aur?"
   p_wa_done: "Theek hai sir, main aapko is number pe WhatsApp kar deti hoon, aap bank details bhej dijiye, {user_spoken} {honorific} aapko pay kar denge."
   p_here: "Theek hai sir, aap payment details yahin bata dijiye please."
@@ -237,6 +235,7 @@ steps:
     note: arrival
     ask: [s4_ask]
     branches:
+      UNCLEAR: {goto: S7o}
       ANY: {goto: S7o}
 
   S5:   # electronics: warranty (their words noted)
@@ -244,6 +243,7 @@ steps:
     note: warranty
     ask: [s5_ask]
     branches:
+      UNCLEAR: {goto: S6}
       ANY: {goto: S6}
 
   S6:   # exchange (only if the user wants it)
@@ -254,14 +254,20 @@ steps:
     ask: [s6_ask]
     branches:
       ASKS_OFFTOPIC:
-        - {when: [has_old_phone_model], say: [ex_model, {line: ex_year, when: [has_old_phone_year]}, {line: ex_cond, when: [has_old_phone_condition]}], goto: S6b, max_uses: 3}
-        - {when: [has_old_phone_year], say: [ex_year, {line: ex_cond, when: [has_old_phone_condition]}], goto: S6b, max_uses: 3}
-        - {when: [has_old_phone_condition], say: [ex_cond], goto: S6b, max_uses: 3}
+        - {when: [has_old_phone_model, has_old_phone_year, has_old_phone_condition], say: [ex_model, ex_year, ex_cond], goto: S6b, max_uses: 3}
+        - {when: [has_old_phone_model, has_old_phone_year], say: [ex_model, ex_year], goto: S6b, max_uses: 3}
+        - {when: [has_old_phone_model], say: [ex_model], goto: S6b, max_uses: 3}
         - {say: [offscript], goto: S6b, max_uses: 3}
       GIVES_PRICE: {goto: S7d}
       PRICE_RANGE: {goto: S7d}
       NO: {goto: S7d}
-      ANY: {goto: S6b}
+      YES: {goto: S6b}
+      ACK: {goto: S6b}
+      CONTINUE: {goto: S6b}
+      SLOT_FREE: {goto: S6b}
+      PRICE_DEPENDS: {goto: S6b}
+      UNCLEAR: {goto: S6b}
+      ANY: {goto: S7d}   # also where a skipped step goes
 
   S6b:  # what the old phone fetches and the final price
     skip_when: [estimate_known]
@@ -272,10 +278,11 @@ steps:
       GIVES_PRICE: {goto: S7d}
       PRICE_RANGE: {goto: S7d}
       ASKS_OFFTOPIC:
-        - {when: [has_old_phone_model], say: [ex_model, {line: ex_year, when: [has_old_phone_year]}, {line: ex_cond, when: [has_old_phone_condition]}], repeat: true, max_uses: 3}
-        - {when: [has_old_phone_year], say: [ex_year, {line: ex_cond, when: [has_old_phone_condition]}], repeat: true, max_uses: 3}
-        - {when: [has_old_phone_condition], say: [ex_cond], repeat: true, max_uses: 3}
+        - {when: [has_old_phone_model, has_old_phone_year, has_old_phone_condition], say: [ex_model, ex_year, ex_cond], repeat: true, max_uses: 3}
+        - {when: [has_old_phone_model, has_old_phone_year], say: [ex_model, ex_year], repeat: true, max_uses: 3}
+        - {when: [has_old_phone_model], say: [ex_model], repeat: true, max_uses: 3}
         - {say: [offscript], repeat: true, max_uses: 3}
+      UNCLEAR: {goto: S7d}
       ANY: {goto: S7d}
 
   S7d:  # florist: home delivery (the area only if asked)
@@ -288,6 +295,7 @@ steps:
       ASKS_OFFTOPIC:
         - {when: [has_delivery_area], say: [delivery_area_line], repeat: true, max_uses: 2}
         - {say: [offscript], repeat: true, max_uses: 2}
+      UNCLEAR: {goto: S7a}
       ANY: {goto: S7a}
 
   S7a:  # booking amount: ONLY when the user's request asks for it
@@ -296,6 +304,7 @@ steps:
     note: advance_amount
     ask: [s7a_ask]
     branches:
+      UNCLEAR: {goto: S7q}
       ANY: {goto: S7q}
 
   S7q:  # price-check close (rule 11)
@@ -317,6 +326,7 @@ steps:
     note: callback_time
     ask: [busy_ask]
     branches:
+      UNCLEAR: {goto: BT2}
       ANY: {goto: BT2}
 
   BT2:
@@ -370,7 +380,7 @@ steps:
       ANY: {goto: S7w}
 
   W2:
-    max_visits: 1
+    max_visits: 2
     ask: [w_readback]
     branches:
       YES: {goto: W3}
@@ -390,6 +400,7 @@ steps:
     note: details
     ask: [w_none]
     branches:
+      UNCLEAR: {goto: S7w}
       ANY: {goto: S7w}
 
   S7w:
@@ -417,15 +428,17 @@ steps:
       WHATSAPP_PLEASE: {goto: PW1}
       NO: {goto: PW1}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      UNCLEAR: {goto: P5}
       ANY: {goto: P5}
 
   P3:   # UPI number read-back
-    max_visits: 1
+    max_visits: 2
     ask: [w_readback]
     branches:
       YES: {goto: P5}
       ACK: {goto: P5}
       NO: {goto: P2}
+      UNCLEAR: {goto: P5}
       ANY: {goto: P5}
 
   PW1:  # WhatsApp for the QR / bank details
@@ -457,6 +470,7 @@ steps:
     note: payment_details
     ask: [p_here]
     branches:
+      UNCLEAR: {goto: P5}
       ANY: {goto: P5}
 
   P5:

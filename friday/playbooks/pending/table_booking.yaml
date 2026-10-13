@@ -1,0 +1,358 @@
+# PENDING v7 (founder script review 13 Oct 2026; docs/SCRIPTS_SPEC.md section 7a).
+# PENDING playbook: table_booking (archetype). NOT loaded by production (`select`, calls).
+# Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
+# (hear-before-change). Promote only with: friday playbook promote table_booking
+# (needs the founder's marker file table_booking.approved next to this file).
+#
+# Restaurant / cafe. Hook, then she STATES the booking request ("hamko {date_window} ke liye
+# {people_count} logon ka table book karana hai"): NO separate availability question, NO price
+# (q_price = no), NO negotiation. Available + delegation: the booking close (the user's name);
+# available without delegation: the price-check style close; not available: Friday never books a
+# different time without the user's OK (nearest-slot rule, flag alt_offered), then a call back.
+# Optional (only if the user asked): outdoor / window table, birthday cake.
+# Modes (playbook_mode): quote_only (default, no delegation) | book | confirm (callback).
+
+version: 1
+id: table_booking
+archetype: table_booking
+title: Table booking (restaurant, cafe)
+language: hinglish
+
+inputs:
+  user_first_name: {required: true}
+  user_spoken: {}
+  honorific: {default: sir}
+  business_name: {required: true}
+  business_name_spoken: {}
+  service: {required: true}
+  services: {}
+  services_spoken: {}
+  playbook_mode: {default: quote_only}
+  date_window: {required: true}
+  fallback_when: {}
+  fallback_day: {}
+  people_count: {required: true}
+  category: {}
+  q_price: {default: "no"}
+  q_extras: {default: "no"}
+  q_ask_advance: {default: "no"}
+  extras_needed: {}
+  resume: {}
+  prior_slot: {}
+  prior_slot_free: {}
+  prior_notes: {}
+  prior_flags: {}
+  user_full_name: {}
+  user_full_spoken: {}
+
+outputs: [slot_free, offered_slots, slot, advance_needed, whatsapp_requested, captured_number, outcome]
+
+limits:
+  max_duration_s: 180
+  max_repeats: 4
+  max_unclear_per_step: 2
+  hold_max_s: 60
+  max_turns: 30
+
+disclosure: disclosure
+ai_disclosure: on_request
+reintro: reintro
+
+confusion:
+  line: sorry
+  outcome: UNCLEAR
+  close: bye_unclear
+
+lines:
+  disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  recording_notice: "Yeh call quality ke liye record ho sakta hai."
+  # the HOOK, then wait for "haan ji, bataiye"
+  intro: "Ji sir, actually maine aapko table booking ke regarding call kiya tha."
+  intro_resume: "Ji sir, actually maine pehle table booking ke regarding call kiya tha, bas ek-do cheezein reh gayi thi."
+  # she states the request (no availability question)
+  req: "Ji, hamko {date_window} ke liye {people_count} logon ka table book karana hai."
+  req_again: "Sir, hamko {date_window} ke liye {people_count} logon ka table book karana hai."
+  # optional extras, only when the user asked
+  extra_ask: "{ack}, aur {extras_needed} ka bhi ho payega kya?"
+  # not available: nearest-slot rule (rule 8); Friday never books another time on her own
+  s2b_ask: "{ack}, toh koi {date_window} ke around ka slot available ho?"
+  s2n_ask: "Toh sabse nearest kaun sa slot available hoga?"
+  s2b_none: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon."
+  s7_close: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
+  # delegated booking close (rule 9); the only line that books
+  s7_commit:
+    text: "{ack}, toh aap {slot} {people_count} logon ka table {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
+    commit: true
+  # price-check style close: available, but no delegation to book
+  q_close: "{ack}, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
+  # callback (mode confirm): the user confirmed; generic
+  c_close:
+    text: "{user_spoken} {honorific} ne confirm kar diya hai, toh aap {slot} {people_count} logon ka table {user_full_spoken} ke naam se book kar lijiye. Thank you."
+    commit: true
+  # WhatsApp (rule 5)
+  w_ask: "Theek hai sir, ek baar aap please WhatsApp ka number bata sakte hain?"
+  w_readback: "{captured_spoken}, yahi number hai na?"
+  w_done: "Okay sir, main aapko WhatsApp kar deti hoon."
+  w_none: "Achha sir, toh aap yahin bata dijiye please."
+  # advance / booking amount raised by the business (rule 6)
+  p_amount: "{ack}, ek baar advance ya booking amount kitna hoga?"
+  p_close: "Theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, wo aapko advance payment initiate kar denge. Thank you."
+  s7a_ask: "Achha theek hai sir, ek baar booking amount kitna lenge?"
+  busy_ask: "Ji koi baat nahi sir, main kab call kar sakti hoon?"
+  bye_later: "Theek hai sir, thank you."
+  ai_yes: "Ji, haan, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  bye_wrong: "Ji maaf kijiye, galat number lag gaya. Thank you."
+  bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Thank you."
+  bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Thank you."
+  bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Thank you."
+  no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
+  sorry: "Sorry, ek baar phir?"
+  offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
+  no_secrets: "Ji, yeh jaankari main share nahi kar sakti."
+
+routes:
+  after_hook:
+    - {when: [mode_confirm], goto: S7}
+    - {goto: S2}
+  # the table is available (or a time was agreed): extras (if asked), then the close
+  after_free:
+    - {when: [q_extras, has_extras_needed], goto: S3}
+    - {goto: S7}
+
+defaults:
+  STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
+  RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
+  WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+  BUSY_LATER: {goto: BT}
+  ARE_YOU_BOT: {say: [ai_yes], repeat: true}
+  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  ASKS_REPEAT: {repeat: true, max_uses: 3}
+  HOLD_ON: {hold_s: 60, max_uses: 3}
+  ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
+  ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
+  ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
+  NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
+  NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: P1}
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: W1}
+
+start: S0
+commit_step: S7
+
+steps:
+  S0:
+    branches:
+      YES: {goto: S1}
+      CONTINUE: {goto: S1}
+      ACK: {goto: S1}
+      NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
+      WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
+      ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S1}
+      ASKS_OFFTOPIC: {say: [s0_who], stay: true}
+      ASKS_SECRET: {say: [s0_who], stay: true}
+      ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
+      WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
+
+  S1:   # the HOOK; then wait for "haan ji, bataiye"
+    ask:
+      - {line: recording_notice, when: [recording, first_ask]}
+      - {line: intro_resume, when: [is_resume]}
+      - {line: intro, when: ["!is_resume"]}
+    branches:
+      YES: {goto: "@after_hook"}
+      CONTINUE: {goto: "@after_hook"}
+      ACK: {goto: "@after_hook"}
+      ASKS_REPEAT: {repeat: true, max_uses: 1}
+      ANY: {goto: "@after_hook"}
+
+  S2:   # she states the request; they answer available / not available
+    skip_when: [slot_known]
+    ask:
+      - {line: req, when: [first_ask]}
+      - {line: req_again, when: ["!first_ask"]}
+    branches:
+      YES:
+        - {when: [has_requested_time], use_requested_time: true, goto: "@after_free"}
+        - {goto: "@after_free"}
+      SLOT_FREE:
+        - {when: [slot_known], goto: "@after_free"}
+        - {when: [has_requested_time], use_requested_time: true, goto: "@after_free"}
+        - {goto: "@after_free"}
+      GIVES_TIME: {goto: "@after_free"}
+      OFFERS_SLOTS:
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: "@after_free"}
+        - {repeat: true}
+      SLOT_BUSY: {goto: S2b}
+      NO: {goto: S2b}
+      OUT_OF_STOCK: {goto: S2b}
+      CONTINUE: {repeat: true}
+      ANY: {goto: "@after_free"}
+
+  S2b:  # not available: a slot AROUND the asked time; Friday never books a different time
+    max_visits: 1
+    ask: [s2b_ask]
+    branches:
+      OFFERS_SLOTS:
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
+        - {repeat: true}
+      SLOT_FREE:
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
+        - {goto: S2n}
+      GIVES_TIME:
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
+        - {goto: S2n}
+      SLOT_BUSY: {goto: S2n}
+      NO: {goto: S2n}
+      ANY: {goto: S2n}
+
+  S2n:  # nothing around that time either: the nearest slot that exists; still not booked
+    max_visits: 1
+    ask: [s2n_ask]
+    branches:
+      OFFERS_SLOTS: {set: {alt_offered: "yes"}, goto: S7}
+      SLOT_FREE:
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
+        - {say: [s2b_none], outcome: NO_SLOT}
+      GIVES_TIME: {set: {alt_offered: "yes"}, goto: S7}
+      SLOT_BUSY: {say: [s2b_none], outcome: NO_SLOT}
+      NO: {say: [s2b_none], outcome: NO_SLOT}
+      ANY: {say: [s2b_none], outcome: NO_SLOT}
+
+  S3:   # optional extras the user asked for (outdoor / window table, birthday cake)
+    skip_when: ["!q_extras"]
+    max_visits: 1
+    note: extras
+    ask: [extra_ask]
+    branches:
+      UNCLEAR: {goto: S7a}
+      ANY: {goto: S7a}
+
+  S7a:  # booking amount: ONLY when the user's request asks for it
+    skip_when: ["!q_ask_advance"]
+    max_visits: 1
+    note: advance_amount
+    ask: [s7a_ask]
+    branches:
+      UNCLEAR: {goto: S7}
+      ANY: {goto: S7}
+
+  S7:   # the close
+    final: true
+    branches:
+      ANY:
+        - {when: [mode_confirm, can_commit, "!alt_offered"], say: [c_close], commit: true, outcome: BOOKED}
+        - {when: [can_commit, "!alt_offered"], say: [s7_commit], commit: true, outcome: BOOKED}
+        - {when: [slot_known, alt_offered], say: [s7_close], outcome: SLOT_OFFERED}
+        - {when: [mode_book], say: [s7_close], outcome: SLOT_OFFERED}
+        - {when: [mode_confirm], say: [s7_close], outcome: SLOT_OFFERED}
+        - {say: [q_close], outcome: AVAILABLE}
+
+  BT:
+    max_visits: 1
+    note: callback_time
+    ask: [busy_ask]
+    branches:
+      UNCLEAR: {goto: BT2}
+      ANY: {goto: BT2}
+
+  BT2:
+    final: true
+    branches:
+      ANY: {say: [bye_later], outcome: CALL_BACK_LATER}
+
+  # ---------------- WhatsApp number (rule 5)
+  W1:
+    max_visits: 2
+    ask: [w_ask]
+    branches:
+      GIVES_NUMBER: {goto: W2}
+      SAME_NUMBER: {goto: W3}
+      NO: {goto: W4}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: S7w}
+
+  W2:
+    max_visits: 2
+    ask: [w_readback]
+    branches:
+      YES: {goto: W3}
+      ACK: {goto: W3}
+      NO: {goto: W1}
+      ANY: {goto: W3}
+
+  W3:
+    final: true
+    branches:
+      ANY: {say: [w_done], outcome: WHATSAPP_REQUESTED}
+
+  W4:
+    max_visits: 1
+    note: details
+    ask: [w_none]
+    branches:
+      UNCLEAR: {goto: S7w}
+      ANY: {goto: S7w}
+
+  S7w:
+    final: true
+    branches:
+      ANY: {say: [q_close], outcome: WHATSAPP_REQUESTED}
+
+  # ---------------- a booking amount raised by the business (rule 6)
+  P1:
+    max_visits: 1
+    note: advance_amount
+    ask: [p_amount]
+    branches:
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: P5}
+
+  P5:
+    final: true
+    branches:
+      ANY: {say: [p_close], outcome: ADVANCE_ASKED}
+
+outcomes:
+  AVAILABLE:
+    call_outcome: partial
+    description: the table is available at the asked time; no delegation to book, the user decides
+    needs_quote: true
+  SLOT_OFFERED:
+    call_outcome: pending_approval
+    description: a different time (or no delegation) - awaiting the user's approval, nothing booked
+    needs_quote: true
+  BOOKED:
+    call_outcome: success
+    description: booked under the user's delegation
+    needs_quote: true
+  CONFIRMED:
+    call_outcome: partial
+    description: confirmation call - the restaurant was told the user confirmed
+  NO_SLOT:
+    call_outcome: declined
+    description: no table (nothing at or near the asked time)
+  ADVANCE_ASKED:
+    call_outcome: partial
+    description: the restaurant asked a booking amount; Friday took it down for the user (the user pays)
+  CALL_BACK_LATER:
+    call_outcome: callback_later
+    description: they asked us to call later
+  WRONG_NUMBER:
+    call_outcome: declined
+    description: wrong number / not this kind of business
+    collected: {wrong_number: "yes"}
+  WHATSAPP_REQUESTED:
+    call_outcome: partial
+    description: they wanted to send details on WhatsApp instead of saying them
+    collected: {whatsapp_requested: "yes"}
+  UNCLEAR:
+    call_outcome: partial
+    description: could not understand them
+  REFUSED:
+    call_outcome: declined
+    description: asked not to be called again, or hostile (no retry)
+  NO_ANSWER:
+    call_outcome: no_answer
+    description: nobody picked up (set by the call runner)

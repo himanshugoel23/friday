@@ -1,0 +1,144 @@
+version: 1
+playbook: banquet_booking
+brief:
+  user_first_name: Himanshu
+  honorific: sir
+  business_name: "Royal Banquet Hall"
+  category: banquet
+  event_type: shaadi
+  event_date: "20 November"
+  guests: 300
+  veg_nonveg: veg
+  price_min: 1000
+personas:
+  - id: happy_visit
+    title: "Estimate, decoration, visit time, close"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Per plate 1200 rupaye lagega"
+      deco_ask: "Decoration alag se hoga"
+      visit_ask: "Kal shaam 5 baje aa jaiye"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: asks_event_details
+    title: "Asks what the event is before the estimate"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: ["Event kya hai aur kab hai?", "Per plate 1200 rupaye lagega"]
+      deco_ask: "Included hai"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: not_available
+    title: "The date is not available"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Us date par hall available nahi hai, full hai"
+    expect: {outcome: NOT_AVAILABLE}
+  - id: with_dj_and_rooms
+    title: "DJ and rooms also needed"
+    brief: {q_extras: "yes", rooms_needed: 20}
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Per plate 1200 rupaye"
+      deco_ask: "Alag se lagega"
+      extras_ask: "DJ alag se"
+      rooms_ask: "10 rooms honge"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: visit_needed_first
+    title: "Cannot quote without a visit"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Aake dekhna padega, tabhi rate bata sakte hain"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {call_outcome: pending_approval}
+  - id: user_asked_booking_amount
+    title: "The user's request asks for a booking amount"
+    brief: {q_ask_advance: "yes"}
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Per plate 1200 rupaye"
+      deco_ask: "Included"
+      visit_ask: "Kal shaam 5 baje"
+      adv_user: "5000 rupaye booking amount hai"
+    expect: {outcome: ADVANCE_ASKED}
+  - id: business_raises_advance
+    title: "The hall asks for an advance"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Per plate 1200 rupaye lagega"
+      deco_ask: "Alag se lagega, aur 5000 rupaye advance dena padega"
+      adv_raised: "5000 rupaye"
+    expect: {outcome: ADVANCE_ASKED}
+  - id: whatsapp_spoken_number
+    title: "WhatsApp: digits, read back"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "WhatsApp pe bhej do"
+      wa_ask: "98111 22334"
+      wa_readback: "Haan sahi hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+  - id: whatsapp_same_number
+    title: "WhatsApp: yahi number"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "WhatsApp pe bhej do"
+      wa_ask: "Yahi number hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+  - id: busy_callback
+    title: "Busy; she asks when to call"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: "Abhi busy hoon, baad mein call karo"
+      bye_busy: "Shaam ko call karna"
+    expect: {outcome: CALL_BACK_LATER}
+  - id: resume_price_known
+    title: "Retry call: the estimate is known; decoration and visit are asked"
+    brief: {resume: "yes", prior_price_inr: 1200}
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      deco_ask: "Included"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: wrong_number
+    title: "Wrong number"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Nahi, yeh toh dukaan hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+  - id: robot_asked
+    title: "Asks if she is a robot"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: ["Aap robot ho?", "Per plate 1200 rupaye"]
+      deco_ask: "Included"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: rude_hangs_up
+    title: "Rude, hangs up"
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      est_ask: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+    expect: {outcome: REFUSED}
+  - id: silent
+    title: "Silence after the identity question"
+    greeting: "Hello?"
+    default: {silence: true}
+    replies:
+      disclosure: {silence: true}
+      s0_who: {silence: true}
+    expect: {call_outcome: hung_up}
+  - id: resume_steps_answered
+    title: "Retry: estimate and decoration known; only the visit is asked"
+    brief: {resume: "yes", prior_price_inr: 1200, prior_steps: "S0>S1>S2>S3"}
+    greeting: "Hello, Royal Banquet Hall."
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      visit_ask: "Kal shaam 5 baje"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: confirm_callback
+    title: "Callback: the user approved; the visit is confirmed"
+    brief: {mode: confirm, resume: "yes", prior_price_inr: 1200, prior_slot: "kal shaam 5 baje", max_price: 1500}
+    greeting: "Hello, Royal Banquet Hall."
+    replies: {}
+    expect: {outcome: BOOKED}
