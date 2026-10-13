@@ -77,7 +77,8 @@ def enable_rls(url: str) -> int:
         try:
             async with db.engine.begin() as conn:
                 for name in names:
-                    await conn.execute(text(f'ALTER TABLE public."{name}" ENABLE ROW LEVEL SECURITY'))
+                    stmt = f'ALTER TABLE public."{name}" ENABLE ROW LEVEL SECURITY'
+                    await conn.execute(text(stmt))
         finally:
             await db.dispose()
         return len(names)
