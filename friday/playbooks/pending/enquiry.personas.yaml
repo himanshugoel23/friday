@@ -1,7 +1,8 @@
-# Simulated coaching / admission / photographer vendors for `friday playbook dry-run enquiry --pending`.
-# Format: see friday/playbooks/data/salon_booking.personas.yaml. Replies are keyed by the line id
-# Friday last spoke: s3_ask (fees), s4_ask (batch timing), s5_ask (demo class).
-# `preview_*` personas feed `friday playbook preview enquiry --pending`.
+# Simulated businesses for `friday playbook dry-run enquiry --pending`.
+# Replies are keyed by the PLAYBOOK LINE ID Friday last spoke (`<line>@<previous line>` answers
+# "Sorry, ek baar phir?"; a list is used in order; a reply may be {say, hold_s, then, hangup,
+# silence}). `expect.outcome` is checked. A persona that does not list `intro` / `intro_event`
+# answers the hook with "Haan ji, boliye".
 
 version: 1
 playbook: enquiry
@@ -9,123 +10,358 @@ playbook: enquiry
 brief:
   user_first_name: Rahul
   honorific: sir
-  services: "maths coaching"
+  services: "coaching classes"
   business_name: "Bright Coaching Institute"
-  category: coaching_institute
-  price_min: 200
+  category: coaching_classes
+  price_word: fees
+  price_min: 500
   price_max: 200000
   q_batch: "yes"
   q_demo: "yes"
 
 personas:
-  - id: preview_enquiry
+  # ---------------------------------------------------------------- coaching / gym / driving
+  - id: preview_coaching
     title: "Founder audio: fees, batch timing, demo class"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "Fees 5000 rupaye per month hai"
-      s4_ask: "Subah 7 se 9 aur shaam 5 se 7 baje ke batch hain"
-      s5_ask: "Haan ji, demo class mil jayegi"
+      s3_ask_first: "Fees 15000 rupaye hai"
+      s4_ask: "Subah 7 baje aur shaam 5 baje ke batch hain"
+      s5_ask: "Haan demo class mil jayegi"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: preview_enquiry_free_demo
-    title: "Founder audio: free demo"
-    greeting: "Hello, Bright Coaching."
+  - id: preview_event_available
+    title: "Founder audio: wedding vendor, the date is free, then the charges"
+    greeting: "Hello, Royal Decorators."
+    brief: {services: "wedding decoration", business_name: "Royal Decorators", category: wedding_vendors, price_word: charges, q_date: "yes", q_batch: "no", q_demo: "no", event_date: "20 November", price_min: 1000, price_max: 2000000}
     replies:
-      s3_ask: "Fees 5000 rupaye per month hai"
-      s4_ask: "Shaam ka batch hai"
-      s5_ask: "Demo class free hai"
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji, 20 November khali hai"
+      s3e_ask_first: "Decoration 80000 rupaye lagega"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: fees_per_month_unit
-    title: "Monthly fee (per-unit price)"
-    greeting: "Hello, Bright Coaching."
+  - id: preview_event_not_available
+    title: "Founder audio: the event date is taken"
+    greeting: "Hello, Royal Decorators."
+    brief: {services: "wedding decoration", business_name: "Royal Decorators", category: wedding_vendors, price_word: charges, q_date: "yes", q_batch: "no", q_demo: "no", event_date: "20 November"}
     replies:
-      s3_ask: "Monthly 3500 rupaye"
-      s4_ask: "Subah ka batch hai"
-      s5_ask: "Haan mil jayegi"
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Nahi ji, us din hum booked hain"
+    expect: {outcome: NOT_AVAILABLE}
+
+  - id: gym_fees_batch_demo_free
+    title: "Gym: fees, batch, a free demo"
+    greeting: "Hello, Iron Gym."
+    brief: {services: "gym membership", business_name: "Iron Gym", category: gym_yoga, price_min: 300}
+    replies:
+      s3_ask_first: "Monthly 2000 rupaye hai"
+      s4_ask: "Subah 6 se 10 aur shaam 5 se 9"
+      s5_ask: "Demo free hai"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: fees_whole_course
-    title: "A whole-course fee"
-    greeting: "Hello, Bright Coaching."
+  - id: driving_no_demo
+    title: "Driving school: fees range, no demo"
+    greeting: "Hello, Safe Driving School."
+    brief: {services: "driving classes", business_name: "Safe Driving School", category: driving_school}
     replies:
-      s3_ask: "Poore course ki fees 45000 rupaye hai"
-      s4_ask: "Weekend batch hai"
+      s3_ask_first: "3500 se 4500 rupaye tak"
+      s4_ask: "Roz subah ya shaam, aapki marzi"
       s5_ask: "Nahi, demo nahi hota"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: fees_range_by_class
-    title: "A fee range by class"
+  - id: fees_free
+    title: "Fees: the first class is free, no charge"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "Class ke hisaab se 3000 se 6000 rupaye tak"
+      s3_ask_first: "Registration free hai ji"
       s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: fees_per_session
-    title: "Photographer: per session / per event"
-    greeting: "Hello, Click Studio."
-    brief: {services: "wedding photography", business_name: "Click Studio", category: photographer, price_min: 1000, price_max: 500000, q_batch: "no", q_demo: "no"}
-    replies:
-      s3_ask: "Ek din ke 25000 rupaye lagte hain"
-    expect: {outcome: QUOTE_COLLECTED}
-
-  - id: school_admission_fees
-    title: "School admission: fee and process"
-    greeting: "Hello, Green Valley School."
-    brief: {services: "nursery admission", business_name: "Green Valley School", category: school_admission, price_min: 1000, price_max: 500000, q_batch: "no", q_demo: "no"}
-    replies:
-      s3_ask: "Admission fees 15000 rupaye aur monthly 4000 rupaye"
-    expect: {outcome: QUOTE_COLLECTED}
-
-  - id: fees_free
-    title: "The first class / counselling is free (no charge)"
+  - id: fees_depends
+    title: "Fees depend on the course"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "Counselling free hai ji"
-      s4_ask: "Subah ka batch hai"
-      s5_ask: "Haan mil jayegi"
-    expect: {outcome: QUOTE_COLLECTED}
-
-  - id: fees_come_to_office
-    title: "'Office aa jaiye, counselling ke baad batayenge': no fee on the phone"
-    greeting: "Hello, Bright Coaching."
-    replies:
-      s3_ask: "Aake counsellor se mil lijiye, phir fees batayenge"
-      s4_ask: "Alag alag batch hain"
-      s5_ask: "Haan"
+      s3_ask_first: "Course ke hisaab se alag alag hoti hai"
+      s4_ask: "Shaam ko"
+      s5_ask: "Nahi"
     expect: {outcome: PRICE_ON_REQUEST}
 
-  - id: whatsapp_brochure_then_fees
-    title: "'WhatsApp pe brochure bhej dete hain', she asks for the fees here; they say"
+  - id: fees_visit_needed
+    title: "Come to the centre for fees"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: ["Hum WhatsApp pe brochure bhej dete hain", "Theek hai, 5000 rupaye per month"]
-      s4_ask: "Shaam ka batch"
+      s3_ask_first: "Aap center aake mil lijiye, phone par nahi batate"
+    expect: {outcome: PRICE_ON_REQUEST}
+
+  - id: fees_unit_per_month
+    title: "A per-month fee"
+    greeting: "Hello, Iron Gym."
+    brief: {services: "gym membership", business_name: "Iron Gym", category: gym_yoga, price_min: 300}
+    replies:
+      s3_ask_first: "1800 rupaye per month"
+      s4_ask: "Subah aur shaam dono"
+      s5_ask: "Haan trial hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: absurd_price_asked_again
+    title: "A price outside the sane range is not trusted: she asks again"
+    greeting: "Hello, Bright Coaching."
+    brief: {price_min: 500, price_max: 200000}
+    replies:
+      s3_ask_first: "Fees 5 rupaye"
+      s3_ask: "Nahi nahi, 12000 rupaye"
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: whatsapp_insists
-    title: "Insists on WhatsApp: polite close, flagged"
+  - id: price_in_the_hook_answer
+    title: "Gives the fees right after the hook"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: ["WhatsApp pe details bhej do", "Nahi, WhatsApp pe hi bhej do"]
+      intro: "Haan ji, fees 15000 rupaye hai"
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_repeat_at_hook
+    title: "Did not hear the hook"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      intro: ["Kya? Sorry, phir se boliye", "Haan ji bataiye"]
+      s3_ask_first: "Fees 15000 rupaye hai"
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_who_after_identity
+    title: "Kaun bol raha hai at the hook"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Haan ji boliye"
+      intro: ["Kaun bol raha hai?", "Achha, bataiye"]
+      s3_ask_first: "Fees 15000 rupaye hai"
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  # ---------------------------------------------------------------- events and weddings
+  - id: event_available_charges
+    title: "Event date free, then the charges"
+    greeting: "Hello, Royal Decorators."
+    brief: &event {services: "wedding decoration", business_name: "Royal Decorators", category: wedding_vendors, price_word: charges, q_date: "yes", q_batch: "no", q_demo: "no", event_date: "20 November", event_type: shaadi, event_venue: "Taj Banquet", event_city: Jaipur, guests: 300, price_min: 1000, price_max: 2000000}
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji, available hain"
+      s3e_ask_first: "Decoration 80000 rupaye lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: event_not_available
+    title: "The date is taken"
+    greeting: "Hello, Royal Decorators."
+    brief: *event
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Nahi, us din booked hain"
+    expect: {outcome: NOT_AVAILABLE}
+
+  - id: event_alternative_date_offered
+    title: "They offer another date: she does not take it, she tells the user"
+    greeting: "Hello, Royal Decorators."
+    brief: *event
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Us din nahi, 21 ko ho sakta hai"
+    expect: {outcome: NOT_AVAILABLE}
+
+  - id: event_asks_details_then_available
+    title: "They ask what the event is, when and where: answered from the facts, then she resumes"
+    greeting: "Hello, Royal Decorators."
+    brief: *event
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: ["Pehle bataiye event kya hai, kab hai, kahan hai?", "Achha, haan us din available hain"]
+      s3e_ask_first: "Decoration 80000 rupaye lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: event_asks_details_missing_fact
+    title: "They ask the event details but the user gave none: she asks the user"
+    greeting: "Hello, Royal Decorators."
+    brief: {services: "wedding decoration", business_name: "Royal Decorators", category: wedding_vendors, price_word: charges, q_date: "yes", q_batch: "no", q_demo: "no", event_date: "20 November"}
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: ["Event kya hai, kitne log hain?", "Haan available hain"]
+      s3e_ask_first: "Decoration 80000 rupaye lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: event_asks_details_at_charges
+    title: "They ask the event details at the charges question: answered, charges asked again once"
+    greeting: "Hello, Royal Decorators."
+    brief: *event
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji, available hain"
+      s3e_ask_first: ["Event kya hai aur kahan hai?", "Theek hai, 80000 rupaye lagega"]
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: event_charges_per_plate
+    title: "Caterer: a per-plate charge"
+    greeting: "Hello, Royal Caterers."
+    brief: {<<: *event, services: catering, business_name: "Royal Caterers"}
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji, available hain"
+      s3e_ask_first: "800 rupaye per plate"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: event_busy_callback
+    title: "Busy: she asks when to call; their time is noted"
+    greeting: "Hello, Royal Decorators."
+    brief: *event
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Abhi busy hoon, baad mein call karo"
+      busy_when: "Shaam 5 baje ke baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: makeup_at_venue
+    title: "Makeup at the venue: people count asked, travel charge asked"
+    greeting: "Hello, Glam Makeup Studio."
+    brief: {services: "bridal makeup", business_name: "Glam Makeup Studio", category: wedding_vendors, price_word: charges, q_date: "yes", q_extras: "yes", q_batch: "no", q_demo: "no", event_date: "20 November", event_type: shaadi, event_venue: "Taj Banquet", event_city: Jaipur, people_count: 3, price_min: 1000, price_max: 2000000}
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji, available hain"
+      s3e_ask_first: ["Kitne log hain makeup ke liye?", "Theek hai, 15000 rupaye lagega"]
+      s6_ask: "Haan, aane-jaane ka 1500 alag lagega"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: makeup_travel_included
+    title: "Makeup at the venue: travel included"
+    greeting: "Hello, Glam Makeup Studio."
+    brief: {services: "bridal makeup", business_name: "Glam Makeup Studio", category: wedding_vendors, price_word: charges, q_date: "yes", q_extras: "yes", q_batch: "no", q_demo: "no", event_date: "20 November", people_count: 3, price_min: 1000, price_max: 2000000}
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji"
+      s3e_ask_first: "15000 rupaye lagega"
+      s6_ask: "Nahi, travel included hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  # ---------------------------------------------------------------- WhatsApp
+  - id: whatsapp_same_number
+    title: "WhatsApp pe bhej do: yahi number hai"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "WhatsApp pe bhej do"
+      wa_ask: "Yahi number hai"
     expect: {outcome: WHATSAPP_REQUESTED}
 
-  - id: busy_callback
-    title: "In a class, call later"
+  - id: whatsapp_gives_number_confirmed
+    title: "WhatsApp pe bhej do: gives digits, she reads them back, yes"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "Abhi class chal rahi hai, baad mein call karna"
+      s3_ask_first: "WhatsApp pe bhej dete hain"
+      wa_ask: "98111 22334"
+      wa_read: "Haan ji sahi hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: whatsapp_number_corrected
+    title: "The read-back is wrong: she asks once more"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "WhatsApp pe bhej dete hain"
+      wa_ask: ["98111 22334", "98111 22335"]
+      wa_read: ["Nahi nahi, galat hai", "Haan ji sahi hai"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: whatsapp_after_price
+    title: "Price said, then WhatsApp for the rest"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "Fees 15000 rupaye hai"
+      s4_ask: "WhatsApp pe bhej dete hain batch ki details"
+      wa_ask: "Yahi number hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: whatsapp_no_whatsapp
+    title: "No WhatsApp: she asks them to say it here, they do"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "WhatsApp pe bhej do"
+      wa_ask: "Nahi, WhatsApp nahi hai"
+      wa_decline: "Achha, 15000 rupaye fees hai"
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: whatsapp_insists_no_number
+    title: "Insists on WhatsApp but gives no number"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "WhatsApp pe bhej do"
+      wa_ask: ["WhatsApp pe hi bhej do", "Bhej do na"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  # ---------------------------------------------------------------- advance
+  - id: advance_raised_by_business
+    title: "The business raises an advance: she asks the amount and hands it to the user"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "Fees 15000 rupaye hai"
+      s4_ask: "Batch shaam ko hai, lekin pehle advance dena padega"
+      adv_ask_biz: "5000 rupaye advance lagega"
+    expect: {outcome: ADVANCE_ASKED}
+
+  - id: advance_raised_before_fees
+    title: "Advance is raised before the fees"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "Pehle booking amount dena padega"
+      adv_ask_biz: "5000 rupaye"
+    expect: {outcome: ADVANCE_ASKED}
+
+  - id: advance_asked_by_user_request
+    title: "The user's request asks for the booking amount: she asks at the end"
+    greeting: "Hello, Royal Decorators."
+    brief: {<<: *event, q_ask_advance: "yes"}
+    replies:
+      intro_event: "Haan ji, bataiye"
+      s2d_ask: "Haan ji"
+      s3e_ask_first: "Decoration 80000 rupaye lagega"
+      adv_ask_user: "20000 rupaye booking amount hai"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: no_advance_needed
+    title: "No advance needed"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "Fees 15000 rupaye, koi advance nahi"
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  # ---------------------------------------------------------------- calls that go sideways
+  - id: busy_callback
+    title: "Busy now: she asks when to call; the time is noted"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "Abhi busy hain, baad mein call karna"
+      busy_when: "Ek ghante baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: busy_at_hook
+    title: "Busy straight after the hook"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      intro: "Abhi busy hoon, baad mein call karo"
+      busy_when: "Shaam ko"
     expect: {outcome: CALL_BACK_LATER}
 
   - id: puts_on_hold
-    title: "Goes to ask the coordinator: hold, then answers"
+    title: "Puts Friday on hold, then continues"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: [{say: "Ek minute hold kijiye", hold_s: 25, then: "Haan boliye, kya poochh rahi thi?"}, "5000 rupaye per month"]
-      s4_ask: "Shaam ka batch"
+      s3_ask_first: [{say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye, kya poochh rahi thi?"}, "Fees 12000 rupaye"]
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
@@ -133,21 +369,28 @@ personas:
     title: "Hold and never comes back"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: {say: "Ek minute ruko", hold_s: 300, then: "Haan boliye"}
+      s3_ask_first: {say: "Ek minute ruko", hold_s: 300, then: "Haan boliye"}
     expect: {call_outcome: hold_timeout}
 
   - id: wrong_number
-    title: "Wrong number at the identity question"
+    title: "Wrong number (says so at the identity question)"
     greeting: "Hello?"
     replies:
-      disclosure: "Nahi, yeh toh dukaan hai, wrong number"
+      disclosure: "Nahi, yeh toh restaurant hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+
+  - id: wrong_number_later
+    title: "Wrong number (said after the hook)"
+    greeting: "Hello, Bright Coaching."
+    replies:
+      s3_ask_first: "Yeh coaching nahi hai, galat number lagaya hai aapne"
     expect: {outcome: WRONG_NUMBER}
 
   - id: rude_hangs_up
     title: "Rude, then hangs up"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+      s3_ask_first: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
     expect: {outcome: REFUSED}
 
   - id: dnc_request
@@ -155,70 +398,52 @@ personas:
     stop_request: true
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "Dobara call mat karna, number hata do"
+      s3_ask_first: "Dobara call mat karna, number hata do"
     expect: {outcome: REFUSED}
 
   - id: ai_robot_at_identity
-    title: "Asks 'robot hai kya?' at the identity question"
+    title: "Asks 'robot hai kya?' instead of answering the identity question"
     greeting: "Hello?"
     replies:
       disclosure: "Yeh robot hai kya?"
-      s3_ask: "5000 rupaye per month"
-      s4_ask: "Shaam ka batch"
+      s3_ask_first: "Fees 15000 rupaye"
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: ai_asked_at_batch
-    title: "Asks 'AI ho?' at the batch question"
+  - id: ai_insaan_at_fees
+    title: "Asks 'insaan ho ya machine?' at the fees question"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "5000 rupaye per month"
-      s4_ask: ["Aap AI ho kya?", "Shaam ka batch hai"]
+      s3_ask_first: ["Aap insaan ho ya machine?", "Fees 15000 rupaye"]
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: no_batch_no_demo_questions
-    title: "Category asks fees only"
-    greeting: "Hello, Bright Coaching."
-    brief: {q_batch: "no", q_demo: "no"}
-    replies:
-      s3_ask: "5000 rupaye per month"
-    expect: {outcome: QUOTE_COLLECTED}
-
-  - id: advance_with_fees
-    title: "Registration amount with the fees: she does not agree, the fee is kept"
+  - id: ai_asked_in_english
+    title: "Are you an AI? (English)"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: "Fees 5000 rupaye per month, 1000 rupaye registration advance dena padega"
-      s4_ask: "Shaam ka batch"
-      s5_ask: "Haan"
-    expect: {outcome: QUOTE_COLLECTED}
-
-  - id: absurd_fee_asked_again
-    title: "A fee outside the sane range is not trusted: she asks again"
-    greeting: "Hello, Bright Coaching."
-    brief: {price_max: 20000}
-    replies:
-      s3_ask: ["Fees 90 rupaye", "Sorry, 5000 rupaye per month"]
-      s4_ask: "Shaam ka batch"
-      s5_ask: "Haan"
+      s3_ask_first: ["Is this an AI?", "15000 rupees"]
+      s4_ask: "Evening"
+      s5_ask: "Yes"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: asks_customer_phone
-    title: "Asks for the student's number: she does not share it"
+    title: "Asks for the customer's number; she does not share it"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: ["Unka number kya hai?", "5000 rupaye per month"]
-      s4_ask: "Shaam ka batch"
+      s3_ask_first: ["Unka number kya hai?", "Fees 15000 rupaye"]
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
   - id: asks_otp
-    title: "Asks for an OTP: she never shares secrets"
+    title: "Asks for an OTP; she never shares secrets"
     greeting: "Hello, Bright Coaching."
     replies:
-      s3_ask: ["Pehle OTP bata dijiye", "5000 rupaye per month"]
-      s4_ask: "Shaam ka batch"
+      s3_ask_first: ["Pehle OTP bata dijiye", "Fees 15000 rupaye"]
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
@@ -226,8 +451,19 @@ personas:
     title: "Noisy line, clear after the re-ask"
     greeting: "Hello?"
     replies:
-      s3_ask: ["kkh... hmm...", "5000 rupaye per month"]
-      s4_ask: "Shaam ka batch"
+      s3_ask_first: ["kkh... hmm...", "Fees 15000 rupaye"]
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: asks_who_first
+    title: "Asks who is calling before the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Kaun bol raha hai?"
+      s0_who: "Haan ji, yahi Bright Coaching hai, boliye"
+      s3_ask_first: "Fees 15000 rupaye"
+      s4_ask: "Shaam ko"
       s5_ask: "Haan"
     expect: {outcome: QUOTE_COLLECTED}
 
@@ -239,3 +475,24 @@ personas:
       disclosure: {silence: true}
       s0_who: {silence: true}
     expect: {call_outcome: hung_up}
+
+  # ---------------------------------------------------------------- a retry call (resume)
+  - id: resume_after_fees
+    title: "Retry: the fees are already known, so she opens with the retry hook and asks the rest"
+    greeting: "Hello, Bright Coaching."
+    brief: {resume: "yes", prior_price_inr: 15000}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      s4_ask: "Shaam ko"
+      s5_ask: "Haan"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: resume_event_date_known
+    title: "Retry: the date is free already, only the charges are asked"
+    greeting: "Hello, Royal Decorators."
+    brief: {<<: *event, resume: "yes", prior_slot_free: "yes"}
+    replies:
+      intro_resume: "Haan ji, bataiye"
+      intro_event: "Haan ji, bataiye"
+      s3e_ask_first: "Decoration 80000 rupaye lagega"
+    expect: {outcome: QUOTE_COLLECTED}

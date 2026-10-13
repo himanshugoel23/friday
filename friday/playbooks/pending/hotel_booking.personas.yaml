@@ -1,0 +1,190 @@
+version: 1
+playbook: hotel_booking
+brief:
+  user_first_name: Himanshu
+  honorific: sir
+  business_name: "Hotel Grand Palace"
+  category: hotel
+  checkin_date: "12 November"
+  checkout_date: "14 November"
+  guests: 4
+  room_count: 2
+  price_min: 500
+  price_max: 50000
+personas:
+  - id: happy_options
+    title: "Options with a price, then tax, breakfast, check-in/out, cancellation"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan ji, rooms available hain, deluxe aur suite dono hain"
+      s3_ask: "Deluxe 4500 rupaye aur suite 7000 rupaye per night"
+      tax_ask: "Tax alag se lagega, 12 percent"
+      bf_ask: "Haan breakfast included hai"
+      time_ask: "Check-in 12 baje, check-out 11 baje"
+      canc_ask: "48 ghante pehle free cancellation hai"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: price_in_first_answer
+    title: "Gives the price straight away"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan available hai, 4000 rupaye per night"
+      tax_ask: "Tax included hai"
+      bf_ask: "Breakfast nahi hai"
+      time_ask: "Check-in 12 baje"
+      canc_ask: "Cancellation free hai"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: no_room
+    title: "No room on those dates"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Nahi sir, un dates mein rooms full hain"
+    expect: {outcome: NO_ROOM}
+  - id: no_room_after_options
+    title: "Asked for options, then says sold out"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan ji boliye"
+      s3_ask: "Sorry sir, rooms available nahi hain"
+    expect: {outcome: NO_ROOM}
+  - id: asks_event_details
+    title: "Asks how many guests / dates before answering"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: ["Kitne log honge aur kab se kab tak?", "Theek hai, 3500 rupaye per night"]
+      tax_ask: "Tax extra"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free hai"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: user_asked_booking_amount
+    title: "The user's request asks for a booking amount (q_ask_advance)"
+    brief: {q_ask_advance: "yes"}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan available hai, 4000 rupaye per night"
+      tax_ask: "Tax included"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free hai"
+      adv_user: "Ek raat ka advance lagega, 4000 rupaye"
+    expect: {outcome: ADVANCE_ASKED}
+  - id: business_raises_advance
+    title: "The hotel asks for an advance; she asks how much and passes it on"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan available hai, 4000 rupaye per night, 2000 rupaye advance dena padega"
+      adv_raised: "2000 rupaye"
+    expect: {outcome: ADVANCE_ASKED}
+  - id: advance_payment_number
+    title: "Reads out a payment number; she reads it back"
+    brief: {q_ask_advance: "yes"}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan available hai, 4000 rupaye per night"
+      tax_ask: "Tax included"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free hai"
+      adv_user: "2000 rupaye, number 98111 22334 pe bhej dijiye"
+      wa_readback: "Haan yahi hai"
+    expect: {outcome: ADVANCE_ASKED}
+  - id: advance_qr_whatsapp
+    title: "QR / bank details will come on WhatsApp; she asks the number"
+    brief: {q_ask_advance: "yes"}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Haan available hai, 4000 rupaye per night"
+      tax_ask: "Tax included"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free hai"
+      adv_user: "2000 rupaye, QR WhatsApp pe bhej dete hain"
+      wa_ask: "Yahi number hai"
+    expect: {outcome: ADVANCE_ASKED}
+  - id: whatsapp_same_number
+    title: "WhatsApp pe bhej do - yahi number"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Aap WhatsApp pe bhej do details"
+      wa_ask: "Yahi number hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+  - id: whatsapp_spoken_number
+    title: "WhatsApp: gives digits, read back, yes"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Aap WhatsApp pe bhej do"
+      wa_ask: "98111 22334"
+      wa_readback: "Haan yahi hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+  - id: whatsapp_wrong_then_right
+    title: "Read-back says no; she asks once more"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Aap WhatsApp pe bhej do"
+      wa_ask: ["98111 22334", "98111 22335"]
+      wa_readback: ["Nahi nahi", "Haan sahi hai"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+  - id: busy_callback
+    title: "Busy now; she asks when to call"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Abhi busy hoon, baad mein call karo"
+      bye_busy: "Shaam 5 baje call kar lena"
+    expect: {outcome: CALL_BACK_LATER}
+  - id: resume_price_known
+    title: "Retry call: the price was already heard; only the details are asked"
+    brief: {resume: "yes", prior_price_inr: 4000}
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      tax_ask: "Tax extra"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free hai"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: puts_on_hold
+    title: "Hold, then continues"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: [{say: "Ek minute hold kijiye", hold_s: 20, then: "Haan boliye"}, "Haan, 4000 rupaye per night"]
+      tax_ask: "Extra"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: wrong_number
+    title: "Wrong number at the identity question"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Nahi, yeh toh restaurant hai, wrong number"
+    expect: {outcome: WRONG_NUMBER}
+  - id: robot_asked
+    title: "Asks if she is a robot"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: ["Aap robot ho kya?", "Haan available hai, 4000 rupaye per night"]
+      tax_ask: "Extra"
+      bf_ask: "Haan"
+      time_ask: "12 baje"
+      canc_ask: "Free"
+    expect: {outcome: QUOTE_COLLECTED}
+  - id: rude_hangs_up
+    title: "Rude, then hangs up"
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: {say: "Faltu mein tang mat karo, bakwas band karo", hangup: true}
+    expect: {outcome: REFUSED}
+  - id: dnc
+    title: "Asks not to be called again"
+    stop_request: true
+    greeting: "Hello, Hotel Grand Palace."
+    replies:
+      request: "Dobara call mat karna"
+    expect: {outcome: REFUSED}
+  - id: silent
+    title: "Says nothing after the identity question"
+    greeting: "Hello?"
+    default: {silence: true}
+    replies:
+      disclosure: {silence: true}
+      s0_who: {silence: true}
+    expect: {call_outcome: hung_up}

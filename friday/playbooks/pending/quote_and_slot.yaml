@@ -1,4 +1,6 @@
-# PENDING v7 (founder script review 13 Oct 2026; same flow as salon_booking v7).
+# PENDING v8 (founder script review 13 Oct 2026; same flow as salon_booking v8). v8 adds: confirm
+# mode (callback after "book kar do"), resume hook, busy-callback question, advance rules (rule 6),
+# the WhatsApp-please number capture + read-back (rule 5). No negotiation in this script.
 # PENDING playbook: quote_and_slot (archetype A). NOT loaded by production (`select`, calls).
 # Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
 # (hear-before-change). Promote only with: friday playbook promote quote_and_slot
@@ -45,8 +47,15 @@ inputs:
   user_full_spoken: {}
   negotiate: {default: "no"}
   explore_options: {default: "no"}
+  q_ask_advance: {default: "no"}   # yes: the USER's request asks for the booking amount
+  resume: {}                       # retry / callback calls: earlier answers are never asked again
+  prior_price_inr: {}
+  prior_slot_free: {}
+  prior_slot: {}
+  prior_notes: {}
+  prior_flags: {}
 
-outputs: [slot_free, offered_slots, slot, price_inr, price_low_inr, price_unit, advance_needed, visit_needed, whatsapp_requested, outcome]
+outputs: [slot_free, offered_slots, slot, price_inr, price_low_inr, price_unit, advance_needed, visit_needed, whatsapp_requested, captured_number, outcome]
 
 limits:
   max_duration_s: 180
@@ -71,15 +80,21 @@ lines:
   recording_notice: "Yeh call quality ke liye record ho sakta hai."
   # the HOOK: one short line, the purpose of the call, then WAIT for "haan ji, bataiye"
   intro: "Ji sir, actually maine aapko {services_spoken} ke regarding call kiya tha."
+  intro_resume: "Ji sir, actually maine pehle {services_spoken} ke regarding call kiya tha, bas ek-do cheezein reh gayi thi."
   s3_ask_first: "Toh sir, {services_spoken} ke estimated kya {price_word} rahenge?"
   s3_ask: "Sir, {services_spoken} ke estimated kya {price_word} rahenge?"
   ai_yes: "Ji, haan, main {user_spoken} {honorific} ki personal AI assistant hoon."
-  bye_busy: "Ji koi baat nahi, main baad mein call karti hoon. Thank you."
+  busy_when: "Ji koi baat nahi sir, main kab call kar sakti hoon?"
+  busy_close: "{ack}, main tab call kar leti hoon. Thank you."
   bye_wrong: "Ji maaf kijiye, galat number lag gaya. Thank you."
   bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Thank you."
   bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Thank you."
   bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Thank you."
   s3b_ask: "{user_spoken} {honorific} ka budget {budget} rupaye hai. Kuch kam ho sakta hai?"
+  # "WhatsApp pe bhej do" (rule 5): confirm the number, read it back, then close
+  wa_ask: "Theek hai sir, ek baar aap please WhatsApp ka number confirm kar sakte hain?"
+  wa_read: "{captured_spoken}, yahi number hai na?"
+  wa_ok: "Okay sir, main aapko WhatsApp kar deti hoon."
   wa_decline: "Achha sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
   s3r_ask: "Achha, toh koi estimated range bata sakte hain?"
   s2_ask_first: "{ack}, toh {date_window} ka slot booking ke liye aapke paas available hoga?"
@@ -96,7 +111,10 @@ lines:
   s2n_ask: "Toh sabse nearest kaun sa slot available hoga?"
   s2n_ask_appt: "Toh sabse nearest kaun si appointment available hogi?"
   s2b_none: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
-  s5_no_advance: "Achha, advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
+  # the BUSINESS raises an advance (rule 6): ask how much, pass it on; Friday never pays or agrees
+  adv_ask: "{ack}, ek baar advance ya booking amount kitna hoga?"
+  adv_close: "Theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, wo aapko advance payment initiate kar denge. Thank you."
+  adv_ask_user: "Achha theek hai sir, ek baar booking amount kitna lenge?"   # only if q_ask_advance
   no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
   s7_close: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
   s7_commit_free:
@@ -104,6 +122,9 @@ lines:
     commit: true
   s7_commit_fallback:
     text: "{ack}, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
+    commit: true
+  s7_confirm:
+    text: "{user_spoken} {honorific} ne confirm kar diya hai, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
     commit: true
   q_close: "{ack}, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
   sorry: "Sorry, ek baar phir?"
@@ -113,9 +134,12 @@ lines:
 routes:
   after_quote:
     - {when: [over_budget, may_negotiate, mode_book], goto: S3b}
-    - {when: [mode_quote], goto: S7q}
-    - {goto: S2}
+    - {when: [q_ask_advance], goto: SA}
+    - {goto: "@after_adv"}
   after_price:
+    - {when: [q_ask_advance], goto: SA}
+    - {goto: "@after_adv"}
+  after_adv:
     - {when: [mode_quote], goto: S7q}
     - {goto: S2}
 
@@ -123,10 +147,8 @@ defaults:
   STOP_CALLING: {say: [bye_dnc], outcome: REFUSED, set: {do_not_call: "yes"}}
   RUDE: {say: [bye_rude], outcome: REFUSED, set: {rude: "yes"}}
   WRONG_NUMBER: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
-  BUSY_LATER: {say: [bye_busy], outcome: CALL_BACK_LATER}
-  NEEDS_ADVANCE:
-    - {when: [slot_known], say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: SLOT_OFFERED}
-    - {say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: ADVANCE_ASKED}
+  BUSY_LATER: {goto: SBZ}
+  NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: SB}
   NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
   ARE_YOU_BOT: {say: [ai_yes], repeat: true}
   WHO_IS_THIS:
@@ -137,8 +159,8 @@ defaults:
   ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
   ASKS_SECRET: {say: [no_secrets], repeat: true, max_uses: 2}
   ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
-  # "WhatsApp pe bhej do": asked once to say it here (S3), then the call closes politely
-  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: S7w}
+  # "WhatsApp pe bhej do": confirm their WhatsApp number, read it back (steps W1, W2)
+  WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: W1}
   VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: S3r}
 
 start: S0
@@ -161,18 +183,25 @@ steps:
       VISIT_NEEDED: {say: [s0_who], stay: true, max_uses: 1}
 
   S1:   # the HOOK: the purpose of the call in ONE short line; then wait for "haan ji, bataiye"
-    ask: [intro]
+    ask:
+      - {line: intro_resume, when: [is_resume, "!mode_confirm"]}
+      - {line: intro, when: ["!is_resume"]}
+      - {line: intro, when: [is_resume, mode_confirm]}
     branches:
-      YES: {goto: S3}
-      CONTINUE: {goto: S3}
-      ACK: {goto: S3}
+      YES: &s1_next
+        - {when: [mode_confirm], goto: S7}
+        - {goto: S3}
+      CONTINUE: *s1_next
+      ACK: *s1_next
       ASKS_REPEAT: {repeat: true, max_uses: 1}
       GIVES_PRICE:
+        - {when: [mode_confirm], goto: S7}
         - {when: [price_known], goto: "@after_quote"}
         - {goto: S3}
-      ANY: {goto: S3}
+      ANY: *s1_next
 
   S3:   # the PRICE question; the hook was already said in S1
+    skip_when: [price_known]          # a retry call never asks the price again
     ask:
       - {line: recording_notice, when: [recording, first_ask]}
       - {line: s3_ask_first, when: [first_ask]}
@@ -188,10 +217,61 @@ steps:
       PRICE_DEPENDS: {set: {price_note: depends}, goto: "@after_price"}
       VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: S3r}
       REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: "@after_price"}
-      WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
       CONTINUE: {repeat: true}
       YES: {repeat: true}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: "@after_quote"}      # only reached when skipped (price already known)
+
+  W1:   # WhatsApp number (they said "WhatsApp pe bhej do"); asked at most twice
+    max_visits: 2
+    ask: [wa_ask]
+    branches:
+      GIVES_NUMBER: {goto: W2}
+      SAME_NUMBER: {goto: SW}
+      NO: {say: [wa_decline], goto: S3}     # no WhatsApp: the details are said on the call
+      WHATSAPP_PLEASE: {goto: S7w}          # insists without a number: closes, flagged
+      ANY: {goto: S7w}
+
+  W2:   # read the number back
+    ask: [wa_read]
+    branches:
+      YES: {goto: SW}
+      CONTINUE: {goto: SW}
+      ACK: {goto: SW}
+      NO: {goto: W1}
+      GIVES_NUMBER: {goto: W2}
+      SAME_NUMBER: {goto: SW}
+      ANY: {goto: SW}
+
+  SW:   # number confirmed: she will WhatsApp
+    final: true
+    branches:
+      ANY: {say: [wa_ok], outcome: WHATSAPP_REQUESTED}
+
+  SA:   # the user's request asks for the booking amount (q_ask_advance); never otherwise
+    max_visits: 1
+    ask: [adv_ask_user]
+    branches:
+      NEEDS_ADVANCE: {set: {advance_needed: "yes"}, goto: "@after_adv"}
+      NO_ADVANCE: {set: {advance_needed: "no"}, goto: "@after_adv"}
+      NO: {set: {advance_needed: "no"}, goto: "@after_adv"}
+      UNCLEAR: {goto: "@after_adv"}
+      ANY: {goto: "@after_adv"}
+
+  SB:   # the business raised an advance: ask how much, pass it on, never agree
+    max_visits: 1
+    ask: [adv_ask]
+    branches:
+      ANY:
+        - {when: [slot_known], say: [adv_close], outcome: SLOT_OFFERED}
+        - {say: [adv_close], outcome: ADVANCE_ASKED}
+
+  SBZ:  # busy: ask when to call back, note the time (retries are scheduled by the task layer)
+    max_visits: 1
+    ask: [busy_when]
+    branches:
+      UNCLEAR: {say: [busy_close], outcome: CALL_BACK_LATER}
+      ANY: {say: [busy_close], outcome: CALL_BACK_LATER}
 
   S3r:  # no price on the phone (visit needed): ask for a rough range ONCE, then close
     max_visits: 1
@@ -216,6 +296,7 @@ steps:
       ANY: {goto: "@after_price"}
 
   S2:   # book mode: the slot
+    skip_when: [slot_known]           # a retry call already holds the slot
     ask:
       - {line: s2_ask_first, when: [first_ask, "!q_appointment"]}
       - {line: s2_ask_first_appt, when: [first_ask, q_appointment]}
@@ -239,6 +320,7 @@ steps:
       NEEDS_APPOINTMENT: {say: [s2_appt_only], repeat: true, max_uses: 1}
       CONTINUE: {repeat: true}
       ASKS_REPEAT: {repeat: true, max_uses: 2}
+      ANY: {goto: S7}
 
   S2t:
     ask: [s2_ask_time]
@@ -308,6 +390,7 @@ steps:
     final: true
     branches:
       ANY:
+        - {when: [mode_confirm, can_commit], say: [s7_confirm], commit: true, outcome: BOOKED}
         - {when: [can_commit, used_fallback, "!alt_offered"], say: [s7_commit_fallback], commit: true, outcome: BOOKED}
         - {when: [can_commit, "!alt_offered"], say: [s7_commit_free], commit: true, outcome: BOOKED}
         - {when: [slot_known], say: [s7_close], outcome: SLOT_OFFERED}
@@ -352,7 +435,7 @@ outcomes:
     description: nothing free
   CALL_BACK_LATER:
     call_outcome: callback_later
-    description: they asked us to call later
+    description: they asked us to call later (the time they named is kept when understood)
   WRONG_NUMBER:
     call_outcome: declined
     description: wrong number / not this kind of business

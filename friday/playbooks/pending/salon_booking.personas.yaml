@@ -126,14 +126,16 @@ personas:
     greeting: "Hello, Looks Salon."
     replies:
       s3_ask: "Haircut 400 rupaye, 200 rupaye advance dena padega"
-    expect: {outcome: UNCLEAR}
+      adv_ask: "Do sau rupaye booking amount hoga"
+    expect: {outcome: ADVANCE_ASKED}
 
   - id: quote_cancellation_fee
     title: "The salon mentions a cancellation fee"
     greeting: "Hello, Looks Salon."
     replies:
       s3_ask: "Haircut 400 rupaye, cancel karoge to cancellation charge lagega"
-    expect: {outcome: UNCLEAR}
+      adv_ask: "Cancel karne par sau rupaye lagenge"
+    expect: {outcome: ADVANCE_ASKED}
 
   - id: quote_no_advance_said
     title: "The salon volunteers that no advance is needed"
@@ -191,6 +193,7 @@ personas:
     greeting: "Hello, Looks Salon."
     replies:
       s3_ask: "Abhi bahut busy hoon, thodi der baad call kijiye"
+      busy_when: "Ek ghante baad kar lena"
     expect: {outcome: CALL_BACK_LATER}
 
   - id: quote_puts_on_hold
@@ -462,6 +465,7 @@ personas:
     replies:
       s3_ask: "Haircut 400 rupaye"
       s2_ask: "Haan ho jayega, pehle 200 rupaye advance bhejna padega"
+      adv_ask: "Do sau rupaye"
     expect: {outcome: SLOT_OFFERED}
 
   - id: book_yes_without_time
@@ -512,3 +516,72 @@ personas:
       s2_ask: "Haan kal shaam 6 baje free hai"
     expect: {outcome: BOOKED}
 
+  # ---- v8: busy-callback, resume (retry), confirm callback, advance rules
+  - id: busy_at_identity
+    title: "Busy right at the identity question: she asks when to call"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Abhi busy hoon, baad mein baat karte hain"
+      busy_when: "Shaam 5 baje ke baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: busy_after_hook
+    title: "Busy right after the hook"
+    greeting: "Hello, Looks Salon."
+    replies:
+      intro: "Abhi customer hai, thodi der baad call karo"
+      busy_when: "Do baje call kar lijiye"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: busy_name_no_time
+    title: "Busy, does not name a time"
+    greeting: "Hello, Looks Salon."
+    replies:
+      s3_ask: "Busy hoon abhi"
+      busy_when: "Pata nahi, baad mein dekh lena"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: resume_price_known_asks_nothing_again
+    title: "Retry call: the price is already known, quote mode: only the hook, then the close"
+    greeting: "Hello, Looks Salon."
+    brief: {resume: "yes", prior_price_inr: "400"}
+    replies:
+      intro_resume: "Haan boliye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: resume_book_slot_still_to_ask
+    title: "Retry call in book mode: price known, the slot is asked (and only the slot)"
+    greeting: "Hello, Looks Salon."
+    brief: {resume: "yes", prior_price_inr: "400", delegation_max_price: 800, date_window: aaj shaam 5 baje}
+    replies:
+      intro_resume: "Haan ji bataiye"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: advance_asked_by_user_request
+    title: "The user's request asks for the booking amount: she asks it, once"
+    greeting: "Hello, Looks Salon."
+    brief: {q_ask_advance: "yes"}
+    replies:
+      s3_ask: "Haircut 400 rupaye"
+      adv_ask_user: "Koi booking amount nahi lagta"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: advance_not_asked_by_default
+    title: "Nobody mentions an advance: she never raises it"
+    greeting: "Hello, Looks Salon."
+    brief: {delegation_max_price: 800, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Haircut 400 rupaye"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: busy_slot_alt_not_booked
+    title: "Requested time busy, salon offers 6 baje: never booked without the user's OK"
+    greeting: "Hello, Looks Salon."
+    brief: {delegation_max_price: 800, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Haircut 400 rupaye"
+      s2_ask: "5 baje to full hai"
+      s2b_ask: "6 baje ka ho sakta hai"
+    expect: {outcome: SLOT_OFFERED}

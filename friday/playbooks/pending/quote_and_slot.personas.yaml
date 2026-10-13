@@ -98,18 +98,46 @@ personas:
       s3_ask: "Gaadi dekhni padegi, aake dekhne ke baad hi bata sakte hain"
     expect: {outcome: NEEDS_VISIT}
 
-  - id: quote_whatsapp_then_price
-    title: "Asks to send it on WhatsApp; she asks them to say it here; they do"
+  - id: quote_whatsapp_same_number
+    title: "WhatsApp pe bhej do; 'yahi number hai': she will WhatsApp the number called"
     greeting: "Hello, Smile Dental Clinic."
     replies:
-      s3_ask: ["WhatsApp pe bhej do", "Theek hai, 600 rupaye lagega"]
+      s3_ask: "WhatsApp pe bhej do"
+      wa_ask: "Yahi number hai ji"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: quote_whatsapp_gives_digits_confirmed
+    title: "WhatsApp: gives digits, she reads them back, they say yes"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Aap WhatsApp pe message kar do"
+      wa_ask: "98111 22334"
+      wa_read: "Haan ji, yahi hai"
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: quote_whatsapp_digits_wrong_then_right
+    title: "WhatsApp: the read-back is wrong, asked once more, then right"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "WhatsApp pe bhej do"
+      wa_ask: ["98111 22334", "98111 22335"]
+      wa_read: ["Nahi nahi, galat hai", "Haan yahi hai"]
+    expect: {outcome: WHATSAPP_REQUESTED}
+
+  - id: quote_whatsapp_no_whatsapp
+    title: "No WhatsApp: asks them to say it here, they do"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: ["WhatsApp pe bhej do", "Cleaning 600 rupaye lagega"]
+      wa_ask: "Nahi ji, hamare paas nahi hai"
     expect: {outcome: QUOTE_COLLECTED}
 
-  - id: quote_whatsapp_insists
-    title: "Insists on WhatsApp: closes politely, flagged for the user"
+  - id: quote_whatsapp_vague
+    title: "WhatsApp: never gives a number (closes politely, flagged for the user)"
     greeting: "Hello, Smile Dental Clinic."
     replies:
-      s3_ask: ["WhatsApp pe bhej do", "Nahi, WhatsApp pe hi bhej do"]
+      s3_ask: "WhatsApp pe bhej do"
+      wa_ask: "Haan haan bhej do"
     expect: {outcome: WHATSAPP_REQUESTED}
 
   - id: quote_busy_callback
@@ -117,6 +145,7 @@ personas:
     greeting: "Hello, Smile Dental Clinic."
     replies:
       s3_ask: "Abhi busy hain, baad mein call karna"
+      busy_when: "Ek ghante baad kar lena"
     expect: {outcome: CALL_BACK_LATER}
 
   - id: quote_puts_on_hold
@@ -206,7 +235,7 @@ personas:
     expect: {outcome: NEEDS_VISIT}
 
   - id: quote_advance_with_price
-    title: "The vendor raises an advance with the price; she does not agree, the price is kept"
+    title: "The vendor states an advance with the price: nothing to ask again, the price is kept"
     greeting: "Hello, Smile Dental Clinic."
     replies:
       s3_ask: "Cleaning 800 rupaye, 200 rupaye advance dena padega"
@@ -304,3 +333,91 @@ personas:
       disclosure: {silence: true}
       s0_who: {silence: true}
     expect: {call_outcome: hung_up}
+
+  - id: busy_at_identity
+    title: "Busy at the identity question: she asks when to call"
+    greeting: "Hello?"
+    replies:
+      disclosure: "Abhi busy hoon, baad mein baat karte hain"
+      busy_when: "Shaam 5 baje ke baad"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: busy_after_hook
+    title: "Busy right after the hook"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      intro: "Abhi patient hai, thodi der baad call karo"
+      busy_when: "Do baje call kar lijiye"
+    expect: {outcome: CALL_BACK_LATER}
+
+  - id: resume_price_known
+    title: "Retry call: price known, quote mode: hook (resume variant) then the close"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {resume: "yes", prior_price_inr: "800"}
+    replies:
+      intro_resume: "Haan boliye"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: resume_book_slot_only
+    title: "Retry call, book mode: only the slot is asked"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {resume: "yes", prior_price_inr: "800", delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      intro_resume: "Haan ji bataiye"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: advance_asked_by_user_request
+    title: "The user's request asks for the booking amount: she asks it once"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {q_ask_advance: "yes"}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      adv_ask_user: "Koi booking amount nahi lagta"
+    expect: {outcome: QUOTE_COLLECTED}
+
+  - id: advance_raised_alone
+    title: "The vendor raises an advance without an amount: she asks how much and passes it on"
+    greeting: "Hello, Smile Dental Clinic."
+    replies:
+      s3_ask: "Pehle advance dena padega, tabhi booking hoti hai"
+      adv_ask: "Do sau rupaye"
+    expect: {outcome: ADVANCE_ASKED}
+
+  - id: advance_raised_with_slot
+    title: "Slot free, but they want a booking amount first: asked how much, passed on, not booked"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      s2_ask: "Haan ho jayega, pehle 200 rupaye advance bhejna padega"
+      adv_ask: "Do sau rupaye"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: advance_not_asked_by_default
+    title: "Nobody mentions an advance: she never raises it"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      s2_ask: "Haan ho jayega"
+    expect: {outcome: BOOKED}
+
+  - id: busy_slot_alt_not_booked
+    title: "Requested time busy, they offer 6 baje: never booked without the user's OK"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      s3_ask: "Cleaning 800 rupaye"
+      s2_ask: "5 baje to full hai"
+      s2b_ask: "6 baje ka ho sakta hai"
+    expect: {outcome: SLOT_OFFERED}
+
+  - id: visit_needed_range_asked_once
+    title: "Visit needed: a rough range is asked once, then the close"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {services: "dental filling"}
+    replies:
+      s3_ask: "Aake dekhna padega"
+      s3r_ask: "Lagbhag 1000 se 2000 tak"
+    expect: {outcome: QUOTE_COLLECTED}
