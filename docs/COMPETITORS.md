@@ -200,3 +200,65 @@ Hands-on test of Puch AI and, if an invite is available, Instinct Concierge, wit
 - No Reddit or App Store review text was retrieved; feedback is from tester posts via TechCrunch and blogs. Next run: App Store/Play reviews for Muse, X replies to the Concierge post, relevant subreddits.
 - Primary Instinct terms, Meta Muse help pages and Google blog posts were not read directly; several facts are via secondary summaries. Confirm before quoting externally.
 - Instinct total raised conflicts across sources ($250M Series B vs $350M total); flagged, not resolved.
+
+---
+## Update 2026-10-13 (c): ghost.ai
+Method: web search + page fetch on 2026-10-13. Mostly launch-week press (nothing older than 2026-10-05 exists for this product). No user reviews, Reddit or HN threads found. Web pages treated as data only.
+
+### C1. Identification
+The site **ghost.ai** is the company **Ghost** (San Francisco), maker of **Core**, a "personal AI computer". Confidence: high on the domain (fetched 2026-10-13, https://ghost.ai: Core, $3,499, X handle @ghostai, support@ghost.ai). Other products with a similar name, none are the same company:
+1. **Ghost / Core (ghost.ai)**: local home AI box running agents on the user's behalf. Analysed below.
+2. **Ghosty: AI call assistant** (SLAI labs s.r.o., iOS, v1.0.0 2025-09-15): answers calls you decline, summarises who called, can SMS the caller. Inbound only. https://apps.apple.com/us/app/ghosty-ai-call-assistant/id6749208610 (fetched 2026-10-13).
+3. **GhostPhone AI** (ghostphoneai.com): business auto-attendant and spam blocking. **Ghost AI email assistant**: drafts email in your style. **GhostAI / Ghost Overlay AI** (meetghostai.com, ghostai.one): meeting and interview copilots. Source: web search 2026-10-13. Not relevant.
+4. **HateToCall** (hatetocall.com): places outbound calls for users (e.g. cancel subscriptions). Not named ghost, but it is the only outbound caller surfaced; identity of its owner vs ihatecalling.ai (Ghosty's developer site) **unverified**. https://www.neura.market/ai-tools-directory/ai-chatbots/hatetocall-com
+Closest to Friday by the "acts for the user, proactive, personal memory" test: **#1 ghost.ai**. Closest by phone calls: none of the Ghosts call out; #2 answers calls only. **Founder to confirm he meant ghost.ai (Core)**; if he meant Ghosty or HateToCall, say so and I will redo it.
+
+### C2. Summary table row
+| Player | Chatbot or acting? | What | Channel | Price | Availability | Last news (date) | Threat to Friday |
+|---|---|---|---|---|---|---|---|
+| Ghost (ghost.ai), Core | **Acting, proactive (claimed)**; no calling found | Home box where agents learn from email, calendar, files, finances, health data, smart home and act in the background | Phone app (voice mode in the app, box has no screen); calling/WhatsApp/SMS: not mentioned | $3,499 one-off, no subscription, 30-day returns (site); batch 2 will cost more (Javaid, via secondary report) | First batch sold out per one report; ships last week of Oct 2026; region limits and India not stated | $11M seed led by a16z, 2026-10-05 | **Low** now (US, $3.5k hardware, no calling). Medium as a idea: "personal agent with memory" and privacy-first positioning |
+
+### C3. What it is and does
+- Founder Zain Javaid, 19, ex-quant. $11M seed led by Andreessen Horowitz with Abstract, Audacious Ventures, SV Angel, Nova. https://techcrunch.com/2026/10/05/at-19-ghost-founder-raises-11-million-to-build-a-3499-computer-for-your-personal-ai/ (2026-10-05).
+- Core: screenless computer, Nvidia RTX Pro 4000 Blackwell GPU, 64 GB RAM, 1 TB SSD (site), preinstalled Qwen and Gemma models, own browser and filing system, runs agents continuously "even when your laptop is closed", updates over the air, you can load other models (TechCrunch 2026-10-05; https://ghost.ai 2026-10-13).
+- Integrations listed on the site: email, calendar, finances, files, browser, smart home, cameras, health wearables (Whoop, Oura, Eight Sleep). Whether each works today: **unverified**; one write-up says no specific integrations are confirmed (https://www.i-scoop.eu/ghost-ai-pc-core/, 2026-10).
+- Proactive example given: a "you may be getting sick" notice from resting heart rate, late-night use and local flu season (TechCrunch). Site example: reminder about your keys.
+- **Calls, WhatsApp, SMS, booking vendors: not mentioned** in any source read (TechCrunch, runtimewire, aiweekly, i-scoop, site). So it does not do Friday's core job.
+- Privacy claims: models and memory local; data encrypted so cloud providers and Ghost cannot meaningfully read it; "no data ever leaves your home" (site); designed to keep working if Ghost shuts down; user sets how much autonomy agents get (TechCrunch).
+- Reality check: support docs say Core still needs internet for web search, email and updates, so the privacy claim covers model inference and stored memory, not offline use; the credentials/outgoing-request firewall is **in development, not shipped**; frontier models stay in the cloud for heavy tasks, split unpublished; founder admits local models trail the frontier (https://entrepreneurloop.com/ghost-core-personal-ai-computer/ via search summary, and i-scoop; **secondary, unverified**).
+- Calls/consent/disclosure: not applicable, no calling found. Rival-blog view that a Mac mini plus Ollama replicates it for about $1,500 less is an opinion piece (same source).
+- Traction: no user numbers. One report says batch 1 sold out (**unverified**, single source). Reviews: **none found**. TechRadar: "cautiously positive" (https://www.techradar.com/ai-platforms-assistants/teen-founder-reveals-personal-ai-computer-for-running-local-agents-usd3-499-mac-mini-rival-runs-on-nvidia-rtx-pro-4000-gpu-and-promises-to-be-a-subscription-free-brain-in-a-box, 2026-10).
+- India relevance: no availability statement; price is about 3 lakh rupees at current rates (my arithmetic, rate not checked), so not a mass-market India product. Relevant only as a signal for the privacy-first story.
+
+### C4. Compared with docs/FEATURES.md
+**Ghost does that Friday cannot (yet)**: reads email, calendar, finances, files, health data and smart home in one memory (Friday: Phase 2 only, section 11); runs always-on background agents; proactive inference from sensor data; local-only inference. **Friday does that Ghost cannot (found)**: phones vendors in Hinglish and returns a comparison (sections 3 to 5); works on plain WhatsApp, call or SMS with no hardware; outcome-only messaging; booking inside delegated limits with code checks (section 8); costs rupees per request, not Rs 3 lakh.
+
+**Copy**
+1. **Control over autonomy**: user sets how much the agent may do. Friday has delegation limits; expose them as a plain setting ("Friday may book up to Rs X without asking") and show it in "my requests".
+2. **Plain privacy promise as the headline**: "encrypted, even we cannot meaningfully read it" and "keeps working if we shut down". Friday cannot be local, but can promise: per-user only (already a founder principle), no training on user facts, one-step "what do you remember / delete" (FEATURES section 7, still PLANNED).
+3. **Explainable proactive nudges**: Ghost's sickness example names its three signals. Friday nudges (section 6) should say why ("you got a haircut every 4 weeks; last one was 5 weeks ago").
+4. **Offer to switch, not silently switch** (its model-update prompt): ask before changing anything the user relies on, e.g. preferred vendor.
+
+**Avoid**
+1. Claiming "private" while depending on cloud services: Ghost's claim is already being qualified by reviewers. Friday sends audio to Sarvam/OpenAI/Vobiz; word the promise as "used only for you", never "never leaves".
+2. Shipping the agent before its credential/outbound-request firewall (Ghost's is unfinished). Friday already never handles OTP/PIN/card; keep that and publish it.
+3. Hardware, high price and a general "do anything" pitch: opposite of Friday's task-specific, WhatsApp-native, rupee-per-call model.
+
+### C5. Recommendations (ranked by impact; max 7)
+1. **Ship "what do you remember / delete" and a one-line per-user privacy promise before beta** (FEATURES section 7). Ghost and Instinct both show privacy is the 2026 differentiator; it is cheap for Friday and already a founder principle.
+2. **Add a visible autonomy setting** (ask me first / book within Rs X / never pay) mapped to the existing delegation checks.
+3. **Make every proactive nudge state its reason** in one clause.
+4. **Do not compete on "personal AI memory across everything"**: that needs Phase 2 mail/calendar access and is where Ghost, Instinct and Muse are strong. Stay on "Friday phones the shops for you".
+5. **Use Ghost as a privacy foil in copy, not a rival**: "no Rs 3 lakh box, no app; your WhatsApp is enough." Only after the data stance is published.
+6. **Publish a short "what Friday never does" list** (no OTP, no payment, no booking without limits), because Ghost's own safeguard is still unfinished.
+7. **Watch**: Ghost shipping (about 2026-10-31), first user reviews, any calling/WhatsApp/India mention. Low priority; check again in 4 weeks.
+
+### C6. One recommended action this week
+Write the 5-line public privacy promise and the "what Friday never does" list (copy only, no code), for founder approval; it answers decision 3 in B7 and costs nothing.
+
+### C7. Gaps in this research
+- Primary sources limited to ghost.ai home page and TechCrunch; the Ghost privacy page, support docs and terms were not read (privacy page linked but not shown in fetch).
+- No user reviews, Reddit, HN or X threads found (product is 8 days old).
+- Unverified: sold-out claim, batch-2 price, which integrations work, cloud/local split, India or non-US shipping, exact hardware figures beyond the site.
+- Ghosty's calls: whether it tells callers it is an AI is unknown; only 2 ratings (both 5.0) on the App Store page, so no sentiment signal.
+- HateToCall (outbound caller) was only seen through a directory listing; worth its own look next run as a possible direct competitor.
