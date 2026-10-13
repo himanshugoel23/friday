@@ -62,6 +62,7 @@ CONDITIONS: frozenset[str] = frozenset(
         "explore_options",  # the owner wants several slots/prices to choose from (default off)
         "has_requested_time",  # the task already names one specific time ("aaj shaam 5 baje")
         "has_stylist_pref",
+        "alt_offered",  # the slot on the table is not the asked one (never booked by us)
         "time_known",  # one concrete time heard
         "slot_known",  # a time or at least one offered time
         "price_known",
@@ -119,13 +120,15 @@ INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",
      "callback_number", "honorific", "business_name", "negotiate", "explore_options",
      "business_name_spoken", "user_spoken", "services", "services_spoken", "playbook_mode",
-     "fallback_when", "fallback_day"}
+     "fallback_when", "fallback_day", "user_full_name", "user_full_spoken"}
 ) | ARCHETYPE_INPUTS
-PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {"slot", "price_inr", "duration_min", "stylist"}
+PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {
+    "slot", "slot_time", "price_inr", "duration_min", "stylist"}
 
 # what the engine may write into ``set:`` of a branch (fixed values only)
 SETTABLE: frozenset[str] = frozenset(
     {"advance_needed", "price_unknown", "slot_free", "price_note", "do_not_call", "rude",
+     "alt_offered",
      "wrong_number", "fallback_used", "visit_needed", "whatsapp_requested", "in_stock",
      "out_of_stock", "delivery", "demo", "estimate_on_visit", "price_free", "not_available",
      "walk_in_only"}

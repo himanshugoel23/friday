@@ -311,6 +311,8 @@ class PersonaLeg:
 
     def _pick_reply(self, qid: str) -> Any:
         keys = [f"{qid}@{self.prev_q}", qid] if qid == "sorry" else [qid]
+        if qid == "s2n_ask":  # "the nearest slot" is answered like the "around" question
+            keys.append("s2b_ask")
         if qid != "sorry":  # variants of a line ("s3_readback_range") use the base key's reply
             keys += sorted(
                 (k for k in self.persona.replies if qid.startswith(k) and k != qid),
@@ -329,6 +331,8 @@ class PersonaLeg:
             return self._pick_reply(self.prev_q)  # repeat the earlier answer, clearer
         if qid in ("disclosure", "s0_who", "s0_repeat"):
             return "Haan ji, boliye"  # the identity question: by default she says yes
+        if qid == "intro":
+            return "Haan ji, bataiye"  # the hook (purpose of the call): by default she listens
         return self.persona.default
 
     def _queue(self, reply: Any) -> None:

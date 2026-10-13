@@ -184,6 +184,8 @@ class Ctx:
             return self.inputs[name]
         if name == "slot" and st.times:
             return self.slot_text
+        if name == "slot_time" and st.times:  # the time without the day: "shaam 5 baje"
+            return re.sub(r"^(aaj|kal|parso) ", "", st.times[0])
         if name == "price_inr" and st.price_inr is not None:
             return str(st.price_inr)
         if name == "duration_min" and st.duration_min is not None:
@@ -212,9 +214,11 @@ def resolve_inputs(pb: Playbook, brief: CallBrief) -> dict[str, str]:
             tn = (brief.target.name or "").strip()
             if tn and "test business" not in tn.lower():
                 v = tn
+        if name == "user_full_name" and not v:
+            v = (brief.on_behalf_of or "").strip()
         if name == "for_whom" and not v and brief.beneficiary_name:
             v = first_name(brief.beneficiary_name)
-        if name in ("services_spoken", "user_spoken", "business_name_spoken"):
+        if name in ("services_spoken", "user_spoken", "business_name_spoken", "user_full_spoken"):
             continue  # derived below
         if name == "services":
             continue
@@ -237,7 +241,11 @@ def _derive_spoken(pb: Playbook, brief: CallBrief, raw: dict[str, str], out: dic
     from friday.voice.names import default_speller, join_services, parse_services
 
     sp = default_speller()
-    for src, dst in (("user_first_name", "user_spoken"), ("business_name", "business_name_spoken")):
+    for src, dst in (
+        ("user_first_name", "user_spoken"),
+        ("business_name", "business_name_spoken"),
+        ("user_full_name", "user_full_spoken"),
+    ):
         if dst not in pb.inputs:
             continue
         given = clean_spoken(raw.get(dst))
@@ -351,6 +359,7 @@ class PlaybookPolicy:
             "mode_quote": c.inputs.get("playbook_mode") != "book",
             "has_fallback": self._fallback(c) is not None,
             "used_fallback": st.flags.get("fallback_used") == "yes",
+            "alt_offered": st.flags.get("alt_offered") == "yes",
             "has_date_window": bool(c.inputs.get("date_window")),
             "has_duration": bool(c.inputs.get("duration_text")),
             "available": st.slot_free in ("yes", "other_time")

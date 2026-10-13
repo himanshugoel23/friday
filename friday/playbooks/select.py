@@ -225,6 +225,8 @@ def _name_inputs(inputs: dict[str, str], speller: Any) -> None:
         inputs["user_spoken"] = sp.spoken(inputs["user_first_name"])
     if inputs.get("business_name"):
         inputs["business_name_spoken"] = sp.spoken(inputs["business_name"])
+    if inputs.get("user_full_name"):
+        inputs["user_full_spoken"] = sp.spoken(inputs["user_full_name"])
 
 
 def _opening_texts(pb: Playbook, inputs: dict[str, str]) -> dict[str, Any]:

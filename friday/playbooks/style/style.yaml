@@ -25,7 +25,7 @@ avoid: []
 # Natural filler words. Every spoken line of 5+ words should carry one (founder 13 Oct: always).
 fillers: [ji, achha, toh, actually, theek hai, haan]
 # Lines that are exempt from the filler rule (short closes, safety lines).
-filler_exempt_ids: [ai_yes, no_secrets, no_number, bye_dnc, bye_rude, bye_wrong, bye_busy, bye_unclear, sorry]
+filler_exempt_ids: [disclosure, s3_ask, recording_notice, ai_yes, no_secrets, no_number, bye_dnc, bye_rude, bye_wrong, bye_busy, bye_unclear, sorry]
 filler_min_words: 5
 
 # Stiff endings -> how people really end the sentence (from the founder's examples).
