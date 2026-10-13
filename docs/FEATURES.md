@@ -119,3 +119,24 @@ decision.
 - Integrations (Swiggy, Zomato MCP, vendor WhatsApp business agents). [PLANNED]
 - Truecaller / after-call SMS for trust. [PLANNED]
 - Legal read: TRAI/DLT, DPDP, WhatsApp Business rules. [DECIDE]
+
+## 12. Ghost-inspired features, software only (founder, 13 Oct: no hardware, keep the features)
+Source: docs/COMPETITORS.md "Update 2026-10-13 (c): ghost.ai". Friday never promises "never leaves
+your device"; it promises "used only for you".
+- **Privacy promise + "what Friday never does"** (5 lines, public, in the first message). [PLANNED:
+  copy needs founder approval]
+- **"What do you remember?" and one-step delete / export**, per user. [PLANNED]
+- **Per-user encrypted memory**: identifiers and phone numbers are already stored encrypted and
+  hashed; memory is never shared across users. [PARTLY BUILT]
+- **Autonomy dial per category**: ask first / book within Rs X / never pay. [PARTLY BUILT: delegation
+  limits and autonomy_settings table exist; the user-facing setting is PLANNED]
+- **Every proactive nudge says why in one clause** ("kyunki aap har 5 hafte mein haircut karwate
+  ho"). [PLANNED]
+- **Credential firewall**: Friday never sees or speaks OTP, PIN, card; account identifiers are
+  encrypted and only used inside an approved task. [BUILT]
+- **Always-on background agents**: follow-ups, reminders, retries, re-confirm calls run without the
+  user asking again. [PARTLY BUILT: task engine, retries, proactive engine]
+- **Learns from the user's own email, calendar and files** (bills, trips, appointments), with
+  permission, only for that user. [PLANNED, Phase 2]
+- **Open and portable**: the user can export everything Friday knows. [PLANNED]
+- Out of scope for now: hardware box, smart home, health data, local on-device models.
