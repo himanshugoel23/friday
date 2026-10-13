@@ -1,0 +1,973 @@
+BEGIN;
+
+CREATE TABLE alembic_version (
+    version_num VARCHAR(32) NOT NULL, 
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+-- Running upgrade  -> 0001_baseline
+
+CREATE TABLE audit_log (
+    user_id VARCHAR(32), 
+    actor VARCHAR(10) NOT NULL, 
+    action VARCHAR(60) NOT NULL, 
+    subject_id VARCHAR(32), 
+    detail JSON NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_audit_log PRIMARY KEY (id)
+);
+
+CREATE INDEX ix_audit_user_at ON audit_log (user_id, at);
+
+CREATE TABLE dnc_registry (
+    phone_hmac VARCHAR(64) NOT NULL, 
+    phone TEXT NOT NULL, 
+    reason VARCHAR(40) NOT NULL, 
+    number_phone VARCHAR(20), 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_dnc_registry PRIMARY KEY (id), 
+    CONSTRAINT uq_dnc_registry_phone_hmac UNIQUE (phone_hmac)
+);
+
+CREATE TABLE friday_numbers (
+    phone VARCHAR(20) NOT NULL, 
+    provider VARCHAR(20) NOT NULL, 
+    city VARCHAR(80), 
+    circle VARCHAR(8), 
+    status VARCHAR(10) NOT NULL, 
+    warmup_day INTEGER NOT NULL, 
+    limits JSON NOT NULL, 
+    health JSON NOT NULL, 
+    cooldowns INTEGER NOT NULL, 
+    cooling_until TIMESTAMP WITH TIME ZONE, 
+    retired_at TIMESTAMP WITH TIME ZONE, 
+    forward_until TIMESTAMP WITH TIME ZONE, 
+    verified_caller_name VARCHAR(80), 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_friday_numbers PRIMARY KEY (id), 
+    CONSTRAINT uq_friday_numbers_phone UNIQUE (phone)
+);
+
+CREATE INDEX ix_friday_numbers_circle ON friday_numbers (circle);
+
+CREATE INDEX ix_friday_numbers_status ON friday_numbers (status);
+
+CREATE TABLE idempotency_keys (
+    key VARCHAR(200) NOT NULL, 
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_idempotency_keys PRIMARY KEY (key)
+);
+
+CREATE INDEX ix_idempotency_keys_expires_at ON idempotency_keys (expires_at);
+
+CREATE TABLE jobs (
+    kind VARCHAR(40) NOT NULL, 
+    payload TEXT NOT NULL, 
+    priority INTEGER NOT NULL, 
+    due_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    dedupe_key VARCHAR(200), 
+    partition_key VARCHAR(64), 
+    attempts INTEGER NOT NULL, 
+    max_attempts INTEGER NOT NULL, 
+    status VARCHAR(10) NOT NULL, 
+    claimed_by VARCHAR(80), 
+    lease_until TIMESTAMP WITH TIME ZONE, 
+    last_error VARCHAR(300), 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_jobs PRIMARY KEY (id)
+);
+
+CREATE INDEX ix_jobs_claim ON jobs (status, priority, due_at);
+
+CREATE UNIQUE INDEX uq_jobs_live_dedupe ON jobs (dedupe_key) WHERE status IN ('queued','claimed');
+
+CREATE TABLE number_assignments (
+    business_phone_hmac VARCHAR(64) NOT NULL, 
+    business_phone TEXT NOT NULL, 
+    number_phone VARCHAR(20) NOT NULL, 
+    assigned_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    last_used_at TIMESTAMP WITH TIME ZONE, 
+    previous_number VARCHAR(20), 
+    CONSTRAINT pk_number_assignments PRIMARY KEY (business_phone_hmac)
+);
+
+CREATE INDEX ix_number_assignments_number_phone ON number_assignments (number_phone);
+
+CREATE TABLE number_outcomes (
+    number_phone VARCHAR(20) NOT NULL, 
+    outcome VARCHAR(16) NOT NULL, 
+    business_phone_hmac VARCHAR(64), 
+    duration_s FLOAT NOT NULL, 
+    archived BOOLEAN NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_number_outcomes PRIMARY KEY (id)
+);
+
+CREATE INDEX ix_number_outcomes_number_at ON number_outcomes (number_phone, at);
+
+CREATE TABLE pending_deletions (
+    kind VARCHAR(16) NOT NULL, 
+    url TEXT NOT NULL, 
+    attempts INTEGER NOT NULL, 
+    last_error VARCHAR(200), 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_pending_deletions PRIMARY KEY (id)
+);
+
+CREATE TABLE suppressions (
+    phone_hmac VARCHAR(64) NOT NULL, 
+    scope VARCHAR(16) NOT NULL, 
+    reason VARCHAR(40), 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_suppressions PRIMARY KEY (id), 
+    CONSTRAINT uq_suppressions_phone_hmac UNIQUE (phone_hmac, scope)
+);
+
+CREATE INDEX ix_suppressions_phone_hmac ON suppressions (phone_hmac);
+
+CREATE TABLE users (
+    phone TEXT NOT NULL, 
+    phone_hmac VARCHAR(64) NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    onboarding_step VARCHAR(20) NOT NULL, 
+    pin_hash VARCHAR(255), 
+    pin_failed_attempts INTEGER NOT NULL, 
+    invited_by_user_id VARCHAR(32), 
+    invites_remaining INTEGER NOT NULL, 
+    rate_limited BOOLEAN NOT NULL, 
+    last_inbound_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_users PRIMARY KEY (id), 
+    CONSTRAINT uq_users_phone_hmac UNIQUE (phone_hmac)
+);
+
+CREATE TABLE account_identifiers (
+    user_id VARCHAR(32) NOT NULL, 
+    company VARCHAR(120), 
+    label VARCHAR(120) NOT NULL, 
+    value_encrypted TEXT NOT NULL, 
+    last4 VARCHAR(4), 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_account_identifiers PRIMARY KEY (id), 
+    CONSTRAINT fk_account_identifiers_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_account_identifiers_user_id ON account_identifiers (user_id);
+
+CREATE TABLE autonomy_settings (
+    user_id VARCHAR(32) NOT NULL, 
+    category VARCHAR(20) NOT NULL, 
+    level INTEGER NOT NULL, 
+    enabled BOOLEAN NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_autonomy_settings PRIMARY KEY (user_id, category), 
+    CONSTRAINT fk_autonomy_settings_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE TABLE businesses (
+    name VARCHAR(200) NOT NULL, 
+    phone VARCHAR(20) NOT NULL, 
+    whatsapp_phone VARCHAR(20), 
+    category VARCHAR(60), 
+    city VARCHAR(120), 
+    address TEXT, 
+    lat FLOAT, 
+    lng FLOAT, 
+    hours JSON, 
+    best_call_times JSON NOT NULL, 
+    is_customer_care BOOLEAN NOT NULL, 
+    ivr_notes JSON NOT NULL, 
+    verification VARCHAR(12), 
+    notes TEXT, 
+    language_hint VARCHAR(12), 
+    directory_provider VARCHAR(30), 
+    directory_place_id VARCHAR(255), 
+    rating FLOAT, 
+    review_count INTEGER, 
+    created_by_user_id VARCHAR(32), 
+    last_called_at TIMESTAMP WITH TIME ZONE, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_businesses PRIMARY KEY (id), 
+    CONSTRAINT fk_businesses_created_by_user_id_users FOREIGN KEY(created_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+);
+
+CREATE INDEX ix_businesses_directory_place_id ON businesses (directory_place_id);
+
+CREATE INDEX ix_businesses_phone ON businesses (phone);
+
+CREATE TABLE cost_entries (
+    user_id VARCHAR(32) NOT NULL, 
+    task_id VARCHAR(32), 
+    call_id VARCHAR(32), 
+    kind VARCHAR(16) NOT NULL, 
+    amount_inr FLOAT NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_cost_entries PRIMARY KEY (id), 
+    CONSTRAINT fk_cost_entries_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_cost_entries_user_id ON cost_entries (user_id);
+
+CREATE INDEX ix_cost_user_at ON cost_entries (user_id, at);
+
+CREATE TABLE invites (
+    code VARCHAR(16) NOT NULL, 
+    created_by_user_id VARCHAR(32), 
+    redeemed_by_user_id VARCHAR(32), 
+    redeemed_at TIMESTAMP WITH TIME ZONE, 
+    expires_at TIMESTAMP WITH TIME ZONE, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_invites PRIMARY KEY (code), 
+    CONSTRAINT fk_invites_created_by_user_id_users FOREIGN KEY(created_by_user_id) REFERENCES users (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_invites_redeemed_by_user_id_users FOREIGN KEY(redeemed_by_user_id) REFERENCES users (id) ON DELETE SET NULL
+);
+
+CREATE INDEX ix_invites_created_by_user_id ON invites (created_by_user_id);
+
+CREATE TABLE people (
+    owner_user_id VARCHAR(32) NOT NULL, 
+    name TEXT NOT NULL, 
+    relation VARCHAR(40), 
+    aliases JSON NOT NULL, 
+    phone TEXT, 
+    phone_hmac VARCHAR(64), 
+    language VARCHAR(12), 
+    notes TEXT, 
+    contact_consent VARCHAR(16) NOT NULL, 
+    consent_at TIMESTAMP WITH TIME ZONE, 
+    checkin_consent VARCHAR(16) NOT NULL, 
+    linked_user_id VARCHAR(32), 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_people PRIMARY KEY (id), 
+    CONSTRAINT fk_people_linked_user_id_users FOREIGN KEY(linked_user_id) REFERENCES users (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_people_owner_user_id_users FOREIGN KEY(owner_user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_people_owner_user_id ON people (owner_user_id);
+
+CREATE INDEX ix_people_phone_hmac ON people (phone_hmac);
+
+CREATE TABLE pin_locks (
+    user_id VARCHAR(32) NOT NULL, 
+    strikes INTEGER NOT NULL, 
+    locked_until TIMESTAMP WITH TIME ZONE, 
+    support_required BOOLEAN NOT NULL, 
+    reason VARCHAR(40), 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_pin_locks PRIMARY KEY (user_id), 
+    CONSTRAINT fk_pin_locks_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE TABLE profiles (
+    user_id VARCHAR(32) NOT NULL, 
+    name TEXT, 
+    city VARCHAR(120), 
+    language VARCHAR(12) NOT NULL, 
+    tone VARCHAR(12) NOT NULL, 
+    morning_briefing BOOLEAN NOT NULL, 
+    briefing_hour_ist INTEGER NOT NULL, 
+    preferred_channel VARCHAR(12) NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_profiles PRIMARY KEY (user_id), 
+    CONSTRAINT fk_profiles_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE TABLE consents (
+    user_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(32) NOT NULL, 
+    granted BOOLEAN NOT NULL, 
+    person_id VARCHAR(32), 
+    policy_version VARCHAR(20) NOT NULL, 
+    evidence_text TEXT, 
+    phone_hmac VARCHAR(64), 
+    message_id VARCHAR(32), 
+    recorded_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_consents PRIMARY KEY (id), 
+    CONSTRAINT fk_consents_person_id_people FOREIGN KEY(person_id) REFERENCES people (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_consents_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_consents_phone_hmac ON consents (phone_hmac);
+
+CREATE INDEX ix_consents_user_id ON consents (user_id);
+
+CREATE TABLE facts (
+    user_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(16) NOT NULL, 
+    key VARCHAR(80) NOT NULL, 
+    value TEXT NOT NULL, 
+    due_on DATE, 
+    recurrence VARCHAR(10) NOT NULL, 
+    business_id VARCHAR(32), 
+    person_id VARCHAR(32), 
+    confidence FLOAT NOT NULL, 
+    source_message_id VARCHAR(32), 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_facts PRIMARY KEY (id), 
+    CONSTRAINT fk_facts_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_facts_person_id_people FOREIGN KEY(person_id) REFERENCES people (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_facts_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_facts_due_on ON facts (due_on);
+
+CREATE INDEX ix_facts_user_id ON facts (user_id);
+
+CREATE TABLE messages (
+    user_id VARCHAR(32), 
+    person_id VARCHAR(32), 
+    business_id VARCHAR(32), 
+    direction VARCHAR(8) NOT NULL, 
+    channel VARCHAR(12) NOT NULL, 
+    kind VARCHAR(16) NOT NULL, 
+    phone TEXT NOT NULL, 
+    phone_hmac VARCHAR(64), 
+    text TEXT, 
+    buttons JSON NOT NULL, 
+    button_id VARCHAR(256), 
+    template TEXT, 
+    media_url TEXT, 
+    location TEXT, 
+    provider_message_id VARCHAR(128), 
+    task_id VARCHAR(32), 
+    nudge_id VARCHAR(32), 
+    question_id VARCHAR(32), 
+    ok BOOLEAN NOT NULL, 
+    error TEXT, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_messages PRIMARY KEY (id), 
+    CONSTRAINT fk_messages_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_messages_person_id_people FOREIGN KEY(person_id) REFERENCES people (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_messages_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_messages_phone_dir_at ON messages (phone_hmac, direction, at);
+
+CREATE INDEX ix_messages_phone_hmac ON messages (phone_hmac);
+
+CREATE INDEX ix_messages_provider_message_id ON messages (provider_message_id);
+
+CREATE INDEX ix_messages_task_id ON messages (task_id);
+
+CREATE INDEX ix_messages_user_at ON messages (user_id, at);
+
+CREATE TABLE places (
+    owner_user_id VARCHAR(32) NOT NULL, 
+    label VARCHAR(80) NOT NULL, 
+    aliases JSON NOT NULL, 
+    address_text TEXT, 
+    formatted_address TEXT, 
+    city VARCHAR(120), 
+    lat TEXT, 
+    lng TEXT, 
+    source VARCHAR(16) NOT NULL, 
+    person_id VARCHAR(32), 
+    ephemeral BOOLEAN NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_places PRIMARY KEY (id), 
+    CONSTRAINT fk_places_owner_user_id_users FOREIGN KEY(owner_user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_places_person_id_people FOREIGN KEY(person_id) REFERENCES people (id) ON DELETE SET NULL
+);
+
+CREATE INDEX ix_places_owner_user_id ON places (owner_user_id);
+
+CREATE INDEX ix_places_person_id ON places (person_id);
+
+CREATE TABLE vendor_interactions (
+    user_id VARCHAR(32) NOT NULL, 
+    business_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(16) NOT NULL, 
+    task_id VARCHAR(32), 
+    call_id VARCHAR(32), 
+    amount_inr INTEGER, 
+    rating INTEGER, 
+    outcome VARCHAR(200), 
+    note TEXT, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_vendor_interactions PRIMARY KEY (id), 
+    CONSTRAINT fk_vendor_interactions_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_vendor_interactions_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_vendor_interactions_user_id ON vendor_interactions (user_id);
+
+CREATE INDEX ix_vendor_user_business ON vendor_interactions (user_id, business_id);
+
+CREATE TABLE tasks (
+    requester_user_id VARCHAR(32) NOT NULL, 
+    beneficiary_person_id VARCHAR(32), 
+    place_id VARCHAR(32), 
+    parent_task_id VARCHAR(32), 
+    type VARCHAR(16) NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    spec TEXT NOT NULL, 
+    target TEXT, 
+    recurrence JSON, 
+    next_run_at TIMESTAMP WITH TIME ZONE, 
+    attempts INTEGER NOT NULL, 
+    max_attempts INTEGER NOT NULL, 
+    next_attempt_at TIMESTAMP WITH TIME ZONE, 
+    last_outcome VARCHAR(20), 
+    result TEXT, 
+    candidate JSON, 
+    shortlist JSON NOT NULL, 
+    approved_terms TEXT, 
+    delegation JSON, 
+    cost_inr_est FLOAT NOT NULL, 
+    source_message_id VARCHAR(32), 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_tasks PRIMARY KEY (id), 
+    CONSTRAINT fk_tasks_beneficiary_person_id_people FOREIGN KEY(beneficiary_person_id) REFERENCES people (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_tasks_parent_task_id_tasks FOREIGN KEY(parent_task_id) REFERENCES tasks (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_tasks_place_id_places FOREIGN KEY(place_id) REFERENCES places (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_tasks_requester_user_id_users FOREIGN KEY(requester_user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_tasks_next_run_at ON tasks (next_run_at);
+
+CREATE INDEX ix_tasks_parent_task_id ON tasks (parent_task_id);
+
+CREATE INDEX ix_tasks_requester_status ON tasks (requester_user_id, status);
+
+CREATE INDEX ix_tasks_status_next ON tasks (status, next_attempt_at);
+
+CREATE TABLE call_memory (
+    call_id VARCHAR(32), 
+    task_id VARCHAR(32) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    business_id VARCHAR(32), 
+    business_phone TEXT NOT NULL, 
+    business_phone_hmac VARCHAR(64) NOT NULL, 
+    friday_number VARCHAR(20), 
+    direction VARCHAR(10) NOT NULL, 
+    outcome VARCHAR(24), 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_call_memory PRIMARY KEY (id), 
+    CONSTRAINT fk_call_memory_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_call_memory_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_call_memory_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_call_memory_call_id UNIQUE (call_id)
+);
+
+CREATE INDEX ix_call_memory_business_phone_hmac ON call_memory (business_phone_hmac);
+
+CREATE INDEX ix_call_memory_friday_number ON call_memory (friday_number);
+
+CREATE INDEX ix_call_memory_phone_at ON call_memory (business_phone_hmac, at);
+
+CREATE INDEX ix_call_memory_task_id ON call_memory (task_id);
+
+CREATE INDEX ix_call_memory_user_id ON call_memory (user_id);
+
+CREATE TABLE call_questions (
+    task_id VARCHAR(32) NOT NULL, 
+    call_id VARCHAR(32), 
+    purpose VARCHAR(20) NOT NULL, 
+    text TEXT NOT NULL, 
+    options JSON NOT NULL, 
+    timeout_s INTEGER NOT NULL, 
+    asked_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    answer_text TEXT, 
+    answer_option_index INTEGER, 
+    answer_approves BOOLEAN, 
+    answered_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_call_questions PRIMARY KEY (id), 
+    CONSTRAINT fk_call_questions_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_call_questions_task_id ON call_questions (task_id);
+
+CREATE TABLE calls (
+    task_id VARCHAR(32) NOT NULL, 
+    provider VARCHAR(20) NOT NULL, 
+    provider_call_id VARCHAR(128), 
+    direction VARCHAR(10) NOT NULL, 
+    to_phone TEXT NOT NULL, 
+    business_id VARCHAR(32), 
+    dial_status VARCHAR(16) NOT NULL, 
+    outcome VARCHAR(20) NOT NULL, 
+    collected TEXT NOT NULL, 
+    languages_heard JSON NOT NULL, 
+    care JSON, 
+    hold_seconds INTEGER NOT NULL, 
+    cost_inr_est FLOAT NOT NULL, 
+    mode VARCHAR(16) NOT NULL, 
+    recording_url TEXT, 
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    answered_at TIMESTAMP WITH TIME ZONE, 
+    ended_at TIMESTAMP WITH TIME ZONE, 
+    error TEXT, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_calls PRIMARY KEY (id), 
+    CONSTRAINT fk_calls_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_calls_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_calls_provider_call_id ON calls (provider_call_id);
+
+CREATE INDEX ix_calls_task_id ON calls (task_id);
+
+CREATE TABLE hotel_bookings (
+    task_id VARCHAR(32), 
+    user_id VARCHAR(32) NOT NULL, 
+    guest_person_id VARCHAR(32), 
+    provider VARCHAR(20) NOT NULL, 
+    mode VARCHAR(16) NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    property JSON NOT NULL, 
+    business_id VARCHAR(32), 
+    room_type VARCHAR(120), 
+    check_in DATE NOT NULL, 
+    check_out DATE NOT NULL, 
+    guests INTEGER NOT NULL, 
+    total_inr INTEGER, 
+    confirmation_ref VARCHAR(80), 
+    booking_link TEXT, 
+    hold_until TIMESTAMP WITH TIME ZONE, 
+    guest_name TEXT, 
+    notes TEXT, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_hotel_bookings PRIMARY KEY (id), 
+    CONSTRAINT fk_hotel_bookings_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_hotel_bookings_guest_person_id_people FOREIGN KEY(guest_person_id) REFERENCES people (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_hotel_bookings_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_hotel_bookings_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_hotel_bookings_check_in ON hotel_bookings (check_in);
+
+CREATE INDEX ix_hotel_bookings_task_id ON hotel_bookings (task_id);
+
+CREATE INDEX ix_hotel_bookings_user_id ON hotel_bookings (user_id);
+
+CREATE TABLE inbound_contacts (
+    kind VARCHAR(12) NOT NULL, 
+    channel VARCHAR(12) NOT NULL, 
+    from_phone TEXT NOT NULL, 
+    from_phone_hmac VARCHAR(64) NOT NULL, 
+    friday_number VARCHAR(20), 
+    provider_ref VARCHAR(128), 
+    call_id VARCHAR(128), 
+    status VARCHAR(12) NOT NULL, 
+    business_id VARCHAR(32), 
+    task_id VARCHAR(32), 
+    user_id VARCHAR(32), 
+    candidate_task_ids JSON NOT NULL, 
+    note TEXT, 
+    handled BOOLEAN NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_inbound_contacts PRIMARY KEY (id), 
+    CONSTRAINT fk_inbound_contacts_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_inbound_contacts_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_inbound_contacts_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_inbound_contacts_phone_at ON inbound_contacts (from_phone_hmac, at);
+
+CREATE INDEX ix_inbound_contacts_task_id ON inbound_contacts (task_id);
+
+CREATE INDEX ix_inbound_contacts_user_id ON inbound_contacts (user_id);
+
+CREATE TABLE nudges (
+    user_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(20) NOT NULL, 
+    category VARCHAR(20) NOT NULL, 
+    urgency VARCHAR(10) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    dedupe_key VARCHAR(200) NOT NULL, 
+    text TEXT, 
+    buttons JSON NOT NULL, 
+    proposed_task JSON, 
+    task_id VARCHAR(32), 
+    fact_id VARCHAR(32), 
+    person_id VARCHAR(32), 
+    recipient_person_id VARCHAR(32), 
+    scheduled_for TIMESTAMP WITH TIME ZONE, 
+    sent_at TIMESTAMP WITH TIME ZONE, 
+    responded_at TIMESTAMP WITH TIME ZONE, 
+    reason TEXT NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_nudges PRIMARY KEY (id), 
+    CONSTRAINT fk_nudges_fact_id_facts FOREIGN KEY(fact_id) REFERENCES facts (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_nudges_person_id_people FOREIGN KEY(person_id) REFERENCES people (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_nudges_recipient_person_id_people FOREIGN KEY(recipient_person_id) REFERENCES people (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_nudges_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_nudges_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_nudges_user_id UNIQUE (user_id, dedupe_key)
+);
+
+CREATE INDEX ix_nudges_scheduled_for ON nudges (scheduled_for);
+
+CREATE INDEX ix_nudges_user_id ON nudges (user_id);
+
+CREATE INDEX ix_nudges_user_sent ON nudges (user_id, sent_at);
+
+CREATE TABLE call_turns (
+    id SERIAL NOT NULL, 
+    call_id VARCHAR(32) NOT NULL, 
+    seq INTEGER NOT NULL, 
+    speaker VARCHAR(8) NOT NULL, 
+    text TEXT NOT NULL, 
+    language VARCHAR(12), 
+    confidence FLOAT, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_call_turns PRIMARY KEY (id), 
+    CONSTRAINT fk_call_turns_call_id_calls FOREIGN KEY(call_id) REFERENCES calls (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_call_turns_call_id UNIQUE (call_id, seq)
+);
+
+CREATE INDEX ix_call_turns_call_id ON call_turns (call_id);
+
+CREATE TABLE nudge_feedback (
+    nudge_id VARCHAR(32) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    type VARCHAR(12) NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_nudge_feedback PRIMARY KEY (id), 
+    CONSTRAINT fk_nudge_feedback_nudge_id_nudges FOREIGN KEY(nudge_id) REFERENCES nudges (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_nudge_feedback_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_nudge_feedback_nudge_id ON nudge_feedback (nudge_id);
+
+CREATE INDEX ix_nudge_feedback_user_id ON nudge_feedback (user_id);
+
+CREATE TABLE quotes (
+    task_id VARCHAR(32) NOT NULL, 
+    call_id VARCHAR(32), 
+    business_id VARCHAR(32), 
+    business_name VARCHAR(200) NOT NULL, 
+    amount_inr INTEGER, 
+    original_amount_inr INTEGER, 
+    price_text TEXT NOT NULL, 
+    inclusions JSON NOT NULL, 
+    exclusions JSON NOT NULL, 
+    validity VARCHAR(200), 
+    available_slots JSON NOT NULL, 
+    notes TEXT, 
+    within_budget BOOLEAN, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_quotes PRIMARY KEY (id), 
+    CONSTRAINT fk_quotes_business_id_businesses FOREIGN KEY(business_id) REFERENCES businesses (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_quotes_call_id_calls FOREIGN KEY(call_id) REFERENCES calls (id) ON DELETE SET NULL, 
+    CONSTRAINT fk_quotes_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_quotes_task_id ON quotes (task_id);
+
+INSERT INTO alembic_version (version_num) VALUES ('0001_baseline') RETURNING alembic_version.version_num;
+
+-- Running upgrade 0001_baseline -> 0002_partitions
+
+CREATE TABLE messages_new (
+    user_id VARCHAR(32), 
+    person_id VARCHAR(32), 
+    business_id VARCHAR(32), 
+    direction VARCHAR(8) NOT NULL, 
+    channel VARCHAR(12) NOT NULL, 
+    kind VARCHAR(16) NOT NULL, 
+    phone TEXT NOT NULL, 
+    phone_hmac VARCHAR(64), 
+    text TEXT, 
+    buttons JSON NOT NULL, 
+    button_id VARCHAR(256), 
+    template TEXT, 
+    media_url TEXT, 
+    location TEXT, 
+    provider_message_id VARCHAR(128), 
+    task_id VARCHAR(32), 
+    nudge_id VARCHAR(32), 
+    question_id VARCHAR(32), 
+    ok BOOLEAN NOT NULL, 
+    error TEXT, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    PRIMARY KEY (at, id)
+) PARTITION BY RANGE (at);
+
+CREATE TABLE messages_new_pdefault PARTITION OF messages_new DEFAULT;
+
+CREATE TABLE IF NOT EXISTS messages_new_p2026_10 PARTITION OF messages_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2026_11 PARTITION OF messages_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2026_12 PARTITION OF messages_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_01 PARTITION OF messages_new FOR VALUES FROM ('2027-01-01') TO ('2027-02-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_02 PARTITION OF messages_new FOR VALUES FROM ('2027-02-01') TO ('2027-03-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_03 PARTITION OF messages_new FOR VALUES FROM ('2027-03-01') TO ('2027-04-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_04 PARTITION OF messages_new FOR VALUES FROM ('2027-04-01') TO ('2027-05-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_05 PARTITION OF messages_new FOR VALUES FROM ('2027-05-01') TO ('2027-06-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_06 PARTITION OF messages_new FOR VALUES FROM ('2027-06-01') TO ('2027-07-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_07 PARTITION OF messages_new FOR VALUES FROM ('2027-07-01') TO ('2027-08-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_08 PARTITION OF messages_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_09 PARTITION OF messages_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+INSERT INTO messages_new (user_id, person_id, business_id, direction, channel, kind, phone, phone_hmac, text, buttons, button_id, template, media_url, location, provider_message_id, task_id, nudge_id, question_id, ok, error, at, id) SELECT user_id, person_id, business_id, direction, channel, kind, phone, phone_hmac, text, buttons, button_id, template, media_url, location, provider_message_id, task_id, nudge_id, question_id, ok, error, at, id FROM messages;
+
+DROP TABLE messages;
+
+ALTER TABLE messages_new RENAME TO messages;
+
+ALTER TABLE messages RENAME CONSTRAINT messages_new_pkey TO pk_messages;
+
+CREATE INDEX ix_messages_phone_dir_at ON messages (phone_hmac, direction, at);
+
+CREATE INDEX ix_messages_phone_hmac ON messages (phone_hmac);
+
+CREATE INDEX ix_messages_provider_message_id ON messages (provider_message_id);
+
+CREATE INDEX ix_messages_task_id ON messages (task_id);
+
+CREATE INDEX ix_messages_user_at ON messages (user_id, at);
+
+CREATE TABLE call_turns_new (
+    id SERIAL NOT NULL, 
+    call_id VARCHAR(32) NOT NULL, 
+    seq INTEGER NOT NULL, 
+    speaker VARCHAR(8) NOT NULL, 
+    text TEXT NOT NULL, 
+    language VARCHAR(12), 
+    confidence FLOAT, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    PRIMARY KEY (id, at)
+) PARTITION BY RANGE (at);
+
+CREATE TABLE call_turns_new_pdefault PARTITION OF call_turns_new DEFAULT;
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2026_10 PARTITION OF call_turns_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2026_11 PARTITION OF call_turns_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2026_12 PARTITION OF call_turns_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_01 PARTITION OF call_turns_new FOR VALUES FROM ('2027-01-01') TO ('2027-02-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_02 PARTITION OF call_turns_new FOR VALUES FROM ('2027-02-01') TO ('2027-03-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_03 PARTITION OF call_turns_new FOR VALUES FROM ('2027-03-01') TO ('2027-04-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_04 PARTITION OF call_turns_new FOR VALUES FROM ('2027-04-01') TO ('2027-05-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_05 PARTITION OF call_turns_new FOR VALUES FROM ('2027-05-01') TO ('2027-06-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_06 PARTITION OF call_turns_new FOR VALUES FROM ('2027-06-01') TO ('2027-07-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_07 PARTITION OF call_turns_new FOR VALUES FROM ('2027-07-01') TO ('2027-08-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_08 PARTITION OF call_turns_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_09 PARTITION OF call_turns_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+INSERT INTO call_turns_new (id, call_id, seq, speaker, text, language, confidence, at) SELECT id, call_id, seq, speaker, text, language, confidence, at FROM call_turns;
+
+DROP TABLE call_turns;
+
+ALTER TABLE call_turns_new RENAME TO call_turns;
+
+ALTER TABLE call_turns RENAME CONSTRAINT call_turns_new_pkey TO pk_call_turns;
+
+CREATE INDEX ix_call_turns_call_id ON call_turns (call_id);
+
+CREATE INDEX ix_call_turns_call_id_seq ON call_turns (call_id, seq);
+
+CREATE TABLE audit_log_new (
+    user_id VARCHAR(32), 
+    actor VARCHAR(10) NOT NULL, 
+    action VARCHAR(60) NOT NULL, 
+    subject_id VARCHAR(32), 
+    detail JSON NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    PRIMARY KEY (at, id)
+) PARTITION BY RANGE (at);
+
+CREATE TABLE audit_log_new_pdefault PARTITION OF audit_log_new DEFAULT;
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2026_10 PARTITION OF audit_log_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2026_11 PARTITION OF audit_log_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2026_12 PARTITION OF audit_log_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_01 PARTITION OF audit_log_new FOR VALUES FROM ('2027-01-01') TO ('2027-02-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_02 PARTITION OF audit_log_new FOR VALUES FROM ('2027-02-01') TO ('2027-03-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_03 PARTITION OF audit_log_new FOR VALUES FROM ('2027-03-01') TO ('2027-04-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_04 PARTITION OF audit_log_new FOR VALUES FROM ('2027-04-01') TO ('2027-05-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_05 PARTITION OF audit_log_new FOR VALUES FROM ('2027-05-01') TO ('2027-06-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_06 PARTITION OF audit_log_new FOR VALUES FROM ('2027-06-01') TO ('2027-07-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_07 PARTITION OF audit_log_new FOR VALUES FROM ('2027-07-01') TO ('2027-08-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_08 PARTITION OF audit_log_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_09 PARTITION OF audit_log_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+INSERT INTO audit_log_new (user_id, actor, action, subject_id, detail, at, id) SELECT user_id, actor, action, subject_id, detail, at, id FROM audit_log;
+
+DROP TABLE audit_log;
+
+ALTER TABLE audit_log_new RENAME TO audit_log;
+
+ALTER TABLE audit_log RENAME CONSTRAINT audit_log_new_pkey TO pk_audit_log;
+
+CREATE INDEX ix_audit_user_at ON audit_log (user_id, at);
+
+CREATE TABLE cost_entries_new (
+    user_id VARCHAR(32) NOT NULL, 
+    task_id VARCHAR(32), 
+    call_id VARCHAR(32), 
+    kind VARCHAR(16) NOT NULL, 
+    amount_inr FLOAT NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    PRIMARY KEY (at, id)
+) PARTITION BY RANGE (at);
+
+CREATE TABLE cost_entries_new_pdefault PARTITION OF cost_entries_new DEFAULT;
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2026_10 PARTITION OF cost_entries_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2026_11 PARTITION OF cost_entries_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2026_12 PARTITION OF cost_entries_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_01 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-01-01') TO ('2027-02-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_02 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-02-01') TO ('2027-03-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_03 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-03-01') TO ('2027-04-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_04 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-04-01') TO ('2027-05-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_05 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-05-01') TO ('2027-06-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_06 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-06-01') TO ('2027-07-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_07 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-07-01') TO ('2027-08-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_08 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_09 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+INSERT INTO cost_entries_new (user_id, task_id, call_id, kind, amount_inr, at, id) SELECT user_id, task_id, call_id, kind, amount_inr, at, id FROM cost_entries;
+
+DROP TABLE cost_entries;
+
+ALTER TABLE cost_entries_new RENAME TO cost_entries;
+
+ALTER TABLE cost_entries RENAME CONSTRAINT cost_entries_new_pkey TO pk_cost_entries;
+
+CREATE INDEX ix_cost_entries_user_id ON cost_entries (user_id);
+
+CREATE INDEX ix_cost_user_at ON cost_entries (user_id, at);
+
+UPDATE alembic_version SET version_num='0002_partitions' WHERE alembic_version.version_num = '0001_baseline';
+
+-- Running upgrade 0002_partitions -> 0003_task_role
+
+ALTER TABLE tasks ADD COLUMN role VARCHAR(24);
+
+ALTER TABLE calls ADD COLUMN from_number VARCHAR(20);
+
+UPDATE alembic_version SET version_num='0003_task_role' WHERE alembic_version.version_num = '0002_partitions';
+
+-- Running upgrade 0003_task_role -> 0004_quality_calls
+
+CREATE TABLE quality_calls (
+    call_id VARCHAR(64) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    stored_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    meta JSON NOT NULL, 
+    transcript TEXT NOT NULL, 
+    labels JSON NOT NULL, 
+    note TEXT, 
+    rating INTEGER, 
+    rated_at TIMESTAMP WITH TIME ZONE, 
+    labelled_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_quality_calls PRIMARY KEY (id), 
+    CONSTRAINT fk_quality_calls_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_quality_calls_call_id UNIQUE (call_id)
+);
+
+CREATE INDEX ix_quality_calls_expires_at ON quality_calls (expires_at);
+
+CREATE INDEX ix_quality_calls_user_id ON quality_calls (user_id);
+
+UPDATE alembic_version SET version_num='0004_quality_calls' WHERE alembic_version.version_num = '0003_task_role';
+
+-- Running upgrade 0004_quality_calls -> 0005_quote_conversations
+
+CREATE TABLE quote_conversations (
+    user_id VARCHAR(32) NOT NULL, 
+    state VARCHAR(20) NOT NULL, 
+    active BOOLEAN NOT NULL, 
+    version INTEGER NOT NULL, 
+    counted_at TIMESTAMP WITH TIME ZONE, 
+    data TEXT NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_quote_conversations PRIMARY KEY (id), 
+    CONSTRAINT fk_quote_conversations_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_quote_conversations_user_id ON quote_conversations (user_id);
+
+CREATE INDEX ix_quote_conversations_state ON quote_conversations (state);
+
+CREATE INDEX ix_quote_conversations_active ON quote_conversations (active);
+
+CREATE INDEX ix_quote_conversations_counted_at ON quote_conversations (counted_at);
+
+UPDATE alembic_version SET version_num='0005_quote_conversations' WHERE alembic_version.version_num = '0004_quality_calls';
+
+COMMIT;
+

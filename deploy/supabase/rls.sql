@@ -1,0 +1,44 @@
+-- Row Level Security ON for every Friday table (no policies): Supabase's public Data API
+-- (anon / authenticated keys) can then read NOTHING. Friday's server connects as the database
+-- owner role, which bypasses RLS. Generated from deploy/supabase/schema.sql.
+
+ALTER TABLE public.account_identifiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alembic_version ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log_new ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.autonomy_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.call_memory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.call_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.call_turns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.call_turns_new ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.consents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cost_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cost_entries_new ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dnc_registry ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.facts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.friday_numbers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hotel_bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.idempotency_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inbound_contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages_new ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.nudge_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.nudges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.number_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.number_outcomes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pending_deletions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.people ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pin_locks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.places ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quality_calls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quote_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.suppressions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vendor_interactions ENABLE ROW LEVEL SECURITY;

@@ -45,7 +45,24 @@ async def _run_async(engine) -> None:  # noqa: ANN001
         await conn.commit()
 
 
+def _run_offline() -> None:
+    """``alembic upgrade head --sql``: print the Postgres DDL instead of running it (used to apply
+    the schema to a managed database through its SQL API, without the database password)."""
+    context.configure(
+        url=context.config.get_main_option("sqlalchemy.url"),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        render_item=_render_item,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run() -> None:
+    if context.is_offline_mode():
+        _run_offline()
+        return
     engine = context.config.attributes.get("engine")
     connection = context.config.attributes.get("connection")
     if connection is not None:
