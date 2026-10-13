@@ -312,3 +312,6 @@ Commit ccd9526 was pushed with 23 failing tests (my mistake: I chained commit af
 
 ### Task: WhatsApp number setup (founder, 13 Oct)
 Founder bought a new SIM for WhatsApp and has an account on "Helter" (probably Heltar, a WhatsApp Business API provider). Asked for step-by-step setup. Our code speaks Meta WhatsApp Cloud API directly (WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET). Open: confirm whether Heltar gives a Meta-compatible token/phone-number-id/webhook, or we need a Heltar adapter.
+
+### Task: founder asks what open items to focus on (business name not final, so WhatsApp business setup parked)
+Answer given in chat: founder-only items list below (13 Oct). WhatsApp number/Meta verification waits for the business name; the simulator keeps working meanwhile.
