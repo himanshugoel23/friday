@@ -309,3 +309,6 @@ friday/pm/ built: classifier (104 labelled examples; offline baseline 104/104 is
 
 ### Fix note (anti-hallucination guards)
 Commit ccd9526 was pushed with 23 failing tests (my mistake: I chained commit after `tail`). Fixed: number guard now ignores durations ("10-15 minute"), thousands commas and times inside text; repeat guard allows a re-ask after "are you a bot?"; duplicate-utterance drop only for 3+ word sentences, never in hold mode. Full suite green. Rule: never chain commit/push after a piped test run; use `&&` on the pytest exit code.
+
+### Task: WhatsApp number setup (founder, 13 Oct)
+Founder bought a new SIM for WhatsApp and has an account on "Helter" (probably Heltar, a WhatsApp Business API provider). Asked for step-by-step setup. Our code speaks Meta WhatsApp Cloud API directly (WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET). Open: confirm whether Heltar gives a Meta-compatible token/phone-number-id/webhook, or we need a Heltar adapter.
