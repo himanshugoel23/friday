@@ -15,7 +15,7 @@ read -r -p "Region [ap-southeast-1]: " REGION; REGION="${REGION:-ap-southeast-1}
 read -r -s -p "Database password (hidden): " PW; echo
 [ -n "$PW" ] || { echo "Empty password"; exit 1; }
 export SB_REF="$REF" SB_REGION="$REGION" SB_PW="$PW"
-URL=$(sudo -E -u friday /home/friday/.local/bin/uv run --directory /opt/friday python - <<'PY'
+URL=$(sudo -E -u friday env HOME=/home/friday /home/friday/.local/bin/uv run --directory /opt/friday python - <<'PY'
 import asyncio, os, urllib.parse
 import asyncpg
 
