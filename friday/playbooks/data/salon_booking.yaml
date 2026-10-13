@@ -142,7 +142,13 @@ defaults:
   NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
   # on_request: ALWAYS the truthful AI answer (no max_uses, no condition: the validator insists)
   ARE_YOU_BOT: {say: [ai_yes], repeat: true}
-  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  # "who is X sir?": first who + why (both lines already approved), then only the why, never the
+  # same intro again and again
+  WHO_IS_THIS:
+    - {when: [mode_book], say: [reintro, intro_book], repeat: true, max_uses: 1}
+    - {when: [mode_quote], say: [reintro, intro_quote], repeat: true, max_uses: 1}
+    - {when: [mode_book], say: [intro_book], repeat: true, max_uses: 1}
+    - {when: [mode_quote], say: [intro_quote], repeat: true, max_uses: 1}
   ASKS_REPEAT: {repeat: true, max_uses: 3}
   HOLD_ON: {hold_s: 60, max_uses: 3}
   ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}

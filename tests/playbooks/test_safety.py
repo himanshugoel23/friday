@@ -302,12 +302,13 @@ async def test_a_question_is_asked_at_most_four_times():
     assert run.outcome == "UNCLEAR"
 
 
-async def test_who_is_this_after_the_intro_repeats_the_short_intro_at_most_twice():
+async def test_who_is_this_after_the_intro_answers_who_and_why_then_never_the_same_again():
     run = await drive(["Kaun?", "Kaun?", "Kaun?"], brief=make_brief())
     intro = [s for s in run.said if "Main Friday baat kar rahi hoon, Rahul sir ki virtual assistant" in s]
     assert len(intro) == 1  # the first ask only
-    short = [s for s in run.said if s.startswith("Main Friday hoon, Rahul sir ki virtual assistant")]
-    assert len(short) == 2 and all("AI" not in s for s in short)
+    first = [s for s in run.said if s.startswith("Main Friday hoon, Rahul sir ki virtual assistant")]
+    assert len(first) == 1 and "karwana hai" in first[0] and "AI" not in first[0]  # who + why
+    assert len(set(run.said)) == len(run.said) or run.said.count(first[0]) == 1  # never the same twice
 
 
 async def test_max_duration_closes_the_call_with_what_we_have():

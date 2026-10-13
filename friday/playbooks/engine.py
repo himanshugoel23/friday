@@ -715,12 +715,15 @@ class PlaybookPolicy:
         if intent != Intent.UNCLEAR.value and ANY in step.branches:
             candidates.append((f"{step_id}.{ANY}", step.branches[ANY]))
         for key, acts in candidates:
-            for a in pb.actions(acts):
+            options = pb.actions(acts)
+            for i, a in enumerate(options):
                 if a.when and not self._all(a.when, c):
                     continue
-                if a.max_uses is not None and c.st.uses[key] >= a.max_uses:
-                    break  # this branch is used up: try the next candidate
-                return a, key
+                # each option of a list counts on its own, but only for options that ask for it
+                akey = key if i == 0 or not a.when else f"{key}#{i}"
+                if a.max_uses is not None and c.st.uses[akey] >= a.max_uses:
+                    continue  # this option is used up: the next option, then the next candidate
+                return a, akey
         return None, ""
 
     def _apply(self, c: Ctx, u: Understanding, reply: str) -> CallAction:

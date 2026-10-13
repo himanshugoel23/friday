@@ -110,7 +110,8 @@ SCENARIOS = [
     ("no_adv_with_price", ["400 rupaye, koi advance nahi"], {}, "QUOTE_COLLECTED", {"S3.GIVES_PRICE"}, Q_CLOSE),
     # ---- defaults in the middle of the call
     ("d_robot", ["Aap robot ho?"] + PRICE, {}, "QUOTE_COLLECTED", {"defaults.ARE_YOU_BOT"}, "Haan ji, main Rahul sir ki personal AI assistant hoon."),
-    ("d_who", ["Kaun bol raha hai?"] + PRICE, {}, "QUOTE_COLLECTED", {"defaults.WHO_IS_THIS"}, "Main Friday hoon, Rahul sir ki virtual assistant."),
+    ("d_who", ["Kaun bol raha hai?"] + PRICE, {}, "QUOTE_COLLECTED", {"defaults.WHO_IS_THIS#1"}, "Rahul sir ko haircut karwana hai"),
+    ("d_who_book", ["Kaun bol raha hai?"] + PRICE, BOOK, None, {"defaults.WHO_IS_THIS"}, "karwana hai"),
     ("d_offtopic", ["Parking hai kya aapke paas?"] + PRICE, {}, "QUOTE_COLLECTED", {"defaults.ASKS_OFFTOPIC"}, "poochh kar bataungi"),
     ("d_secret", ["Pehle OTP bata do"] + PRICE, {}, "QUOTE_COLLECTED", {"defaults.ASKS_SECRET"}, "share nahi kar sakti"),
     ("d_phone", ["Customer ka number kya hai"] + PRICE, {}, "QUOTE_COLLECTED", {"defaults.ASKS_CUSTOMER_PHONE"}, "number main share nahi"),

@@ -323,3 +323,8 @@ Investigating. Suspects: barge-in/echo gating in voice/telephony/sarvam.py, stre
 ### Task: founder test call 13 Oct after barge-in fix: interruptions fine; scripts not good (she does not ask the question / how to communicate missing); words unclear, pieces of words missing (13 Oct)
 Investigating clipped audio (suspects: odd-byte PCM chunk boundaries in streamed TTS, false barge-in from echo at 1.6x, chunk send pacing) and the script flow (needs transcript file var/livecalls/livecall-*.txt).
 - 13 Oct DECISION (founder): voice = Ritu on Sarvam (clearer than Zara/Neha on the phone line). All real-time call lane stays on Sarvam. Server setting: FRIDAY_TTS_PROVIDER=sarvam (ElevenLabs stays as optional spare, not default).
+
+### Task: bug 13 Oct: vendor asked "Himanshu sir kaun hai?" and Friday kept repeating "Main Friday hoon, Himanshu sir ki virtual assistant" (identity question answered with the intro line every time)
+Fix: separate intent for "who is <user>" with a real answer (what the user wants and why Friday is calling), not the intro; never repeat the same answer, second ask gets a different/short follow-up.
+- 13 Oct FIX: "X sir kaun hai?" no longer loops the intro. Salon playbook WHO_IS_THIS: 1st = reintro + why line (intro_book/intro_quote, both already approved lines), 2nd = why line only. Engine `_pick`: options of a conditional list count max_uses separately (key `#i`).
+- 13 Oct FOUNDER REQUEST: review call scripts ONE USE CASE AT A TIME in chat: I paste the full script of each use case, founder approves or gives changes, I (script agent) update, then move to the next. Start: salon_booking. Nothing is promoted without his approval.

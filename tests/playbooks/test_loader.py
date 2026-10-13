@@ -235,6 +235,9 @@ def after_identity(raw):
     d["lines"]["intro"] = "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki AI assistant."
     d["lines"]["s0_who"] = "Main Friday hoon, {user_spoken} {honorific} ki AI assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
     d["lines"]["reintro"] = "Main Friday hoon, {user_spoken} {honorific} ki AI assistant."
+    for k in ("intro_book", "intro_quote"):  # "who is X sir?" answers with who + why
+        if k in d["lines"]:
+            d["lines"][k] = "Main AI assistant hoon. " + d["lines"][k]
     return d
 
 
