@@ -90,7 +90,7 @@ _SAMPLE: dict[str, str] = {
     "negotiate": "no", "explore_options": "no", "business_name_spoken": "Shreya saloon",
     "user_spoken": "Rahul", "services": "haircut", "services_spoken": "haircut",
     "user_full_name": "Rahul Sharma", "user_full_spoken": "Rahul Sharma",
-    "slot_time": "shaam 6 baje",
+    "slot_time": "shaam 6 baje", "ack": "Achha theek hai sir",
     "playbook_mode": "book", "fallback_when": "kal shaam 5 baje", "fallback_day": "kal",
     "unit_phrase": "per plate ka rate", "party_size": "4", "duration_text": "2 din ke liye",
     "price_min": "100", "price_max": "5000", "estimate_max": "20000", "category": "restaurant",

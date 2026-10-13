@@ -103,7 +103,7 @@ async def test_no_answer_three_tries_one_notification_then_options(friday, rahul
     # exactly ONE "not picking up" notification across the retries
     assert sum("isn't picking up" in x for x in texts) == 1, texts
     final = texts[-1]
-    assert "3 tries" in final
+    assert "3 times" in final and "still haven't picked up" in final
     assert [b.title for b in rahul.last_msg().buttons] == [
         "Later today",
         "Tomorrow",

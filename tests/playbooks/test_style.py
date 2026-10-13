@@ -70,3 +70,32 @@ def test_the_cli_checks_a_real_playbook_without_editing_it():
         timeout=60,
     )
     assert "style issue(s) in salon_booking" in out.stdout
+
+
+def test_ack_never_repeats_within_the_last_two():
+    from friday.playbooks.engine import CallState
+    from friday.playbooks.intents import ACK_POOL
+
+    seen: list[str] = []
+    st = CallState.__new__(CallState)
+    st.acks = []
+    for _ in range(200):
+        fresh = [a for a in ACK_POOL if a not in st.acks[-2:]]
+        assert fresh, "pool is large enough to always have a fresh acknowledgement"
+        pick = fresh[len(seen) % len(fresh)]
+        st.acks.append(pick)
+        seen.append(pick)
+    assert all(seen[i] not in seen[max(0, i - 2) : i] for i in range(len(seen)))
+    assert len(set(seen)) >= 4
+
+
+def test_the_playbook_engine_picks_acks_from_the_approved_pool():
+    import re
+
+    from friday.playbooks.engine import (
+        Ctx,  # noqa: F401  (the {ack} placeholder lives in Ctx.value)
+    )
+    from friday.playbooks.intents import ACK_POOL
+
+    assert re.fullmatch(r"[A-Za-z ]+", " ".join(ACK_POOL))
+    assert "Achha theek hai sir" in ACK_POOL and len(ACK_POOL) == 6

@@ -51,8 +51,8 @@ def test_person_window_and_hours():
 def test_retry_table():
     now = ist(2026, 1, 5, 11, 0)
     assert retry_at(CallOutcome.BUSY, 1, now, P) - now == timedelta(minutes=5)
-    assert retry_at(CallOutcome.NO_ANSWER, 1, now, P) - now == timedelta(minutes=10)
-    assert retry_at(CallOutcome.VOICEMAIL, 2, now, P) - now == timedelta(minutes=45)
+    assert retry_at(CallOutcome.NO_ANSWER, 1, now, P) - now == timedelta(minutes=60)
+    assert retry_at(CallOutcome.VOICEMAIL, 2, now, P) - now == timedelta(minutes=180)
     assert retry_at(CallOutcome.NO_ANSWER, 3, now, P) - now == timedelta(minutes=120)
     assert retry_at(CallOutcome.FAILED, 1, now, P) - now == timedelta(minutes=5)
     assert retry_at(CallOutcome.CALLBACK_LATER, 1, now, P) - now == timedelta(hours=2)

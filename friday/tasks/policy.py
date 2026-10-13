@@ -28,7 +28,9 @@ _FIELDS = (
 
 class TaskPolicy(BaseModel):
     max_attempts: int = 3
-    no_answer_delays_min: list[int] = Field(default_factory=lambda: [10, 45])
+    no_answer_delays_min: list[int] = Field(
+        default_factory=lambda: [60, 180]  # founder 13 Oct: +1 h, +3 h
+    )
     final_window_gap_min: int = 120
     busy_delay_min: int = 5
     failed_delay_min: int = 5

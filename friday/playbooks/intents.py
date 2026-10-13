@@ -123,8 +123,13 @@ INPUT_NAMES: frozenset[str] = frozenset(
      "business_name_spoken", "user_spoken", "services", "services_spoken", "playbook_mode",
      "fallback_when", "fallback_day", "user_full_name", "user_full_spoken"}
 ) | ARCHETYPE_INPUTS
+# founder 13 Oct: acknowledgements vary; {ack} picks one at random, never one of the last two used
+ACK_POOL: tuple[str, ...] = (
+    "Achha theek hai sir", "Okay sir", "Ji sir", "Theek hai sir", "Achha okay sir",
+    "Samajh gayi sir",
+)
 PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {
-    "slot", "slot_time", "price_inr", "duration_min", "stylist"}
+    "ack", "slot", "slot_time", "price_inr", "duration_min", "stylist"}
 
 # what the engine may write into ``set:`` of a branch (fixed values only)
 SETTABLE: frozenset[str] = frozenset(

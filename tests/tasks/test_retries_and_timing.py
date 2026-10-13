@@ -22,13 +22,13 @@ async def test_no_answer_retry_schedule_notify_once_then_options(env):
     env.runner.default = outcome(CallOutcome.NO_ANSWER)
     t = await env.task(booking(phone=RAJU, name="Raju Plumbing Works"))
     assert t.status == S.SCHEDULED
-    assert t.next_attempt_at - env.clock.now() == timedelta(minutes=10)
+    assert t.next_attempt_at - env.clock.now() == timedelta(minutes=60)  # founder: +1 h
     assert sum("isn't picking up" in x for x in env.texts()) == 1
     env.clock.set(t.next_attempt_at)
     await env.engine.tick()
     await env.engine.drain()
     t = await env.get(t.id)
-    assert t.attempts == 2 and t.next_attempt_at - env.clock.now() == timedelta(minutes=45)
+    assert t.attempts == 2 and t.next_attempt_at - env.clock.now() == timedelta(minutes=180)  # +3 h
     assert sum("isn't picking up" in x for x in env.texts()) == 1  # told only once
     env.clock.set(t.next_attempt_at)
     await env.engine.tick()

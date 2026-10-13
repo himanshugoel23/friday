@@ -1794,6 +1794,10 @@ class TaskEngine:
             await self._schedule_retry(task, result)
             return
         summary = await self._summarize(task, result)
+        if o in (CallOutcome.NO_ANSWER, CallOutcome.VOICEMAIL, CallOutcome.BUSY) and task.target:
+            summary = summary.model_copy(update={"summary": (  # founder 13 Oct: say it plainly
+                f"I called {task.target.name} {task.attempts} times and they still haven't "
+                "picked up, so I've stopped trying for now.")})
         await self._vendor_memory(task, result, summary, committed=False)
         task.result = summary
         await self._transition(task, S.FAILED)

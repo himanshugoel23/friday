@@ -88,15 +88,15 @@ lines:
   s3_ask: "Sir, {services_spoken} ke estimated kya charges rahenge?"            # asked again
   # the truthful answer when she is asked (any step, any phrasing)
   ai_yes: "Ji, haan, main {user_spoken} {honorific} ki personal AI assistant hoon."
-  bye_busy: "Ji koi baat nahi, main baad mein call karti hoon. Shukriya."
-  bye_wrong: "Ji maaf kijiye, galat number lag gaya. Shukriya."
-  bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Shukriya."
-  bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Shukriya."
-  bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
+  bye_busy: "Ji koi baat nahi, main baad mein call karti hoon. Thank you."
+  bye_wrong: "Ji maaf kijiye, galat number lag gaya. Thank you."
+  bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Thank you."
+  bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Thank you."
+  bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Thank you."
   s3b_ask: "{user_spoken} {honorific} ka budget {budget} rupaye hai. Kuch kam ho sakta hai?"
   s4_ask: "Agar {stylist_pref} available ho to unse hi karwana hai, warna koi bhi chalega."
   # book mode: the slot
-  s2_ask_first: "Achha theek hai sir, toh {date_window} ka slot booking ke liye aapke paas available hoga?"
+  s2_ask_first: "{ack}, toh {date_window} ka slot booking ke liye aapke paas available hoga?"
   s2_ask: "Toh sir, {date_window} ka slot aapke paas available hoga?"                  # asked again
   s2_appt_only: "Appointment ke liye hi poochh rahi hoon."
   s2_ask_time: "Kitne baje ka?"
@@ -104,21 +104,21 @@ lines:
   s2b_ask: "Achha okay. Toh koi {date_window} ke around ka slot available ho?"
   s2b_ask_two: "Achha okay. Toh koi {date_window} ke around ke do slot available hain?"
   s2n_ask: "Toh sabse nearest kaun sa slot available hoga?"
-  s2b_none: "Achha theek hai sir, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
+  s2b_none: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
   # only when the SALON raises an advance / booking amount / cancellation fee: she does not agree
   s5_no_advance: "Achha, advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
   no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
   # the close when she may NOT book (book mode): one short line
-  s7_close: "Achha theek hai sir, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
+  s7_close: "{ack}, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
   # the ONLY lines that book; used only when the owner delegated AND the code-level check passes
   s7_commit_free:
-    text: "Achha theek hai sir, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
+    text: "{ack}, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
     commit: true
   s7_commit_fallback:
-    text: "Achha theek hai sir, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
+    text: "{ack}, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
     commit: true
   # quote_only close
-  q_close: "Achha theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
+  q_close: "{ack}, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
   sorry: "Sorry, ek baar phir?"
   offscript: "Achha, yeh main {user_spoken} {honorific} se poochh kar bataungi."
   no_secrets: "Ji, yeh jaankari main share nahi kar sakti."

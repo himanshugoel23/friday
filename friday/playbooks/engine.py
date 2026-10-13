@@ -16,6 +16,7 @@ as it does for the LLM-driven brain. This policy:
 
 from __future__ import annotations
 
+import random
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -148,6 +149,7 @@ class CallState:
     after_hold: bool = False
     last_friday: str = ""
     said_norm: list[str] = field(default_factory=list)  # her recent lines (repeat guard)
+    acks: list[str] = field(default_factory=list)  # acknowledgements used so far (never repeat 2)
     last_was_commit: bool = False
     commit_blocked: bool = False
     commit_slot: str | None = None
@@ -184,6 +186,13 @@ class Ctx:
             return self.inputs[name]
         if name == "slot" and st.times:
             return self.slot_text
+        if name == "ack":
+            from friday.playbooks.intents import ACK_POOL
+
+            fresh = [a for a in ACK_POOL if a not in st.acks[-2:]]
+            pick = random.choice(fresh or list(ACK_POOL))
+            st.acks.append(pick)
+            return pick
         if name == "slot_time" and st.times:  # the time without the day: "shaam 5 baje"
             return re.sub(r"^(aaj|kal|parso) ", "", st.times[0])
         if name == "price_inr" and st.price_inr is not None:
