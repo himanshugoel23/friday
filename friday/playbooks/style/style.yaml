@@ -51,3 +51,4 @@ golden:
   - "Achha okay. Toh koi {5 baje} ke around ka slot available ho, {4 baje} ka, {6 baje} ka?"
   - "Achha theek hai sir, main {user_spoken} {honorific} se confirm karke aapko paanch minute mein call back karti hoon. Thank you."
   - "Achha theek hai sir, toh kal aap {slot} ka booking {user_full_name} ke naam se book kar lijiye. {slot_before} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
+  - "Achha theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur aapko das minute mein ek baar booking confirmation ke liye call karti hoon."
