@@ -1,4 +1,4 @@
-"""quote_and_slot (pending v8): spoken order, confirm callback, resume, WhatsApp capture, advance."""
+"""quote_and_slot (pending v8): order, confirm callback, resume, WhatsApp capture, advance."""
 
 from __future__ import annotations
 

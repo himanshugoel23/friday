@@ -61,7 +61,7 @@ EXTRA_INPUTS = (
     # callbacks started by the user's decision (the task layer): the mode and what the earlier
     # call already learned, so a retry / negotiation / confirmation call never re-asks it
     "playbook_mode", "resume", "prior_price_inr", "prior_estimate_inr", "prior_slot_free",
-    "prior_slot", "prior_notes", "prior_flags",
+    "prior_slot", "prior_notes", "prior_flags", "prior_steps",
 )
 PLAYBOOK_INPUT_NAMES = frozenset(FACTS) | set(EXTRA_INPUTS)
 

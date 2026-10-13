@@ -27,6 +27,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterable, Sequence
+from contextvars import ContextVar
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -122,8 +123,26 @@ def luhn_valid(number: str) -> bool:
     return total % 10 == 0
 
 
+# A number the OTHER side said on this call (a WhatsApp number to read back to them) may be spoken
+# back: the playbook engine registers it here the moment it is heard. Per call: each call runs in
+# its own asyncio task, so one call's numbers are never allowed on another.
+_HEARD_NUMBERS: ContextVar[set[str] | None] = ContextVar("heard_numbers", default=None)
+
+
+def allow_spoken_number(digits: str) -> None:
+    """Allow Friday to repeat ``digits`` (heard from the business on this call) once."""
+    d = _digits(digits)
+    if d:
+        heard = _HEARD_NUMBERS.get()
+        if heard is None:
+            heard = set()
+            _HEARD_NUMBERS.set(heard)
+        heard.add(d)
+
+
 def _allowed_numbers(brief: CallBrief) -> set[str]:
     allowed = {_digits(i.value) for i in brief.approved_identifiers}
+    allowed |= _HEARD_NUMBERS.get() or set()
     allowed.add(_digits(brief.target.phone))
     if brief.reference:
         allowed.add(_digits(brief.reference))

@@ -68,6 +68,7 @@ CONDITIONS: frozenset[str] = frozenset(
         "has_stylist_pref",
         "mode_negotiate",  # the negotiation callback (push 1 / push 2 inside the user's range)
         "mode_confirm",  # the confirmation callback (the user said "book kar do")
+        "step_answered",  # (retry call) this step was already answered by an earlier call
         "is_resume",  # a retry call: earlier answers are carried in (prior_*), do not re-ask them
         "price_le_target",  # the price heard is at or below the user's target (negotiation)
         "price_le_max",  # the price heard is within the user's maximum (negotiation)
@@ -135,7 +136,7 @@ QUESTION_INPUTS: frozenset[str] = frozenset(
 # must never ask an answered question again)
 RESUME_INPUTS: frozenset[str] = frozenset(
     {"resume", "prior_price_inr", "prior_estimate_inr", "prior_slot_free", "prior_slot",
-     "prior_notes", "prior_flags"}
+     "prior_notes", "prior_flags", "prior_steps"}
 )
 # facts about the user's request (friday/vendors/facts.py): usable as {placeholders} and as
 # the condition ``has_<fact>``

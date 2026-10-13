@@ -42,7 +42,8 @@ def test_happy_path_book_order():
     said = _said(s)
     assert s.outcome == "BOOKED"
     assert said[0].startswith("Hello, kya meri baat")
-    assert said[1].startswith("Ji sir, actually maine aapko") and "ki booking ke regarding" in said[1]
+    assert said[1].startswith("Ji sir, actually maine aapko")
+    assert "ki booking ke regarding" in said[1]
     assert "estimated kya charges rahenge" in said[2]
     assert "ka slot booking ke liye aapke paas available hoga" in said[3]
     assert "book kar lijiye" in said[4] and "Thank you" in said[4]

@@ -152,6 +152,8 @@ class CallState:
     said_norm: list[str] = field(default_factory=list)  # her recent lines (repeat guard)
     captured: str | None = None  # a number the business gave ("same" = the one we called)
     seeded: bool = False  # the carried-in answers of a retry call were applied
+    prior_done: set[str] = field(default_factory=set)  # steps an earlier call completed
+    entering: str = ""  # the step being entered (for the step_answered condition)
     acks: list[str] = field(default_factory=list)  # acknowledgements used so far (never repeat 2)
     last_was_commit: bool = False
     commit_blocked: bool = False
@@ -320,6 +322,8 @@ def _seed_from_prior(st: CallState, inputs: dict[str, str]) -> None:
     skipped (``skip_when: [price_known]``) and never asked again."""
     if not truthy(inputs.get("resume")):
         return
+    steps = [s for s in (inputs.get("prior_steps") or "").split(">") if s]
+    st.prior_done = set(steps[:-1])  # the last one is where the call was cut: ask it again
     if (v := _digits(inputs.get("prior_price_inr"))) is not None:
         st.price_inr = v
     if (v := _digits(inputs.get("prior_estimate_inr"))) is not None:
@@ -456,6 +460,7 @@ class PlaybookPolicy:
             "price_le_target": _within(price, c.inputs.get("target_price")),
             "price_le_max": _within(price, c.inputs.get("max_price")),
             "is_resume": truthy(c.inputs.get("resume")),
+            "step_answered": bool(st.entering) and st.entering in st.prior_done,
             "used_fallback": st.flags.get("fallback_used") == "yes",
             "alt_offered": st.flags.get("alt_offered") == "yes",
             "has_date_window": bool(c.inputs.get("date_window")),
@@ -786,6 +791,9 @@ class PlaybookPolicy:
             st.slot_free = "no"
         elif intent == Intent.GIVES_NUMBER and u.phone:
             st.captured = u.phone
+            from friday.core.safety import allow_spoken_number
+
+            allow_spoken_number(u.phone)  # she may read back the number they just gave
         elif intent == Intent.SAME_NUMBER:
             st.captured = "same"
         if intent in (Intent.GIVES_PRICE, Intent.PRICE_RANGE) and (
@@ -950,6 +958,7 @@ class PlaybookPolicy:
         pb, st = c.pb, c.st
         for _ in range(_MAX_HOPS):
             step = pb.steps[step_id]
+            st.entering = step_id
             st.visits[step_id] += 1
             over = step.max_visits is not None and st.visits[step_id] > step.max_visits
             if over or (step.skip_when and self._all(step.skip_when, c)):

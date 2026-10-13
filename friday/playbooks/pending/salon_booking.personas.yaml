@@ -585,3 +585,11 @@ personas:
       s2_ask: "5 baje to full hai"
       s2b_ask: "6 baje ka ho sakta hai"
     expect: {outcome: SLOT_OFFERED}
+
+  - id: confirm_callback_books
+    title: "Confirm callback: the user approved, she books what was agreed"
+    greeting: "Hello, Looks Salon."
+    brief: {mode: confirm, resume: "yes", prior_price_inr: "400", prior_slot: aaj shaam 5 baje, delegation_max_price: 800, date_window: aaj shaam 5 baje}
+    replies:
+      intro: "Haan ji bataiye"
+    expect: {outcome: BOOKED}

@@ -79,7 +79,10 @@ _CLAIM = re.compile(
 _CONFIRM = re.compile(r"\bconfirm\w*\b", re.I)
 _NEGATED_OR_FUTURE = re.compile(
     r"\bnahi\b|\bnahin\b|\bnot\b|\bkarke\b|\bse confirm\b|\bapproval\b|\bpoochh\b|\bpuchh\b|"
-    r"\bcheck\b|\bpehle\b",
+    r"\bcheck\b|\bpehle\b|"
+    # founder-approved wording that is not a booking claim: asking the business to confirm a
+    # phone number, "final confirmation leke call back", "baat ho gayi" (spoke to the user)
+    r"\bnumber (?:re)?confirm\b|\bconfirmation leke\b|\bbaat ho gayi\b",
     re.I,
 )
 _SENT_SPLIT = re.compile(r"(?<=[.!?।])\s+")

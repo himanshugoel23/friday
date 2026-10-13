@@ -421,3 +421,11 @@ personas:
       s3_ask: "Aake dekhna padega"
       s3r_ask: "Lagbhag 1000 se 2000 tak"
     expect: {outcome: QUOTE_COLLECTED}
+
+  - id: confirm_callback_books
+    title: "Confirm callback: the user approved, she books what was agreed"
+    greeting: "Hello, Smile Dental Clinic."
+    brief: {mode: confirm, resume: "yes", prior_price_inr: "800", prior_slot: aaj shaam 5 baje, delegation_max_price: 1500, date_window: aaj shaam 5 baje}
+    replies:
+      intro: "Haan ji bataiye"
+    expect: {outcome: BOOKED}

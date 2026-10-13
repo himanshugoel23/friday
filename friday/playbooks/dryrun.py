@@ -136,6 +136,9 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
         if cfg.get("mode") == "quote_only" or not cfg.get("delegation_max_price")
         else "book"
     )
+    callback = cfg.get("mode") if cfg.get("mode") in ("negotiate", "confirm") else None
+    if callback:  # a callback started by the user's decision (negotiation / confirmation call)
+        inputs["playbook_mode"] = callback
     if cfg.get("negotiation"):  # the owner's explicit instruction to ask for a lower price
         inputs["negotiate"] = "yes"
     if cfg.get("explore_options"):
@@ -156,6 +159,12 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
                 inputs["date_window"], inputs.get("fallback_when"),
                 int(cfg["delegation_max_price"]), FakeClock().now(), name=pb.id,
             )
+    ceiling = cfg.get("max_price") or cfg.get("delegation_max_price")
+    if callback == "confirm" and ceiling and not delegation.granted:
+        delegation = Delegation(
+            granted=True, scope=["slot", "price"], max_price_inr=int(ceiling),
+            user_words=f"the user approved this booking, up to {ceiling}",
+        )
     probe = CallBrief(
         task_id=f"dry-{pb.id}-{persona.id}",
         requester_user_id="dryrun",
@@ -168,6 +177,8 @@ def build_brief(pb: Playbook, pf: PersonaFile, persona: PersonaDef) -> CallBrief
         budget=Budget(max_inr=budget) if budget else None,
         negotiation=NegotiationPolicy(enabled=bool(cfg.get("negotiation", False))),
         delegation=delegation,
+        approved_terms=(cfg.get("approved_terms") or "approved by the user")
+        if callback == "confirm" else None,
         max_duration_s=pb.limits.max_duration_s,
         max_hold_s=pb.limits.hold_max_s,
         playbook=pb.id,
