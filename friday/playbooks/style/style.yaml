@@ -48,5 +48,6 @@ golden:
   - "Toh sir, {services_spoken} ke estimated kya charges rahenge?"
   - "Achha theek hai sir, toh {slot} ka slot booking ke liye aapke paas available hoga?"
   - "Toh sabse nearest kaun sa slot available hoga?"
-  - "Koi around ka slot ho sakta hai, {4 baje} ya {6 baje} ke around?"
+  - "Achha okay. Toh koi {5 baje} ke around ka slot available ho, {4 baje} ka, {6 baje} ka?"
+  - "Achha theek hai sir, main {user_spoken} {honorific} se confirm karke aapko paanch minute mein call back karti hoon. Thank you."
   - "Achha theek hai sir, toh kal aap {slot} ka booking {user_full_name} ke naam se book kar lijiye. {slot_before} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
