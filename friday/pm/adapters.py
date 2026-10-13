@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from friday.core.models import GeoPoint
+from friday.pm.factslots import export_facts, when_text_from
 from friday.pm.steps import StepContext, StepResult
 from friday.scouting.models import ScoutRequest, ScoutResult
 
@@ -224,7 +225,12 @@ class EnginePlacer:
         conv = Conv(user_id=ctx.user_id or "user", category=ctx.category or "salon")
         if ctx.slots.get("service"):
             conv.slots.services = [str(ctx.slots["service"])]
-        conv.slots.when_text = str(ctx.slots["when"]) if ctx.slots.get("when") else None
+        conv.slots.when_text = when_text_from(ctx.slots, ctx.category)
+        # the user's facts (event date, guests, from/to ...) reach the playbook inputs through
+        # the task constraints (friday.vendors.facts.fact_constraints)
+        facts = export_facts(ctx.slots)
+        if facts:
+            conv.extra["facts"] = facts
         v = Vendor(
             place_id=str(vendor["id"]), name=vendor["name"], phone=vendor.get("phone", ""),
             rating=vendor.get("rating"), review_count=vendor.get("review_count") or 0,

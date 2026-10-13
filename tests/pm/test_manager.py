@@ -79,10 +79,17 @@ async def test_stops_politely_when_required_slot_has_no_default():
     assert pm.store.load("t1").slots["where"]
     # never-answered path: a category with two missing no-default slots
     pm2, _ = make()
-    r = await pm2.handle_message("packers movers ka rate", task_id=None)
+    r = await pm2.handle_message("pest control ka rate", task_id=None)
     assert r.pending_kind == "slot"
+    t = pm2.store.load("t1")
+    t.rounds_used = 1                        # one more question allowed, two slots missing
+    pm2.store.save(t)
     r = await pm2.handle_message("Dwarka", task_id="t1")
-    assert r.pending_kind == "slot"          # round 2 (details / when)
+    assert r.pending_kind == "slot"          # round 2 (details)
+    t = pm2.store.load("t1")
+    t.rounds_used = 2
+    del t.slots["where"]                     # rounds used up with two no-default slots missing
+    pm2.store.save(t)
     r = await pm2.handle_message("pata nahi", task_id="t1")
     t = pm2.store.load("t1")
     assert t.rounds_used == 2
@@ -395,13 +402,13 @@ async def test_call_turn_short_question_background_and_whatsapp_outcome():
 
 async def test_call_defers_long_input_to_whatsapp():
     pm, _ = make()
-    t = await pm.handle_turn(None, "packers movers ka rate chahiye Dwarka mein, kal", "call")
+    t = await pm.handle_turn(None, "pest control ka rate chahiye Dwarka mein, kal", "call")
     assert "WhatsApp" in t.reply_text and len(t.whatsapp) == 1
     assert "BHK" in t.whatsapp[0]
-    t = await pm.handle_turn(t.task_id, "2 BHK to Noida", "call")     # not taken by voice
+    t = await pm.handle_turn(t.task_id, "2 BHK cockroach", "call")     # not taken by voice
     assert "WhatsApp" in t.reply_text
     assert "details" not in pm.store.load("t1").slots
-    t = await pm.handle_turn(t.task_id, "2 BHK Dwarka se Noida", "whatsapp_text")
+    t = await pm.handle_turn(t.task_id, "2 BHK cockroach", "whatsapp_text")
     assert t.pending_kind == "consent"
 
 

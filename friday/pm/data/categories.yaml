@@ -41,11 +41,21 @@ car_service:
   radius_km: 8
   hard_max_km: 15
   keywords: [car service, car wash, garage, car repair, gaadi, gadi, denting, dent, tyre, tire, wheel alignment, car mechanic, car detailing, oil change, servicing]
-restaurant_banquet:
-  label: Restaurants / banquet / caterers
+restaurant_table:
+  label: Restaurants / cafes (table booking)
   radius_km: 5
   hard_max_km: 12
-  keywords: [restaurant, table, banquet, caterer, catering, party hall, dinner, lunch, buffet, birthday party venue, reservation, cafe, dawat, hotel for dinner]
+  keywords: [restaurant, table, cafe, dining, dinner, lunch, brunch, buffet, reservation, dawat, hotel for dinner, table for]
+hotel_stay:
+  label: Hotels / resorts / homestays (room booking)
+  radius_km: 8
+  hard_max_km: 15
+  keywords: [hotel, resort, homestay, home stay, room booking, room chahiye, stay, check in, checkin, check-in, guest house, villa, raat ke liye room, nights]
+banquet_hall:
+  label: Banquet / party / marriage halls
+  radius_km: 10
+  hard_max_km: 20
+  keywords: [banquet, party hall, function hall, marriage hall, hall, wedding lawn, lawn, caterer, catering, birthday party venue, venue]
 coaching_classes:
   label: Coaching / hobby classes / schools
   radius_km: 8

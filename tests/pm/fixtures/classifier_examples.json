@@ -205,7 +205,7 @@
  {
   "text": "banquet hall ka rate 200 logon ke liye",
   "bucket": "quote",
-  "category": "restaurant_banquet",
+  "category": "banquet_hall",
   "lang": "hinglish",
   "channel": "whatsapp_text"
  },
@@ -268,14 +268,14 @@
  {
   "text": "aaj raat 4 logon ke liye table hai restaurant mein?",
   "bucket": "availability",
-  "category": "restaurant_banquet",
+  "category": "restaurant_table",
   "lang": "hinglish",
   "channel": "whatsapp_text"
  },
  {
   "text": "do you have a table for 6 tonight at a good restaurant",
   "bucket": "availability",
-  "category": "restaurant_banquet",
+  "category": "restaurant_table",
   "lang": "en",
   "channel": "whatsapp_text"
  },
@@ -366,7 +366,7 @@
  {
   "text": "book a table for 4 at 8 pm tonight at a restaurant",
   "bucket": "book",
-  "category": "restaurant_banquet",
+  "category": "restaurant_table",
   "lang": "en",
   "channel": "whatsapp_text"
  },
@@ -450,7 +450,7 @@
  {
   "text": "kya ye restaurant parking offer karta hai",
   "bucket": "information",
-  "category": "restaurant_banquet",
+  "category": "restaurant_table",
   "lang": "hinglish",
   "channel": "whatsapp_text"
  },
@@ -625,7 +625,7 @@
  {
   "text": "aaj raat table hai restaurant mein",
   "bucket": "availability",
-  "category": "restaurant_banquet",
+  "category": "restaurant_table",
   "lang": "hinglish",
   "channel": "call"
  },
@@ -724,6 +724,118 @@
   "text": "main dilli mein hoon mausam batao",
   "bucket": "other",
   "category": null,
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "kal raat 8 baje 4 logon ka table book kar do Sector 29 ke restaurant mein",
+  "bucket": "book",
+  "category": "restaurant_table",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "cafe mein Sunday brunch ke liye table mil jayega 6 logon ka",
+  "bucket": "availability",
+  "category": "restaurant_table",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "is restaurant ka dinner ka rate per head kitna hai",
+  "bucket": "quote",
+  "category": "restaurant_table",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "I want to reserve a table for two at a nice restaurant tomorrow evening",
+  "bucket": "book",
+  "category": "restaurant_table",
+  "lang": "en",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "bhaiya aaj raat ke liye table hai kya do log",
+  "bucket": "availability",
+  "category": "restaurant_table",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "hotel mein 2 raat ke liye room chahiye Jaipur mein",
+  "bucket": "availability",
+  "category": "hotel_stay",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "room booking ka rate batao 15 se 17 December, 2 guests",
+  "bucket": "quote",
+  "category": "hotel_stay",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "book a hotel room in Manali for 3 nights from 20th December",
+  "bucket": "book",
+  "category": "hotel_stay",
+  "lang": "en",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "homestay mein ek family room milega next weekend",
+  "bucket": "availability",
+  "category": "hotel_stay",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "resort mein stay ka charge kitna hai 4 log ke liye",
+  "bucket": "quote",
+  "category": "hotel_stay",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "hotel ka room free hai kya aaj ke liye",
+  "bucket": "availability",
+  "category": "hotel_stay",
+  "lang": "hinglish",
+  "channel": "call"
+ },
+ {
+  "text": "party hall book karna hai bhai ki shaadi ke liye 300 guests",
+  "bucket": "book",
+  "category": "banquet_hall",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "marriage hall ka rent kitna hai 15 February ke liye",
+  "bucket": "quote",
+  "category": "banquet_hall",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "is the function hall free on 10 March for a birthday party of 80 people",
+  "bucket": "availability",
+  "category": "banquet_hall",
+  "lang": "en",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "banquet hall mein rooms bhi milenge kya guests ke liye",
+  "bucket": "information",
+  "category": "banquet_hall",
+  "lang": "hinglish",
+  "channel": "whatsapp_text"
+ },
+ {
+  "text": "hall khali hai kya 25 tarikh ko shaadi ke liye",
+  "bucket": "availability",
+  "category": "banquet_hall",
   "lang": "hinglish",
   "channel": "call"
  }

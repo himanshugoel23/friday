@@ -17,7 +17,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from .classifier import CHANNELS, Classification, Classifier
-from .plans import PlanTemplate, long_slots, message, slot_question, template_for
+from .factslots import derive, derive_from_text, is_skip
+from .plans import PlanTemplate, fact_slots, long_slots, message, slot_question, template_for
 from .plans import raw as plans_raw
 from .slots import (
     SLOT_KEYS,
@@ -278,6 +279,10 @@ class ProjectManager:
             task.slots.setdefault(k, v)
         if found:
             self._log(task, "slots_extracted", slots=found)
+        facts = derive_from_text(task.category, text, task.slots)
+        if facts:
+            task.slots.update(facts)
+            self._log(task, "facts_from_request", facts=sorted(facts))
         if "where" not in task.slots:
             prof = task.profile
             whom = str(task.slots.get("for_whom", "")).lower()
@@ -342,6 +347,12 @@ class ProjectManager:
     async def _answer_slot(self, task: TaskRecord, text: str, msgs: list[str]) -> None:
         p = task.pending
         assert p and p.slot
+        tpl = self._template(task)
+        if p.slot in tpl.skippable and is_skip(text):
+            self._skip(task, p.slot)
+            task.pending = None
+            task.status = Status.RUNNING
+            return
         value = parse_answer(p.slot, text)
         if value is None and p.unclear < 1:
             p.unclear += 1
@@ -356,10 +367,18 @@ class ProjectManager:
             self._log(task, "answer_received", slot=p.slot, value=value)
         else:
             self._log(task, "answer_unusable", slot=p.slot)
+            if p.slot in fact_slots() or p.slot in tpl.skippable:
+                self._skip(task, p.slot)  # a fact or optional answer is never asked twice
         extra = clean_slots(await self.extractor.extract(text, task.category))
         for k, v in extra.items():
             if k != p.slot:
                 task.slots.setdefault(k, v)
+
+    def _skip(self, task: TaskRecord, slot: str) -> None:
+        skipped = task.outputs.setdefault("_skipped", [])
+        if slot not in skipped:
+            skipped.append(slot)
+        self._log(task, "answer_skipped", slot=slot)
 
     async def _yes_no(self, task: TaskRecord, p: Pending, yes: bool, msgs: list[str]) -> None:
         if p.kind == "consent":
@@ -428,7 +447,7 @@ class ProjectManager:
             self._rebuild_plan(task)
             self._log(task, "archetype_switch", to="availability")
         names = [s.name for s in task.plan]
-        first = min((_RESET_FROM[k] for k in changes if _RESET_FROM[k] in names),
+        first = min((_RESET_FROM[k] for k in changes if _RESET_FROM.get(k) in names),
                     key=names.index, default=None)
         if first:
             self._reset_from(task, first)
@@ -451,12 +470,24 @@ class ProjectManager:
             task.archetype = "availability"   # the user said: do not book, only check
             self._log(task, "archetype_switch", to="availability", reason="delegation_declined")
             self._say(task, msgs, self._m(task, "switched_to_check"))
+        derive(task.category, task.slots, task.assumed)
         tpl = self._template(task)
         order = plans_raw()["ask_order"]
-        missing = [s for s in order if s in tpl.required and s not in task.slots]
-        if missing and task.rounds_used < self.max_rounds:
-            slot = missing[0]
-            task.rounds_used += 1
+        free = fact_slots() | set(tpl.skippable)  # facts: do not use up the question rounds
+        skipped = set(task.outputs.get("_skipped", []))
+
+        def needed(s: str) -> bool:
+            gate = tpl.only_if.get(s)
+            if gate and task.slots.get(gate) is not True:
+                return False
+            return s not in task.slots and s not in skipped
+
+        missing = [s for s in order if s in tpl.required and needed(s)]
+        askable = [s for s in missing if s in free or task.rounds_used < self.max_rounds]
+        if askable:
+            slot = askable[0]
+            if slot not in free:
+                task.rounds_used += 1
             if task.channel == "call" and slot in long_slots():
                 # Long input (details, address, many numbers) is requested on WhatsApp.
                 q = slot_question(slot, task.language, tpl, "whatsapp_text")
@@ -483,7 +514,8 @@ class ProjectManager:
             self._log(task, "archetype_switch", to="availability", reason="no_delegation")
             self._say(task, msgs, self._m(task, "switched_to_check"))
             tpl = self._template(task)
-            unresolved = [s for s in tpl.required if s not in task.slots and s not in tpl.defaults]
+            unresolved = [s for s in tpl.required
+                          if s not in task.slots and s not in tpl.defaults and s not in free]
             for s in tpl.required:
                 if s not in task.slots and s in tpl.defaults:
                     task.slots[s] = tpl.defaults[s]

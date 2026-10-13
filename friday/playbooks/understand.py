@@ -61,6 +61,7 @@ class Understanding(BaseModel):
     price_low_inr: int | None = None  # the lower number of a range (price_inr is the upper)
     price_unit: str | None = None  # plate / kg / head / hour / ... (None = a flat price)
     deposit_inr: int | None = None  # a deposit/advance the business mentioned: information only
+    phone: str | None = None  # GIVES_NUMBER: the 10 digits heard (never guessed)
     confident: bool = False  # heuristic only; the model's output is trusted per its intent
 
     def normalised(self) -> Understanding:
@@ -83,6 +84,7 @@ class Understanding(BaseModel):
             price_low_inr=sl.clean_price(self.price_low_inr),
             price_unit=self.price_unit if self.price_unit in PRICE_UNITS else None,
             deposit_inr=sl.clean_price(self.deposit_inr),
+            phone=extract_phone(self.phone or "") if self.phone else None,
             confident=self.confident,
         )
 
@@ -101,6 +103,7 @@ class LLMUnderstanding(BaseModel):
     price_low_inr: int | None = None
     price_unit: str | None = None
     deposit_inr: int | None = None
+    phone: str | None = None
 
     def to_understanding(self) -> Understanding:
         return Understanding(**self.model_dump(mode="json")).normalised()
@@ -164,6 +167,8 @@ def ground(u: Understanding, reply: str) -> Understanding:
     if [t for t in [u.time, *u.alt_times] if t] != keep_times:
         drop["time"] = keep_times[0] if keep_times else None
         drop["alt_times"] = keep_times[1:3]
+    if u.phone and u.phone not in re.sub(r"(?<=\d)[\s\-.,](?=\d)", "", reply or ""):
+        drop["phone"] = None  # a number the model "found" must be in the vendor's words
     if u.stylist and u.stylist.lower() not in low:
         drop["stylist"] = None
     if drop:
@@ -634,8 +639,28 @@ def _ext_prices(
     return prices, pos
 
 
+_SAME_NUMBER = re.compile(
+    r"\b(yahi|yehi|isi|isi\s+wale|yahin|same)\b.{0,12}\b(number|no|nambar|pe|par|per)\b|"
+    r"\b(number|no)\b.{0,6}\b(yahi|yehi|wahi|same)\b|यही\s+नंबर|इसी\s+नंबर|यही\s+है|yahi\s+hai",
+    re.I,
+)
+
+
+def extract_phone(text: str) -> str | None:
+    """A 10-digit Indian mobile number heard in ``text`` ("98111 22334", "+91 98111-22334"), else
+    None. Digits only; never guessed from words; a longer digit run (account number) is not one."""
+    joined = re.sub(r"(?<=\d)[\s\-.,](?=\d)", "", text or "")
+    m = re.search(r"(?<!\d)(?:\+?91)?([6-9]\d{9})(?!\d)", joined)
+    return m.group(1) if m else None
+
+
 def _ext_pre(raw: str, t: str, known: dict[str, Any]) -> Understanding | None:
     """Archetype intents that must win over the salon rules (they would misread them)."""
+    if known.get("allowed") is not None:  # a number is only taken where the script asked for one
+        if _allowed_here(known, Intent.GIVES_NUMBER) and (ph := extract_phone(raw)):
+            return _u(Intent.GIVES_NUMBER, phone=ph)
+        if _allowed_here(known, Intent.SAME_NUMBER) and _SAME_NUMBER.search(raw):
+            return _u(Intent.SAME_NUMBER)
     prices, _p = _ext_prices(raw, unit_of(raw))
     deposit = bool(_DEPOSIT_WORDS.search(t))
     arch = known.get("archetype")

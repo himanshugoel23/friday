@@ -45,7 +45,51 @@ FACTS: dict[str, str] = {
     "old_phone_condition": "does it work fully, any damage",
     # florist
     "delivery_area": "area for home delivery",
+    # generic date / time (table booking, packers and movers, florist)
+    "date": "the date the booking / shifting / delivery is needed",
+    "time": "the time",
     # negotiation (never above the user's maximum)
     "target_price": "first push: a little below the user's budget",
     "max_price": "the most Friday may agree to",
 }
+
+# Switches the project manager may also set from the user's own words (never invented).
+# ``q_exchange``: the user wants to exchange an old phone. ``q_ask_advance``: the user's own
+# request mentions a booking amount / advance.
+EXTRA_INPUTS = (
+    "q_exchange", "q_ask_advance",
+    # callbacks started by the user's decision (the task layer): the mode and what the earlier
+    # call already learned, so a retry / negotiation / confirmation call never re-asks it
+    "playbook_mode", "resume", "prior_price_inr", "prior_estimate_inr", "prior_slot_free",
+    "prior_slot", "prior_notes", "prior_flags",
+)
+PLAYBOOK_INPUT_NAMES = frozenset(FACTS) | set(EXTRA_INPUTS)
+
+_PREFIX = "fact:"
+
+
+def clean_fact(value: object, limit: int = 80) -> str:
+    return " ".join(str(value).split())[:limit]
+
+
+def fact_constraints(facts: dict[str, object]) -> list[str]:
+    """TaskSpec.constraints entries (``"fact: name=value"``) that carry the user's facts to the
+    call brief; empty / unknown names are dropped."""
+    return [
+        f"{_PREFIX} {k}={clean_fact(v)}" for k, v in facts.items()
+        if k in PLAYBOOK_INPUT_NAMES and clean_fact(v)
+    ]
+
+
+def facts_from_constraints(constraints: list[str]) -> dict[str, str]:
+    """Inverse of ``fact_constraints``: the playbook inputs a brief's constraints carry."""
+    out: dict[str, str] = {}
+    for c in constraints:
+        c = c.strip()
+        if not c.lower().startswith(_PREFIX):
+            continue
+        name, _, val = c[len(_PREFIX):].strip().partition("=")
+        name, val = name.strip(), clean_fact(val)
+        if name in PLAYBOOK_INPUT_NAMES and val:
+            out[name] = val
+    return out

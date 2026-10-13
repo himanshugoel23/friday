@@ -25,6 +25,8 @@ class PlanTemplate(BaseModel):
     hard_max_km: float
     radius_steps: list[float]
     questions: dict[str, dict[str, str]] = Field(default_factory=dict)
+    skippable: list[str] = Field(default_factory=list)  # asked once; "skip" is a fine answer
+    only_if: dict[str, str] = Field(default_factory=dict)  # slot -> gate slot that must be true
 
 
 @lru_cache(maxsize=1)
@@ -48,6 +50,12 @@ def slot_kind(slot: str) -> str:
     return raw()["slots"][slot]["kind"]
 
 
+def fact_slots() -> set[str]:
+    """Slots collected for the call (facts and gate questions): they do not use up the PM's
+    question rounds."""
+    return {k for k, v in raw()["slots"].items() if v.get("fact")}
+
+
 def long_slots() -> list[str]:
     return list(raw()["long_slots"])
 
@@ -55,7 +63,7 @@ def long_slots() -> list[str]:
 def slot_question(slot: str, lang: str, template: PlanTemplate | None = None,
                   channel: str = "whatsapp_text") -> str:
     if channel == "call":
-        entry = raw()["spoken"]["slots"][slot]
+        entry = raw()["spoken"]["slots"].get(slot) or raw()["slots"][slot]  # facts are short
     else:
         entry = (template.questions.get(slot) if template else None) or raw()["slots"][slot]
     return entry["en"] if lang == "en" else entry["hinglish"]
@@ -74,6 +82,8 @@ def build_template(archetype: str, category: str | None = None) -> PlanTemplate:
     optional = list(base["optional"])
     defaults = dict(base["defaults"])
     questions: dict[str, dict[str, str]] = {}
+    skippable: list[str] = []
+    only_if = {k: v["only_if"] for k, v in data["slots"].items() if v.get("only_if")}
     radius = hard = None
     if category is not None:
         info = categories()[category]
@@ -83,10 +93,13 @@ def build_template(archetype: str, category: str | None = None) -> PlanTemplate:
             required = [r for r in required if r not in layer.get("required_remove", [])]
             required = _uniq(required + layer.get("required_add", []))
             optional = _uniq(optional + layer.get("optional_add", []))
+            skippable = _uniq(skippable + layer.get("skippable_add", []))
+            only_if.update(layer.get("only_if", {}))
             defaults.update(layer.get("defaults", {}))
             questions.update(layer.get("questions", {}))
             radius = layer.get("radius_km", radius)
             hard = layer.get("hard_max_km", hard)
+    required = _uniq(required + skippable)
     optional = [o for o in optional if o not in required]
     if radius is None or hard is None:
         radius, hard = 5.0, 10.0  # only the handoff plan has no category
@@ -99,7 +112,8 @@ def build_template(archetype: str, category: str | None = None) -> PlanTemplate:
         required=required, optional=optional, defaults=defaults,
         n_vendors=base["n_vendors"], call_mode=base["call_mode"],
         radius_km=float(radius), hard_max_km=float(hard), radius_steps=steps_def,
-        questions=questions,
+        questions=questions, skippable=skippable,
+        only_if={k: v for k, v in only_if.items() if k in required},
     )
 
 

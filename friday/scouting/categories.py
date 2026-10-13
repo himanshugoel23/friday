@@ -1,4 +1,4 @@
-"""Category table for the 20 Wave 1 categories (docs/SCOPE_BUCKETS.md).
+"""Category table for the 22 Wave 1 categories (docs/SCOPE_BUCKETS.md).
 
 ``queries``: Places text-search phrasings (English first, then Hinglish/Indian usage); the
 query builder uses the first few. ``expected_types``: Google Places (New) type names we
@@ -206,30 +206,74 @@ CATEGORIES: dict[str, Category] = {
             },
         ),
         _c(
-            "restaurant_banquet",
-            "Restaurants / banquet / caterers",
+            "restaurant_table",
+            "Restaurants / cafes (table booking)",
             [
                 "restaurant",
-                "banquet hall",
-                "caterer",
-                "party hall",
                 "best restaurant",
-                "dawat hall",
-            ],
-            [
-                "restaurant",
-                "banquet_hall",
-                "event_venue",
-                "catering_service",
                 "cafe",
-                "meal_takeaway",
+                "family restaurant",
+                "fine dining",
             ],
+            ["restaurant", "cafe", "meal_takeaway", "bar_and_grill", "coffee_shop", "bakery"],
             {
                 "table_booking": ["table", "reservation", "booking", "seating"],
-                "banquet": ["banquet", "hall", "party", "function"],
-                "catering": ["catering", "caterer", "buffet"],
                 "veg": ["veg", "vegetarian", "jain", "pure veg"],
                 "private_dining": ["private dining", "birthday", "anniversary"],
+                "rooftop": ["rooftop", "outdoor", "open air"],
+            },
+        ),
+        _c(
+            "hotel_stay",
+            "Hotels / resorts / homestays (room booking)",
+            [
+                "hotel",
+                "resort",
+                "homestay",
+                "budget hotel",
+                "guest house",
+            ],
+            [
+                "lodging",
+                "hotel",
+                "resort_hotel",
+                "guest_house",
+                "bed_and_breakfast",
+                "extended_stay_hotel",
+                "motel",
+                "hostel",
+            ],
+            {
+                "room_stay": ["room", "stay", "check in", "checkin", "night"],
+                "homestay": ["homestay", "home stay", "villa"],
+                "resort": ["resort", "pool", "spa"],
+                "breakfast": ["breakfast", "meals", "food included"],
+            },
+        ),
+        _c(
+            "banquet_hall",
+            "Banquet / party / marriage halls",
+            [
+                "banquet hall",
+                "party hall",
+                "marriage hall",
+                "function hall",
+                "wedding lawn",
+            ],
+            [
+                "banquet_hall",
+                "event_venue",
+                "wedding_venue",
+                "catering_service",
+                "restaurant",
+                "lodging",
+            ],
+            {
+                "banquet": ["banquet", "hall", "party", "function"],
+                "wedding_venue": ["wedding", "shaadi", "marriage", "lawn"],
+                "catering": ["catering", "caterer", "buffet"],
+                "veg": ["veg", "vegetarian", "jain", "pure veg"],
+                "rooms": ["rooms", "guest rooms", "stay"],
             },
         ),
         _c(
@@ -490,7 +534,9 @@ CATEGORIES: dict[str, Category] = {
 RADII: dict[str, tuple[float, float]] = {
     **dict.fromkeys(["salon", "gym_yoga", "florist_gift", "pg_rental"], (5, 10)),
     **dict.fromkeys(["clinic", "diagnostic_lab", "vet_pet"], (8, 15)),
-    "restaurant_banquet": (5, 12),
+    "restaurant_table": (5, 12),
+    "hotel_stay": (8, 15),
+    "banquet_hall": (10, 20),
     **dict.fromkeys(
         ["appliance_repair", "home_repair", "pest_control", "laundry_tailor"], (10, 20)
     ),
@@ -504,7 +550,7 @@ for _k, (_d, _m) in RADII.items():
     CATEGORIES[_k].default_radius_km = float(_d)
     CATEGORIES[_k].max_radius_km = float(_m)
 
-assert len(CATEGORIES) == 20 and set(RADII) == set(CATEGORIES)
+assert len(CATEGORIES) == 22 and set(RADII) == set(CATEGORIES)
 
 
 def effective_radius_km(category: Category, requested: float | None) -> float:
@@ -581,6 +627,11 @@ _NAME_KEYWORDS: dict[str, list[str]] = {
         "wedding", "bridal", "bride", "makeup", "mehendi", "mehandi", "photo", "planner", "decor",
     ],
     "packers_movers": ["packers", "movers", "relocation", "shifting", "logistics", "transport"],
+    "hotel_stay": ["hotel", "resort", "inn", "stay", "lodge", "homestay", "guest house", "villa"],
+    "banquet_hall": [
+        "banquet", "hall", "party", "lawn", "marriage", "palace", "venue", "farm", "resort",
+        "garden", "function",
+    ],
 }
 for _k, _w in _NAME_KEYWORDS.items():
     CATEGORIES[_k].name_keywords = _w

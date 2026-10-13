@@ -480,6 +480,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.playbooks.cli import register as register_playbooks
 
     register_playbooks(sub)  # `friday playbook list|validate|dry-run` (docs/PLAYBOOKS.md)
+    from friday.learning.cli import register as register_learning
+
+    register_learning(sub)  # `friday learn ...` (docs/LEARNING_AND_BUILD_PLAN.md)
     sc = sub.add_parser("scout", help="find best vendors (live Google if key, else fixtures)")
     sc.add_argument("--category", required=True)
     sc.add_argument("--area", required=True)
@@ -507,6 +510,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.pilot import init_env
 
         return init_env()
+    if args.cmd == "learn":  # offline: reads var/learning and the labelled set, no network
+        from friday.learning.cli import run as run_learn
+
+        return run_learn(args)
     if args.cmd == "playbook":  # offline: never reads .env, never touches the network
         from friday.playbooks.cli import run_command as run_playbook_command
 

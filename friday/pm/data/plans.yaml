@@ -35,8 +35,86 @@ slots:
     en: "Any detail that matters for this? (size, model, number of people)"
     hinglish: "Koi zaroori detail? (size, model, kitne log)"
 
+  # ---- facts the PM collects BEFORE calling (names = friday/vendors/facts.py). fact: true means
+  # the question does not use up the PM's question rounds. only_if: asked only when that gate
+  # slot is true. Gates (at_venue, exchange) are asked once and are not themselves facts.
+  at_venue:
+    kind: venue_choice
+    fact: true
+    en: "Will you go to the parlour, or should the makeup artist come to the venue?"
+    hinglish: "Parlour jaoge ya makeup wali venue par aayegi?"
+  exchange:
+    kind: yesno
+    fact: true
+    en: "Do you want to exchange an old phone?"
+    hinglish: "Exchange karna hai?"
+  old_phone_model:
+    {kind: text, fact: true, only_if: exchange, en: "Which old phone is it (company and model)?", hinglish: "Purana phone kaunsa hai (company aur model)?"}
+  old_phone_year:
+    {kind: text, fact: true, only_if: exchange, en: "Which year did you buy it?", hinglish: "Kis saal liya tha?"}
+  old_phone_condition:
+    {kind: text, fact: true, only_if: exchange, en: "Is it working fully, any damage?", hinglish: "Poori tarah chal raha hai, koi damage?"}
+  event_type:
+    {kind: text, fact: true, en: "What is the event? (shaadi, birthday, corporate ...)", hinglish: "Event kaunsa hai? (shaadi, birthday, corporate ...)"}
+  event_date:
+    {kind: text, fact: true, en: "What is the event date?", hinglish: "Event ki date kya hai?"}
+  event_venue:
+    {kind: text, fact: true, en: "What is the venue name?", hinglish: "Venue ka naam kya hai?"}
+  event_city:
+    {kind: text, fact: true, en: "Which city or area is the venue in?", hinglish: "Venue kis city ya area mein hai?"}
+  guests:
+    {kind: text, fact: true, en: "How many guests?", hinglish: "Kitne mehmaan honge?"}
+  people_count:
+    {kind: text, fact: true, en: "For how many people?", hinglish: "Kitne log honge?"}
+  veg_nonveg:
+    {kind: text, fact: true, en: "Veg or non-veg?", hinglish: "Veg ya non-veg?"}
+  rooms_needed:
+    {kind: text, fact: true, en: "Do you need rooms for the guests? How many? (say skip if not)", hinglish: "Mehmaanon ke liye rooms chahiye? Kitne? (nahi chahiye toh skip bol dein)"}
+  extras_needed:
+    {kind: text, fact: true, en: "Decoration, DJ or sound needed? (say skip if not)", hinglish: "Decoration, DJ ya sound chahiye? (nahi chahiye toh skip bol dein)"}
+  items_description:
+    {kind: text, fact: true, en: "What needs to be moved? (for example 2 BHK household items, 1 bike)", hinglish: "Kya saaman shift karna hai? (jaise 2 BHK ka saaman, 1 bike)"}
+  from_place:
+    {kind: text, fact: true, en: "Pickup place?", hinglish: "Kahan se uthana hai?"}
+  to_place:
+    {kind: text, fact: true, en: "Drop place?", hinglish: "Kahan chhodna hai?"}
+  floor_info:
+    {kind: text, fact: true, en: "Which floor, and is there a lift, at both ends?", hinglish: "Dono jagah kaunsi floor hai aur lift hai ya nahi?"}
+  date:
+    {kind: text, fact: true, en: "On which date?", hinglish: "Kis date ko?"}
+  time:
+    {kind: text, fact: true, en: "At what time?", hinglish: "Kitne baje?"}
+  sharing_type:
+    {kind: text, fact: true, en: "Single, double or triple sharing?", hinglish: "Single, double ya triple sharing?"}
+  move_in_date:
+    {kind: text, fact: true, en: "When do you want to move in?", hinglish: "Kab shift hona hai?"}
+  occupant_name:
+    {kind: text, fact: true, en: "Who is the room for? (name)", hinglish: "Room kiske liye hai? (naam)"}
+  occupant_from:
+    {kind: text, fact: true, en: "Where do they come from?", hinglish: "Wo kahan se aa rahe hain?"}
+  occupant_job:
+    {kind: text, fact: true, en: "Where do they work or study?", hinglish: "Wo kahan kaam ya padhai karte hain?"}
+  occupant_location:
+    {kind: text, fact: true, en: "Where do they live now?", hinglish: "Abhi kahan rehte hain?"}
+  pickup_time:
+    {kind: text, fact: true, en: "Pickup date and time?", hinglish: "Pickup kis date ko aur kitne baje?"}
+  trip_type:
+    {kind: text, fact: true, en: "One way or round trip?", hinglish: "One way ya round trip?"}
+  luggage:
+    {kind: text, fact: true, en: "How many bags or how much luggage?", hinglish: "Kitne bag ya kitna saaman hoga?"}
+  delivery_area:
+    {kind: text, fact: true, en: "Which area is the delivery to?", hinglish: "Delivery kis area mein karni hai?"}
+  checkin_date:
+    {kind: text, fact: true, en: "Check-in date?", hinglish: "Check-in kis date ko?"}
+  checkout_date:
+    {kind: text, fact: true, en: "Check-out date?", hinglish: "Check-out kis date ko?"}
+  room_count:
+    {kind: text, fact: true, en: "How many rooms?", hinglish: "Kitne room chahiye?"}
+  room_type:
+    {kind: text, fact: true, en: "Any room type? (deluxe, suite ... say skip if not)", hinglish: "Koi room type? (deluxe, suite ... nahi toh skip bol dein)"}
+
 # Order in which missing required slots are asked (one per round).
-ask_order: [service, where, when, details, budget, for_whom, delegation]
+ask_order: [at_venue, service, where, exchange, old_phone_model, old_phone_year, old_phone_condition, event_type, items_description, from_place, to_place, floor_info, sharing_type, date, event_date, checkin_date, checkout_date, move_in_date, pickup_time, time, occupant_name, occupant_from, occupant_job, occupant_location, event_venue, event_city, delivery_area, guests, people_count, room_count, room_type, veg_nonveg, rooms_needed, extras_needed, luggage, trip_type, when, details, budget, for_whom, delegation]
 
 messages:
   category_unclear:
@@ -159,7 +237,7 @@ archetypes:
 # required_add / required_remove edit the archetype's required list; questions override slot wording.
 categories:
   salon:
-    "*": {questions: {service: {en: "Which service do you want? (for example haircut, beard trim, facial)", hinglish: "Kaunsi service chahiye? (jaise haircut, beard trim, facial)"}}}
+    "*": {required_add: [at_venue, event_type, event_date, event_venue, event_city, people_count], only_if: {event_type: at_venue, event_date: at_venue, event_venue: at_venue, event_city: at_venue, people_count: at_venue}, questions: {service: {en: "Which service do you want? (for example haircut, beard trim, facial)", hinglish: "Kaunsi service chahiye? (jaise haircut, beard trim, facial)"}}}
   clinic:
     "*": {questions: {service: {en: "Which kind of doctor, or what is the problem? (for example dentist, skin, general)", hinglish: "Kaunsa doctor chahiye ya kya takleef hai? (jaise dentist, skin, general)"}}}
     book: {required_add: [for_whom]}
@@ -174,40 +252,40 @@ categories:
     "*": {questions: {service: {en: "What work is needed? (plumber, electrician, carpenter, painter)", hinglish: "Kya kaam karwana hai? (plumber, electrician, carpenter, painter)"}}}
     service_visit: {defaults: {when: today}}
   packers_movers:
-    "*": {required_add: [details], questions: {where: {en: "Where are you moving from (area/city)?", hinglish: "Kahan se shift kar rahe hain (area/city)?"}, details: {en: "How big is the house (1/2/3 BHK) and where are you moving to?", hinglish: "Ghar kitna bada hai (1/2/3 BHK) aur kahan shift karna hai?"}}}
-    quote: {required_add: [when]}
+    "*": {required_remove: [when, details], required_add: [items_description, from_place, to_place, floor_info, date], skippable_add: [budget], questions: {where: {en: "Where are you moving from (area/city)?", hinglish: "Kahan se shift kar rahe hain (area/city)?"}}}
   pest_control:
     "*": {required_add: [details], questions: {details: {en: "How big is the place (BHK) and which pest?", hinglish: "Jagah kitni badi hai (BHK) aur kaunsa keeda?"}}}
     service_visit: {defaults: {when: tomorrow}}
   car_service:
     "*": {required_add: [details], questions: {details: {en: "Which car (make and model)?", hinglish: "Kaunsi gaadi hai (company aur model)?"}}}
-  restaurant_banquet:
-    availability: {required_add: [details], questions: {details: {en: "For how many people?", hinglish: "Kitne log honge?"}}}
-    book: {required_add: [details], questions: {details: {en: "For how many people?", hinglish: "Kitne log honge?"}}}
-    quote: {required_add: [when, details], questions: {details: {en: "How many guests, and what kind of event?", hinglish: "Kitne mehmaan aur kis tarah ka event?"}}}
+  restaurant_table:
+    "*": {required_remove: [when, details], required_add: [date, time, people_count]}
+  hotel_stay:
+    "*": {required_remove: [when, details], required_add: [checkin_date, checkout_date, guests, room_count], skippable_add: [room_type, budget]}
+  banquet_hall:
+    "*": {required_remove: [when, details], required_add: [event_type, event_date, guests, veg_nonveg], skippable_add: [rooms_needed, extras_needed]}
   coaching_classes:
     "*": {questions: {service: {en: "Which class or subject, and for which grade/age?", hinglish: "Kaunsi class ya subject, aur kis grade/age ke liye?"}}}
   pg_rental:
-    "*": {questions: {service: {en: "PG or flat, and for boys, girls or family?", hinglish: "PG ya flat, aur ladko, ladkiyon ya family ke liye?"}}}
-    quote: {required_add: [budget]}
+    "*": {required_add: [sharing_type, move_in_date, occupant_name, occupant_from, occupant_job, occupant_location], skippable_add: [budget], questions: {service: {en: "PG or flat, and for boys, girls or family?", hinglish: "PG ya flat, aur ladko, ladkiyon ya family ke liye?"}}}
   electronics_dealer:
-    "*": {questions: {service: {en: "Which product and model?", hinglish: "Kaunsa product aur model?"}}}
+    "*": {required_add: [exchange, old_phone_model, old_phone_year, old_phone_condition], questions: {service: {en: "Which product and model?", hinglish: "Kaunsa product aur model?"}}}
   gym_yoga:
     "*": {questions: {service: {en: "Gym, yoga or something else?", hinglish: "Gym, yoga ya kuch aur?"}}}
   event_services:
-    "*": {required_add: [when, details], questions: {details: {en: "How many guests and what kind of event?", hinglish: "Kitne mehmaan aur kis tarah ka event?"}, when: {en: "What is the event date?", hinglish: "Event ki date kya hai?"}}}
+    "*": {required_remove: [when, details], required_add: [event_type, event_date, event_venue, event_city, guests]}
   vet_pet:
     "*": {required_add: [details], questions: {details: {en: "Which pet (dog, cat) and what age?", hinglish: "Kaunsa pet hai (dog, cat) aur kitni age?"}}}
   wedding_vendors:
-    "*": {required_add: [when], questions: {when: {en: "What is the wedding date?", hinglish: "Shaadi ki date kya hai?"}}}
+    "*": {required_remove: [when, details], required_add: [event_type, event_date, event_venue, event_city, guests]}
   driving_school:
     "*": {}
   cab_travel:
-    "*": {required_add: [when, details], radius_km: 20, questions: {details: {en: "Which route (from where to where) and how many people?", hinglish: "Kahan se kahan jana hai aur kitne log?"}}}
+    "*": {required_remove: [when, details, where], required_add: [from_place, to_place, pickup_time, people_count, luggage, trip_type], radius_km: 20}
   laundry_tailor:
     "*": {}
   florist_gift:
-    "*": {}
+    "*": {required_remove: [when], required_add: [delivery_area, date]}
     availability: {required_add: []}
     quote: {optional_add: [when]}
 

@@ -1,0 +1,128 @@
+# NOTE: intents are quoted (bare NO would parse as boolean false).
+# Labelled evaluation set for the LISTENING side (friday learn eval). SYNTHETIC sentences only:
+# never paste real call data here (the repo is public). Add with: friday learn label "TEXT" INTENT
+- {text: "haan ji bilkul", intent: "YES"}
+- {text: "ji haan ho jayega", intent: "YES"}
+- {text: "yes sir available hai", intent: "YES"}
+- {text: "theek hai sir", intent: "YES"}
+- {text: "haan haan chalega", intent: "YES"}
+- {text: "hmm haan bolo", intent: "YES"}
+- {text: "ji sir ho jayega", intent: "YES"}
+- {text: "nahi sir", intent: "NO"}
+- {text: "nahi nahi aisa nahi hota", intent: "NO"}
+- {text: "no sir not possible", intent: "NO"}
+- {text: "nahin ji nahi ho payega", intent: "NO"}
+- {text: "ji boliye", intent: "CONTINUE"}
+- {text: "haan bolo kya chahiye", intent: "CONTINUE"}
+- {text: "hello ji boliye", intent: "CONTINUE"}
+- {text: "okay thank you", intent: "ACK"}
+- {text: "ok shukriya", intent: "ACK"}
+- {text: "achha achha thik hai dhanyavaad", intent: "ACK"}
+- {text: "abhi busy hoon baad mein call karna", intent: "BUSY_LATER"}
+- {text: "sir main customer ke saath hoon thodi der baad call karo", intent: "BUSY_LATER"}
+- {text: "abhi time nahi hai shaam ko call kijiye", intent: "BUSY_LATER"}
+- {text: "I am busy right now please call later", intent: "BUSY_LATER"}
+- {text: "kaun bol raha hai", intent: "WHO_IS_THIS"}
+- {text: "aap kaun", intent: "WHO_IS_THIS"}
+- {text: "who is this calling", intent: "WHO_IS_THIS"}
+- {text: "kahan se bol rahe ho", intent: "WHO_IS_THIS"}
+- {text: "kya aap robot ho", intent: "ARE_YOU_BOT"}
+- {text: "ye AI hai kya", intent: "ARE_YOU_BOT"}
+- {text: "are you a machine", intent: "ARE_YOU_BOT"}
+- {text: "aap insaan ho ya computer", intent: "ARE_YOU_BOT"}
+- {text: "kya", intent: "ASKS_REPEAT"}
+- {text: "sorry phir se boliye", intent: "ASKS_REPEAT"}
+- {text: "awaaz nahi aa rahi dobara bolo", intent: "ASKS_REPEAT"}
+- {text: "can you repeat that", intent: "ASKS_REPEAT"}
+- {text: "kya bola samajh nahi aaya", intent: "ASKS_REPEAT"}
+- {text: "ye salon nahi hai wrong number hai", intent: "WRONG_NUMBER"}
+- {text: "aapne galat number lagaya hai", intent: "WRONG_NUMBER"}
+- {text: "wrong number sir", intent: "WRONG_NUMBER"}
+- {text: "yahan koi salon nahi hai", intent: "WRONG_NUMBER"}
+- {text: "ek minute hold karo", intent: "HOLD_ON"}
+- {text: "ruko ek second", intent: "HOLD_ON"}
+- {text: "just a minute please", intent: "HOLD_ON"}
+- {text: "hold kijiye main dekhti hoon", intent: "HOLD_ON"}
+- {text: "ek min ruko dekh ke batata hoon", intent: "HOLD_ON"}
+- {text: "haan 6 baje free hai", intent: "SLOT_FREE"}
+- {text: "aaj shaam ko slot khali hai", intent: "SLOT_FREE"}
+- {text: "haan aa jaiye abhi koi nahi hai", intent: "SLOT_FREE"}
+- {text: "5 baje ka slot mil jayega", intent: "SLOT_FREE"}
+- {text: "slot available hai kal 11 baje", intent: "SLOT_FREE"}
+- {text: "aaj koi slot nahi hai full hai", intent: "SLOT_BUSY"}
+- {text: "aaj poora din booked hai", intent: "SLOT_BUSY"}
+- {text: "no slot available today", intent: "SLOT_BUSY"}
+- {text: "abhi sab busy hain jagah nahi hai", intent: "SLOT_BUSY"}
+- {text: "6 baje ya 7 baje aa sakte ho", intent: "OFFERS_SLOTS"}
+- {text: "5 baje nahi hai 7 baje ya 8 baje mil sakta hai", intent: "OFFERS_SLOTS"}
+- {text: "kal 11 baje ya 12 baje ka time hai", intent: "OFFERS_SLOTS"}
+- {text: "shaam 6 baje", intent: "GIVES_TIME"}
+- {text: "4 baje aa jao", intent: "GIVES_TIME"}
+- {text: "kal subah 10 baje", intent: "GIVES_TIME"}
+- {text: "appointment leni padegi walk in nahi hota", intent: "NEEDS_APPOINTMENT"}
+- {text: "bina appointment ke nahi kar sakte", intent: "NEEDS_APPOINTMENT"}
+- {text: "appointment only hai madam", intent: "NEEDS_APPOINTMENT"}
+- {text: "customer ka number do", intent: "ASKS_CUSTOMER_PHONE"}
+- {text: "unka phone number bata dijiye", intent: "ASKS_CUSTOMER_PHONE"}
+- {text: "contact number kya hai unka", intent: "ASKS_CUSTOMER_PHONE"}
+- {text: "haircut 400 rupaye", intent: "GIVES_PRICE"}
+- {text: "500 lagega sir", intent: "GIVES_PRICE"}
+- {text: "wo 800 rs ka hai", intent: "GIVES_PRICE"}
+- {text: "rate hai 1200 aur ek ghanta lagega", intent: "GIVES_PRICE"}
+- {text: "charges are 600 rupees", intent: "GIVES_PRICE"}
+- {text: "teen sau lagega", intent: "GIVES_PRICE"}
+- {text: "dedh sau rupaye", intent: "GIVES_PRICE"}
+- {text: "400 se 600 tak lag jayega", intent: "PRICE_RANGE"}
+- {text: "500 to 700 depending", intent: "PRICE_RANGE"}
+- {text: "dhai sau se paune teen sau", intent: "PRICE_RANGE"}
+- {text: "1000 se 1500 ke beech mein", intent: "PRICE_RANGE"}
+- {text: "wo stylist pe depend karta hai", intent: "PRICE_DEPENDS"}
+- {text: "senior ya junior pe depend karega", intent: "PRICE_DEPENDS"}
+- {text: "depends on the stylist", intent: "PRICE_DEPENDS"}
+- {text: "phone pe rate nahi bata sakte aap aa jao", intent: "REFUSES_PRICE"}
+- {text: "price phone par nahi batate", intent: "REFUSES_PRICE"}
+- {text: "we don't share rates on phone", intent: "REFUSES_PRICE"}
+- {text: "advance dena padega 200 rupaye", intent: "NEEDS_ADVANCE"}
+- {text: "booking ke liye advance lagta hai", intent: "NEEDS_ADVANCE"}
+- {text: "deposit lenge pehle", intent: "NEEDS_ADVANCE"}
+- {text: "advance nahi lagega aap seedha aa jao", intent: "NO_ADVANCE"}
+- {text: "koi advance nahi hai", intent: "NO_ADVANCE"}
+- {text: "no advance needed", intent: "NO_ADVANCE"}
+- {text: "Rohan karega ye", intent: "GIVES_STYLIST"}
+- {text: "Priya madam hain aapke liye", intent: "GIVES_STYLIST"}
+- {text: "stylist Aman rahega", intent: "GIVES_STYLIST"}
+- {text: "parking hai kya wahan", intent: "ASKS_OFFTOPIC"}
+- {text: "aap kaunsa shampoo use karte ho", intent: "ASKS_OFFTOPIC"}
+- {text: "aapka naam kya hai aur kahan rehte ho", intent: "ASKS_OFFTOPIC"}
+- {text: "OTP bata do jo aaya hai", intent: "ASKS_SECRET"}
+- {text: "card ka number aur pin bhejiye", intent: "ASKS_SECRET"}
+- {text: "CVV bolo confirm karne ke liye", intent: "ASKS_SECRET"}
+- {text: "dobara call mat karna", intent: "STOP_CALLING"}
+- {text: "hamein call karna band karo", intent: "STOP_CALLING"}
+- {text: "do not call this number again", intent: "STOP_CALLING"}
+- {text: "bakwas band karo", intent: "RUDE"}
+- {text: "pagal ho kya kyun pareshan kar rahe ho", intent: "RUDE"}
+- {text: "stupid calls mat karo idiot", intent: "RUDE"}
+- {text: "wo model khatam ho gaya hai stock mein nahi", intent: "OUT_OF_STOCK"}
+- {text: "abhi available nahi hai out of stock", intent: "OUT_OF_STOCK"}
+- {text: "maal khatam hai next week aayega", intent: "OUT_OF_STOCK"}
+- {text: "aake dekhna padega bina dekhe nahi bata sakte", intent: "VISIT_NEEDED"}
+- {text: "visit karna padega tab hi price bata payenge", intent: "VISIT_NEEDED"}
+- {text: "pehle aake check karenge phir quote denge", intent: "VISIT_NEEDED"}
+- {text: "WhatsApp pe bhej do main details bhej deta hoon", intent: "WHATSAPP_PLEASE"}
+- {text: "message kar do WhatsApp par", intent: "WHATSAPP_PLEASE"}
+- {text: "send it on whatsapp we will reply", intent: "WHATSAPP_PLEASE"}
+- {text: "visit free hai koi charge nahi", intent: "NO_CHARGE"}
+- {text: "demo bilkul free hai", intent: "NO_CHARGE"}
+- {text: "inspection ka koi paisa nahi lagta", intent: "NO_CHARGE"}
+- {text: "hmm uh", intent: "UNCLEAR"}
+- {text: "hello hello", intent: "UNCLEAR"}
+- {text: "aaa", intent: "UNCLEAR"}
+- {text: "haan 500 lagega advance nahi lagega", intent: "GIVES_PRICE", note: price wins over advance}
+- {text: "umm haan toh woh hmm sir kal 5 baje free hai", intent: "SLOT_FREE", note: filler noise}
+- {text: "NAHI NAHI abhi nahi", intent: "NO", note: upper case STT}
+- {text: "ji aap kon bol rahe hain", intent: "WHO_IS_THIS", note: misspelling}
+- {text: "bhai ek minute ruko customer aaya hai", intent: "HOLD_ON"}
+- {text: "सर 500 रुपये लगेंगे", intent: "GIVES_PRICE", note: Devanagari}
+- {text: "haan ji kal ke liye slot hai 4 baje", intent: "SLOT_FREE"}
+- {text: "दो मिनट रुकिए", intent: "HOLD_ON", note: Devanagari}

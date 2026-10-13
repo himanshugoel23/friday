@@ -47,11 +47,14 @@ PENDING_DIR = Path(__file__).with_name("pending")
 SUPPORTED_VERSIONS = frozenset({1})
 # the vendor-calling archetypes (docs/VENDOR_CALLING.md); a playbook may declare one
 ARCHETYPES: tuple[str, ...] = (
-    "quote_and_slot", "stock_and_price", "home_service_visit", "table_or_venue", "rental",
-    "enquiry",
+    "quote_and_slot", "stock_and_price", "home_service_visit", "enquiry", "pg_rental",
+    "cab_booking", "table_booking", "hotel_booking", "banquet_booking",
+    "table_or_venue", "rental",  # the two old shapes, removed once their replacements are promoted
 )
 # intents only an archetype playbook may use (the salon heuristic never produces them)
-ARCHETYPE_INTENTS = frozenset({"OUT_OF_STOCK", "VISIT_NEEDED", "WHATSAPP_PLEASE", "NO_CHARGE"})
+ARCHETYPE_INTENTS = frozenset({
+    "OUT_OF_STOCK", "VISIT_NEEDED", "WHATSAPP_PLEASE", "NO_CHARGE", "GIVES_NUMBER", "SAME_NUMBER",
+})
 _NOTE_KEY = re.compile(r"[a-z][a-z_]{2,29}")
 MAX_LINE_CHARS = 240
 

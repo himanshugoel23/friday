@@ -310,13 +310,20 @@ def playbook_fields(
         if re.match(r"\s*(price|quote)[ _-]*(check|only)\b", cons, re.I):
             inputs["playbook_mode"] = "quote_only"
     # the mode comes from the owner's instruction; "book" exists only with a delegation
-    if inputs.get("playbook_mode") != "quote_only":
+    if inputs.get("playbook_mode") not in ("quote_only", "negotiate", "confirm"):
         inputs["playbook_mode"] = "book" if (delegation_granted and inputs["date_window"]) else (
             "quote_only"
         )
     if business_name and "test business" not in business_name.lower():
         inputs["business_name"] = clean_input(business_name, 40)
     _vendor_inputs(pb, inputs, category, goal, item, constraints)
+    from friday.vendors.facts import facts_from_constraints
+
+    for fact, value in facts_from_constraints(constraints).items():  # the user's own facts
+        if fact in pb.inputs and (fact != "playbook_mode" or value in ("negotiate", "confirm")):
+            inputs[fact] = value
+    if requester_name and "user_full_name" in pb.inputs and not inputs.get("user_full_name"):
+        inputs["user_full_name"] = clean_input(requester_name, 40)
     _name_inputs(inputs, name_speller)
     if any(spec.required and not inputs.get(n) for n, spec in pb.inputs.items()):
         return {}  # a required input is unknown: the normal policy handles this call

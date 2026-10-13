@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from friday.vendors.facts import FACTS
+
 
 class Intent(StrEnum):
     """What the other side just did, in a fixed list. Never free text."""
@@ -46,6 +48,8 @@ class Intent(StrEnum):
     VISIT_NEEDED = "VISIT_NEEDED"  # aake dekhna padega: no price without seeing the job
     WHATSAPP_PLEASE = "WHATSAPP_PLEASE"  # "WhatsApp pe bhej do" / "message kar do"
     NO_CHARGE = "NO_CHARGE"  # free: visit free hai / demo free / koi charge nahi
+    GIVES_NUMBER = "GIVES_NUMBER"  # a 10-digit mobile number (WhatsApp / UPI), only where asked
+    SAME_NUMBER = "SAME_NUMBER"  # "yahi number hai" / "isi number pe" (the number we called)
     UNCLEAR = "UNCLEAR"  # could not understand / noise / silence
 
 
@@ -62,6 +66,11 @@ CONDITIONS: frozenset[str] = frozenset(
         "explore_options",  # the owner wants several slots/prices to choose from (default off)
         "has_requested_time",  # the task already names one specific time ("aaj shaam 5 baje")
         "has_stylist_pref",
+        "mode_negotiate",  # the negotiation callback (push 1 / push 2 inside the user's range)
+        "mode_confirm",  # the confirmation callback (the user said "book kar do")
+        "is_resume",  # a retry call: earlier answers are carried in (prior_*), do not re-ask them
+        "price_le_target",  # the price heard is at or below the user's target (negotiation)
+        "price_le_max",  # the price heard is within the user's maximum (negotiation)
         "alt_offered",  # the slot on the table is not the asked one (never booked by us)
         "time_known",  # one concrete time heard
         "slot_known",  # a time or at least one offered time
@@ -91,7 +100,16 @@ CONDITIONS: frozenset[str] = frozenset(
         "q_brand",
         "q_availability",
         "q_appointment",
+        "q_price",
+        "q_date",
+        "q_exchange",
+        "q_visit",
+        "q_rooms",
+        "q_extras",
+        "q_ask_advance",
+        "q_negotiate",
     }
+    | {f"has_{f}" for f in FACTS}
 )
 
 # values the engine collects (outputs) and can substitute into lines as {name}
@@ -110,12 +128,22 @@ SLOT_NAMES: frozenset[str] = frozenset(
 # per-category question switches (vendor packs): "yes" asks the question, "no" skips the step
 QUESTION_INPUTS: frozenset[str] = frozenset(
     {"q_delivery", "q_estimate", "q_today", "q_arrival", "q_batch", "q_demo", "q_brand",
-     "q_availability", "q_appointment"}
+     "q_availability", "q_appointment", "q_price", "q_date", "q_exchange", "q_visit", "q_rooms",
+     "q_extras", "q_ask_advance", "q_negotiate"}
 )
+# a retry / callback call carries what the earlier call already learned (founder 13 Oct: she
+# must never ask an answered question again)
+RESUME_INPUTS: frozenset[str] = frozenset(
+    {"resume", "prior_price_inr", "prior_estimate_inr", "prior_slot_free", "prior_slot",
+     "prior_notes", "prior_flags"}
+)
+# facts about the user's request (friday/vendors/facts.py): usable as {placeholders} and as
+# the condition ``has_<fact>``
+FACT_INPUTS: frozenset[str] = frozenset(FACTS)
 # inputs only archetype playbooks use (set from the category pack, see friday/vendors)
 ARCHETYPE_INPUTS: frozenset[str] = frozenset(
     {"unit_phrase", "party_size", "duration_text", "price_min", "price_max", "estimate_max",
-     "category", "price_word"} | QUESTION_INPUTS
+     "category", "price_word"} | QUESTION_INPUTS | FACT_INPUTS | RESUME_INPUTS
 )
 INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",
@@ -129,7 +157,9 @@ ACK_POOL: tuple[str, ...] = (
     "Samajh gayi sir",
 )
 PLACEHOLDERS: frozenset[str] = INPUT_NAMES | {
-    "ack", "slot", "slot_time", "price_inr", "duration_min", "stylist"}
+    "ack", "captured_number", "captured_spoken", "push2_price", "vendor_price", "slot",
+    "slot_time", "price_inr",
+    "duration_min", "stylist"}
 
 # what the engine may write into ``set:`` of a branch (fixed values only)
 SETTABLE: frozenset[str] = frozenset(

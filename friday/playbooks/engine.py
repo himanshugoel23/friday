@@ -16,6 +16,7 @@ as it does for the LLM-driven brain. This policy:
 
 from __future__ import annotations
 
+import json
 import random
 import re
 from collections import Counter
@@ -37,7 +38,7 @@ from friday.core.models import (
     UserAnswer,
 )
 from friday.playbooks import slots as sl
-from friday.playbooks.intents import ANY, QUESTION_INPUTS, Intent
+from friday.playbooks.intents import ANY, FACT_INPUTS, QUESTION_INPUTS, Intent
 from friday.playbooks.model import (
     Action,
     LineRef,
@@ -149,6 +150,8 @@ class CallState:
     after_hold: bool = False
     last_friday: str = ""
     said_norm: list[str] = field(default_factory=list)  # her recent lines (repeat guard)
+    captured: str | None = None  # a number the business gave ("same" = the one we called)
+    seeded: bool = False  # the carried-in answers of a retry call were applied
     acks: list[str] = field(default_factory=list)  # acknowledgements used so far (never repeat 2)
     last_was_commit: bool = False
     commit_blocked: bool = False
@@ -186,6 +189,19 @@ class Ctx:
             return self.inputs[name]
         if name == "slot" and st.times:
             return self.slot_text
+        if name == "vendor_price" and st.price_inr is not None:
+            return str(st.price_inr)
+        if name == "push2_price":
+            t, m = _digits(self.inputs.get("target_price")), _digits(self.inputs.get("max_price"))
+            if t and m:  # slightly higher than the first push, never above the user's maximum
+                return str(min(m, max(t, int(round((t + m) / 2 / 100.0)) * 100)))
+            if t or m:
+                return str(t or m)
+        if name == "captured_number" and st.captured and st.captured != "same":
+            return st.captured
+        if name == "captured_spoken" and st.captured and st.captured != "same":
+            d = st.captured
+            return f"{' '.join(d[:5])}, {' '.join(d[5:])}"  # "9 8 1 1 1, 2 2 3 3 4"
         if name == "ack":
             from friday.playbooks.intents import ACK_POOL
 
@@ -235,7 +251,9 @@ def resolve_inputs(pb: Playbook, brief: CallBrief) -> dict[str, str]:
     if name := out.get("budget"):
         digits = re.sub(r"\D", "", name)
         out["budget"] = digits if digits else ""
-    for key in ("price_min", "price_max", "estimate_max", "party_size"):
+    for key in (
+        "price_min", "price_max", "estimate_max", "party_size", "target_price", "max_price",
+    ):
         if key in out:
             out[key] = re.sub(r"\D", "", out[key])[:7]
     _derive_spoken(pb, brief, raw, out)
@@ -270,6 +288,8 @@ def _derive_spoken(pb: Playbook, brief: CallBrief, raw: dict[str, str], out: dic
     want = (raw.get("playbook_mode") or "").strip().lower().replace("-", "_")
     book = want == "book" and brief.delegation.granted and bool(out.get("date_window"))
     out["playbook_mode"] = "book" if book else "quote_only"
+    if want in ("negotiate", "confirm"):  # callbacks started by the user's decision (task layer)
+        out["playbook_mode"] = want
     fb = clean_input(raw.get("fallback_when") or "")
     if fb and sl.requested_time(fb) and book:
         day = sl.find_day(fb) or "kal"
@@ -282,6 +302,68 @@ def _derive_spoken(pb: Playbook, brief: CallBrief, raw: dict[str, str], out: dic
 
 def missing_inputs(pb: Playbook, inputs: dict[str, str]) -> list[str]:
     return [n for n, spec in pb.inputs.items() if spec.required and not inputs.get(n)]
+
+
+def _digits(v: Any) -> int | None:
+    d = re.sub(r"\D", "", str(v or ""))
+    return int(d) if d else None
+
+
+def _within(price: int | None, limit: Any) -> bool:
+    """The price heard is at or below ``limit`` (False when either is unknown)."""
+    lim = _digits(limit)
+    return price is not None and lim is not None and price <= lim
+
+
+def _seed_from_prior(st: CallState, inputs: dict[str, str]) -> None:
+    """A retry call starts with what the earlier call already learned, so answered steps are
+    skipped (``skip_when: [price_known]``) and never asked again."""
+    if not truthy(inputs.get("resume")):
+        return
+    if (v := _digits(inputs.get("prior_price_inr"))) is not None:
+        st.price_inr = v
+    if (v := _digits(inputs.get("prior_estimate_inr"))) is not None:
+        st.estimate_inr = v
+    if inputs.get("prior_slot_free") in ("yes", "no", "other_time"):
+        st.slot_free = inputs["prior_slot_free"]
+    if inputs.get("prior_slot"):
+        st.times = [t.strip() for t in inputs["prior_slot"].split(",") if t.strip()][:2]
+    for field_name, target in (("prior_notes", st.notes), ("prior_flags", st.flags)):
+        try:
+            data = json.loads(inputs.get(field_name) or "{}")
+        except ValueError:
+            data = {}
+        if isinstance(data, dict):
+            target.update({str(k)[:30]: str(x)[:80] for k, x in data.items()})
+
+
+def _learn(c: Ctx, u: Understanding | None, text: str, *, unhandled: bool = False) -> None:
+    """Log what the business said for the founder's review queue (docs/LEARNING_AND_BUILD_PLAN.md).
+    Never raises, never blocks a call. On by default (the founder records everything); off with
+    FRIDAY_LEARNING=0 and during tests."""
+    try:
+        import os
+
+        if os.environ.get("FRIDAY_LEARNING") == "0" or (
+            "PYTEST_CURRENT_TEST" in os.environ and not os.environ.get("FRIDAY_LEARNING_LOG")
+        ):
+            return
+        from friday.learning.log import record_turn
+
+        if unhandled:  # the script had no branch for the last understood intent
+            record_turn(
+                call_id=c.brief.task_id, playbook_id=c.pb.id, step=c.st.step,
+                text="", intent=c.st.intents[-1] if c.st.intents else "UNCLEAR",
+                confident=False, unhandled=True,
+            )
+            return
+        assert u is not None
+        record_turn(
+            call_id=c.brief.task_id, playbook_id=c.pb.id, step=c.st.step, text=text,
+            intent=u.intent, confident=u.confident, repeat_count=c.st.repeats,
+        )
+    except Exception:  # noqa: BLE001 - learning must never break a call
+        return
 
 
 class PlaybookPolicy:
@@ -341,6 +423,8 @@ class PlaybookPolicy:
         key = name.lstrip("!")
         st = c.st
         price, budget = st.price_inr, c.inputs.get("budget")
+        if key.startswith("has_") and key[4:] in FACT_INPUTS:
+            return (not bool(c.inputs.get(key[4:]))) if neg else bool(c.inputs.get(key[4:]))
         val = {
             "recording": c.recording,
             "has_budget": bool(budget),
@@ -365,8 +449,13 @@ class PlaybookPolicy:
             "can_commit": self._can_commit(c) if key == "can_commit" else False,
             "first_ask": st.asked[st.step] == 0,
             "mode_book": c.inputs.get("playbook_mode") == "book",
-            "mode_quote": c.inputs.get("playbook_mode") != "book",
+            "mode_quote": c.inputs.get("playbook_mode") not in ("book", "negotiate", "confirm"),
+            "mode_negotiate": c.inputs.get("playbook_mode") == "negotiate",
+            "mode_confirm": c.inputs.get("playbook_mode") == "confirm",
             "has_fallback": self._fallback(c) is not None,
+            "price_le_target": _within(price, c.inputs.get("target_price")),
+            "price_le_max": _within(price, c.inputs.get("max_price")),
+            "is_resume": truthy(c.inputs.get("resume")),
             "used_fallback": st.flags.get("fallback_used") == "yes",
             "alt_offered": st.flags.get("alt_offered") == "yes",
             "has_date_window": bool(c.inputs.get("date_window")),
@@ -464,6 +553,9 @@ class PlaybookPolicy:
             st.first_at = turns[0].at
         inputs = resolve_inputs(pb, brief)
         c = Ctx(pb, brief, st, inputs, self.recording, now, list(answers))
+        if not st.seeded:
+            st.seeded = True
+            _seed_from_prior(st, inputs)
 
         # ---- system events since the last turn
         for t in new:
@@ -516,6 +608,8 @@ class PlaybookPolicy:
         else:
             u = await self._understand(c, reply_turn.text)
         st.intents.append(u.intent)
+        if reply_turn is not None and reply_turn.text.strip():
+            _learn(c, u, reply_turn.text)
         if (
             self.open_questions
             and self.answerer is not None
@@ -690,6 +784,10 @@ class PlaybookPolicy:
                 st.slot_free = "other_time"
         elif intent == Intent.SLOT_BUSY:
             st.slot_free = "no"
+        elif intent == Intent.GIVES_NUMBER and u.phone:
+            st.captured = u.phone
+        elif intent == Intent.SAME_NUMBER:
+            st.captured = "same"
         if intent in (Intent.GIVES_PRICE, Intent.PRICE_RANGE) and (
             c is None or not c.pb.archetype or self._price_step(c.pb, st.step)
         ):
@@ -771,6 +869,7 @@ class PlaybookPolicy:
         if action is None:
             if intent != Intent.UNCLEAR.value:
                 st.unhandled.append(f"{st.step}:{intent}")
+                _learn(c, None, "", unhandled=True)
             return self._confusion(c)
         st.uses[key] += 1
         return self._run(c, action)
@@ -1037,6 +1136,8 @@ class PlaybookPolicy:
             out["estimate_inr"] = str(st.estimate_inr)
         if st.estimate_low is not None:
             out["estimate_low_inr"] = str(st.estimate_low)
+        if st.captured:
+            out["captured_number"] = "same" if st.captured == "same" else st.captured
         out.update(st.notes)
         out.update(st.flags)
         return out
@@ -1193,8 +1294,11 @@ def static_utterances(pb: Playbook, inputs: dict[str, str]) -> list[str]:
     for lid in pb.lines:
         if not pb.line_def(lid).commit:
             add(render(lid))
-    mode_book = inputs.get("playbook_mode") == "book"
-    known_conds = {"first_ask": True, "mode_book": mode_book, "mode_quote": not mode_book,
+    mode = inputs.get("playbook_mode")
+    known_conds = {"first_ask": True, "mode_book": mode == "book",
+                   "mode_quote": mode not in ("book", "negotiate", "confirm"),
+                   "mode_negotiate": mode == "negotiate", "mode_confirm": mode == "confirm",
+                   "is_resume": truthy(inputs.get("resume")),
                    "has_date_window": bool(inputs.get("date_window")),
                    "has_duration": bool(inputs.get("duration_text")),
                    **{q: truthy(inputs.get(q)) for q in QUESTION_INPUTS}}

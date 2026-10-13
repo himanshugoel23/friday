@@ -78,7 +78,7 @@ def place(
 
 # ------------------------------------------------------------------ categories
 def test_category_table_complete():
-    assert len(CATEGORIES) == 20
+    assert len(CATEGORIES) == 22
     for c in CATEGORIES.values():
         assert c.queries and c.expected_types and c.services
         assert 0 < c.default_radius_km <= c.max_radius_km

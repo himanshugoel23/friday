@@ -9,7 +9,7 @@ ARCH = ["quote", "availability", "book", "service_visit", "information"]
 def test_taxonomy_matches_scouting_table():
     from friday.scouting.categories import CATEGORIES
 
-    assert len(bucket_keys()) == 10 and len(category_keys()) == 20
+    assert len(bucket_keys()) == 10 and len(category_keys()) == 22
     assert set(category_keys()) == set(CATEGORIES)
 
 
@@ -28,15 +28,16 @@ def test_radii_match_roster():
     c = categories()
     assert (c["salon"].radius_km, c["salon"].hard_max_km) == (5, 10)
     assert (c["clinic"].radius_km, c["clinic"].hard_max_km) == (8, 15)
-    assert (c["restaurant_banquet"].radius_km, c["restaurant_banquet"].hard_max_km) == (5, 12)
+    assert (c["restaurant_table"].radius_km, c["restaurant_table"].hard_max_km) == (5, 12)
     assert (c["appliance_repair"].radius_km, c["appliance_repair"].hard_max_km) == (10, 20)
     assert (c["packers_movers"].radius_km, c["packers_movers"].hard_max_km) == (20, 40)
     assert (c["coaching_classes"].radius_km, c["coaching_classes"].hard_max_km) == (8, 15)
 
 
 def test_overrides_and_archetypes():
-    assert "details" in build_template("quote", "packers_movers").required
-    assert "details" in build_template("book", "restaurant_banquet").required
+    assert "details" in build_template("quote", "pest_control").required
+    assert "people_count" in build_template("book", "restaurant_table").required
+    assert "details" not in build_template("book", "restaurant_table").required
     assert "details" not in build_template("quote", "salon").required
     assert "delegation" in build_template("book", "salon").required
     assert build_template("book", "salon").call_mode == "first_success"

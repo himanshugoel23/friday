@@ -1,4 +1,4 @@
-"""Closed lists: 10 request buckets and the 20 Wave 1 vendor categories (data/*.yaml)."""
+"""Closed lists: 10 request buckets and the 22 Wave 1 vendor categories (data/*.yaml)."""
 
 from __future__ import annotations
 

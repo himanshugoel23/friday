@@ -167,6 +167,10 @@ def parse_answer(slot: str, text: str) -> Any | None:
     t = text.strip()
     if not t:
         return None
+    if kind == "venue_choice":
+        from .factslots import parse_venue_choice
+
+        return parse_venue_choice(t)
     if kind == "yesno":
         yn = parse_yes_no(t)
         if yn is None and slot == "delegation":

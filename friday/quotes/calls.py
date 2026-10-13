@@ -29,6 +29,7 @@ from friday.playbooks.select import book_now_delegation
 from friday.quotes.finder import VendorFinder
 from friday.quotes.models import Conv, Outcome, Vendor
 from friday.tasks.engine import PILOT_NO_REAL_CALLS, ROLE_VENDOR_QUOTE
+from friday.vendors.facts import fact_constraints
 
 log = get_logger(__name__)
 
@@ -74,6 +75,7 @@ class EngineVendorCalls:
         sl = conv.slots
         services = ", ".join(sl.services) or "haircut"
         constraints = [] if book else ["mode: quote_only"]
+        constraints += fact_constraints(conv.extra.get("facts") or {})
         return TaskSpec(
             type=TaskType.BOOKING,
             goal=f"{'Book' if book else 'Get a price for'} {services} at {v.name}",

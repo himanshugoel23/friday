@@ -26,7 +26,7 @@ def test_fixture_shape():
     assert {e["channel"] for e in FIX} <= set(CHANNELS)
     assert {e["bucket"] for e in FIX} <= set(bucket_keys())
     assert {e["category"] for e in FIX} - {None} <= set(category_keys())
-    assert set(category_keys()) <= {e["category"] for e in FIX}  # all 20 covered
+    assert set(category_keys()) <= {e["category"] for e in FIX}  # all 22 covered
     assert set(bucket_keys()) <= {e["bucket"] for e in FIX}      # all 10 covered
 
 
@@ -70,7 +70,7 @@ def test_schema_is_closed():
     s = classification_schema()
     assert s["additionalProperties"] is False
     assert set(s["properties"]["bucket"]["enum"]) == set(bucket_keys())
-    assert len(s["properties"]["category"]["enum"]) == 21
+    assert len(s["properties"]["category"]["enum"]) == 23
 
 
 class FakeLLM:
