@@ -39,3 +39,14 @@ call data, names or numbers are ever committed: the review queue lives under `va
 4. Callback tasks: negotiation call, confirmation call, retry with context.
 5. Learning-loop tooling (collector, review queue, labelling, evaluation).
 6. Audio review per script, then promote with the founder's approval marker.
+
+## Watch list: Jev (TypeSafe AI decision model), added 13 Oct 2026
+
+Not adopted. Possible later use: offline vendor-reply classification and review-queue triage only,
+never in the live call turn and never for spoken words.
+Before any trial:
+1. Collect a few hundred real labelled Hinglish vendor sentences (masked, from `var/learning`).
+2. Read and record the vendor's data terms; send nothing until user-data principle is satisfied.
+3. Benchmark against the current listener on those labels; adopt only if it does not lose on the
+   evaluation set and latency/cost are verified by us, not the vendor's claims.
+Re-check in 4 weeks (Hindi support, consumer product, data terms).
