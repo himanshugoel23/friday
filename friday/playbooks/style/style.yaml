@@ -31,7 +31,7 @@ filler_min_words: 5
 # Stiff endings -> how people really end the sentence (from the founder's examples).
 # pattern is a regex on the lowercase line.
 endings:
-  - {pattern: "available hai\\?$", suggest: "mil jayega na? / available hoga?", why: "stiff question ending"}
+  - {pattern: "available hai\\?$", suggest: "available hoga?", why: "stiff question ending"}
   - {pattern: "call kiya hai\\.?$", suggest: "call kiya tha", why: "spoken past tense"}
 
 # Order of every call (founder 13 Oct): 1) confirm the business name, 2) the purpose in ONE short
@@ -46,7 +46,7 @@ golden:
   - "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
   - "Ji sir, actually maine aapko {services_spoken} ki booking ke regarding call kiya tha."
   - "Toh sir, {services_spoken} ke estimated kya charges rahenge?"
-  - "Achha theek hai sir, toh {slot} ka slot booking ke liye mil jayega na?"
+  - "Achha theek hai sir, toh {slot} ka slot booking ke liye aapke paas available hoga?"
   - "Toh sabse nearest kaun sa slot available hoga?"
   - "Koi around ka slot ho sakta hai, {4 baje} ya {6 baje} ke around?"
   - "Achha theek hai sir, toh kal aap {slot} ka booking {user_full_name} ke naam se book kar lijiye. {slot_before} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
