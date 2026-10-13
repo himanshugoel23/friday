@@ -280,6 +280,7 @@ class SarvamCallLeg(TwilioCallLeg):
         self._playing = False  # Friday's voice is on the line
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
         self._loud_run = 0
+        self._loud_win: list[bool] = []  # last frames while she talks (barge-in window)
         self._spec: asyncio.Future[Any] | None = None  # early speech-to-text
         self._last_loud_t: float | None = None  # when the caller last made sound
         self._sstt: BaseStreamSTT | None = None  # streaming speech-to-text (opt-in)
@@ -489,18 +490,21 @@ class SarvamCallLeg(TwilioCallLeg):
                 self.tel_s._bg.add(task)
                 task.add_done_callback(self.tel_s._bg.discard)
 
-    BARGE_IN_FRAMES = 15  # 300 ms of clearly loud speech while she talks
-    BARGE_IN_LEVEL = 2.5  # times the normal speech threshold, so echo does not interrupt her
+    # Speech has gaps between syllables, so count loud frames in a sliding window instead of
+    # needing 300 ms with no dip (that never fired on a normal phone voice: she talked over people).
+    BARGE_IN_WINDOW = 12  # frames of 20 ms
+    BARGE_IN_FRAMES = 7  # this many loud ones in the window = the caller is talking over her
+    BARGE_IN_LEVEL = 1.6  # times the normal speech threshold, so her own echo does not interrupt
 
     def _watch_for_barge_in(self, frame: bytes) -> None:
         """The caller talks over Friday: stop her voice at once and listen."""
         if self._barged:
             return
         loud = rms(frame) >= self._segmenter.threshold * self.BARGE_IN_LEVEL
-        self._loud_run = self._loud_run + 1 if loud else 0
-        if self._loud_run >= self.BARGE_IN_FRAMES:
+        self._loud_win = (self._loud_win + [loud])[-self.BARGE_IN_WINDOW :]
+        if sum(self._loud_win) >= self.BARGE_IN_FRAMES:
             self._barged = True
-            self._loud_run = 0
+            self._loud_win = []
             task = asyncio.ensure_future(self.clear_audio())
             self.tel_s._bg.add(task)
             task.add_done_callback(self.tel_s._bg.discard)
@@ -670,6 +674,7 @@ class SarvamCallLeg(TwilioCallLeg):
     def _end_playback(self) -> None:
         self._playing = False
         self._loud_run = 0
+        self._loud_win = []
         if not self._barged:  # drop what the line picked up of her own voice
             seg = self._segmenter
             seg._buf = bytearray()

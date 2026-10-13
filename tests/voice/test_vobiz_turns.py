@@ -49,6 +49,18 @@ async def test_caller_speaking_over_friday_stops_her_voice():
     assert leg._barged and any(m.get("event") == "clearAudio" for m in sent)
 
 
+async def test_speech_with_gaps_and_a_moderate_voice_still_interrupts_her():
+    """Real speech dips between syllables and is not shouted: that must still stop her."""
+    leg, sent = await _leg()
+    leg._playing = True
+    loud, gap = _frames(0.06, 0.45), _frames(0.02, 0.01)
+    for _ in range(5):  # 3 loud frames then 1 quiet one, repeated
+        for f in loud + gap:
+            leg.on_media(f)
+    await asyncio.sleep(0)
+    assert leg._barged and any(m.get("event") == "clearAudio" for m in sent)
+
+
 async def test_quiet_echo_while_she_talks_is_ignored():
     leg, sent = await _leg()
     leg._playing = True

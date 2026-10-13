@@ -315,3 +315,7 @@ Founder bought a new SIM for WhatsApp and has an account on "Helter" (probably H
 
 ### Task: founder asks what open items to focus on (business name not final, so WhatsApp business setup parked)
 Answer given in chat: founder-only items list below (13 Oct). WhatsApp number/Meta verification waits for the business name; the simulator keeps working meanwhile.
+
+### Task: founder reports live call was very bad: Friday did not stop when he spoke (no barge-in), kept finishing her sentences (13 Oct)
+Investigating. Suspects: barge-in/echo gating in voice/telephony/sarvam.py, streaming TTS (ElevenLabs/Sarvam) cancel, hold/echo gate changes this week.
+- 13 Oct FIX: barge-in never fired on real speech. Cause: needed 15 CONSECUTIVE loud frames at 2.5x the speech threshold; real phone speech dips between syllables and is quieter. Now: 7 loud frames within a sliding 12-frame window at 1.6x (sarvam.py BARGE_IN_*). Test: test_speech_with_gaps_and_a_moderate_voice_still_interrupts_her. Needs live re-test; if she now cuts herself on her own echo, raise BARGE_IN_LEVEL (e.g. 2.0). Lesson: barge-in thresholds were only unit-tested with synthetic loud tones.
