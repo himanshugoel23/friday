@@ -350,6 +350,7 @@ def playbook_test_brief(
     services: str | None = None,
     fallback_when: str | None = None,
     mode: str | None = None,
+    full_name: str | None = None,
     name_speller: Any = None,
     now: datetime | None = None,
 ) -> Any:
@@ -393,6 +394,8 @@ def playbook_test_brief(
         inputs["stylist_pref"] = clean_input(stylist_pref, 20)
     if salon_name:
         inputs["business_name"] = clean_input(salon_name, 40)
+    if full_name and "user_full_name" in pb.inputs:
+        inputs["user_full_name"] = clean_input(full_name, 40)
     if honorific:
         inputs["honorific"] = clean_input(honorific, 10)
     if explore_options:

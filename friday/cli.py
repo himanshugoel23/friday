@@ -455,6 +455,11 @@ def main(argv: list[str] | None = None) -> int:
     live.add_argument("--fallback-when", default=None,
                       help="playbook, with --book-now: a second specific time if the first is "
                            "busy, e.g. 'kal shaam 5 baje' (the booking may cover either)")
+    live.add_argument("--full-name", default=None,
+                      help="playbook: the booking name Friday says, e.g. 'Himanshu Goyal'")
+    live.add_argument("--pending-test", action="store_true",
+                      help="playbook: use the PENDING (not yet approved) script for this one test "
+                           "call to your own number, to hear it before you approve it")
     live.add_argument("--book-now", action="store_true",
                       help="playbook: let her BOOK (and only that): needs --when with one specific "
                            "time (e.g. 'aaj shaam 5 baje') and --budget (price ceiling). Without "
@@ -617,6 +622,11 @@ def main(argv: list[str] | None = None) -> int:
         from friday.pilot import run_livecall
 
         pb_args = None
+        if args.pending_test:
+            from friday.playbooks.model import use_pending_for_test
+
+            use_pending_for_test()
+            print("PENDING-TEST: using the pending (unapproved) script for this call only.")
         if args.playbook:
             pb_args = {k: v for k, v in (
                 ("service", args.service), ("date_window", args.when),
@@ -624,6 +634,7 @@ def main(argv: list[str] | None = None) -> int:
                 ("salon_name", args.salon_name), ("honorific", args.honorific),
                 ("book_now", args.book_now), ("explore_options", args.explore_options),
                 ("services", args.services), ("fallback_when", args.fallback_when),
+                ("full_name", args.full_name),
                 ("mode", (args.mode or "").replace("-", "_") or None)) if v}
             if args.mode == "book" and not args.book_now:
                 print("REFUSED: --mode book needs --book-now (one specific --when time and "

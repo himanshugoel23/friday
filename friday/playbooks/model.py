@@ -725,8 +725,19 @@ def load_playbook(path: str | Path) -> Playbook:
     return pb
 
 
+_TEST_DIR: Path | None = None
+
+
+def use_pending_for_test() -> None:
+    """Load playbooks from the PENDING folder for this process only. Called by exactly one place:
+    ``friday livecall --pending-test`` (one supervised call to the allow-listed founder number,
+    so he can hear a script before approving it). Production never calls it."""
+    global _TEST_DIR
+    _TEST_DIR = PENDING_DIR
+
+
 def playbook_files(directory: Path | None = None) -> dict[str, Path]:
-    d = directory or DATA_DIR
+    d = directory or _TEST_DIR or DATA_DIR
     out: dict[str, Path] = {}
     for p in sorted(d.glob("*")):
         if p.suffix.lower() in (".yaml", ".yml", ".json") and ".personas." not in p.name:
