@@ -505,6 +505,11 @@ class SarvamCallLeg(TwilioCallLeg):
         if sum(self._loud_win) >= self.BARGE_IN_FRAMES:
             self._barged = True
             self._loud_win = []
+            log.info(
+                "barge-in: caller spoke over her (frame level %.0f, speech threshold %.0f, "
+                "trigger %.0f)", rms(frame), self._segmenter.threshold,
+                self._segmenter.threshold * self.BARGE_IN_LEVEL,
+            )
             task = asyncio.ensure_future(self.clear_audio())
             self.tel_s._bg.add(task)
             task.add_done_callback(self.tel_s._bg.discard)
