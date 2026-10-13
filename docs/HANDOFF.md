@@ -322,3 +322,4 @@ Investigating. Suspects: barge-in/echo gating in voice/telephony/sarvam.py, stre
 
 ### Task: founder test call 13 Oct after barge-in fix: interruptions fine; scripts not good (she does not ask the question / how to communicate missing); words unclear, pieces of words missing (13 Oct)
 Investigating clipped audio (suspects: odd-byte PCM chunk boundaries in streamed TTS, false barge-in from echo at 1.6x, chunk send pacing) and the script flow (needs transcript file var/livecalls/livecall-*.txt).
+- 13 Oct DECISION (founder): voice = Ritu on Sarvam (clearer than Zara/Neha on the phone line). All real-time call lane stays on Sarvam. Server setting: FRIDAY_TTS_PROVIDER=sarvam (ElevenLabs stays as optional spare, not default).
