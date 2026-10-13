@@ -238,3 +238,8 @@ Files: live salon script = `friday/playbooks/data/salon_booking.yaml`; the 6 new
 - `sorry`: Sorry, ek baar phir?
 - `offscript`: Yeh main {user_spoken} {honorific} se poochh kar bataungi.
 - `no_secrets`: Yeh jaankari main share nahi kar sakti.
+
+## Founder rules for ALL scripts (13 Oct)
+1. Always add natural filler words (Ji, Achha, Toh, actually).
+2. Every call starts: (a) confirm the business name, (b) the purpose of the call in ONE short line (the hook), then the details.
+3. Sentence endings sound like real Hinglish speech ("... rahega?", "... rahegi", "... kar dun?", "... ho jayega na?"), never stiff or formal; stiff endings make her sound like an AI.
