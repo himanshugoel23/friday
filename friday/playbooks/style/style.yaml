@@ -1,0 +1,52 @@
+# Founder script style. Edit freely, or let `friday playbook style-learn` add to it.
+# Every rule here comes from something the founder said (dates in the notes); `suggest` items are
+# ours and only produce warnings.
+
+# Everyday English instead of formal Hindi (founder 13 Oct: not "nazdeek", use "nearest").
+swap:
+  nazdeek: nearest
+  nazdik: nearest
+  nazdeek ka: nearest
+  sabse nazdeek: sabse nearest
+  uplabdh: available
+  avashyak: zaroori
+  kripya: please
+  dhanyavaad: thank you
+  dhanyawad: thank you
+  pushti: confirm
+  suchit: inform
+  aas paas: around      # founder 13 Oct: "4 baje ke around"
+  andaza: estimate
+  andaaza: estimate
+
+# Words that should not appear at all (the line is flagged, a human picks the replacement).
+avoid: []
+
+# Natural filler words. Every spoken line of 5+ words should carry one (founder 13 Oct: always).
+fillers: [ji, achha, toh, actually, theek hai, haan]
+# Lines that are exempt from the filler rule (short closes, safety lines).
+filler_exempt_ids: [ai_yes, no_secrets, no_number, bye_dnc, bye_rude, bye_wrong, bye_busy, bye_unclear, sorry]
+filler_min_words: 5
+
+# Stiff endings -> how people really end the sentence (from the founder's examples).
+# pattern is a regex on the lowercase line.
+endings:
+  - {pattern: "available hai\\?$", suggest: "mil jayega na? / available hoga?", why: "stiff question ending"}
+  - {pattern: "call kiya hai\\.?$", suggest: "call kiya tha", why: "spoken past tense"}
+
+# Order of every call (founder 13 Oct): 1) confirm the business name, 2) the purpose in ONE short
+# line (the hook) before any detail. Checked on the disclosure line and the first reply lines.
+structure:
+  opening_must_ask_name: true
+  purpose_markers: ["regarding", "ke liye call", "call kiya"]
+  purpose_max_words: 22
+
+# Approved lines, used as examples when a script is drafted (few-shot) and as a style reference.
+golden:
+  - "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
+  - "Ji sir, actually maine aapko {services_spoken} ki booking ke regarding call kiya tha."
+  - "Toh sir, {services_spoken} ke estimated kya charges rahenge?"
+  - "Achha theek hai sir, toh {slot} ka slot booking ke liye mil jayega na?"
+  - "Toh sabse nearest kaun sa slot available hoga?"
+  - "Koi around ka slot ho sakta hai, {4 baje} ya {6 baje} ke around?"
+  - "Achha theek hai sir, toh kal aap {slot} ka booking {user_full_name} ke naam se book kar lijiye. {slot_before} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."

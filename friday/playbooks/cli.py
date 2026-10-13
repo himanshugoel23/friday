@@ -98,6 +98,17 @@ def register(sub: Any) -> None:
     promote.add_argument("--from", dest="drafts", default=None, metavar="DIR",
                          help="drafts folder (default var/playbook_drafts)")
     psub.add_parser("types", help="the business types the script author knows")
+    chk = psub.add_parser(
+        "style-check", help="check every spoken line against the founder's style (never edits)")
+    chk.add_argument("name")
+    chk.add_argument("--pending", action="store_true")
+    chk.add_argument("--fix", action="store_true",
+                     help="print the lines with the safe word swaps applied (still no file edit)")
+    learn_p = psub.add_parser(
+        "style-learn", help="teach the style a correction: style-learn BEFORE AFTER")
+    learn_p.add_argument("before")
+    learn_p.add_argument("after")
+    learn_p.add_argument("--note", default="")
     psub.add_parser("pending", help="pending playbooks: valid? approved by the founder?")
     lines = psub.add_parser("lines", help="print every spoken line of a playbook (for the audio)")
     lines.add_argument("name")
@@ -115,6 +126,14 @@ def run_command(args: argparse.Namespace) -> int:
         playbook_files,
     )
 
+    if cmd == "style-learn":
+        from friday.playbooks.style import learn
+
+        got = learn(args.before, args.after, note=args.note)
+        print(f"learned swaps: {got['swaps'] or 'none (kept the corrected line as an example)'}")
+        return 0
+    if cmd == "style-check":
+        return _style_check(args)
     if cmd == "pending":
         return _pending_status()
     if cmd == "lines":
@@ -160,6 +179,33 @@ def run_command(args: argparse.Namespace) -> int:
     print("Usage: friday playbook list | validate <name> | dry-run <name> | draft <type> | "
           "promote <type> | types")
     return 2
+
+
+def _style_check(args: argparse.Namespace) -> int:
+    from friday.playbooks.model import PENDING_DIR, PlaybookError, load_playbook, playbook_files
+    from friday.playbooks.style import autofix, lint_playbook, load_style
+
+    files = playbook_files(PENDING_DIR if args.pending else None)
+    if args.name not in files:
+        print(f"No playbook named '{args.name}'. Have: {', '.join(sorted(files)) or '-'}")
+        return 2
+    try:
+        pb = load_playbook(files[args.name])
+    except PlaybookError as e:
+        print("INVALID: " + "; ".join(e.problems))
+        return 2
+    style = load_style()
+    issues = lint_playbook(pb, style)
+    for i in issues:
+        print(i)
+    if args.fix:
+        for lid, v in pb.lines.items():
+            text = v if isinstance(v, str) else getattr(v, "text", "")
+            fixed = autofix(text, style)
+            if fixed != text:
+                print(f"fix {lid}: {fixed}")
+    print(f"{len(issues)} style issue(s) in {args.name}")
+    return 1 if any(i.severity == "error" for i in issues) else 0
 
 
 def _preview(args: argparse.Namespace) -> int:
