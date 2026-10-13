@@ -333,6 +333,8 @@ class PersonaLeg:
             return "Haan ji, boliye"  # the identity question: by default she says yes
         if qid == "intro":
             return "Haan ji, bataiye"  # the hook (purpose of the call): by default she listens
+        if qid == "s3r_ask":
+            return "Nahi sir, aake dekhna padega"  # asked for a rough range: still no number
         return self.persona.default
 
     def _queue(self, reply: Any) -> None:

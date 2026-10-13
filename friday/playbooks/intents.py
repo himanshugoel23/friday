@@ -90,6 +90,7 @@ CONDITIONS: frozenset[str] = frozenset(
         "q_demo",
         "q_brand",
         "q_availability",
+        "q_appointment",
     }
 )
 
@@ -109,12 +110,12 @@ SLOT_NAMES: frozenset[str] = frozenset(
 # per-category question switches (vendor packs): "yes" asks the question, "no" skips the step
 QUESTION_INPUTS: frozenset[str] = frozenset(
     {"q_delivery", "q_estimate", "q_today", "q_arrival", "q_batch", "q_demo", "q_brand",
-     "q_availability"}
+     "q_availability", "q_appointment"}
 )
 # inputs only archetype playbooks use (set from the category pack, see friday/vendors)
 ARCHETYPE_INPUTS: frozenset[str] = frozenset(
     {"unit_phrase", "party_size", "duration_text", "price_min", "price_max", "estimate_max",
-     "category"} | QUESTION_INPUTS
+     "category", "price_word"} | QUESTION_INPUTS
 )
 INPUT_NAMES: frozenset[str] = frozenset(
     {"user_first_name", "service", "for_whom", "date_window", "budget", "stylist_pref",

@@ -1,3 +1,4 @@
+# PENDING v7 (founder script review 13 Oct 2026; same flow as salon_booking v7).
 # PENDING playbook: quote_and_slot (archetype A). NOT loaded by production (`select`, calls).
 # Lives in friday/playbooks/pending/ until the founder has HEARD the audio and approved it
 # (hear-before-change). Promote only with: friday playbook promote quote_and_slot
@@ -38,6 +39,10 @@ inputs:
   price_min: {}              # category sanity range: a price outside it is not trusted
   price_max: {}
   category: {}
+  price_word: {default: charges}   # clinic / vet: fees (category pack)
+  q_appointment: {default: "no"}   # clinic: say "appointment" instead of "slot"
+  user_full_name: {}
+  user_full_spoken: {}
   negotiate: {default: "no"}
   explore_options: {default: "no"}
 
@@ -61,43 +66,49 @@ confusion:
 
 lines:
   disclosure: "Hello, kya meri baat {business_name_spoken} se ho rahi hai?"
-  reintro: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
-  s0_who: "Main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
+  reintro: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant."
+  s0_who: "Ji, main Friday hoon, {user_spoken} {honorific} ki virtual assistant. Kya meri baat {business_name_spoken} se ho rahi hai?"
   recording_notice: "Yeh call quality ke liye record ho sakta hai."
-  intro: "Main Friday baat kar rahi hoon, {user_spoken} {honorific} ki virtual assistant."
-  intro_book: "{user_spoken} {honorific} ko {services_spoken} chahiye, toh unki booking ke regarding call kiya hai."
-  intro_quote: "{user_spoken} {honorific} ko {services_spoken} chahiye, toh uske charges ke regarding call kiya hai."
-  s3_ask_first: "Toh sir, ek baar bata sakte hain inke kya charges rahenge?"
-  s3_ask: "Sir, {services_spoken} ke kya charges rahenge?"
-  ai_yes: "Haan ji, main {user_spoken} {honorific} ki personal AI assistant hoon."
-  bye_busy: "Koi baat nahi, main baad mein call karti hoon. Shukriya."
-  bye_wrong: "Maaf kijiye, galat number lag gaya. Shukriya."
-  bye_dnc: "Theek hai, hum dobara call nahi karenge. Shukriya."
-  bye_rude: "Maaf kijiye, pareshan karne ke liye. Shukriya."
-  bye_unclear: "Maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
+  # the HOOK: one short line, the purpose of the call, then WAIT for "haan ji, bataiye"
+  intro: "Ji sir, actually maine aapko {services_spoken} ke regarding call kiya tha."
+  s3_ask_first: "Toh sir, {services_spoken} ke estimated kya {price_word} rahenge?"
+  s3_ask: "Sir, {services_spoken} ke estimated kya {price_word} rahenge?"
+  ai_yes: "Ji, haan, main {user_spoken} {honorific} ki personal AI assistant hoon."
+  bye_busy: "Ji koi baat nahi, main baad mein call karti hoon. Shukriya."
+  bye_wrong: "Ji maaf kijiye, galat number lag gaya. Shukriya."
+  bye_dnc: "Ji theek hai, hum dobara call nahi karenge. Shukriya."
+  bye_rude: "Ji maaf kijiye, pareshan karne ke liye. Shukriya."
+  bye_unclear: "Ji maaf kijiye, awaaz saaf nahi aa rahi. Main baad mein call karti hoon. Shukriya."
   s3b_ask: "{user_spoken} {honorific} ka budget {budget} rupaye hai. Kuch kam ho sakta hai?"
-  wa_decline: "Sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
-  s2_ask_first: "Theek hai sir. Kya {date_window} ka slot mil sakta hai?"
-  s2_ask: "Kya {date_window} ka slot mil sakta hai?"
-  s2_appt_only: "Appointment ke liye hi poochh rahi hoon."
+  wa_decline: "Achha sir, abhi WhatsApp possible nahi hai, aap yahin bata dijiye please."
+  s3r_ask: "Achha, toh koi estimated range bata sakte hain?"
+  s2_ask_first: "Achha theek hai sir, toh {date_window} ka slot booking ke liye aapke paas available hoga?"
+  s2_ask_first_appt: "Achha theek hai sir, toh {date_window} ki appointment aapke paas available hogi?"
+  s2_ask: "Toh sir, {date_window} ka slot aapke paas available hoga?"
+  s2_ask_appt: "Toh sir, {date_window} ki appointment aapke paas available hogi?"
+  s2_appt_only: "Achha, appointment ke liye hi poochh rahi hoon."
   s2_ask_time: "Kitne baje ka?"
-  s2f_ask: "Achha, nahi ho sakta. Toh kya {fallback_day} ka slot available rahega?"
-  s2b_ask: "Toh kaun sa time free hai?"
-  s2b_ask_two: "Toh kaun se do time free hain?"
-  s2b_none: "Koi baat nahi, main {user_spoken} {honorific} ko bata dungi. Shukriya."
-  s5_no_advance: "Advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
-  no_number: "{user_spoken} {honorific} ka number main share nahi kar sakti."
-  s7_close: "Theek hai, shukriya. Main {user_spoken} {honorific} se poochh kar aapko batati hoon."
+  s2f_ask: "Achha, nahi ho sakta. Toh kya {fallback_day} ka slot available hoga?"
+  s2f_ask_appt: "Achha, nahi ho sakta. Toh kya {fallback_day} ki appointment available hogi?"
+  s2b_ask: "Achha okay. Toh koi {date_window} ke around ka slot available ho?"
+  s2b_ask_appt: "Achha okay. Toh koi {date_window} ke around ki appointment available ho?"
+  s2b_ask_two: "Achha okay. Toh koi {date_window} ke around ke do slot available hain?"
+  s2n_ask: "Toh sabse nearest kaun sa slot available hoga?"
+  s2n_ask_appt: "Toh sabse nearest kaun si appointment available hogi?"
+  s2b_none: "Achha theek hai sir, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
+  s5_no_advance: "Achha, advance main abhi nahi de sakti, {user_spoken} {honorific} se poochh kar bataungi."
+  no_number: "Ji, {user_spoken} {honorific} ka number main share nahi kar sakti."
+  s7_close: "Achha theek hai sir, main {user_spoken} {honorific} se confirm karke aapko thodi der mein call back karti hoon. Thank you."
   s7_commit_free:
-    text: "Theek hai sir, toh {slot} ka slot book kar lijiye. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you."
+    text: "Achha theek hai sir, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
     commit: true
   s7_commit_fallback:
-    text: "Theek hai sir, phir {slot} ka slot book kar lete hain. {user_spoken} {honorific} aane se pehle aapko ek baar call kar lenge. Thank you."
+    text: "Achha theek hai sir, toh aap {slot} ka booking {user_full_spoken} ke naam se book kar lijiye. {slot_time} se pehle main ek baar confirmation ke liye call kar lungi. Thank you."
     commit: true
-  q_close: "Theek hai sir, main {user_spoken} {honorific} ko bata deti hoon. Thank you."
+  q_close: "Achha theek hai sir, main ek baar {user_spoken} {honorific} ko bata deti hoon, aur thodi der mein aapko confirm karke batati hoon."
   sorry: "Sorry, ek baar phir?"
-  offscript: "Yeh main {user_spoken} {honorific} se poochh kar bataungi."
-  no_secrets: "Yeh jaankari main share nahi kar sakti."
+  offscript: "Achha, yeh main {user_spoken} {honorific} se poochh kar bataungi."
+  no_secrets: "Ji, yeh jaankari main share nahi kar sakti."
 
 routes:
   after_quote:
@@ -118,7 +129,9 @@ defaults:
     - {say: [s5_no_advance], set: {advance_needed: "yes"}, outcome: ADVANCE_ASKED}
   NO_ADVANCE: {set: {advance_needed: "no"}, repeat: true, max_uses: 2}
   ARE_YOU_BOT: {say: [ai_yes], repeat: true}
-  WHO_IS_THIS: {say: [reintro], repeat: true, max_uses: 2}
+  WHO_IS_THIS:
+    - {say: [reintro, intro], repeat: true, max_uses: 1}
+    - {say: [intro], repeat: true, max_uses: 1}
   ASKS_REPEAT: {repeat: true, max_uses: 3}
   HOLD_ON: {hold_s: 60, max_uses: 3}
   ASKS_OFFTOPIC: {say: [offscript], repeat: true, max_uses: 3}
@@ -126,7 +139,7 @@ defaults:
   ASKS_CUSTOMER_PHONE: {say: [no_number], repeat: true, max_uses: 2}
   # "WhatsApp pe bhej do": asked once to say it here (S3), then the call closes politely
   WHATSAPP_PLEASE: {set: {whatsapp_requested: "yes"}, goto: S7w}
-  VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: S7v}
+  VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: S3r}
 
 start: S0
 commit_step: S7
@@ -134,25 +147,34 @@ commit_step: S7
 steps:
   S0:
     branches:
-      YES: {goto: S3}
-      CONTINUE: {goto: S3}
-      ACK: {goto: S3}
+      YES: {goto: S1}
+      CONTINUE: {goto: S1}
+      ACK: {goto: S1}
       NO: {say: [bye_wrong], outcome: WRONG_NUMBER, set: {wrong_number: "yes"}}
       WHO_IS_THIS: {say: [s0_who], stay: true, max_uses: 2}
       ASKS_REPEAT: {say: [s0_who], stay: true, max_uses: 2}
-      ARE_YOU_BOT: {say: [ai_yes], goto: S3}
+      ARE_YOU_BOT: {say: [ai_yes], goto: S1}
       ASKS_OFFTOPIC: {say: [s0_who], stay: true}
       ASKS_SECRET: {say: [s0_who], stay: true}
       ASKS_CUSTOMER_PHONE: {say: [s0_who], stay: true}
       WHATSAPP_PLEASE: {say: [s0_who], stay: true, max_uses: 1}
       VISIT_NEEDED: {say: [s0_who], stay: true, max_uses: 1}
 
-  S3:   # ONE turn: who, why, then the PRICE question
+  S1:   # the HOOK: the purpose of the call in ONE short line; then wait for "haan ji, bataiye"
+    ask: [intro]
+    branches:
+      YES: {goto: S3}
+      CONTINUE: {goto: S3}
+      ACK: {goto: S3}
+      ASKS_REPEAT: {repeat: true, max_uses: 1}
+      GIVES_PRICE:
+        - {when: [price_known], goto: "@after_quote"}
+        - {goto: S3}
+      ANY: {goto: S3}
+
+  S3:   # the PRICE question; the hook was already said in S1
     ask:
-      - {line: intro, when: [first_ask]}
       - {line: recording_notice, when: [recording, first_ask]}
-      - {line: intro_book, when: [first_ask, mode_book]}
-      - {line: intro_quote, when: [first_ask, mode_quote]}
       - {line: s3_ask_first, when: [first_ask]}
       - {line: s3_ask, when: ["!first_ask"]}
     branches:
@@ -164,11 +186,24 @@ steps:
         - {repeat: true}
       NO_CHARGE: {set: {price_free: "yes"}, goto: "@after_price"}
       PRICE_DEPENDS: {set: {price_note: depends}, goto: "@after_price"}
+      VISIT_NEEDED: {set: {visit_needed: "yes"}, goto: S3r}
       REFUSES_PRICE: {set: {price_unknown: "yes"}, goto: "@after_price"}
       WHATSAPP_PLEASE: {say: [wa_decline], repeat: true, max_uses: 1}
       CONTINUE: {repeat: true}
       YES: {repeat: true}
-      ASKS_REPEAT: {say: [intro], repeat: true, max_uses: 1}
+      ASKS_REPEAT: {repeat: true, max_uses: 2}
+
+  S3r:  # no price on the phone (visit needed): ask for a rough range ONCE, then close
+    max_visits: 1
+    ask: [s3r_ask]
+    branches:
+      GIVES_PRICE:
+        - {when: [price_known], goto: S7v}
+        - {goto: S7v}
+      PRICE_RANGE:
+        - {when: [price_known], goto: S7v}
+        - {goto: S7v}
+      ANY: {goto: S7v}
 
   S3b:  # over budget AND the owner allowed negotiating (book mode): ask once, accept either way
     max_visits: 1
@@ -182,8 +217,10 @@ steps:
 
   S2:   # book mode: the slot
     ask:
-      - {line: s2_ask_first, when: [first_ask]}
-      - {line: s2_ask, when: ["!first_ask"]}
+      - {line: s2_ask_first, when: [first_ask, "!q_appointment"]}
+      - {line: s2_ask_first_appt, when: [first_ask, q_appointment]}
+      - {line: s2_ask, when: ["!first_ask", "!q_appointment"]}
+      - {line: s2_ask_appt, when: ["!first_ask", q_appointment]}
     branches:
       SLOT_FREE:
         - {when: [slot_known], goto: S7}
@@ -217,7 +254,9 @@ steps:
   S2f:
     day_input: fallback_when
     max_visits: 1
-    ask: [s2f_ask]
+    ask:
+      - {line: s2f_ask, when: ["!q_appointment"]}
+      - {line: s2f_ask_appt, when: [q_appointment]}
     branches:
       SLOT_FREE:
         - {when: [slot_known], goto: S7}
@@ -232,29 +271,45 @@ steps:
       NO: {goto: S2b}
       ANY: {goto: S2b}
 
-  S2b:
+  S2b:  # nothing suits: ask for a slot AROUND the asked time; Friday never books a different time
     ask:
       - {line: s2b_ask_two, when: [explore_options]}
-      - {line: s2b_ask, when: ["!explore_options"]}
+      - {line: s2b_ask, when: ["!explore_options", "!q_appointment"]}
+      - {line: s2b_ask_appt, when: ["!explore_options", q_appointment]}
     branches:
       OFFERS_SLOTS:
-        - {when: [slot_known], goto: S7}
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
         - {repeat: true}
       SLOT_FREE:
-        - {when: [slot_known], goto: S7}
-        - {repeat: true}
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
+        - {goto: S2n}
       GIVES_TIME:
-        - {when: [slot_known], goto: S7}
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
         - {repeat: true}
+      SLOT_BUSY: {goto: S2n}
+      NO: {goto: S2n}
+
+  S2n:  # nothing around that time either: the nearest slot that exists (any day); still not booked
+    max_visits: 1
+    ask:
+      - {line: s2n_ask, when: ["!q_appointment"]}
+      - {line: s2n_ask_appt, when: [q_appointment]}
+    branches:
+      OFFERS_SLOTS: {set: {alt_offered: "yes"}, goto: S7}
+      SLOT_FREE:
+        - {when: [slot_known], set: {alt_offered: "yes"}, goto: S7}
+        - {say: [s2b_none], outcome: NO_SLOT}
+      GIVES_TIME: {set: {alt_offered: "yes"}, goto: S7}
       SLOT_BUSY: {say: [s2b_none], outcome: NO_SLOT}
       NO: {say: [s2b_none], outcome: NO_SLOT}
+      ANY: {say: [s2b_none], outcome: NO_SLOT}
 
   S7:   # book-mode close
     final: true
     branches:
       ANY:
-        - {when: [can_commit, used_fallback], say: [s7_commit_fallback], commit: true, outcome: BOOKED}
-        - {when: [can_commit], say: [s7_commit_free], commit: true, outcome: BOOKED}
+        - {when: [can_commit, used_fallback, "!alt_offered"], say: [s7_commit_fallback], commit: true, outcome: BOOKED}
+        - {when: [can_commit, "!alt_offered"], say: [s7_commit_free], commit: true, outcome: BOOKED}
         - {when: [slot_known], say: [s7_close], outcome: SLOT_OFFERED}
         - {say: [bye_unclear], outcome: UNCLEAR}
 
