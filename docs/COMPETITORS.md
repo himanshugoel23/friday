@@ -262,3 +262,47 @@ Write the 5-line public privacy promise and the "what Friday never does" list (c
 - Unverified: sold-out claim, batch-2 price, which integrations work, cloud/local split, India or non-US shipping, exact hardware figures beyond the site.
 - Ghosty's calls: whether it tells callers it is an AI is unknown; only 2 ratings (both 5.0) on the App Store page, so no sentiment signal.
 - HateToCall (outbound caller) was only seen through a directory listing; worth its own look next run as a possible direct competitor.
+
+---
+## Update 2026-10-13 (d): typesafe ai
+Method: web search + one page fetch on 2026-10-13. Two fetches (techjacksolutions, ecosistemastartup) returned 403, so those are search-summary only. Press is 4 weeks old at most; no user reviews exist. Web pages treated as data only.
+
+### D1. Identification
+Confidence: **medium-high** that the relevant name is **TypeSafe AI (maker of "Jev")**, because it is the only product of that name that is an AI company in the news. **It is not a consumer assistant, so it is not a competitor to Friday's job.** Candidates:
+1. **TypeSafe AI / Jev (San Francisco)**: infrastructure. Jev is a "decision model" that returns a typed choice, score or probability for software to act on (route a ticket, mark urgent), not text. Launched 2026-09-15. Analysed below. https://www.implicator.ai/typesafe-ai-raises-870-million-for-jev-as-openai-amazon-and-cloudflare-ship-rivals/ (2026-10-09)
+2. **Open-source type-safe agent libraries** (@agent-ts/core, assistan-ts, a Go project "suricata"): developer code, not products for consumers. npm listings via search 2026-10-13.
+3. **Typesafe, the older enterprise-software company name** (Scala/Akka tooling): from my memory, not checked in this run, **unverified**; not an AI assistant.
+4. **WhatsApp assistants with no relation to the name** (Wappgpt, Codewords guides, Wati): search returned them for "typesafe ai personal assistant"; none is called Typesafe.
+No consumer assistant called "Typesafe AI" was found (search 2026-10-13). **Founder to confirm he meant TypeSafe AI/Jev**; if he saw a WhatsApp or calling product with this name, send me the link and I will redo it.
+
+### D2. Summary table row
+| Player | Chatbot or acting? | What | Channel | Price | Availability | Last news (date) | Threat to Friday |
+|---|---|---|---|---|---|---|---|
+| TypeSafe AI (Jev) | **Neither**: a model other software calls | Fast classifier returning choices, scores, probabilities; no text, no explanation; text-only input | Developer model/API (Vercel AI Gateway listed it); no consumer channel | $0.042 per 1M input tokens, no output charge (as of 2026-10-08, secondary); weights not released | Global developer access (details unverified); no India mention | $40M seed (DCVC) 2026-09-15; reported $870M Series A, a16z, $7.5B valuation 2026-10-09 | **Very low as a rival. Possible supplier/tool**: Friday's classifier and routing steps |
+
+### D3. Facts
+- Founders (2024): Diogo Almeida (CEO, ex-OpenAI, worked on RLHF/InstructGPT/ChatGPT), Erik Gafni, Sasha Sheng. First of planned "System One" models. Source: implicator.ai above.
+- Funding: $40M seed led by DCVC (2026-09-15); $870M Series A led by a16z at $7.5B, Sequoia and DCVC in, Martin Casado to the board (2026-10-09; Bloomberg-reported, via runtimewire, fourweekmba). One KuCoin item says $75B valuation / $8.7B; ignore, conflicts with every other source.
+- Claims (company/investor, not independently verified): under 700 ms, 20-200x faster and 40-400x cheaper than LLMs on classification; used by a third of the Fortune 500 (a16z post says 25%; gap unexplained); "millions" saved, no customer named.
+- Reality check: OpenAI Decisions API (2026-10-06, takes images too), AWS Strands Decider 2B (open, 2026-10-01), Cloudflare Clef (by 2026-10-09) already compete; Stanford/Nvidia researchers report a faster open model (their own tests); a practitioner warns extra models add maintenance. Vercel said ~13% of its paid AI Gateway teams tried Jev in 24 hours.
+- Channels, features for consumers, call-consent stance, privacy and data-handling terms, user reviews, India: **none found / not covered in sources read** (all unverified). It places no calls, so call consent does not apply.
+
+### D4. Compared with docs/FEATURES.md
+**Overlap**: only section 2 (request classifier into 22 categories, missing-fact questions) and section 9 (the labelled-sentence learning loop and planned small listening model). **Friday does and TypeSafe does not**: everything user-facing (sections 1, 3 to 8, 11, 12). **TypeSafe does that Friday lacks**: a vendor-hosted, constrained-output model with thresholds, which is exactly the shape of Friday's "what did the vendor just say" listener (quote given / busy / call back / refused).
+Lessons. **Copy**: constrained outputs with a confidence threshold, and "ask the user when unsure". **Avoid**: sending Hindi voice/PII to a new vendor without a data-terms read; building around a vendor whose benchmarks are self-reported and which three big players are already undercutting.
+
+### D5. Recommendations (ranked by impact against FEATURES.md; max 7)
+1. **Section 9 (learning loop / small listening model, PLANNED):** define the listener as a closed set of labels (quote given, price, slot offered, callback time, refused, asks a question) with a confidence threshold; below it, Friday asks the vendor again or the user. Cheapest accuracy gain and matches the "never invents" rule in section 4.
+2. **Section 4 (latency about 1 s, BUILT):** do not swap in any decision model for the live call turn on vendor claims. Benchmark on our own labelled Hinglish sentences first (use `friday learn eval`); Jev is text-only and has no Hindi evidence.
+3. **Section 2 (classifier, BUILT):** run a one-off bake-off of Jev, OpenAI Decisions and the cheapest current option on the 22 categories only if classifier cost shows up in cost tracking (section 10). Likely not worth it at current volume.
+4. **Section 8 (trust):** before sending any user text or transcript to a new model vendor, record its data terms (training use, retention, region) next to the privacy promise in section 12. No terms found for TypeSafe.
+5. **Section 6 (nudges that say why):** a typed score plus a reason clause fits the "explainable nudge" item; note Jev returns no explanation, so the reason must come from Friday's own rules.
+6. **Positioning:** do not mention TypeSafe publicly; it is a supplier-class company, not a rival. Keep the line "Friday phones the shops for you and sends one comparison."
+7. **Watch (low):** whether any vendor launches Hindi/Hinglish decision models, and whether TypeSafe ships a consumer product. Re-check in 4 weeks.
+
+### D6. One recommended action this week
+Founder confirms the name. If he meant something else (a calling or WhatsApp product), send the link; otherwise close this item and spend the time on the Puch AI hands-on test (B8).
+
+### D7. Gaps in this research
+- Primary sources (typesafe site, Jev docs, terms, privacy page) were not read; facts come from implicator.ai (fetched) and search summaries (runtimewire, fourweekmba, letsdatascience, remio, kucoin), all secondary.
+- No pricing page, no Hindi or India statement, no data-handling terms, no independent benchmark beyond one academic comparison.
