@@ -476,3 +476,8 @@ Founder asked. Researching with web search; result to be added to docs/COMPETITO
 
 ## Question (2026-10-14): do cab and hotel booking have MCP or APIs?
 Founder asked. Researching Ola, Uber, Rapido, MakeMyTrip, Booking.com, etc. Result goes to docs/COMPETITORS.md.
+
+## Decision note (2026-10-14): Friday will charge businesses for bookings
+Founder: "We will charge business for booking definitely." This changes the earlier suggestion of
+user-only revenue. Guardrails written in docs/DIFFERENTIATORS.md so the neutral, no-sales-pitch promise
+survives (fee never changes ranking, disclosed, flat). Open: fee model, which categories, legal read.

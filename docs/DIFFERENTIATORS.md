@@ -94,3 +94,25 @@ Where this is hard, so decide before building:
   and public pages, say "approximate".
 - **Revenue:** neutrality means a user subscription is the cleanest model (decide with the
   revenue question above).
+
+## Revenue decision (founder, 14 Oct 2026): businesses pay for bookings
+Decided: Friday charges businesses when a booking happens. This replaces the earlier idea that only
+users pay. It is fine, but it is the exact thing that destroys trust if done badly, so these
+guardrails come with the decision:
+1. **The fee never changes the ranking or the advice.** Order is by the user's benefit only
+   (price, quality, distance, fit). Code enforces it: the ranking function does not receive the fee.
+2. **Pay only on a completed booking,** not for listing, not for position. No "sponsored" slots.
+3. **One transparent fee schedule** per category (flat or one %), the same for every business in that
+   category. No bidding, no private deals that affect order.
+4. **Tell the user in one line:** "Friday businesses se booking fee leta hai; ranking pe asar nahi
+   padta." (wording needs the founder's approval, as with all spoken/written lines.)
+5. **Businesses we do not charge are still compared** (kirana, small salon that never signed up).
+6. **Never charge the user a hidden extra;** the price shown is the price the business quoted.
+7. **Public log:** monthly count of bookings and fee earned, no ranking by revenue.
+Why this also helps onboarding: the business pays only when it gets a customer, so there is no
+upfront cost for them to say yes (pay-per-booking, not subscription).
+
+Open decisions: fee model (flat Rs or % by category), which categories first (table, salon, hotel,
+cab, banquet), how a booking is verified (business confirms by WhatsApp reply or a link; payment
+settlement, GST invoice), and a legal read (consumer protection and advertising rules, GST).
+Note: platforms with affiliate programs (e.g. Booking.com) fit this model, but disclose it the same way.
