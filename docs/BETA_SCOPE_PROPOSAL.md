@@ -141,3 +141,26 @@ Works with no partner APIs, is accurate when verified, and shows saving in rupee
   the user's photo/SMS/Gmail. Upgrade to bill fetch via a BBPS partner after the first users.
 - Not covered by search: Bharat Connect's own rules for third-party apps, fees to us, and which
   providers allow a start-up without its own license. Next step: ask Razorpay, Cashfree and Setu.
+
+## Google Suite connector: plan (14 Oct 2026)
+State: nothing exists in the code yet (only Google Places/Geocoding keys). The connector is new work.
+Google rules (vendor blogs, verify in the Google Cloud console): Gmail read scopes are RESTRICTED and
+need a yearly third-party security assessment (CASA; cost quoted from about Rs 50k to Rs 60 lakh
+depending on the source, weeks to months). Calendar scopes are SENSITIVE: a lighter review (about
+3 to 5 business days per Google, per one source). Apps in testing mode can serve a small list of named
+test users without verification (about 100; confirm).
+Plan:
+1. **Now (beta, no review needed):** build with the founder's Google Cloud project in testing mode and
+   named testers: OAuth (per user, tokens encrypted per user, one-step disconnect) and Calendar
+   read/write: show today's schedule in the morning brief, add reminders and booked appointments,
+   avoid clashes ("us waqt aap busy hain").
+2. **Then:** submit Calendar for verification (privacy policy URL, a demo video, a domain we own;
+   needs the business name).
+3. **Gmail, narrow first:** instead of full read, start by the user FORWARDING bills and tickets to a
+   Friday address (no Google review), and add Gmail read later with a limited search, after budget and
+   the CASA decision. Drive/Docs/Sheets: not needed for the beta.
+Rules: ask once and say why; read-only by default; never send email without approval; per-user
+data only; never used for training or ads; delete on disconnect.
+Founder to do (cannot be done by Claude): create the Google Cloud project, enable the Calendar API,
+set up the OAuth consent screen, add the test users, and put the client id and secret in the server
+.env (names only in chat or git). Needed first: a privacy policy page and the business name.
