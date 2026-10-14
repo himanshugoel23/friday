@@ -470,3 +470,6 @@ docs/FEATURES.md section 13; design for it now (consent, per-person data) so it 
 Founder asked whether we can add a model on the user's device like Ghost. Answer given: possible later
 as a phone app for sensitive parts only; not for the beta (WhatsApp and calls run in the cloud).
 Recorded in docs/FEATURES.md section 13.
+
+## Question (2026-10-14): do Zepto, Blinkit, Instamart have MCP?
+Founder asked. Researching with web search; result to be added to docs/COMPETITORS.md if confirmed.
