@@ -306,3 +306,15 @@ Founder confirms the name. If he meant something else (a calling or WhatsApp pro
 ### D7. Gaps in this research
 - Primary sources (typesafe site, Jev docs, terms, privacy page) were not read; facts come from implicator.ai (fetched) and search summaries (runtimewire, fourweekmba, letsdatascience, remio, kucoin), all secondary.
 - No pricing page, no Hindi or India statement, no data-handling terms, no independent benchmark beyond one academic comparison.
+
+## Update 2026-10-14 (e): do Instamart, Zepto and Blinkit have MCP? (web search, not hands-on)
+- **Swiggy Instamart (and Swiggy Food, Dineout): official MCP**, part of "Builders Club" (announced
+  2026-04-23). Production is whitelist-only; developer docs at https://mcp.swiggy.com/builders.
+  Tool counts differ by source (18 vs 66). Hands-on report: real but gated (MediaNama 2026-01).
+- **Zepto: official MCP server described by Zepto's own engineering blog** (search, add_to_cart,
+  checkout with COD; custom OAuth after OTP login exposed the model). Public availability and docs
+  not confirmed. https://blog.zepto.com/how-zepto-enables-seamless-shopping-through-ai-fcc7d2e43c7b
+- **Blinkit: no official MCP found.** Only unofficial community servers that automate the consumer
+  site with phone OTP (can break, touch real payments, likely against site terms). Do not use.
+- Consequence for Friday: Swiggy is the one partner route worth applying to now (Builders Club).
+  Zepto: ask for access. Blinkit: link-out only until official. Never take a user's OTP (our rule).
