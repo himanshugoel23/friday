@@ -500,3 +500,8 @@ UPI Circle/AutoPay, virtual cards. Plan goes to docs/BETA_SCOPE_PROPOSAL.md.
 ## Question (2026-10-14): can Friday use the Google MCP like Claude does?
 Answered: Claude's Gmail/Drive connectors are tied to the founder's own Claude account and cannot serve
 Friday's users. Friday needs its own per-user Google OAuth (MCP or direct API, same Google verification).
+
+## Clarification (2026-10-14): users authorize their own Gmail
+Founder: each user will authorize their own Gmail when asked to connect the app. Confirmed: this is the
+per-user OAuth flow in docs/BETA_SCOPE_PROPOSAL.md; the Gmail restricted-scope review still applies
+before public launch (testing mode with named testers until then).
