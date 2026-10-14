@@ -487,3 +487,7 @@ Founder asked. Researching BBPS and aggregators (Bharat Connect, Setu, Razorpay,
 
 ## Question (2026-10-14): what do Instinct and Muse provide?
 Founder asked; answered from docs/COMPETITORS.md (B2, B3).
+
+## Task note (2026-10-14): Google Suite connector in Friday
+Founder asked: can we add the Google Suite (Gmail, Calendar, Drive) connector now. Checking what exists
+in the code and the Google verification requirements; plan goes to docs/BETA_SCOPE_PROPOSAL.md.
