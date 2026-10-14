@@ -120,3 +120,24 @@ Idea: Friday knows the user's cards, spending and habits, so before any purchase
 ### Suggested first slice (cheap, high wow)
 "Kaun sa card?" for the 10 most common cards across food, grocery, fuel, travel, shopping, bills.
 Works with no partner APIs, is accurate when verified, and shows saving in rupees right away.
+
+## Bill and credit card payment APIs (web search 14 Oct 2026; secondary sources, verify)
+- **Electricity, gas, water, broadband, DTH, credit card** all run on **BBPS (now "Bharat Connect")**,
+  run by NPCI Bharat BillPay Ltd. A third-party app connects as a **Customer Operating Unit (COU)** or
+  through a licensed partner that is one. Billers connect through a BBPOU/BOU.
+- **Licensed providers with APIs:** Razorpay (COU; fetch billers, fetch bill amount, pay), Cashfree,
+  EnKash, Setu, BillAvenue. Flow: list categories, list billers, send the customer identifier
+  (consumer number, mobile, account), fetch the outstanding bill, pay, check status, receipt.
+  Each biller says whether bill fetch is supported. Amounts are in paise.
+- **Credit cards:** one vendor guide says RBI requires credit card bill payments through third-party
+  apps to go via BBPS from 1 July 2024. Not confirmed in an RBI text. No card-specific API spec found.
+- **What we need to use them:** a company, GST/PAN, bank account, partner agreement, UAT
+  certification; vendors quote about 1-2 weeks for integration once approved. Holding or moving user
+  money is the licensed partner's job, which keeps Friday outside RBI licensing if we only initiate.
+- **Cost and fit:** these are payment APIs. Using them means Friday initiates payment (the user
+  approves each payment), which changes our current "Friday never pays" rule. Needs a founder
+  decision and a legal read.
+- **Beta without APIs:** bill reminders and "pay now" links (UPI or the biller app). Bill amount from
+  the user's photo/SMS/Gmail. Upgrade to bill fetch via a BBPS partner after the first users.
+- Not covered by search: Bharat Connect's own rules for third-party apps, fees to us, and which
+  providers allow a start-up without its own license. Next step: ask Razorpay, Cashfree and Setu.
