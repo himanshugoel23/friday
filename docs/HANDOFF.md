@@ -440,3 +440,9 @@ docs/DIFFERENTIATORS.md (proposal, founder to choose).
 ## Task note (2026-10-14): moat and fundability
 Founder asked: what more can we add, like why Ghost and Instinct will survive and get funding.
 Adding a "moat and fundability" section to docs/DIFFERENTIATORS.md (proposal, founder to choose).
+
+## Decision note (2026-10-14): founder wants a wider beta
+Founder: beta should also include food and grocery comparison and ordering, bill payments and basic
+connectors; otherwise Friday will struggle to survive and onboarding will be hard. This widens the
+earlier "Phase 1 = vendor calling only" decision and touches "Friday never pays". Proposal written in
+docs/BETA_SCOPE_PROPOSAL.md; awaiting founder choices on payment model and which apps first.
