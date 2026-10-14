@@ -473,3 +473,6 @@ Recorded in docs/FEATURES.md section 13.
 
 ## Question (2026-10-14): do Zepto, Blinkit, Instamart have MCP?
 Founder asked. Researching with web search; result to be added to docs/COMPETITORS.md if confirmed.
+
+## Question (2026-10-14): do cab and hotel booking have MCP or APIs?
+Founder asked. Researching Ola, Uber, Rapido, MakeMyTrip, Booking.com, etc. Result goes to docs/COMPETITORS.md.
