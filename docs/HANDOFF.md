@@ -432,3 +432,7 @@ Build: `friday/playbooks/style/` = style dictionary (his rules: word swaps, bann
 ## Task note (2026-10-13): analyse typesafe ai
 Founder asked: "Analyse typesafe ai as well". Product-manager agent launched to identify the product
 and append "Update 2026-10-13 (d): typesafe ai" to docs/COMPETITORS.md.
+
+## Decision note (2026-10-14): differentiators
+Founder: big companies already build AI assistants, so Friday must find differentiators. Writing
+docs/DIFFERENTIATORS.md (proposal, founder to choose).
