@@ -164,3 +164,21 @@ data only; never used for training or ads; delete on disconnect.
 Founder to do (cannot be done by Claude): create the Google Cloud project, enable the Calendar API,
 set up the OAuth consent screen, add the test users, and put the client id and secret in the server
 .env (names only in chat or git). Needed first: a privacy policy page and the business name.
+
+## Doing "what Muse does" in India (14 Oct 2026; web search, vendor sources, verify)
+| Muse feature | India route for Friday | Beta? |
+|---|---|---|
+| Read email and calendar | Google connector (plan above): Calendar first, Gmail by forwarding then read later | Calendar yes |
+| Bank connection, expense tracking | **Account Aggregator (AA)**: RBI-regulated, consent-based; Friday is a Financial Information User (FIU). Needs Sahamati certification, or use a technical service provider (Setu, Finvu, OneMoney etc.) that handles it. User links the bank by OTP on the AA's screen, Friday never sees the bank login. Gives transactions, balances. | After the first users (needs company, partner, certification) |
+| Find and cancel unused subscriptions | Detect recurring debits (UPI AutoPay, NACH, card subscriptions) from AA data or forwarded SMS/emails. Cancel: the mandate is revoked by the user in the UPI or bank app (Friday sends the exact steps or a deep link), or Friday CALLS the merchant to cancel (our hero feature). Friday does not revoke mandates itself. | Detect + guide + call: yes, after data source exists |
+| One-time cards (Stripe) | India has no Stripe-style link. Options: (a) **UPI Circle** delegated payments (primary user delegates to a secondary: reported caps Rs 5,000 per payment, Rs 15,000 per month, up to 5 secondary users, via BHIM; reported from news, check NPCI); (b) virtual cards from a licensed issuer partner (RBI rules, KYC, partner needed); (c) the user pays by UPI link each time. | (c) in beta; (a)/(b) later after legal read |
+| Phone calls | Already built (22 categories). | Yes |
+
+Principles that stay: Friday never sees bank logins, OTP, PIN or card numbers; every payment or
+cancellation is approved by the user; limits are enforced in code; data per user only; consent
+screens say what and why; one-step disconnect and delete.
+Sequence: (1) calendar + forwarded bills, (2) subscription detection from forwarded SMS/emails/
+statements the user uploads (no licence needed), (3) AA bank link through a technical partner,
+(4) delegated payments (UPI Circle) after legal read.
+Needs from founder: company registration and business name, a partner choice (Setu, Finvu or
+other), a lawyer's read on AA/FIU, UPI Circle and payments, and a privacy policy.
