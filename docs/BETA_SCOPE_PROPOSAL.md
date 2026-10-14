@@ -73,3 +73,50 @@ Wow = Friday acts before being asked, saves visible money or time, and shows pro
    suggested gift order.
 Suggested beta wow set: 1, 2, 6, 7 (cheap to build, easy to demo, measurable).
 Decision needed: which 3 to lead with.
+
+## The savings engine: "best card, best app, best price" (founder, 14 Oct 2026)
+Idea: Friday knows the user's cards, spending and habits, so before any purchase it answers
+"kaun sa card, kaun si app, kitna bachega". This is the personal, neutral, no-pitch assistant.
+
+### What the user gives (once, by chat)
+- Which cards they hold: bank + card NAME only (e.g. "HDFC Regalia"). **Never card numbers, CVV,
+  expiry, OTP.** Optional: monthly spend by category, billing date, reward points balance.
+- Apps they use and their address and family size (for groceries).
+
+### What Friday answers
+1. **Which card for this purchase:** "Zomato pe Rs 640: SBI Cashback se 5% (Rs 32); HDFC se 3%.
+   SBI use karo. Is mahine ka cashback cap: Rs 180 bacha hai."
+2. **Which app for this cart:** price + fees + delivery + offers per item or per basket, with an
+   honest split: "dal Blinkit se, sabzi Zepto se, total Rs X kam".
+3. **Stacking:** card offer + app coupon + bank offer + wallet cashback, only combinations that
+   actually work together, with the final price.
+4. **Timing:** "Kal sale hai" or "billing date ke baad kharido taaki 45 din ka free credit mile".
+5. **Monthly view:** "Is mahine Friday ne Rs X bachaye; aapka kaun sa card use nahi ho raha".
+6. **Big purchases:** phone, flights, hotels, appliances: best card + portal + offer, and when to wait.
+
+### How to build it
+1. **Card rules table** (versioned, one row per card per category: rate, cap, exclusions, source URL,
+   date checked). Start with the 10 to 15 most common Indian cards. Data from public bank pages;
+   a person verifies each rule before it goes live; show "last checked" to the user.
+2. **User wallet** (card names, optional caps used so far, per user only, encrypted).
+3. **Calculator** (pure code, unit-tested, never the language model deciding the number). The model
+   only understands the request and writes the reply; every rupee figure comes from the calculator
+   (same rule as today: no invented numbers).
+4. **Price sources:** user-forwarded screenshots and bills first; app deep links; official APIs or
+   MCP where allowed; clearly mark "approximate, price may change".
+5. **Proof:** log each recommendation and the actual outcome, so the savings tracker is honest.
+
+### Risks to decide
+- Card rewards change often and have hidden exclusions (wallet loads, fuel, rent, insurance, caps).
+  A wrong "use this card" loses trust. Mitigation: verified rules, "last checked" dates, ask the user
+  to confirm on the card app when the rule is older than 30 days.
+- Quick-commerce prices are not public. Early version = card advice (data we control) + link-out
+  comparison; full basket comparison comes after partnerships or user-contributed prices.
+- Financial rules: card advice from the user's own cards is fine. Recommending NEW cards to apply for
+  is a sales-adjacent area (no affiliate links, say so openly; later check legal).
+- Privacy: card names and spend patterns are sensitive; per user only, delete in one step, never
+  used for ads or sold.
+
+### Suggested first slice (cheap, high wow)
+"Kaun sa card?" for the 10 most common cards across food, grocery, fuel, travel, shopping, bills.
+Works with no partner APIs, is accurate when verified, and shows saving in rupees right away.
