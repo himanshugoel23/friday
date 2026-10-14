@@ -481,3 +481,6 @@ Founder asked. Researching Ola, Uber, Rapido, MakeMyTrip, Booking.com, etc. Resu
 Founder: "We will charge business for booking definitely." This changes the earlier suggestion of
 user-only revenue. Guardrails written in docs/DIFFERENTIATORS.md so the neutral, no-sales-pitch promise
 survives (fee never changes ranking, disclosed, flat). Open: fee model, which categories, legal read.
+
+## Question (2026-10-14): electricity and gas bill APIs
+Founder asked. Researching BBPS and aggregators (Bharat Connect, Setu, Razorpay, etc.). Result goes to docs/BETA_SCOPE_PROPOSAL.md.
