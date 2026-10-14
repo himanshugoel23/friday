@@ -66,3 +66,31 @@ Investors fund: a big market, fast growth, something hard to copy, and a team th
 ### Founder decisions needed
 Which 3 of the above lead the story; the revenue model; whether customer-care calls are a launch
 feature; the vendor "verified" programme.
+
+## Positioning: the assistant with no sales pitch (founder, 14 Oct 2026)
+Every category (credit cards, card offers, insurance, loans, recharge, broadband, groceries, travel)
+is a maze of platforms, each with its own price, offer and pitch, and each paid to push you. Friday
+works only for the user: it compares across all of them and tells the plain truth. Line to test:
+**"Sab apps bechte hain. Friday sirf aapke liye kaam karta hai."**
+
+What makes the promise real (investors and users will both test it):
+1. **No commissions that change the answer.** Rank only by the user's benefit. If we ever earn from
+   a platform, it is disclosed and never affects ranking; safest is to earn only from the user.
+2. **Show the reasoning.** "Is card pe aapko Rs X/saal cashback milega kyunki aap Y pe kharch karte ho."
+   Same one-clause "why" rule as nudges.
+3. **Compare the whole market,** including options we make no money from, and say when "keep what
+   you have" is the best answer.
+4. **Public rules:** no sponsored ranking, no selling user data, user pays Friday (subscription).
+5. **Proof:** the savings tracker shows real rupees saved.
+
+Where this is hard, so decide before building:
+- **Insurance and investments are regulated** (IRDAI for insurance advice/distribution, SEBI for
+  investment advice). Beta: compare plain facts (premium, cover, exclusions, claim ratio) and
+  send the user to buy on the insurer's own page; do not "recommend" or sell without a licensed
+  partner and a lawyer's read.
+- **Credit cards:** comparing fees and rewards from public pages is fine; affiliate links would break
+  the neutral promise, so skip them.
+- **Data:** price and offer data is the hard part (no public APIs). Start with user-forwarded bills
+  and public pages, say "approximate".
+- **Revenue:** neutrality means a user subscription is the cleanest model (decide with the
+  revenue question above).

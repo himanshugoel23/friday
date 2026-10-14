@@ -450,3 +450,8 @@ docs/BETA_SCOPE_PROPOSAL.md; awaiting founder choices on payment model and which
 ## Decision note (2026-10-14): customers need wow beyond calls
 Founder clarified ("Cx" = customers): customers will not adopt Friday for calls alone; the beta needs a
 wow factor too. Added a wow section to docs/BETA_SCOPE_PROPOSAL.md; founder to pick the wow features.
+
+## Decision note (2026-10-14): positioning = the unbiased assistant
+Founder: credit card apps, card recommendations, insurance and many other categories each sit on
+multiple platforms with different prices and sales pitches. Friday should be free of all of that:
+neutral, no sales pitch. Added to docs/DIFFERENTIATORS.md; legal limits noted (insurance, finance).
