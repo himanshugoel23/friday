@@ -491,3 +491,8 @@ Founder asked; answered from docs/COMPETITORS.md (B2, B3).
 ## Task note (2026-10-14): Google Suite connector in Friday
 Founder asked: can we add the Google Suite (Gmail, Calendar, Drive) connector now. Checking what exists
 in the code and the Google verification requirements; plan goes to docs/BETA_SCOPE_PROPOSAL.md.
+
+## Question (2026-10-14): how to do Muse-style email, one-time cards, bank connection, subscriptions in Friday
+Founder asked how Friday can do what Muse does (email/calendar, one-time cards, bank connections for
+expenses and cancelling subscriptions, phone calls). Researching India equivalents: Account Aggregator,
+UPI Circle/AutoPay, virtual cards. Plan goes to docs/BETA_SCOPE_PROPOSAL.md.
