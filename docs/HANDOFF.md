@@ -436,3 +436,7 @@ and append "Update 2026-10-13 (d): typesafe ai" to docs/COMPETITORS.md.
 ## Decision note (2026-10-14): differentiators
 Founder: big companies already build AI assistants, so Friday must find differentiators. Writing
 docs/DIFFERENTIATORS.md (proposal, founder to choose).
+
+## Task note (2026-10-14): moat and fundability
+Founder asked: what more can we add, like why Ghost and Instinct will survive and get funding.
+Adding a "moat and fundability" section to docs/DIFFERENTIATORS.md (proposal, founder to choose).
