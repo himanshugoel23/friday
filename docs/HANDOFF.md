@@ -446,3 +446,7 @@ Founder: beta should also include food and grocery comparison and ordering, bill
 connectors; otherwise Friday will struggle to survive and onboarding will be hard. This widens the
 earlier "Phase 1 = vendor calling only" decision and touches "Friday never pays". Proposal written in
 docs/BETA_SCOPE_PROPOSAL.md; awaiting founder choices on payment model and which apps first.
+
+## Decision note (2026-10-14): customers need wow beyond calls
+Founder clarified ("Cx" = customers): customers will not adopt Friday for calls alone; the beta needs a
+wow factor too. Added a wow section to docs/BETA_SCOPE_PROPOSAL.md; founder to pick the wow features.

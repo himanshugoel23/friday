@@ -53,3 +53,23 @@ Each connector: ask once, say why, one-step disconnect, per-user encryption.
 2. Which two to build first: bills, food, or grocery?
 3. Which apps first (e.g. Swiggy, Zomato, Blinkit, Zepto)?
 4. Gmail/calendar in the beta or after the first 50 users?
+
+## Wow factor: what makes a customer say "arre wah" (added 14 Oct 2026)
+Wow = Friday acts before being asked, saves visible money or time, and shows proof. Candidates
+(all keep the user-pays and per-user-data rules):
+1. **Morning brief on WhatsApp**: today's bills due, appointments, weather, one suggestion, in the
+   user's own language. Daily habit, costs nothing per call.
+2. **"Sasta kar do"**: forward any bill or order; Friday finds a cheaper plan/seller and shows
+   "you save Rs X a month" (broadband, recharge, grocery basket, insurance renewal).
+3. **Photo in, action out**: photo of a bill, a broken tap, a prescription or a menu; Friday reads
+   it and acts (reminder, plumber quote call, price comparison).
+4. **Voice note in, done in minutes**: speak Hinglish, get one comparison message with a button.
+5. **Group and family mode**: one Friday for the household; shared grocery list, bill split reminders.
+6. **Savings tracker**: monthly "Friday saved you Rs X and 3 hours" message. This is also the
+   retention metric and the fundraising proof.
+7. **Calls that feel magic**: Friday phones three vendors at once and returns a comparison in
+   minutes (already the hero; make the speed visible, "3 calls done in 6 minutes").
+8. **Never-forget layer**: warranty dates, car service, vaccination, renewals, birthdays with a
+   suggested gift order.
+Suggested beta wow set: 1, 2, 6, 7 (cheap to build, easy to demo, measurable).
+Decision needed: which 3 to lead with.
