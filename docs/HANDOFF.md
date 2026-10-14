@@ -465,3 +465,8 @@ docs/BETA_SCOPE_PROPOSAL.md (savings engine). Never store card numbers; card nam
 Founder: in future connect a device with the agent too: reminders to people, taking care of parents,
 and more. Not for now (no-hardware decision stands). Recorded as a roadmap item in
 docs/FEATURES.md section 13; design for it now (consent, per-person data) so it is not rebuilt later.
+
+## Question (2026-10-14): on-device model like Ghost
+Founder asked whether we can add a model on the user's device like Ghost. Answer given: possible later
+as a phone app for sensitive parts only; not for the beta (WhatsApp and calls run in the cloud).
+Recorded in docs/FEATURES.md section 13.

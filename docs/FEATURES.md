@@ -155,3 +155,13 @@ The no-hardware decision stands for now. Design choices to make today so this is
   speech/text), not a locked design.
 - **Consent and dignity:** the parent agrees to being called and can say stop; no secret
   monitoring; clear data limits; health data is high-risk (DPDP) so legal review first.
+
+### 13b. On-device model (asked 14 Oct 2026; [PLANNED], after the beta)
+- Friday's calls, WhatsApp and price lookups must run in the cloud, so Friday can never promise
+  "nothing leaves your device". The promise stays "used only for you".
+- Later, a Friday phone app could run a small model on the device for the most sensitive parts only:
+  reading bill SMS and screenshots, the card wallet and spend patterns, contacts. Only the result
+  ("electricity bill Rs 1,240 due 20 Oct") goes to the cloud, not the raw messages.
+- Costs: an app to build and maintain (Android first), weaker small models (Hinglish quality must be
+  tested), battery and storage use, slower updates. Not worth it before real users ask for it.
+- Do first: ask the user to forward or photograph what we need; keep per-user encryption and delete.
