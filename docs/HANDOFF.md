@@ -484,3 +484,6 @@ survives (fee never changes ranking, disclosed, flat). Open: fee model, which ca
 
 ## Question (2026-10-14): electricity and gas bill APIs
 Founder asked. Researching BBPS and aggregators (Bharat Connect, Setu, Razorpay, etc.). Result goes to docs/BETA_SCOPE_PROPOSAL.md.
+
+## Question (2026-10-14): what do Instinct and Muse provide?
+Founder asked; answered from docs/COMPETITORS.md (B2, B3).
