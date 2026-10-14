@@ -318,3 +318,17 @@ Founder confirms the name. If he meant something else (a calling or WhatsApp pro
   site with phone OTP (can break, touch real payments, likely against site terms). Do not use.
 - Consequence for Friday: Swiggy is the one partner route worth applying to now (Builders Club).
   Zepto: ask for access. Blinkit: link-out only until official. Never take a user's OTP (our rule).
+
+## Update 2026-10-14 (f): cab and hotel MCP / APIs (web search, thin; verify before relying)
+- **Uber:** only an unofficial community MCP (sandbox by default, OAuth, needs an Uber developer app);
+  whether Uber's ride API is open for India bookings is NOT confirmed.
+- **Ola:** an Ola Maps MCP exists (geocoding, directions, places, India, API key); that is maps, not
+  ride booking. **Rapido:** nothing found. Cab booking APIs are likely partner-only.
+- **Booking.com: official MCP server** (https://developers.booking.com/mcp-server/docs/about):
+  hotels, rooms, attractions, cars, flights, live availability and price; gated, onboarding via an
+  account manager, bearer token and an **Affiliate-Id**. Fits an affiliate model, which conflicts with
+  Friday's no-commission neutrality rule (see DIFFERENTIATORS.md).
+- **MakeMyTrip, Goibibo, Agoda:** no MCP or affiliate details found; check partner pages directly.
+- Other hotel MCPs found are unofficial or unverified (RapidAPI wrapper, Jinko, 1Stay). Do not use.
+- Consequence: cab and hotel stay on "Friday calls and compares plus link-out" for the beta. Our call
+  flows (cab and hotel scripts) are the differentiator where APIs are closed.
