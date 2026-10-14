@@ -496,3 +496,7 @@ in the code and the Google verification requirements; plan goes to docs/BETA_SCO
 Founder asked how Friday can do what Muse does (email/calendar, one-time cards, bank connections for
 expenses and cancelling subscriptions, phone calls). Researching India equivalents: Account Aggregator,
 UPI Circle/AutoPay, virtual cards. Plan goes to docs/BETA_SCOPE_PROPOSAL.md.
+
+## Question (2026-10-14): can Friday use the Google MCP like Claude does?
+Answered: Claude's Gmail/Drive connectors are tied to the founder's own Claude account and cannot serve
+Friday's users. Friday needs its own per-user Google OAuth (MCP or direct API, same Google verification).
