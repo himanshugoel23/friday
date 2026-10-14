@@ -140,3 +140,18 @@ your device"; it promises "used only for you".
   permission, only for that user. [PLANNED, Phase 2]
 - **Open and portable**: the user can export everything Friday knows. [PLANNED]
 - Out of scope for now: hardware box, smart home, health data, local on-device models.
+
+## 13. Future: devices and family care (founder, 14 Oct 2026; [PLANNED], not for the beta)
+The no-hardware decision stands for now. Design choices to make today so this is easy later:
+- **Person model:** a user can add family members (parents, children) as separate people. Each has
+  their own consent, language, phone and data; the carer sees only what the person allows.
+- **Reminder channel abstraction:** a reminder is "message to person X by channel Y" (WhatsApp, SMS,
+  call, later a device speaker). Today's proactive engine already sends; add the channel type.
+- **Parent care ideas:** medicine and appointment reminders by voice call in the parent's language,
+  a daily "kaise ho?" check-in call, unanswered-call alert to the child, doctor and lab bookings by
+  Friday, bill help, "emergency contact" flow. Never medical advice.
+- **Device path (later):** a simple speaker or the parent's phone app/WhatsApp first; a dedicated
+  device only after real demand. Keep an open interface (device sends events, Friday sends
+  speech/text), not a locked design.
+- **Consent and dignity:** the parent agrees to being called and can say stop; no secret
+  monitoring; clear data limits; health data is high-risk (DPDP) so legal review first.

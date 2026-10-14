@@ -460,3 +460,8 @@ neutral, no sales pitch. Added to docs/DIFFERENTIATORS.md; legal limits noted (i
 Founder: Friday knows the user, so for every purchase it should say which of the user's cards to use
 for maximum savings and which app to buy each grocery item from; "and everything". Designed in
 docs/BETA_SCOPE_PROPOSAL.md (savings engine). Never store card numbers; card names only.
+
+## Decision note (2026-10-14): future device connection and family care
+Founder: in future connect a device with the agent too: reminders to people, taking care of parents,
+and more. Not for now (no-hardware decision stands). Recorded as a roadmap item in
+docs/FEATURES.md section 13; design for it now (consent, per-person data) so it is not rebuilt later.
