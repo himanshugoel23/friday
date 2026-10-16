@@ -520,3 +520,9 @@ agent that knows what is happening in the user's day (example: interview at 2, F
 at 3; if the user calls at 2:30 Friday already knows and answers in context), ideally also on a device 24x7.
 Design written in docs/JARVIS_FEEL.md. Hardware stays later; the feel comes from shared context + proactive
 timing + presence.
+
+## Decision note (2026-10-16): voice-first on the user's phone (Siri / OK Google style)
+Founder: not follow-ups; wants Friday to work like Siri/OK Google/Alexa, using the phone as the device,
+the user speaks ("Friday, aaj haircut book kar do") and talks by voice, not messages. Plan: Friday phone app
+(Android first) + web voice, reusing the Sarvam voice stack; iOS via Siri shortcuts. Written in
+docs/JARVIS_FEEL.md section 6. Platform rules from knowledge, to verify.

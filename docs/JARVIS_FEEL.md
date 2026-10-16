@@ -54,3 +54,30 @@ intelligence.
   registered number; avoid reading sensitive details aloud unprompted.
 - Always-on listening: off by default, explicit consent, local wake word only, no raw audio stored.
 - Hear-before-change: every new spoken or written follow-up line needs founder approval first.
+
+## 6. Voice-first on the phone (founder, 16 Oct 2026): "Friday, aaj haircut book kar do"
+Goal: the phone is the device; the user talks, Friday talks back, no typing. (Platform rules below are
+from general knowledge and must be verified before building.)
+**What the app does:** push the mic audio to our server over a live connection, stream the reply voice back
+(same Sarvam STT, LLM, TTS pipeline as the call lane, but app audio is wideband and free of telecom cost
+and delay). Same shared life state and the same playbooks; "book kar do" starts the normal vendor flow and
+the result comes back as a spoken answer plus a card.
+**How the user wakes it:**
+- Android (best): Friday can be set as the phone's default assistant app, so long-press power/home or a
+  home-screen button opens it, like Google Assistant. A hands-free "Hey Friday" works only while a visible
+  Friday foreground service holds the mic (battery cost, a persistent notification, stricter rules on
+  newer Android). Also: widget, quick-settings tile, earbud/headset button, lock-screen shortcut.
+- iPhone: Apple does not let third parties replace Siri or listen for a wake word in the background. We use
+  Siri Shortcuts/App Intents ("Hey Siri, ask Friday ..."), the Action button, a lock-screen widget and the
+  headset button. Wake word on iPhone stays "Hey Siri" plus the Friday phrase.
+- Anyone, any phone: the existing Friday phone number still works as the fallback.
+**Build order:**
+1. Web voice page (no app store): tap, talk, listen; proves latency and the flow in days.
+2. Android app: push-to-talk, assistant role, widget, then optional hands-free mode.
+3. iOS app with Shortcuts.
+4. On-device only for the wake word (small, no audio leaves the phone until the wake word fires).
+**Rules:** mic off unless the user starts it or opts in to hands-free; a visible indicator; no raw audio
+kept unless the user agrees; spoken replies avoid reading sensitive details aloud unprompted; every
+spoken line still follows hear-before-change.
+**Why this beats WhatsApp/call:** no switching apps, instant, lets Friday speak first with a
+notification tap-to-talk, and gives the Jarvis/Siri feel on hardware the user already owns.
