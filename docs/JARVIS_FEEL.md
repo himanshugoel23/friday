@@ -125,3 +125,42 @@ Time-Sensitive tap or a short call, "Interview kaisa gaya?". No typing, and she 
 4. Android app (assistant role, wake word), then Apple Watch.
 Needs from the founder: Apple Developer account (paid, yearly), the business name and a privacy policy,
 decision on which proactive moments may use a call vs a voice note, and a legal read on call consent.
+
+## 8. Divert the user's incoming calls to Friday (founder, 16 Oct 2026)
+Idea: someone calls the user; the user (or Friday, by rule) sends that call to Friday, who answers as
+the user's assistant, finds out what it is about, and reports back. (Carrier and iPhone details are from
+general knowledge; verify with each carrier before promising.)
+### How it works
+1. **Carrier call forwarding to a Friday number.** The user sets it once. Conditional types: when busy, when
+   not answered, when unreachable; or unconditional (all calls) for a window like an interview. Set by
+   dialling the carrier codes (e.g. *67*number# busy, *61*number# no answer, *62*number# unreachable,
+   *21*number# all calls, ##002# cancel; Indian carriers differ) or iPhone Settings > Phone > Call Forwarding
+   (all calls only). A guided WhatsApp message gives the exact code per carrier and a one-tap tel: link.
+2. **iPhone trick:** declining a call is treated as "busy" by most carriers, so with busy-forwarding set to
+   Friday, "Decline" becomes "send to Friday". Test per carrier. (An app cannot auto-answer or intercept
+   normal cellular calls on iPhone; Apple's own call screening is not open to third parties.)
+3. **Friday answers** on the forwarded leg: "Namaste, main Himanshu ji ki assistant Friday bol rahi hoon.
+   Wo abhi busy hain. Kya kaam hai, main unhe bata dungi." She takes name and reason, can answer simple
+   things the user allowed (call back time, "meeting mein hain"), ends politely on spam/sales.
+4. **Report back:** WhatsApp summary + transcript, buttons: "Call back", "Busy hoon, baad mein", "Spam
+   block". Urgent words or a VIP caller -> Friday rings or pings the user immediately.
+5. **Rules the user sets:** which contacts always ring through, which are always screened, quiet hours,
+   calendar-linked: during a protected event (interview) unknown callers go to Friday automatically.
+### Hard parts to decide
+- **Which user was the call for?** A forwarded call arrives at Friday's number; carriers do not always pass
+  the original dialled number. Fixes: a **unique forwarding number per user** (small monthly cost per
+  number from the telephony provider), or rely on original-number information where the carrier gives it.
+  Per-user numbers are the reliable choice.
+- **Carrier charges:** forwarded calls may be charged to the user by the carrier (differs by plan). Tell
+  the user before they turn it on.
+- **Call consent and disclosure:** Friday answers third parties: she says she is an assistant, tells
+  callers if anything is recorded (our stored-recording rule needs a legal read), no OTP/banking details
+  taken. TRAI and DPDP read needed.
+- **Selective divert** (only this caller) is not possible at the carrier level for iPhone; it is done by
+  routing rules above (VIP list rings through, via the app/contacts), not by per-call buttons.
+### Build
+1. Receptionist playbook (pending, new lines need founder-approved audio) using the existing inbound call
+   lane; outcome: message taken, urgency, caller name.
+2. Per-user forwarding numbers + mapping table; onboarding message with codes per carrier.
+3. WhatsApp summary and the action buttons.
+4. Calendar-linked protected events and VIP lists after the Google connector and the life-state store.

@@ -533,3 +533,11 @@ the conversation, voice-first. iOS cannot do always-on background mic or replace
 reach (Friday speaks first by call/WhatsApp call/VoIP call screen/voice note/Live Activity; user speaks by
 Siri shortcut, Action Button, widget, AirPods, voice-session mode). Written in docs/JARVIS_FEEL.md section 7.
 Platform rules are from general knowledge, verify. India note: Android is the large majority of phones; plan both.
+
+## Decision note (2026-10-16): divert the user's incoming calls to Friday (call screening / receptionist)
+Founder: when a call comes to the user, the user should be able to divert it to Friday. Plan in
+docs/JARVIS_FEEL.md section 8: carrier call forwarding (conditional: busy/no answer/unreachable, or unconditional
+for a protected event) to a Friday number; Friday answers as the user's assistant, takes a message,
+sends a summary on WhatsApp, rings the user for urgent. Needs per-user forwarding numbers or reliable
+original-number info; new receptionist playbook needs founder-approved lines; legal read. Carrier details from
+general knowledge, to verify.
