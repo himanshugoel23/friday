@@ -510,3 +510,6 @@ before public launch (testing mode with named testers until then).
 Founder: "Need this as well" (Instinct-style life admin: books travel and restaurants, buys groceries and
 tickets, cancels subscriptions, sends email, builds shareable comparison pages) and asked for the current
 state of Friday and everything done to date. Writing docs/STATE_OF_FRIDAY.md.
+
+## Question (2026-10-16): ElevenLabs viral Instagram ad (HR with a device calling candidates)
+Founder asked whether the ad can be fetched. Searching the web; Instagram video itself is not viewable.
