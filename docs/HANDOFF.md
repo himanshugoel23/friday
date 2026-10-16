@@ -551,3 +551,7 @@ Recorded in docs/FEATURES.md section 13c.
 
 ## Question (2026-10-16): how does Meta Muse operate?
 Answered from docs/COMPETITORS.md B3 (secondary sources, unverified).
+
+## Task note (2026-10-16): deep research on Meta Muse architecture
+Founder asked for a fresh search on how Muse works under the hood. product-manager agent launched; it appends
+"Update 2026-10-16 (g): Muse architecture" to docs/COMPETITORS.md.
