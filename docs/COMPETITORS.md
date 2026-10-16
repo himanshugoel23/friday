@@ -332,3 +332,59 @@ Founder confirms the name. If he meant something else (a calling or WhatsApp pro
 - Other hotel MCPs found are unofficial or unverified (RapidAPI wrapper, Jinko, 1Stay). Do not use.
 - Consequence: cab and hotel stay on "Friday calls and compares plus link-out" for the beta. Our call
   flows (cab and hotel scripts) are the differentiator where APIs are closed.
+
+## Update 2026-10-16 (g): Muse architecture
+Builds on B3 above (not repeated). Primary Meta sources were read directly this time; read 2026-10-16.
+
+**Primary sources (Meta).**
+- Security post, "Security and safety for AI agents: our approach with Muse", Meta AI Research, 2026-09-08, author Tarek Sheasha: https://research.meta.ai/blog/security-and-safety-for-ai-agents-our-approach-with-muse (reached via security.muse.ai).
+- Newsroom launch post, 2026-09-08, updated 2026-09-30: https://about.fb.com/news/2026/09/introducing-muse
+- Design post "How We Designed Muse": http://introducing.muse.ai (dated "September 2026").
+- Model post: https://research.meta.ai/blog/introducing-muse-spark-1-3 (2026-09-02).
+- Not found: a system card or engineering post for the CALLING feature. Not found: any voice, latency or call-recording document. (Searches 2026-10-16.)
+
+**1. Architecture (Meta primary unless marked).**
+- Model: "Muse Spark" family, Meta's agentic model; size, architecture and context not stated (newsroom 2026-09-08; Spark 1.3 post 2026-09-02). Spark 1.3 claims it "confirms before taking consequential actions", asks the user when stuck, and shows better judgment on which actions are irreversible. No voice or latency figures.
+- Per-user "Muse Secure VM": a dedicated, isolated Linux cloud computer with a real Chromium browser, file system and terminal; it is the system of record for that user's memory, credentials and connected-account data (security post 2026-09-08; design post). Tasks run in the background when the app is closed, on schedules and on events (design post).
+- Two security domains on one box: (a) a systemd-nspawn "runtime cell" with the agent harness and tools, unprivileged root, filtered syscalls; (b) host services outside the cell: safety classifiers, privsep connector workers, a credential daemon (hatch-authd) issuing surrogate tokens, Sentinel, Postgres state (security post).
+- Sentinel is a separate agent and the only authority for connector actions and network egress. Muse proposes, Sentinel returns allow, deny or ask, checks traffic at layers 4 and 7, and swaps real credentials in at the network boundary so the model only sees placeholders (security post). An eBPF "taint" rule removes auto-approval once a process has read user data (security post). Taint detail is also in Forkast 2026-09-24 and OrcaRouter, which are secondary and agree with Meta.
+- Browser: sub-agent sees an accessibility-tree snapshot, not the raw DOM; no JavaScript execution; a broker owns the DevTools connection; user can watch and take over, and the agent pauses during takeover and credential fill (security post).
+- Connections: user picks which apps connect and the access level (for example email read-only or read and send); revocable anytime; OAuth tokens live in the user's own VM, not central Meta storage; email connector filters one-time codes, reset links and magic links (security post, newsroom). Bank connections: only the second-hand agentconn blog mentions them (B3); not in the Meta posts read, so **unverified**.
+- Memory: stored as files inside the user's VM; user can read, edit, download, ask it to forget; VM backed up continuously; "side chats" for separate project contexts (security post, design post).
+- Isolation: per-user VM; Meta says its staff access is limited by policy but possible; "Confidential VM" (key held only by the user) is "planned for later this year", in early testing, under audit (security post). No data to Meta ad systems; training opt-out; trajectories sanitised.
+- Bug bounty up to $300,000, up to $130,000 for single-user prompt injection (security post). Meta admits prompt injection is not solved. NYT, via The Next Web, reported staff tests where the agent sometimes disobeyed and led people to buy from fraudulent sites: https://thenextweb.com/news/zuckerberg-muse-launch-safety-concerns-nyt (single outlet via TNW, **unverified**; I did not read it directly).
+
+**2. Phone-call system.** Meta has published **nothing** on it. The security, design and newsroom posts do not mention calls or voice. Facts that exist: public beta for US businesses from 2026-09-16 (TechCrunch 2026-09-17, https://techcrunch.com/2026/09/17/rival-ai-agents-instinct-and-metas-muse-both-add-the-ability-to-make-calls/); earlier private test reportedly limited to "verified" US businesses (RuntimeWire 2026-09-15, single source, **unverified**: https://runtimewire.com/article/meta-privately-tests-muse-agents-that-can-call-verified-us-businesses); transcript and summary after each call and a "human agent layer" (Futurism quoting the internal announcement, 2026-09-23; 404 Media 2026-09-22; Reuters rollback via secondary sites). Voice stack, latency, IVR and hold handling, recording and disclosure wording: **not published, not found**. Anecdote only: a Meta researcher said a call got through a phone tree and hold (B3). Whether calls run inside the Secure VM or in a separate telephony service is unknown.
+
+**3. Safety and approval design (Meta primary).**
+- "Ask" stops execution; the request appears in the client UI, not inside the chat, and the answer goes straight to Sentinel (so injected text cannot approve itself).
+- Grants are capabilities bound to connector, destination and use case, offered as one-time, session, task, time-limited or permanent; later calls must match exactly. Read-only and low-risk previously approved actions skip the prompt.
+- Purchases: on saved-payment checkouts, exact details approved every time; new merchants use Stripe Link's agent wallet, a single-use card tied to one merchant, one amount and a short time window; Shop Pay "coming soon". The newsroom post mentions no spend limit beyond that, and no general per-user cap is stated.
+- Failure handling: the security post says mistakes will happen and the design limits impact; it gives no incident-response process. Proactive messages can be turned off or reduced (design post). Calls: no approval flow published.
+
+**4. Not Meta-published / contradictions.** One blog calls the VM ephemeral; Meta says persistent and continuously backed up (Meta wins). Claimed 95-98% success for human-assisted calls is Reuters via secondary sites, **unverified**.
+
+**What Friday should COPY.**
+1. Separate "proposer" from "authoriser": the LLM never holds secrets or sends to vendors directly; a small deterministic gate (our consent/safety gate) returns allow, deny or ask. Friday already plans this; make it the sole path to place a call or confirm a booking.
+2. Approvals as scoped capabilities: "call these 3 salons, quote only, today 9-7" is a one-task grant; a booking needs a fresh grant naming vendor, slot and price. Ask on WhatsApp buttons, never by trusting free text from the vendor or a webpage.
+3. Treat all vendor speech, reviews and web text as untrusted (labelled, never executed); log it.
+4. Audit trail plus transcript and summary of every action (Meta ships both).
+5. Memory the user can read, edit and "forget" (maps to DPDP rights); keep it in per-user records with no cross-user reads.
+6. Proactivity dial (off, low, high) and "only when genuinely helpful" rule; matches Friday's outcome-only messaging.
+7. One-time, amount-capped payment when payments arrive (UPI mandate-style limit per merchant per amount per time).
+
+**What Friday should AVOID.**
+1. Any hidden human on a call (Muse's rolled-back "human concierge"); if humans ever review, tell the user up front.
+2. Launching calling with no published disclosure, caller identity, recording or opt-out policy.
+3. A per-user VM and full browser agent: costly and unnecessary for Phase 1 (calls plus Places search). Friday's shared backend with per-user rows and strict tenant checks is cheaper; do not copy the VM.
+4. Broad account access (email, bank) in Phase 1; Muse's own prompt-injection admission is the reason.
+
+**What to VERIFY (before quoting externally).**
+- Whether Meta ever publishes a calling post or system card (check security.muse.ai and research.meta.ai monthly).
+- How Muse discloses itself to the called party, and whether calls are recorded or need approval before dialling; ask a US tester or read Muse terms and help pages (not read).
+- Voice stack and latency: unknown; do not assume Meta is better than Sarvam streaming (first audio 0.4-0.5 s measured in HANDOFF).
+- The 95-98% human-assisted figure and the "verified businesses" restriction (both single or secondary source).
+- Bank connection claim; spend caps; Confidential VM ship date.
+- Reality check on India: still not offered (B3); re-check weekly.
+
+**Recommended action this week.** Write Friday's one-page "action gate" spec (allow, deny, ask; scoped grants; vendor text untrusted) into SECURITY.md and tests, and draft the public AI-disclosure and recording policy, since Meta has neither for calls.
