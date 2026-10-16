@@ -548,3 +548,6 @@ user's device. Recommendation given: not now (earlier no-hardware decision stand
 per-user personalisation in the cloud (memory/retrieval, later small per-user adapters) instead of on-device
 training; revisit a thin-client device or home box only after triggers (active users, demand, funding).
 Recorded in docs/FEATURES.md section 13c.
+
+## Question (2026-10-16): how does Meta Muse operate?
+Answered from docs/COMPETITORS.md B3 (secondary sources, unverified).
