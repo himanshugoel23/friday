@@ -165,3 +165,25 @@ The no-hardware decision stands for now. Design choices to make today so this is
 - Costs: an app to build and maintain (Android first), weaker small models (Hinglish quality must be
   tested), battery and storage use, slower updates. Not worth it before real users ask for it.
 - Do first: ask the user to forward or photograph what we need; keep per-user encryption and delete.
+
+### 13c. Own hardware, own GPU, own model, on-device training (asked 16 Oct 2026; [DECIDE])
+Recommendation: not now. Reasons:
+- Friday's core value (calling vendors, WhatsApp, Hinglish voice, comparing, booking) runs in the cloud
+  whatever the device is; hardware does not make those calls better.
+- Hardware startup cost and risk: design, certification, manufacturing minimums, inventory, shipping,
+  returns, support, firmware updates. A few hundred units already needs a large budget and months.
+- An own GPU box and own model: training or fine-tuning a Hinglish voice-agent model is expensive and our
+  data (labelled calls) is still small. Better models arrive from vendors every few months; our edge is data,
+  scripts and trust, not model weights.
+- On-device training per user is research-heavy and drains battery/heat. Personalisation can be done in the
+  cloud with per-user memory and retrieval (and later small per-user adapters), kept per user.
+- Indian price sensitivity: most users will not buy a device; a phone app reaches them at zero hardware cost.
+Staged path:
+1. Software now (WhatsApp, calls, web voice, shared life state).
+2. Phone app (voice session, Siri shortcut, Action Button, call forwarding receptionist).
+3. Optional thin-client device later (speaker/pendant that streams to our cloud; no GPU) as an accessory
+   when users ask.
+4. A home "privacy box" with a local model only if a paying privacy-first segment appears.
+Triggers to revisit: roughly 1,000+ weekly active users, repeated user demand for a device, a hardware
+partner or funding earmarked for it, and a model/cost study showing local inference helps.
+Privacy promise stays "used only for you", not "never leaves your device".

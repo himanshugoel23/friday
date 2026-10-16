@@ -541,3 +541,10 @@ for a protected event) to a Friday number; Friday answers as the user's assistan
 sends a summary on WhatsApp, rings the user for urgent. Needs per-user forwarding numbers or reliable
 original-number info; new receptionist playbook needs founder-approved lines; legal read. Carrier details from
 general knowledge, to verify.
+
+## Decision question (2026-10-16): hardware product like ghost.ai?
+Founder asked whether to plan a ghost.ai-style product: small hardware, own GPU, own model, training on the
+user's device. Recommendation given: not now (earlier no-hardware decision stands); software + phone app first;
+per-user personalisation in the cloud (memory/retrieval, later small per-user adapters) instead of on-device
+training; revisit a thin-client device or home box only after triggers (active users, demand, funding).
+Recorded in docs/FEATURES.md section 13c.
