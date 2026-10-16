@@ -505,3 +505,8 @@ Friday's users. Friday needs its own per-user Google OAuth (MCP or direct API, s
 Founder: each user will authorize their own Gmail when asked to connect the app. Confirmed: this is the
 per-user OAuth flow in docs/BETA_SCOPE_PROPOSAL.md; the Gmail restricted-scope review still applies
 before public launch (testing mode with named testers until then).
+
+## Task note (2026-10-16): life admin scope and state report
+Founder: "Need this as well" (Instinct-style life admin: books travel and restaurants, buys groceries and
+tickets, cancels subscriptions, sends email, builds shareable comparison pages) and asked for the current
+state of Friday and everything done to date. Writing docs/STATE_OF_FRIDAY.md.
