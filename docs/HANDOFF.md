@@ -513,3 +513,10 @@ state of Friday and everything done to date. Writing docs/STATE_OF_FRIDAY.md.
 
 ## Question (2026-10-16): ElevenLabs viral Instagram ad (HR with a device calling candidates)
 Founder asked whether the ad can be fetched. Searching the web; Instagram video itself is not viewable.
+
+## Decision note (2026-10-16): Jarvis feel (always-on, one shared context)
+Founder: Friday still feels like call/WhatsApp-to-get-a-result, not Jarvis/Siri. Wants an always-available
+agent that knows what is happening in the user's day (example: interview at 2, Friday asks "how did it go?"
+at 3; if the user calls at 2:30 Friday already knows and answers in context), ideally also on a device 24x7.
+Design written in docs/JARVIS_FEEL.md. Hardware stays later; the feel comes from shared context + proactive
+timing + presence.
