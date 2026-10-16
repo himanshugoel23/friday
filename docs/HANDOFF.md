@@ -526,3 +526,10 @@ Founder: not follow-ups; wants Friday to work like Siri/OK Google/Alexa, using t
 the user speaks ("Friday, aaj haircut book kar do") and talks by voice, not messages. Plan: Friday phone app
 (Android first) + web voice, reusing the Sarvam voice stack; iOS via Siri shortcuts. Written in
 docs/JARVIS_FEEL.md section 6. Platform rules from knowledge, to verify.
+
+## Decision note (2026-10-16): iPhone-first voice, Friday must also speak first
+Founder: major users will be iPhone users; not "Hey Siri" only; Friday should be active and be able to start
+the conversation, voice-first. iOS cannot do always-on background mic or replace Siri; workaround = layered
+reach (Friday speaks first by call/WhatsApp call/VoIP call screen/voice note/Live Activity; user speaks by
+Siri shortcut, Action Button, widget, AirPods, voice-session mode). Written in docs/JARVIS_FEEL.md section 7.
+Platform rules are from general knowledge, verify. India note: Android is the large majority of phones; plan both.

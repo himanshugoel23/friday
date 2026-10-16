@@ -81,3 +81,47 @@ kept unless the user agrees; spoken replies avoid reading sensitive details alou
 spoken line still follows hear-before-change.
 **Why this beats WhatsApp/call:** no switching apps, instant, lets Friday speak first with a
 notification tap-to-talk, and gives the Jarvis/Siri feel on hardware the user already owns.
+
+## 7. iPhone-first voice, and Friday speaking first (founder, 16 Oct 2026)
+Hard limits on iPhone (from general knowledge; verify with Apple's current docs): a third-party app cannot
+replace Siri, cannot listen for its own wake word in the background, and cannot keep the mic open when the
+user has not started a session. So "always active" is built from layers, not one switch.
+(India note: most Indian phones are Android; design for both, iPhone first only if that is our target users.)
+
+### A. Friday speaks first (the "Jarvis" moment)
+1. **Friday calls the user's phone.** Works on every phone today with the existing call stack. She speaks
+   first: "Interview kaisa gaya?" Use for high-value moments only (telecom cost, can feel intrusive). The user
+   opts in per topic, with quiet hours.
+2. **WhatsApp voice note first,** user replies with a voice note. No new app, works now. Outbound-first
+   messages need an approved template (WhatsApp rule).
+3. **WhatsApp call from Friday** (Meta's Business Calling API: calls only to users who gave permission;
+   availability in India to check). Free over data, better audio.
+4. **Friday app incoming call screen (iOS VoIP push + CallKit):** the iPhone rings with the normal full-screen
+   call UI over the internet, she speaks when answered. Apple allows it for real calls only; abuse risks
+   rejection.
+5. **Time-Sensitive notification + Live Activity / Dynamic Island** ("Friday: interview ke baare mein poochna
+   hai"), tap and talk. Optional AirPods: notifications can be read aloud for messaging-style apps (check).
+
+### B. The user speaks (no typing)
+1. "**Hey Siri, Friday**" via an App Shortcut: opens Friday in voice mode. Two steps, fully hands-free.
+2. **Action Button / Back Tap / lock-screen and Control Center control** (one press).
+3. **AirPods or headphone button** to start a session.
+4. **Voice-session mode:** once started, Friday keeps the mic open with the screen off (like ChatGPT voice),
+   conversational and interruptible, until the user ends it. This is the closest iPhone gets to "always
+   talking", and it works while walking with AirPods.
+5. **Apple Watch (later):** raise-to-talk and a tap on the wrist when Friday wants to speak.
+6. Fallback for everything: the Friday phone number and WhatsApp.
+
+### C. What it feels like together
+Morning: Friday rings or sends a voice note brief. Midday: user presses the Action Button, "aaj haircut
+book karna hai"; Friday asks one question, books via the normal vendor flow, replies by voice. 3 pm: a
+Time-Sensitive tap or a short call, "Interview kaisa gaya?". No typing, and she can begin the talk.
+
+### Build order for iPhone
+1. **Now, no app:** proactive WhatsApp voice notes and opt-in Friday calls, plus the shared life state.
+2. **Web voice page** (works in Safari, tap to talk): proves delay and flow.
+3. **iOS app:** voice-session mode, App Shortcut "Friday", Action Button, widget, push (Time-Sensitive,
+   Live Activity), then CallKit incoming calls.
+4. Android app (assistant role, wake word), then Apple Watch.
+Needs from the founder: Apple Developer account (paid, yearly), the business name and a privacy policy,
+decision on which proactive moments may use a call vs a voice note, and a legal read on call consent.
