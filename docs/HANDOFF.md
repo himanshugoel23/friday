@@ -595,3 +595,9 @@ Founder: "Let's start with the Zomato. Use my same number which you used for cal
 founder's allow-listed number from the SERVER env (never read/printed/committed; Claude has no copy). First run is
 EXPLORE mode on the founder's server: headed Chromium in a virtual screen, watch page for the founder, he types his own
 login OTP on the secure one-time page, stops before any order; screenshots/trace used to tune selectors.
+
+## Done (2026-10-17): Zomato explore run built (fake site only), pushed
+`friday connectors zomato-explore` + secure OTP page + pack-run + deploy/zomato-explore.sh + docs/ZOMATO_EXPLORE.md.
+72 connector tests; full suite 2566 passed. NEVER run against real zomato.com yet; all real-site locators are guesses.
+NEXT: founder runs `sudo bash /opt/friday/deploy/zomato-explore.sh` on the server (his number from
+FRIDAY_PILOT_ALLOWED_NUMBERS), types his own OTP on the code page, sends back the pack-run zip; Claude tunes selectors.
