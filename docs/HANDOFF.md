@@ -589,3 +589,9 @@ Zomato food connector with selectors in 3 dicts, pizza flow, step recorder, watc
 NOT verified: real Zomato pages/login/checkout/QR, anti-bot behaviour from cloud IPs (this sandbox cannot load
 zomato/swiggy in Chromium), secure OTP page, session encryption. Default registry has Zomato scripted_browser OFF.
 NEXT: run on the founder's server with a headed Chromium in a virtual screen, founder-supervised, stop before any order.
+
+## Task (2026-10-17): start the real Zomato test (founder-supervised)
+Founder: "Let's start with the Zomato. Use my same number which you used for calling me here." Rules: the number is the
+founder's allow-listed number from the SERVER env (never read/printed/committed; Claude has no copy). First run is
+EXPLORE mode on the founder's server: headed Chromium in a virtual screen, watch page for the founder, he types his own
+login OTP on the secure one-time page, stops before any order; screenshots/trace used to tune selectors.
