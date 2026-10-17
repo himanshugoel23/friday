@@ -601,3 +601,8 @@ login OTP on the secure one-time page, stops before any order; screenshots/trace
 72 connector tests; full suite 2566 passed. NEVER run against real zomato.com yet; all real-site locators are guesses.
 NEXT: founder runs `sudo bash /opt/friday/deploy/zomato-explore.sh` on the server (his number from
 FRIDAY_PILOT_ALLOWED_NUMBERS), types his own OTP on the code page, sends back the pack-run zip; Claude tunes selectors.
+
+## Decision (2026-10-17): founder approved the /explore HTTPS route for the Zomato explore run
+`deploy/explore-https.sh` adds Caddy `handle_path /explore/*` -> 127.0.0.1:8765 (token-protected pages; `--off` removes it).
+Founder is on an iPad and runs commands in the DigitalOcean web console inside tmux. Open: his phone number appears in
+several committed files of the public repo (old); founder to decide redaction / making the repo private.

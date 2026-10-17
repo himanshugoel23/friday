@@ -68,3 +68,13 @@ before the phone is typed until the login is confirmed.
 - That the "logged in" check (login button and code field gone) is right on the real page.
 - Menu parsing from visible text (veg flag is a guess), the cart summary and the pay screen.
 - Site terms and the legal read; session reuse across runs (nothing is saved: each run logs in fresh).
+
+## From an iPad or phone (no SSH tunnel) - founder approved 2026-10-17
+1. Use the DigitalOcean web console inside tmux (it disconnects when you switch tabs; tmux keeps the run alive):
+   `tmux new -As explore`
+2. Once: `sudo git -C /opt/friday pull --ff-only` then `sudo bash /opt/friday/deploy/explore-https.sh`
+   (adds an `/explore/*` route to Caddy; it prints the next command).
+3. `sudo bash /opt/friday/deploy/zomato-explore.sh --public-url https://<your-host>/explore`
+   Open the printed WATCH PAGE and CODE PAGE links in Safari. Every link carries a secret token; do not share them.
+4. When finished: `sudo bash /opt/friday/deploy/explore-https.sh --off` removes the route again.
+Reattach after a disconnect with `tmux attach -t explore`.
