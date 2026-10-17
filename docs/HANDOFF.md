@@ -623,3 +623,8 @@ Muse = per-user Secure VM with Chromium where no API, Sentinel gate, Stripe Link
 official MCP (4 servers/66 tools), Zomato has an internal MCP ordering system not in products; Razorpay+NPCI agentic UPI
 (UPI Reserve Pay, pilot, Zomato/Swiggy/Zepto launch merchants). Recommendation: official MCP first, browser fallback from an
 Indian/residential route or the user's device, calls + deep links for the rest, exact-amount approval per purchase.
+
+## Done (2026-10-17): `--login-page` mode (zomato.com/login only)
+Founder: use zomato.com/login for testing. Sandbox: /login is cut off (ERR_HTTP2_PROTOCOL_ERROR) like the other pages. Added
+`zomato-explore --login-page` (open /login, number masked, founder's own code via the secure page, stop). 74 connector tests pass.
+Founder to run it on the server (needs the /explore HTTPS route for the code page).

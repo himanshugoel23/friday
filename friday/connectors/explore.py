@@ -144,6 +144,7 @@ class ExploreConfig:
     query: str = "Domino's"
     headed: bool = True
     add_item: str | None = None
+    login_page: bool = False  # open <site>/login directly and test the login only (no search)
     probe: bool = False  # reachability check only: stops after the menu step, no login, no phone
     phone: str = ""  # runtime only; never printed, logged or written
     otp: OneTimeOtpChannel = field(default_factory=OneTimeOtpChannel)
@@ -369,6 +370,19 @@ class Explorer:
         await self._pace()
         await self.capture("open_home", "opened the home page")
 
+    async def s_open_login_page(self) -> None:
+        self.cfg.say("opening the login page")
+        try:
+            await self.page.goto(self.cfg.base_url.rstrip("/") + "/login",
+                                 wait_until="domcontentloaded", timeout=45000)
+        except Exception:  # noqa: BLE001
+            await self.capture("open_login_page", "login page did not load", "failed", check=False)
+            raise Blocked("navigation_failed", "The login page did not load (timeout, network "
+                          "error or the site cut the connection from this server).") from None
+        await self._settle()
+        await self._pace()
+        await self.capture("open_login_page", "opened the login page")
+
     async def s_location(self) -> None:
         found = await self.find("location_input", timeout_s=3)
         if found is None:
@@ -455,17 +469,28 @@ class Explorer:
         if not self._digits:
             raise Blocked("no_indian_phone",
                           "The configured test number is not a 10-digit Indian mobile number.")
-        found = await self.find("login_open", timeout_s=8)
-        if found is None:
-            await self.capture("login_open", "no login button found", "failed", check=False)
-            raise self._missing("login_open", "the Log in button")
-        self.login_phase = True  # from here every input is masked and the trace is off
-        await self._click(found[0])
-        await self._settle()
-        await self._pace()
-        await self._trace_stop_chunk()
-        await self.capture("login_open", "opened the login screen",
-                           matched={"login_open": found[1]})
+        if self.cfg.login_page:  # already on <site>/login: the phone field should be there
+            on_page = await self.find("phone_input", timeout_s=10)
+            if on_page is None:
+                await self.capture("login_open", "no phone field on the login page", "failed",
+                                   check=False)
+                raise self._missing("login_open", "the phone number field on the login page")
+            self.login_phase = True  # from here every input is masked and the trace is off
+            await self._trace_stop_chunk()
+            await self.capture("login_open", "login page ready",
+                               matched={"phone_input": on_page[1]})
+        else:
+            found = await self.find("login_open", timeout_s=8)
+            if found is None:
+                await self.capture("login_open", "no login button found", "failed", check=False)
+                raise self._missing("login_open", "the Log in button")
+            self.login_phase = True  # from here every input is masked and the trace is off
+            await self._click(found[0])
+            await self._settle()
+            await self._pace()
+            await self._trace_stop_chunk()
+            await self.capture("login_open", "opened the login screen",
+                               matched={"login_open": found[1]})
         ph = await self.find("phone_input", timeout_s=8)
         if ph is None:
             raise self._missing("phone", "the phone number field")
@@ -587,12 +612,16 @@ class Explorer:
     async def run(self) -> dict[str, Any]:
         try:
             await self._launch()
-            await self.s_open_home()
-            await self.s_location()
-            await self.s_search()
-            await self.s_open_restaurant()
-            await self.s_menu()
-            if not self.cfg.probe:
+            if self.cfg.login_page:
+                await self.s_open_login_page()
+                await self.s_login()
+            else:
+                await self.s_open_home()
+                await self.s_location()
+                await self.s_search()
+                await self.s_open_restaurant()
+                await self.s_menu()
+            if not self.cfg.probe and not self.cfg.login_page:
                 await self.s_login()
                 if self.cfg.add_item:
                     await self.s_add_item()

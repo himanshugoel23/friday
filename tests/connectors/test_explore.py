@@ -235,6 +235,21 @@ async def test_probe_stops_after_the_menu_without_login_or_phone(tmp_path):
                                                "menu"]
     assert submitted == [] and not state.orders
 
+
+@needs_browser
+async def test_login_page_mode_logs_in_from_slash_login_only(tmp_path):
+    state = FakeSiteState(otp=CODE)
+    srv, cfg, submitted = _make(tmp_path / "run", state, login_page=True)
+    try:
+        st = await run_explore(cfg)
+    finally:
+        srv.stop()
+    assert st["status"] == "done" and st["logged_in"] and st["blocked_reason"] is None
+    names = [s["step"] for s in st["steps"]]
+    assert names[:2] == ["open_login_page", "login_open"]
+    assert "search" not in names and submitted == [200] and not state.orders
+    assert _needles_in(cfg.out, [CODE.encode(), PHONE_LOCAL.encode()]) == []
+
 @needs_browser
 async def test_add_item_stops_at_payment_handoff_without_paying(tmp_path):
     state = FakeSiteState(otp=CODE)

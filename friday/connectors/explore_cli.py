@@ -54,6 +54,9 @@ def add_parsers(csub: Any) -> None:
     z.add_argument("--add-item", default=None, metavar="NAME",
                    help="add this one dish, show the cart and the pay hand-off screen; "
                         "never pays or places an order")
+    z.add_argument("--login-page", action="store_true",
+                   help="open the site's /login page directly and test only the login (your number "
+                        "and your own code; nothing else)")
     z.add_argument("--probe", action="store_true",
                    help="reachability check only: open the site, search, open the restaurant "
                         "and read the menu, then stop. No login, no phone number, no code")
@@ -109,6 +112,9 @@ def run_explore_command(args: argparse.Namespace) -> int:
             os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         print("Headed mode needs a display. On the server use deploy/zomato-explore.sh "
               "(it runs under xvfb-run), or pass --headless.")
+        return 2
+    if args.probe and args.login_page:
+        print("Use either --probe or --login-page, not both.")
         return 2
     if args.probe:
         phone = ""  # nothing is typed on the site in probe mode
@@ -182,8 +188,8 @@ async def _run(args: argparse.Namespace, phone: str, out: Path) -> int:
         base_url, hosts = fake_srv.start(), {"127.0.0.1"}
     cfg = ExploreConfig(
         out=out, base_url=base_url, area=args.area, query=args.query, headed=args.headed,
-        add_item=args.add_item, probe=args.probe, phone=phone, otp=otp, task_id=TASK_ID,
-        allowed_hosts=hosts, on_waiting_for_otp=waiting)
+        add_item=args.add_item, probe=args.probe, login_page=args.login_page, phone=phone,
+        otp=otp, task_id=TASK_ID, allowed_hosts=hosts, on_waiting_for_otp=waiting)
     print(f"Run folder: {out}")
     try:
         state = await run_explore(cfg, recorder)

@@ -91,3 +91,10 @@ allows ordering at all, or whether a server address is let through. The server p
 Geography check (17 Oct): this sandbox's address is in the US (Ohio, Google Cloud). A browser set up like an Indian user
 (en-IN language, Asia/Kolkata timezone, a Gurgaon location) made no difference: Zomato city and restaurant pages still
 reset the connection, so it looks address-based, not settings-based. The Bangalore server is the proper Indian-address test.
+
+## Login-page mode (founder asked, 17 Oct): test only zomato.com/login
+`sudo bash /opt/friday/deploy/zomato-explore.sh --login-page --public-url https://<host>/explore` opens
+`https://www.zomato.com/login` directly, enters your number (masked), asks Zomato to text the code, waits for YOUR code on the
+secure code page, confirms the login and stops. No search, no menu, no cart, no order. Needs the /explore route (see above).
+Sandbox check (17 Oct): from this US cloud address even `zomato.com/login` is cut off (ERR_HTTP2_PROTOCOL_ERROR), so the
+server run is the real test.
