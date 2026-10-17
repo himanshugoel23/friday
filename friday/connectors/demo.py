@@ -30,7 +30,8 @@ DEMO_OTP = "246810"  # the fake site's fixed code (a test value, not a secret)
 
 
 def register(sub: Any) -> None:
-    cn = sub.add_parser("connectors", help="browser connectors: list, demo-pizza --fake")
+    cn = sub.add_parser(
+        "connectors", help="browser connectors: list, demo-pizza, zomato-explore, pack-run")
     csub = cn.add_subparsers(dest="connectors_cmd")
     csub.add_parser("list", help="registered connectors, backends and status")
     d = csub.add_parser("demo-pizza", help="order a pizza on the FAKE site, stopping at the QR")
@@ -41,6 +42,9 @@ def register(sub: Any) -> None:
     d.add_argument("--out", default=None, metavar="DIR", help="write DIR/report.html")
     d.add_argument("--hold", type=float, default=None,
                    help="with --watch: keep serving this many seconds (default: until Ctrl-C)")
+    from friday.connectors.explore_cli import add_parsers
+
+    add_parsers(csub)  # zomato-explore, pack-run (docs/ZOMATO_EXPLORE.md)
 
 
 def run_command(args: argparse.Namespace) -> int:
@@ -53,7 +57,15 @@ def run_command(args: argparse.Namespace) -> int:
             print("REFUSED: only --fake is supported (the real site is unverified, no network).")
             return 2
         return asyncio.run(_demo(args))
-    print("usage: friday connectors list | demo-pizza --fake [--watch] [--out DIR]")
+    if args.connectors_cmd == "zomato-explore":
+        from friday.connectors.explore_cli import run_explore_command
+
+        return run_explore_command(args)
+    if args.connectors_cmd == "pack-run":
+        from friday.connectors.explore_cli import run_pack
+
+        return run_pack(args)
+    print("usage: friday connectors list | demo-pizza --fake | zomato-explore | pack-run DIR")
     return 2
 
 

@@ -41,8 +41,12 @@ def _norm(s: str) -> str:
 
 class FakeSiteState:
     def __init__(
-        self, *, otp: str = "246810", tamper_paise: int = 0, discount_paise: int = 0
+        self, *, otp: str = "246810", tamper_paise: int = 0, discount_paise: int = 0,
+        block: str | None = None, block_path: str = "/",
     ) -> None:
+        # block: "captcha" | "empty" | "forbidden" -> every GET under block_path answers with
+        # that page (tests for blocked-run detection).
+        self.block, self.block_path = block, block_path
         self.otp = otp  # the only code this fake site accepts
         self.tamper_paise = tamper_paise  # shown grand total is off by this (inconsistent page)
         self.discount_paise = discount_paise

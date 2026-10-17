@@ -80,8 +80,11 @@ class FakeSiteServer:
                 url = urlsplit(self.path)
                 q = {k: v[0] for k, v in parse_qs(url.query).items()}
                 path = url.path
-                if path == "/":
-                    self._send(sid, new, _page(logged, "<h1>Order food</h1>"))
+                if state.block and path.startswith(state.block_path):
+                    code, body = _blocked_page(state.block)
+                    self._send(sid, new, body, code)
+                elif path == "/":
+                    self._send(sid, new, _page(logged, _home_html()))
                 elif path == "/search":
                     cards = "".join(
                         f'<div data-testid="restaurant-card" data-restaurant-id="{r["id"]}">'
@@ -145,7 +148,7 @@ class FakeSiteServer:
                 s = state.session(sid)
                 if path == "/login/phone":
                     state.send_otp(sid, form.get("phone", ""))
-                    self._send(sid, new, _page(False, _otp_form()))
+                    self._send(sid, new, _page(False, _otp_form(form.get("phone", ""))))
                 elif path == "/login/otp":
                     if state.check_otp(sid, form.get("otp", "")):
                         self._redirect(sid, new, "/")
@@ -188,18 +191,48 @@ class FakeSiteServer:
         self.stop()
 
 
+def _home_html() -> str:
+    return (
+        "<h1>Order food</h1>"
+        '<form method="get" action="/">'
+        '<input name="area" placeholder="Enter your delivery location"></form>'
+        '<form method="get" action="/search">'
+        '<input name="q" type="search" placeholder="Search for restaurant, cuisine or a dish">'
+        "<button type='submit'>Search</button></form>"
+    )
+
+
+def _blocked_page(kind: str) -> tuple[int, bytes]:
+    """Pages a real site may answer with instead of content (tests for blocked-run detection)."""
+    if kind == "captcha":
+        return 200, (
+            b"<!doctype html><html><head><title>Just a moment...</title></head><body>"
+            b"<h1>Verify you are human</h1><p>Checking your browser before accessing the site."
+            b"</p><div class='g-recaptcha'></div></body></html>")
+    if kind == "empty":
+        return 200, b"<!doctype html><html><head><title>FakeEats</title></head><body></body></html>"
+    if kind == "forbidden":
+        return 403, (
+            b"<!doctype html><html><head><title>Access Denied</title></head><body>"
+            b"<h1>Access Denied</h1><p>You don't have permission to access this page.</p>"
+            b"</body></html>")
+    return 200, b"<html><body>ok</body></html>"
+
+
 def _phone_form() -> str:
     return (
         '<form method="post" action="/login/phone">'
-        '<input data-testid="phone-input" name="phone">'
+        '<input data-testid="phone-input" name="phone" type="tel" placeholder="Phone number">'
         '<button data-testid="send-otp-button" type="submit">Send code</button></form>'
     )
 
 
-def _otp_form() -> str:
+def _otp_form(phone: str = "") -> str:
+    sent = f"<p>Code sent to +91 {escape(phone)}</p>" if phone else ""
     return (
-        '<form method="post" action="/login/otp">'
-        '<input data-testid="otp-input" name="otp">'
+        f'{sent}<form method="post" action="/login/otp">'
+        '<input data-testid="otp-input" name="otp" inputmode="numeric" '
+        'autocomplete="one-time-code" placeholder="Enter code">'
         '<button data-testid="submit-otp-button" type="submit">Verify</button></form>'
     )
 
