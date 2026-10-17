@@ -78,3 +78,12 @@ before the phone is typed until the login is confirmed.
    Open the printed WATCH PAGE and CODE PAGE links in Safari. Every link carries a secret token; do not share them.
 4. When finished: `sudo bash /opt/friday/deploy/explore-https.sh --off` removes the route again.
 Reattach after a disconnect with `tmux attach -t explore`.
+
+## Probe mode: "is it even working?" (no number, no code, nothing to watch)
+`sudo bash /opt/friday/deploy/zomato-explore.sh --probe` opens zomato.com, tries the location and search, opens a
+restaurant and reads the menu, then stops. It never logs in, never needs your phone number, and never asks for a code.
+Then run the `pack-run` line it prints and send the zip.
+First sandbox probe (16-17 Oct, cloud IP, not your server): the home page loaded (HTTP 200) but it is an app-promo
+page ("Order on app", app-store buttons) with NO search box; city and restaurant pages were cut off with
+ERR_HTTP2_PROTOCOL_ERROR, and swiggy.com answered with a challenge. So it is not yet known whether Zomato's website
+allows ordering at all, or whether a server address is let through. The server probe answers that.

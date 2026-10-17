@@ -54,6 +54,9 @@ def add_parsers(csub: Any) -> None:
     z.add_argument("--add-item", default=None, metavar="NAME",
                    help="add this one dish, show the cart and the pay hand-off screen; "
                         "never pays or places an order")
+    z.add_argument("--probe", action="store_true",
+                   help="reachability check only: open the site, search, open the restaurant "
+                        "and read the menu, then stop. No login, no phone number, no code")
     z.add_argument("--fake", action="store_true",
                    help="dry run against the local FAKE site (checks Chromium, xvfb and the pages)")
     p = csub.add_parser("pack-run", help="zip a run folder for the lead (no secrets)")
@@ -107,7 +110,9 @@ def run_explore_command(args: argparse.Namespace) -> int:
         print("Headed mode needs a display. On the server use deploy/zomato-explore.sh "
               "(it runs under xvfb-run), or pass --headless.")
         return 2
-    if args.fake:
+    if args.probe:
+        phone = ""  # nothing is typed on the site in probe mode
+    elif args.fake:
         phone = FAKE_PHONE
     else:
         try:
@@ -119,7 +124,7 @@ def run_explore_command(args: argparse.Namespace) -> int:
             print("No test phone number is configured. Set FRIDAY_PILOT_ALLOWED_NUMBERS on this "
                   "machine (the first number is used for the Zomato login). Nothing was run.")
             return 2
-    if not local_digits(phone):
+    if not args.probe and not local_digits(phone):
         print("The first allowed number is not a 10-digit Indian mobile number; the Zomato login "
               "step only supports +91 numbers. Nothing was run.")
         return 2
@@ -151,7 +156,10 @@ async def _run(args: argparse.Namespace, phone: str, out: Path) -> int:
     base = (args.public_url or os.environ.get("FRIDAY_PUBLIC_URL")
             or f"http://{args.watch_host}:{args.watch_port}").rstrip("/")
     watch_token = watch.create(TASK_ID, recorder, ttl_seconds=3 * 3600)
-    print(f"Using the first allowed test number (ending {mask_phone(phone)}).")
+    if args.probe:
+        print("PROBE: reachability check only (no login, no phone number, no code).")
+    else:
+        print(f"Using the first allowed test number (ending {mask_phone(phone)}).")
     print(f"WATCH PAGE: {base}/connectors/watch/{watch_token}")
     print("The one-time CODE PAGE link is printed when the site is ready for your code.")
     if args.watch_host not in {"127.0.0.1", "localhost"} and base.startswith("http://"):
@@ -174,8 +182,8 @@ async def _run(args: argparse.Namespace, phone: str, out: Path) -> int:
         base_url, hosts = fake_srv.start(), {"127.0.0.1"}
     cfg = ExploreConfig(
         out=out, base_url=base_url, area=args.area, query=args.query, headed=args.headed,
-        add_item=args.add_item, phone=phone, otp=otp, task_id=TASK_ID, allowed_hosts=hosts,
-        on_waiting_for_otp=waiting)
+        add_item=args.add_item, probe=args.probe, phone=phone, otp=otp, task_id=TASK_ID,
+        allowed_hosts=hosts, on_waiting_for_otp=waiting)
     print(f"Run folder: {out}")
     try:
         state = await run_explore(cfg, recorder)

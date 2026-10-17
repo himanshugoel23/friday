@@ -220,6 +220,21 @@ async def test_full_explore_on_fake_site_leaves_no_secret_and_masks_inputs(tmp_p
     assert _magenta_pixels(shot["open_home"]) == 0
 
 
+
+@needs_browser
+async def test_probe_stops_after_the_menu_without_login_or_phone(tmp_path):
+    state = FakeSiteState(otp=CODE)
+    srv, cfg, submitted = _make(tmp_path / "run", state, probe=True)
+    cfg.phone = ""  # probe needs no number
+    try:
+        st = await run_explore(cfg)
+    finally:
+        srv.stop()
+    assert st["status"] == "done" and not st["logged_in"] and st["blocked_reason"] is None
+    assert [s["step"] for s in st["steps"]] == ["open_home", "location", "search", "restaurant",
+                                               "menu"]
+    assert submitted == [] and not state.orders
+
 @needs_browser
 async def test_add_item_stops_at_payment_handoff_without_paying(tmp_path):
     state = FakeSiteState(otp=CODE)

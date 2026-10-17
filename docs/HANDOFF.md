@@ -606,3 +606,9 @@ FRIDAY_PILOT_ALLOWED_NUMBERS), types his own OTP on the code page, sends back th
 `deploy/explore-https.sh` adds Caddy `handle_path /explore/*` -> 127.0.0.1:8765 (token-protected pages; `--off` removes it).
 Founder is on an iPad and runs commands in the DigitalOcean web console inside tmux. Open: his phone number appears in
 several committed files of the public repo (old); founder to decide redaction / making the repo private.
+
+## Done (2026-10-17): `--probe` mode + first real-site observation
+Added `friday connectors zomato-explore --probe` (no login/number/OTP). Sandbox probe: zomato.com home loaded (HTTP 200) but is an
+"Order on app" promo page with no search box; city/restaurant pages reset the connection (ERR_HTTP2_PROTOCOL_ERROR);
+swiggy.com returned a challenge. Open question: does Zomato's WEBSITE allow ordering at all (it pushes the app)? If not, the
+Zomato web connector is pointless and food goes via Swiggy MCP/Zepto/deep links. Founder to run the probe on the server.

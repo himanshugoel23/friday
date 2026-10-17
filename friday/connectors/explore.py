@@ -144,6 +144,7 @@ class ExploreConfig:
     query: str = "Domino's"
     headed: bool = True
     add_item: str | None = None
+    probe: bool = False  # reachability check only: stops after the menu step, no login, no phone
     phone: str = ""  # runtime only; never printed, logged or written
     otp: OneTimeOtpChannel = field(default_factory=OneTimeOtpChannel)
     task_id: str = "zomato-explore"
@@ -591,9 +592,10 @@ class Explorer:
             await self.s_search()
             await self.s_open_restaurant()
             await self.s_menu()
-            await self.s_login()
-            if self.cfg.add_item:
-                await self.s_add_item()
+            if not self.cfg.probe:
+                await self.s_login()
+                if self.cfg.add_item:
+                    await self.s_add_item()
             self.state["status"] = "done"
         except Blocked as b:
             self.state["status"] = "blocked"
