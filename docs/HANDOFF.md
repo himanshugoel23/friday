@@ -555,3 +555,11 @@ Answered from docs/COMPETITORS.md B3 (secondary sources, unverified).
 ## Task note (2026-10-16): deep research on Meta Muse architecture
 Founder asked for a fresh search on how Muse works under the hood. product-manager agent launched; it appends
 "Update 2026-10-16 (g): Muse architecture" to docs/COMPETITORS.md.
+
+## Decision question (2026-10-17): browser agent like Instinct (cab, food, movie, hotel via private browser)
+Founder's hands-on with Instinct: it books cab/food/movie/hotel through a private web browser, asks the user for
+credentials (OTP, email), and at payment asks for a UPI ID (collect), a saved card in a vault, or shows a QR
+screenshot. Founder asks: can we build it? Answer: yes technically, but build the safer shape: Friday searches,
+compares and fills the cart in a private cloud browser; the user does login OTP and the payment themselves
+(takeover view / UPI intent / QR); never relay OTP through chat or the model; official MCP/APIs first, deep links
+second, browser last. Plan in docs/BROWSER_AGENT_PLAN.md. Standing rule kept: Friday never sees OTP/PIN/card.
