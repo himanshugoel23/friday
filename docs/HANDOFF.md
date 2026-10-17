@@ -581,3 +581,11 @@ Founder: "Let's build a simple use case. Order pizza from Domino's from Zomato. 
 Plan: connector contract + registry (friday/connectors), fake Zomato test site, Zomato food connector (public
 steps first: search Domino's, read menu/prices; login via secure OTP page; cart build; stop at pay -> QR/handoff),
 action gate, tests. Real login/order only with the founder's explicit go-ahead and his own OTP; no secrets in git.
+
+## Done (2026-10-17): connectors foundation + fake-site pizza flow (pushed)
+friday/connectors (contract, registry, action gate, scrub, one-time OTP channel, browser port + Playwright, fake site,
+Zomato food connector with selectors in 3 dicts, pizza flow, step recorder, watch pages with expiring tokens,
+`friday connectors list|demo-pizza --fake [--watch] [--out]`). Tests: 37 connector tests; full suite 2531 passed.
+NOT verified: real Zomato pages/login/checkout/QR, anti-bot behaviour from cloud IPs (this sandbox cannot load
+zomato/swiggy in Chromium), secure OTP page, session encryption. Default registry has Zomato scripted_browser OFF.
+NEXT: run on the founder's server with a headed Chromium in a virtual screen, founder-supervised, stop before any order.
