@@ -87,3 +87,7 @@ First sandbox probe (16-17 Oct, cloud IP, not your server): the home page loaded
 page ("Order on app", app-store buttons) with NO search box; city and restaurant pages were cut off with
 ERR_HTTP2_PROTOCOL_ERROR, and swiggy.com answered with a challenge. So it is not yet known whether Zomato's website
 allows ordering at all, or whether a server address is let through. The server probe answers that.
+
+Geography check (17 Oct): this sandbox's address is in the US (Ohio, Google Cloud). A browser set up like an Indian user
+(en-IN language, Asia/Kolkata timezone, a Gurgaon location) made no difference: Zomato city and restaurant pages still
+reset the connection, so it looks address-based, not settings-based. The Bangalore server is the proper Indian-address test.
