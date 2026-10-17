@@ -44,6 +44,17 @@ uv run friday connectors demo-pizza --fake --watch --out var/demo   # live page 
 ```
 Chromium comes from `PLAYWRIGHT_CHROMIUM_PATH` or `/opt/pw-browsers/chromium-*/`; never run `playwright install`.
 
+## Explore run on the real site (founder-supervised)
+`friday connectors zomato-explore` (server wrapper `deploy/zomato-explore.sh`, runbook `docs/ZOMATO_EXPLORE.md`):
+real Chromium on zomato.com, login with the founder's own number (first `FRIDAY_PILOT_ALLOWED_NUMBERS` entry, read at
+runtime, only the last two digits are ever shown) and his own code typed on the one-time page
+`GET/POST /connectors/otp/{token}` (`api/connectors_otp.py`: separate token, 10 min, single use, 5 tries, no echo,
+no-store). Stops before any order; clicks on pay / place-order wording are refused in code. Locators are guesses
+(`food/zomato_live.py`, all UNVERIFIED); challenge / block / empty / HTTP-error pages and missing locators end the run
+cleanly with `blocked_reason` in `state.json`. The trace is split so the phone and code are never in it, inputs are
+painted over in screenshots, text snapshots are scrubbed. `friday connectors pack-run DIR` zips a run with no secrets.
+`--fake` rehearses everything on the fake site.
+
 ## Add a site
 1. New module `friday/connectors/food/<site>.py` implementing `FoodConnector` against `BrowserSession`
    (or an official-MCP / deep-link backend; nothing above changes).
@@ -52,7 +63,7 @@ Chromium comes from `PLAYWRIGHT_CHROMIUM_PATH` or `/opt/pw-browsers/chromium-*/`
 For a new use case (cab, movie, hotel) add a contract module next to `contract.py` and a pizza_flow-style orchestrator.
 
 ## Tune selectors
-Only the three dicts at the top of `food/zomato.py` change. Save real pages as fixtures, run the connector against
+Only the three dicts at the top of `food/zomato.py` change (the explore run uses `CANDIDATES` in `food/zomato_live.py` instead). Save real pages as fixtures, run the connector against
 them, and add a canary that flips the registry to `degraded` when a login-free step (search, menu price) fails.
 Ids read from a page are validated (`^[A-Za-z0-9_.-]{1,64}$`) before being put in a selector or URL.
 
@@ -65,7 +76,7 @@ Ids read from a page are validated (`^[A-Za-z0-9_.-]{1,64}$`) before being put i
 
 ## NOT verified
 - Real Zomato pages, selectors, login modal, checkout and QR/UPI screen: unknown. The fake site only imitates structure.
-- Real login and OTP delivery from the secure page to the worker (the page is not built; the channel is).
+- The one-time OTP page is built and tested offline; a real login with it on zomato.com has not been done yet.
 - Anti-bot behaviour, new-device checks, CAPTCHAs, cloud-IP blocks, site terms and legal read.
 - Session persistence (`storage_state()` exists; encryption at rest, expiry and "Disconnect" are not built).
 - The sim screenshot is a 1x1 placeholder; real screenshots only come from Chromium.
