@@ -121,3 +121,19 @@ Then hotels via Booking.com MCP when onboarded, and trains/flights later.
 3. First connector end to end with the action gate and WhatsApp approval buttons.
 4. Canary monitoring and the kill switch.
 5. Add sites; swap backends as official MCPs arrive.
+
+## Reading the user's SMS (asked 17 Oct 2026; platform rules from general knowledge, verify)
+Recommendation: do not read SMS in general. Take only what the user hands over, one message at a time.
+- **iPhone/iPad:** apps cannot read SMS. The secure code page uses `autocomplete="one-time-code"`, so Safari offers the
+  code from the Messages SMS above the keyboard (one tap). An iPad receives the SMS if the iPhone has Text Message
+  Forwarding on. An optional iOS Shortcuts automation ("when a message from X arrives, send it to Friday") works only if the
+  user sets it up; opt-in, advanced, for bill SMS, never for bank OTPs.
+- **Android (future Friday app):** the SMS User Consent API shows a system dialog with the one matching message and the user
+  taps Allow; the app sees only that message. The broad READ_SMS permission is restricted by Google Play to default SMS apps
+  and a few exceptions, so Friday would not get it. Notification-listener access is also sensitive and policy-limited.
+- **Web:** the WebOTP API (Chrome on Android) can fill a code for a page when the SMS ends with `@host #code`; only works for
+  SMS sent in that format by the site, so not for Zomato's own SMS.
+- **Bills and receipts by SMS:** the user forwards them, or we read the same bills from Gmail (with the Google connector).
+- **Why not read everything:** SMS holds other people's banking OTPs and private chats; DPDP and trust risk; Instinct drew
+  criticism for pulling a sign-up code from an inbox, and Muse deliberately does not read OTPs from email.
+- Rule unchanged: Friday never asks for or relays bank, card or payment OTPs; login codes go only through the secure page.

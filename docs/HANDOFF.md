@@ -628,3 +628,9 @@ Indian/residential route or the user's device, calls + deep links for the rest, 
 Founder: use zomato.com/login for testing. Sandbox: /login is cut off (ERR_HTTP2_PROTOCOL_ERROR) like the other pages. Added
 `zomato-explore --login-page` (open /login, number masked, founder's own code via the secure page, stop). 74 connector tests pass.
 Founder to run it on the server (needs the /explore HTTPS route for the code page).
+
+## Question (2026-10-17): how can we read the user's SMS?
+Answered: no blanket SMS reading. Android: SMS User Consent API (user taps to share one message) in a future app;
+READ_SMS is restricted by Google Play. iPhone: no SMS access for apps; the secure code page already uses
+autocomplete="one-time-code" so Safari suggests the code from the Messages SMS; Shortcuts automation is opt-in only.
+Bills: forward / Gmail. Recorded in docs/BROWSER_AGENT_PLAN.md. Platform rules from general knowledge, verify.
