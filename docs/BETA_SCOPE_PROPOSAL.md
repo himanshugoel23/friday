@@ -182,3 +182,13 @@ statements the user uploads (no licence needed), (3) AA bank link through a tech
 (4) delegated payments (UPI Circle) after legal read.
 Needs from founder: company registration and business name, a partner choice (Setu, Finvu or
 other), a lawyer's read on AA/FIU, UPI Circle and payments, and a privacy policy.
+
+## How grocery / quick-commerce comparison sites get prices (web search 17 Oct 2026; vendor marketing, unverified)
+- Comparison apps exist (e.g. Quick Compare: price, availability and delivery time across Instamart, Zepto, Blinkit, Minutes,
+  BigBasket). None publish their method.
+- The only described method (from scraping-service vendors such as Actowiz, PromptCloud, ScrapeHero, 42Signals) is scraping the
+  platforms' listings, per pincode / dark store (each dark store serves about 2-3 km with its own stock and sometimes price), using
+  scrapers/browser automation. Prices, offers and stock change many times a day, and hidden checkout discounts matter.
+- Nothing found on official public price APIs, or on legality; platform terms are the main constraint. Needs a lawyer.
+- Consequence for Friday: do not build a scraping business. Use official routes first (Swiggy Instamart MCP, Zepto), then the
+  user's own screenshots or the user-initiated session, and label any price "approximate, for your pincode, at this time".
