@@ -60,3 +60,22 @@ Never: relaying OTPs or passwords through chat, storing card numbers, or hiding 
 4. Logged-in flows for 2 or 3 platforms where an API does not exist, with the user taking over login.
 5. Deep links and official MCPs wherever available (these replace browser steps as soon as they exist).
 Each user-facing line follows hear-before-change.
+
+## Clarification (founder, 17 Oct 2026): login OTP only; payment by QR
+Scope is narrower than first read: Friday needs the user's account LOGIN (email/phone + login OTP) for
+Uber, Zomato and similar, and never a payment OTP. Payment = Friday sends a QR (or UPI intent link), the user
+pays in PhonePe or any PSP app. This is fine and much safer than relaying payment secrets.
+How to handle the login OTP safely:
+1. **Log in once per platform, not per order.** After the first login Friday keeps the browser session
+   (cookies/token) encrypted per user, expiring and revocable ("Disconnect Zomato"). Next orders need no OTP.
+2. **OTP goes through a secure one-time page, never chat.** Friday sends a link; the page has one field,
+   explains why, and the code goes straight to that user's browser worker. It is never sent to the language
+   model, never logged, deleted after use, and the link expires in minutes. No "send me the OTP in chat".
+3. **Preferred when possible:** takeover view (user types the OTP into the site's own login screen), or
+   "Sign in with Google/Apple" where the platform offers it.
+4. **Android later:** no SMS-reading permission for the app (store policy and abuse risk).
+5. The user always sees which account is connected, what Friday did (screenshots, log), and can disconnect.
+Remaining risks, unchanged: site terms against automation, new-device checks and bans on cloud IPs, page-text
+prompt injection (action gate), and users learning to share OTPs: keep the explanation clear that this is
+Friday's own secure page and that Friday never asks for bank, card or payment OTPs.
+Order of build unchanged; payment handoff by QR/UPI intent is step 3 and needs no credentials.

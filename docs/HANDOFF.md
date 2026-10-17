@@ -563,3 +563,9 @@ screenshot. Founder asks: can we build it? Answer: yes technically, but build th
 compares and fills the cart in a private cloud browser; the user does login OTP and the payment themselves
 (takeover view / UPI intent / QR); never relay OTP through chat or the model; official MCP/APIs first, deep links
 second, browser last. Plan in docs/BROWSER_AGENT_PLAN.md. Standing rule kept: Friday never sees OTP/PIN/card.
+
+## Clarification (2026-10-17): login OTP only, payment by QR to the user's own UPI app
+Founder: not asking for payment OTP; only the login OTP for the user's Uber/Zomato account. Payment: send a QR to
+the user who pays from PhonePe/other PSP app. Accepted shape: login via secure one-time field or takeover, session
+kept encrypted and revocable; the model never sees the OTP; payment OTP/PIN/card never touched. Recorded in
+docs/BROWSER_AGENT_PLAN.md (clarification section).
