@@ -612,3 +612,7 @@ Added `friday connectors zomato-explore --probe` (no login/number/OTP). Sandbox 
 "Order on app" promo page with no search box; city/restaurant pages reset the connection (ERR_HTTP2_PROTOCOL_ERROR);
 swiggy.com returned a challenge. Open question: does Zomato's WEBSITE allow ordering at all (it pushes the app)? If not, the
 Zomato web connector is pointless and food goes via Swiggy MCP/Zepto/deep links. Founder to run the probe on the server.
+
+## Task note (2026-10-17): how Muse and Instinct place orders on platforms
+Founder asked the product-manager agent to research in detail how Muse and Instinct place orders (browser agent vs
+APIs/MCP vs deals; login, anti-bot, payment handling). Result: "Update 2026-10-17 (h)" in docs/COMPETITORS.md.
