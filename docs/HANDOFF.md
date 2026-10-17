@@ -575,3 +575,9 @@ Founder: start with the browser; many platforms will ship official MCPs later an
 Meanwhile build an INTERNAL MCP per website per use case that drives the browser, so Friday only ever calls typed
 tools and the backend (browser now, official MCP/API later) can be swapped. Design in docs/BROWSER_AGENT_PLAN.md
 section "Internal MCP connectors".
+
+## Task (2026-10-17): first browser use case = order Domino's pizza via Zomato (build + test)
+Founder: "Let's build a simple use case. Order pizza from Domino's from Zomato. Take care. Let's do the testing."
+Plan: connector contract + registry (friday/connectors), fake Zomato test site, Zomato food connector (public
+steps first: search Domino's, read menu/prices; login via secure OTP page; cart build; stop at pay -> QR/handoff),
+action gate, tests. Real login/order only with the founder's explicit go-ahead and his own OTP; no secrets in git.
