@@ -79,3 +79,45 @@ Remaining risks, unchanged: site terms against automation, new-device checks and
 prompt injection (action gate), and users learning to share OTPs: keep the explanation clear that this is
 Friday's own secure page and that Friday never asks for bank, card or payment OTPs.
 Order of build unchanged; payment handoff by QR/UPI intent is step 3 and needs no credentials.
+
+## Internal MCP connectors (founder decision, 17 Oct 2026)
+Start with the browser. Wrap each site and use case as an INTERNAL MCP server (typed tools), so Friday never
+drives a browser directly. When a platform later ships an official MCP or API, we swap the backend, and
+nothing above it changes.
+### Shape
+- **One contract per use case, not per site.** Examples:
+  - food: `search_restaurants`, `get_menu`, `build_cart`, `get_price_breakdown`, `get_payment_qr`, `track_order`
+  - cab: `get_fare_estimates`, `book_ride`, `get_ride_status`, `cancel_ride`, `get_payment_qr`
+  - movie: `search_shows`, `get_seats`, `hold_seats`, `get_payment_qr`
+  - hotel: `search_hotels`, `get_rooms`, `hold_room`, `get_payment_qr`
+  Every site implements the same tools for its use case (Zomato food, Swiggy food, Uber cab, Ola cab...).
+- **Backends behind each connector:** (1) official MCP/API when it exists, (2) deep link, (3) scripted browser,
+  (4) LLM-guided browser as a repair fallback only. Prefer scripted Playwright steps over a free-roaming
+  agent: faster, cheaper, more reliable, easier to test.
+- **Connector registry:** `site + use case + backend + status (live / degraded / off) + version`, with a kill
+  switch per connector.
+- **Action gate in front** (allow / deny / ask): every state-changing tool (`build_cart`, `book_ride`,
+  `hold_seats`) needs an approval scoped to that task and exact details; read tools are allowed.
+- **Credential firewall:** login happens inside the connector's session worker; the OTP page (see
+  clarification above) feeds the worker directly; tools return only results, never secrets, and tool output
+  is scrubbed of tokens and cookies before the model sees it. Page text is untrusted.
+- **Per-user sessions:** isolated browser profile per user and platform, encrypted at rest, expiring, revocable.
+- **Typed, validated output:** prices as numbers with currency, times as ISO, every field checked by code; the
+  model never invents a price that did not come from a tool result.
+### Reliability
+- Fixture tests from saved pages for every connector; a daily canary run that checks login-free steps (search,
+  price read) and flips the connector to `degraded` if the layout changed; alerts and automatic fallback to
+  "here is the link, you finish in the app".
+- Rate limits and polite behaviour per site; human-like pacing; no scraping of private data; respect
+  robots/terms review per site (legal read).
+### First connectors (recommended)
+1. cab: Uber fare estimate + QR/deep-link handoff (needs login for exact fares).
+2. food: Zomato menu/price read + cart build, handoff to pay. Swiggy via its official MCP (apply for access).
+3. movie: BookMyShow show/seat read.
+Then hotels via Booking.com MCP when onboarded, and trains/flights later.
+### Build steps
+1. Connector contract + registry + test harness (fake site for tests).
+2. Session worker (isolated Chromium, per-user profile) + secure OTP page.
+3. First connector end to end with the action gate and WhatsApp approval buttons.
+4. Canary monitoring and the kill switch.
+5. Add sites; swap backends as official MCPs arrive.

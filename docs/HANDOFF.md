@@ -569,3 +569,9 @@ Founder: not asking for payment OTP; only the login OTP for the user's Uber/Zoma
 the user who pays from PhonePe/other PSP app. Accepted shape: login via secure one-time field or takeover, session
 kept encrypted and revocable; the model never sees the OTP; payment OTP/PIN/card never touched. Recorded in
 docs/BROWSER_AGENT_PLAN.md (clarification section).
+
+## Decision (2026-10-17): start with the browser, wrapped as internal MCP servers per site/use case
+Founder: start with the browser; many platforms will ship official MCPs later and we will integrate those then.
+Meanwhile build an INTERNAL MCP per website per use case that drives the browser, so Friday only ever calls typed
+tools and the backend (browser now, official MCP/API later) can be swapped. Design in docs/BROWSER_AGENT_PLAN.md
+section "Internal MCP connectors".
