@@ -483,6 +483,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.learning.cli import register as register_learning
 
     register_learning(sub)  # `friday learn ...` (docs/LEARNING_AND_BUILD_PLAN.md)
+    from friday.connectors.demo import register as register_connectors
+
+    register_connectors(sub)  # `friday connectors list|demo-pizza --fake` (docs/CONNECTORS.md)
     sc = sub.add_parser("scout", help="find best vendors (live Google if key, else fixtures)")
     sc.add_argument("--category", required=True)
     sc.add_argument("--area", required=True)
@@ -514,6 +517,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.learning.cli import run as run_learn
 
         return run_learn(args)
+    if args.cmd == "connectors":  # offline: fake site on localhost only, never the real network
+        from friday.connectors.demo import run_command as run_connectors_command
+
+        return run_connectors_command(args)
     if args.cmd == "playbook":  # offline: never reads .env, never touches the network
         from friday.playbooks.cli import run_command as run_playbook_command
 
