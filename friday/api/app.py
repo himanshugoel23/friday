@@ -14,6 +14,7 @@ Boots with no keys in simulator mode.
 
 from __future__ import annotations
 
+import hmac
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -117,6 +118,25 @@ def create_app(
     if not c.settings.is_live:  # SECURITY-28: simulator routes never exist in live mode
         app.include_router(_sim_router(c, runtime), prefix="/sim")
     app.include_router(admin_router(c), prefix="/admin")
+
+    # ------------------------------------------------------------------ connector watch pages
+    from friday.api.admin import admin_token as _admin_token
+    from friday.api.connectors_watch import watch_router
+    from friday.connectors.watch import WatchRegistry
+
+    async def _require_admin_for_watch(request: Request) -> None:
+        token = _admin_token(c.settings)
+        if token is None:
+            raise HTTPException(status_code=404)
+        header = request.headers.get("authorization", "")
+        supplied = header[7:] if header.lower().startswith("bearer ") else ""
+        if not supplied or not hmac.compare_digest(supplied, token):
+            raise HTTPException(status_code=401, detail="admin token required")
+
+    app.state.connector_watch = WatchRegistry()
+    app.include_router(
+        watch_router(app.state.connector_watch, _require_admin_for_watch), prefix="/connectors"
+    )
 
     # ------------------------------------------------------------------ voice
     try:
