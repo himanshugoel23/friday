@@ -616,3 +616,10 @@ Zomato web connector is pointless and food goes via Swiggy MCP/Zepto/deep links.
 ## Task note (2026-10-17): how Muse and Instinct place orders on platforms
 Founder asked the product-manager agent to research in detail how Muse and Instinct place orders (browser agent vs
 APIs/MCP vs deals; login, anti-bot, payment handling). Result: "Update 2026-10-17 (h)" in docs/COMPETITORS.md.
+
+## Done (2026-10-17): research on how Muse/Instinct place orders (COMPETITORS.md update (h))
+Neither publishes how; Instinct = cloud machine + stored logins ("Vault") + browser, Stripe Link one-time cards, Shopify checkout;
+Muse = per-user Secure VM with Chromium where no API, Sentinel gate, Stripe Link; Amazon blocked Muse 2026-09-20. India: Swiggy
+official MCP (4 servers/66 tools), Zomato has an internal MCP ordering system not in products; Razorpay+NPCI agentic UPI
+(UPI Reserve Pay, pilot, Zomato/Swiggy/Zepto launch merchants). Recommendation: official MCP first, browser fallback from an
+Indian/residential route or the user's device, calls + deep links for the rest, exact-amount approval per purchase.
