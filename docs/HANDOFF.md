@@ -634,3 +634,6 @@ Answered: no blanket SMS reading. Android: SMS User Consent API (user taps to sh
 READ_SMS is restricted by Google Play. iPhone: no SMS access for apps; the secure code page already uses
 autocomplete="one-time-code" so Safari suggests the code from the Messages SMS; Shortcuts automation is opt-in only.
 Bills: forward / Gmail. Recorded in docs/BROWSER_AGENT_PLAN.md. Platform rules from general knowledge, verify.
+
+## Question (2026-10-17): how do grocery/quick-commerce price comparison sites work?
+Founder noticed many comparison sites (Blinkit/Zepto/Instamart etc.). Searching how they get prices; result goes to docs/BETA_SCOPE_PROPOSAL.md.
