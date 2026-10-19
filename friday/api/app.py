@@ -8,6 +8,7 @@ Routes
   /sim/*                       simulator chat + simulated inbound calls (simulator
                                messaging only)
   /voice/*                     the voice router (c.get("voice_router")) if available
+  /google/*                    per-user Google connector (connect, callback, status, disconnect)
 
 Boots with no keys in simulator mode.
 """
@@ -137,6 +138,11 @@ def create_app(
     app.include_router(
         watch_router(app.state.connector_watch, _require_admin_for_watch), prefix="/connectors"
     )
+
+    # ------------------------------------------------------------------ Google connector
+    from friday.api.google import google_router
+
+    app.include_router(google_router(c, _require_admin_for_watch), prefix="/google")
 
     # ------------------------------------------------------------------ voice
     try:
