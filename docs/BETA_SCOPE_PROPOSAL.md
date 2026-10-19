@@ -208,3 +208,12 @@ Adoption comes from instant value, weekly habit, trust and sharing. In this orde
 Not in the five (next): call screening / divert unknown calls to Friday (strong India fit, needs per-user numbers and legal read),
 browser ordering (site blocks and OTP questions unresolved; link out for now), payments by Friday, devices, Gmail read.
 Beta size: 50 to 100 users in one city, measure weekly active use, calls completed, success rate, saved Rs per user, referrals.
+
+## Social accounts: how Friday could connect them (asked 19 Oct 2026; platform rules from general knowledge, verify current terms and prices)
+Two routes per platform: (A) the user signs in with the platform (OAuth), (B) the user uploads the platform's own "download your data" export. Friday keeps only a few derived facts (for example job titles, employers, interests the user confirms),
+never raw posts or messages, and shows them back for the user to edit or delete (DPDP purpose limitation: the purpose must be stated, e.g. "prepare you for meetings and interviews").
+- **LinkedIn.** (A) "Sign in with LinkedIn" (OpenID Connect, self-serve) returns name, email and photo; fuller profile, positions and connections need partner approval or the Data Portability API (limited by region), so do not rely on it. (B) Settings > Data privacy > "Get a copy of your data" gives a ZIP with positions, education, skills and connections CSVs: the practical route. Most useful: work history for interview and meeting preparation.
+- **Facebook.** (A) Facebook Login gives public profile and email by default; anything more (posts, birthday, friends who use the app) needs Meta app review and business verification and is heavily restricted. (B) "Download your information" ZIP (profile, events, posts). Low value for Friday, high privacy risk.
+- **Instagram.** (A) The API works only for business and creator accounts; the old basic-display API for personal accounts was retired, so personal accounts cannot be linked by OAuth. (B) "Download your information" export. Little value.
+- **X.** (A) OAuth 2.0 with PKCE works for sign-in, but reading a user's data needs a paid API tier (check current pricing). (B) "Download an archive of your data". Little value.
+Recommendation: LinkedIn sign-in for identity plus the data-export upload for work context, as an optional step after the launch set; do not build Meta or X API connections until we know the facts they add are useful. Register problem D13 (priority 3) covers it.
