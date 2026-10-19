@@ -7,11 +7,14 @@ with no network and no real audio. All numbers used with it are invented.
 
 from __future__ import annotations
 
+from datetime import date
+
 from friday.integration.bridge import TelephonyFactory, TelephonyLease
 from friday.liveagent.contracts import CallBrief as LiveBrief
 from friday.liveagent.contracts import Callee as LiveCallee
 from friday.liveagent.simulation.callee import FakeUserChannel, SimClock, SimTelephony
 from friday.liveagent.simulation.personas import PERSONAS, Persona
+from friday.savings.rules import EXAMPLE_VERIFIER, CardRule, RewardType
 
 
 def persona_by_id(persona_id: str) -> Persona:
@@ -49,3 +52,34 @@ class PersonaTelephony(TelephonyFactory):
             FakeUserChannel(answer=persona.user_answer, clock=clock) if persona.asks_user else None
         )
         return TelephonyLease(line, clock.now, channel)
+
+
+def demo_card_rules(today: date) -> list[CardRule]:
+    """INVENTED rules for "HDFC Regalia" and "SBI Cashback", marked as EXAMPLE rows (an
+    ``example.invalid`` source, verifier ``EXAMPLE_NOT_REAL``). They are served only when the
+    savings config allows example rows (tests and the demo), never in production, and the rates
+    are made up: they say nothing about the real cards."""
+    note = "EXAMPLE ROW: invented for tests and demos. NOT a real offer."
+    common = dict(
+        reward_type=RewardType.CASHBACK,
+        source_url="https://example.invalid/demo-card",
+        checked_on=today,
+        verified_by=EXAMPLE_VERIFIER,
+        notes=note,
+    )
+    return [
+        CardRule(
+            bank="HDFC Bank", card_name="Regalia", category="food_delivery", rate_bp=200,
+            monthly_cap_paise=50_000, **common,
+        ),  # type: ignore[arg-type]
+        CardRule(
+            bank="HDFC Bank", card_name="Regalia", category="all", rate_bp=100, **common,
+        ),  # type: ignore[arg-type]
+        CardRule(
+            bank="SBI Card", card_name="Cashback", category="food_delivery", rate_bp=500,
+            monthly_cap_paise=30_000, **common,
+        ),  # type: ignore[arg-type]
+        CardRule(
+            bank="SBI Card", card_name="Cashback", category="all", rate_bp=100, **common,
+        ),  # type: ignore[arg-type]
+    ]  # fmt: skip

@@ -173,3 +173,22 @@ async def test_the_runtime_loop_runs_the_periodic_pass(world: World, monkeypatch
     await asyncio.sleep(0.08)
     task.cancel()
     assert seen["n"] >= 2
+
+
+async def test_the_runtime_starts_the_consumer_loop_and_stops_it(world: World):
+    world.c.settings.roles = ["task"]
+    await world.runtime.start(background=True)
+    try:
+        names = {t.get_name() for t in world.runtime._tasks}
+        assert "friday-consumer" in names
+    finally:
+        await world.runtime.stop()
+
+
+async def test_the_runtime_has_no_consumer_loop_while_the_switches_are_off(off_world: World):
+    off_world.c.settings.roles = ["task"]
+    await off_world.runtime.start(background=True)
+    try:
+        assert "friday-consumer" not in {t.get_name() for t in off_world.runtime._tasks}
+    finally:
+        await off_world.runtime.stop()

@@ -133,6 +133,7 @@ async def make_world(
     savings_example_rules: bool = True,
     telephony: PersonaTelephony | None = None,
     name: str | None = "Rahul",
+    morning_briefing: bool = False,
 ) -> World:
     fake = FakeGoogle() if google else None
     if fake is not None:
@@ -178,7 +179,12 @@ async def make_world(
         attach(router, task_engine=c.get("task_engine"), proactive=c.get("proactive"))
     user = await c.repos.users.add(User(phone=USER_PHONE, status=UserStatus.ACTIVE))
     await c.repos.profiles.save(
-        Profile(user_id=user.id, name=name, language=Language.HINGLISH, morning_briefing=True)
+        Profile(
+            user_id=user.id,
+            name=name,
+            language=Language.HINGLISH,
+            morning_briefing=morning_briefing,
+        )
     )
     w = World(c, runtime, channel, clk, user, USER_PHONE, sim, brain, fake)
     w._db = db  # type: ignore[attr-defined]
@@ -190,6 +196,16 @@ def _sender(c: Container):  # noqa: ANN202
         await c.get("notifier").notify_user(user_id, text, buttons=list(buttons))
 
     return send
+
+
+async def load_demo_rules(w: World) -> None:
+    """INVENTED example rows for HDFC Regalia and SBI Cashback (tests only)."""
+    from friday.core.clock import ist_date
+    from friday.integration.sim import demo_card_rules
+
+    rules = w.consumer.savings.rules
+    for r in demo_card_rules(ist_date(w.clock.now())):
+        await rules.upsert(r)
 
 
 async def close_world(w: World) -> None:
@@ -221,8 +237,12 @@ async def add_contact(w: World, name: str, number: str, **kw) -> None:  # noqa: 
 
 
 @pytest.fixture(autouse=True)
-def _quiet_logs(caplog: pytest.LogCaptureFixture) -> None:
+def _quiet_logs(caplog: pytest.LogCaptureFixture):  # noqa: ANN202
     caplog.set_level(logging.DEBUG, logger="friday")
+    yield
+    # the router swallows its own bugs so the old flows still get the message; a test must not
+    assert "consumer router failed" not in caplog.text
+    assert "proactive source" not in caplog.text or "failed" not in caplog.text
 
 
 __all__ = [
@@ -236,6 +256,7 @@ __all__ = [
     "World",
     "add_contact",
     "close_world",
+    "load_demo_rules",
     "make_world",
     "MessageKind",
 ]

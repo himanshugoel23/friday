@@ -411,6 +411,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.savings.cli import add_parser as _add_savings
 
     _add_savings(sub)  # `friday savings rules import|verify|list|export`
+    from friday.integration.demo import add_parser as _add_consumer
+
+    _add_consumer(sub)  # `friday consumer demo` (offline)
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -528,6 +531,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.playbooks.cli import run_command as run_playbook_command
 
         return run_playbook_command(args)
+    if args.cmd == "consumer":  # offline: fakes only, never reads .env, never dials
+        from friday.integration.demo import run_command as run_consumer_command
+
+        return run_consumer_command(args)
     if args.cmd == "pm-sim":  # offline: fakes only, never reads .env
         from friday.pm.cli import run_pm_sim
 

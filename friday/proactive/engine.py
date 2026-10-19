@@ -21,9 +21,10 @@ import hashlib
 from datetime import timedelta
 from typing import Any
 
-from friday.core.clock import ist_day_bounds
+from friday.core.clock import ist_day_bounds, to_ist
 from friday.core.logging import get_logger
 from friday.core.models import (
+    AutonomyCategory,
     AutonomyLevel,
     AutonomySetting,
     FeedbackType,
@@ -178,11 +179,33 @@ class ProactiveEngine:
             self._briefing_providers.append(provider)
 
     async def _apply_briefing_providers(
-        self, user_id: str, now: Any, briefs: list[NudgeCandidate], deferred: list[Nudge]
+        self,
+        user_id: str,
+        now: Any,
+        briefs: list[NudgeCandidate],
+        deferred: list[Nudge],
+        profile: Any,
     ) -> list[NudgeCandidate]:
-        if not self._briefing_providers or not briefs:
+        if not self._briefing_providers:
             return briefs
         lines = [n.text or n.reason for n in deferred]
+        today = to_ist(now)
+        in_window = bool(
+            profile.morning_briefing
+            and profile.briefing_hour_ist <= today.hour < profile.briefing_hour_ist + 2
+        )
+        if not briefs and in_window:  # nothing in the tasks, but the provider may know the day
+            briefs = [
+                NudgeCandidate(
+                    user_id=user_id,
+                    kind=NudgeKind.MORNING_BRIEFING,
+                    category=AutonomyCategory.BRIEFING,
+                    reason="morning briefing",
+                    due_at=now,
+                    dedupe_key=f"briefing:{today.date()}",
+                    data={"lines": [], "digest_ids": [], "provider_only": True},
+                )
+            ]
         out: list[NudgeCandidate] = []
         for cand in briefs:
             text: str | None = None
@@ -194,7 +217,7 @@ class ProactiveEngine:
                     text = None
                 if text is not None:
                     break
-            if text == "":
+            if text == "" or (cand.data.get("provider_only") and not text):
                 continue
             if text:
                 cand = cand.model_copy(update={"data": {**cand.data, "fixed_text": text}})
@@ -337,7 +360,7 @@ class ProactiveEngine:
                 user_id, profile, tasks, facts, now,
                 deferred=[(n.id, n.text or n.reason) for n in deferred],
             )
-            out += await self._apply_briefing_providers(user_id, now, briefs, deferred)
+            out += await self._apply_briefing_providers(user_id, now, briefs, deferred, profile)
         # rank: safety > urgent > normal, earliest due first (US-10.2 #6)
         order = {Urgency.SAFETY: 0, Urgency.URGENT: 1, Urgency.NORMAL: 2}
         return sorted(out, key=lambda c: (order[c.urgency], c.due_at))

@@ -20,6 +20,7 @@ Order for text: pending call question -> Google -> memory controls -> savings ->
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -241,7 +242,7 @@ class ConsumerRouter:
             return True
         if self.life:
             if (r := await self.life.scheduler.handle_reply(uid, text)).handled:
-                await self.send(uid, r.text or "", [])
+                await self.send(uid, r.reply or "", [])
                 return True
             if _DAY.search(text):
                 return await self._my_day(uid)
@@ -441,14 +442,12 @@ class ConsumerRouter:
 
     async def loop(self, interval_s: float = 30.0) -> None:
         """The periodic loop the runtime starts beside its other loops."""
-        import asyncio
-
         while True:
+            await asyncio.sleep(interval_s)  # first pass one interval after start-up
             try:
                 await self.periodic()
             except Exception as e:  # noqa: BLE001 - a bad pass never kills the loop
                 log.warning("consumer periodic pass failed (%s)", type(e).__name__)
-            await asyncio.sleep(interval_s)
 
     async def sync_calendars(self, *, every: timedelta = timedelta(minutes=15)) -> int:
         """Import each connected user's calendar into their life state (read-only, windowed)."""
