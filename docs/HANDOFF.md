@@ -740,3 +740,7 @@ Open founder decisions from W5 added to docs/CONSUMER_DECISIONS.md (items 19-26)
 ## Question (2026-10-19): do AI calls have signatures that identify them as AI?
 Answered from general knowledge (verify): no standard telephony marker; detection is by behaviour (latency, no backchannels, uniform prosody), call patterns (volume, short calls, caller ID reputation) and
 audio deepfake detectors; we never hide it: fixed disclosure, truthful "are you AI?", dedicated caller ID, optional verified business profile (Truecaller) naming Friday as an assistant.
+
+## Decision (2026-10-19): build ONE slice at a time, finish it 100% before the next
+Founder: stop building many things in parallel; complete each to 100% and then move on. Agreed. Board with slices and a definition of done: docs/BUILD_BOARD.md. Order: 0 foundation (server, DB, WhatsApp), 1 call someone for me end to end,
+2 voicemail/receptionist, 3 hold-fighting + reminder calls, 4 voice channels, 5 savings with real rules, 6 your day + Google. No new parallel builders.
