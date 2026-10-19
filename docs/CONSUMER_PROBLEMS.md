@@ -5,6 +5,12 @@ Scope the founder set: (A) a complete calling agent the CUSTOMER can use to call
 is the consumer use case. Rule for this document: problems only. Solutions are decided later, area by area, with the founder.
 Each point: P-number, the problem, why it is hard.
 
+## Founder decisions that shape this list (19 Oct 2026)
+- Gmail, Calendar and the other personal sources are CORE: the user connects them so Friday knows them. (C1 below is therefore a MUST.)
+- ORDERING through browsers and platforms is PARKED for now (the browser connector stays in the repo, off by default).
+- Everything else (calling anyone, savings engine, remembering the day, voice-first, bills, memory, trust) is in scope.
+- Google review path: test mode with named testers for the beta (verify the tester limit), start verification and the Gmail security assessment in parallel.
+
 ## A. The calling agent for the customer (call anyone)
 
 ### A1. What the user wants to call about (the request space)

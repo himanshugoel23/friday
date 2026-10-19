@@ -646,3 +646,9 @@ founder's choice about giving the login code in chat (option 1/2/3 in the last a
 Founder: build a complete calling agent for the customer: the user can ask Friday to call ANYONE (not only businesses); plus a complete
 savings engine and "remembers the whole day". Before building: list every problem as multiple points, then decide how to build each.
 Reason: all voice work so far is for the business use case; now the consumer use case. Problem list: docs/CONSUMER_PROBLEMS.md.
+
+## Decision (2026-10-19): Gmail + Calendar are core; ordering parked
+Founder: for Friday to know the user, Gmail, Calendar and the rest should be connected; keep ORDERING (browser/Zomato etc.) parked for now,
+build everything else. Implication: Google connector (Calendar + Gmail read) moves into the beta using Google's testing mode with named
+testers (about 100, to verify) while verification / the Gmail security assessment starts in parallel. The Zomato login test is paused.
+Browser connector code stays in the repo, off by default.
