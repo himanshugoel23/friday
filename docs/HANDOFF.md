@@ -691,3 +691,6 @@ Migration chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_
 NOT wired: front door, task-engine adapter for calls, W1<->W2 model unification (adapter), proactive tick, notifier, button dispatch. NEXT: an integration builder.
 All new user-facing/spoken text is PENDING_FOUNDER_APPROVAL (calls/copy.py, liveagent/lines.py, savings/copy.py, lifestate/copy.py, google/consent_copy.py).
 Founder decisions collected from the builders are listed in docs/CONSUMER_DECISIONS.md.
+
+## Question (2026-10-19): what are the final functionalities Friday has?
+Answered from the merged code; summary written to docs/STATE_OF_FRIDAY.md (updated). Integration builder (W5) still running.
