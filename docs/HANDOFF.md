@@ -667,3 +667,11 @@ Note: the register has 95 problems (earlier said ~120).
 https://claude.ai/artifact/UXSu1w778JegYvANQXS5PC (95 problems: 56 priority 1, 28 priority 2, 11 priority 3). Founder's choices are saved in the
 artifact db collection `decisions` (doc id = problem id with "." -> "-", fields decision: must|soon|later|never|discuss, note); read with ArtifactData.
 Meanwhile building (already decided by the founder): Google connector with per-user OAuth + Calendar + Gmail read (fakes only until the founder creates the Google Cloud project).
+
+## Done (2026-10-19): Google connector foundation built against a fake Google, pushed
+friday/google (oauth with PKCE + signed single-use state, encrypted per-user tokens, Calendar read/write/clash/idempotent create, Gmail narrow
+read-only search behind FRIDAY_GOOGLE_GMAIL_ENABLED=false, router /google, migration 0006, DataPurger covers it). 105 tests; full suite 2673 passed.
+Unverified: real Google; Testing-mode tester limit and 7-day refresh-token expiry (testers hit needs_reconnect weekly); Gmail CASA before public launch;
+migration/RLS not applied to live Supabase. Founder to: create the Google Cloud project per docs/GOOGLE_CONNECTOR.md, approve friday/google/consent_copy.py,
+decide who calls the routes (admin bearer now), Gmail switch for testers, confirm redirect URI https://64-227-183-183.sslip.io/google/callback (assumed).
+Note: the server (droplet) may no longer exist ("I do not have any server right now"): the redirect URI and hosting need re-deciding.
