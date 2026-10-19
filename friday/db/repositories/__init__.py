@@ -33,6 +33,7 @@ from friday.db.repositories.calls import (
     InboundKind,
     MatchStatus,
 )
+from friday.db.repositories.google import GoogleRepo
 from friday.db.repositories.memory import AuditRepo, CostRepo, FactRepo, IdentifierRepo
 from friday.db.repositories.messages import MessageRepo, StoredMessage
 from friday.db.repositories.nudges import NudgeRepo
@@ -68,6 +69,7 @@ __all__ = [
     "CostRepo",
     "DataPurger",
     "FactRepo",
+    "GoogleRepo",
     "IdentifierRepo",
     "InviteRepo",
     "MessageRepo",
@@ -113,6 +115,7 @@ class Repositories:
     suppressions: SuppressionRepo
     pin_locks: PinLockRepo
     numbers: NumberRepo  # caller-ID pool state (NP-1)
+    google: GoogleRepo  # per-user Google OAuth connection (friday/google)
     purger: DataPurger
     retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
@@ -150,6 +153,7 @@ def make_repositories(
         suppressions=SuppressionRepo(db, clock),
         pin_locks=PinLockRepo(db, clock),
         numbers=NumberRepo(db, clock),
+        google=GoogleRepo(db, clock),
         purger=DataPurger(db, clock),
     )
     from friday.db.retention import RetentionService

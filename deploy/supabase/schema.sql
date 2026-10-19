@@ -969,5 +969,45 @@ CREATE INDEX ix_quote_conversations_counted_at ON quote_conversations (counted_a
 
 UPDATE alembic_version SET version_num='0005_quote_conversations' WHERE alembic_version.version_num = '0004_quality_calls';
 
+-- Running upgrade 0005_quote_conversations -> 0006_google_connector
+
+CREATE TABLE google_connections (
+    user_id VARCHAR(32) NOT NULL, 
+    google_sub_hmac VARCHAR(64) NOT NULL, 
+    email TEXT, 
+    scopes JSON NOT NULL, 
+    refresh_token TEXT NOT NULL, 
+    access_token TEXT, 
+    access_expires_at TIMESTAMP WITH TIME ZONE, 
+    status VARCHAR(20) NOT NULL, 
+    last_used_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_google_connections PRIMARY KEY (id), 
+    CONSTRAINT fk_google_connections_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_google_connections_user_id UNIQUE (user_id)
+);
+
+CREATE INDEX ix_google_connections_google_sub_hmac ON google_connections (google_sub_hmac);
+
+CREATE TABLE google_oauth_states (
+    id VARCHAR(64) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    code_verifier TEXT, 
+    scopes JSON NOT NULL, 
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    used_at TIMESTAMP WITH TIME ZONE, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_google_oauth_states PRIMARY KEY (id), 
+    CONSTRAINT fk_google_oauth_states_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_google_oauth_states_user_id ON google_oauth_states (user_id);
+
+CREATE INDEX ix_google_oauth_states_expires_at ON google_oauth_states (expires_at);
+
+UPDATE alembic_version SET version_num='0006_google_connector' WHERE alembic_version.version_num = '0005_quote_conversations';
+
 COMMIT;
 

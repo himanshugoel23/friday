@@ -440,6 +440,28 @@ class Settings(BaseSettings):
             "GOOGLE_PLACES_API_KEY", "GOOGLE_MAPS_API_KEY", "FRIDAY_GOOGLE_PLACES_API_KEY"
         ),
     )
+    # ------------------------------------------------------------------ Google connector
+    # docs/GOOGLE_CONNECTOR.md: each user connects THEIR OWN Google account (Calendar first,
+    # Gmail read-only behind a switch). Values live only in the server env, never in git.
+    google_oauth_client_id: str | None = Field(
+        default=None,
+        validation_alias=_alias("GOOGLE_OAUTH_CLIENT_ID", "FRIDAY_GOOGLE_OAUTH_CLIENT_ID"),
+    )
+    google_oauth_client_secret: SecretStr | None = Field(
+        default=None,
+        validation_alias=_alias("GOOGLE_OAUTH_CLIENT_SECRET", "FRIDAY_GOOGLE_OAUTH_CLIENT_SECRET"),
+    )
+    google_redirect_uri: str | None = None  # https://<host>/google/callback
+    google_gmail_enabled: bool = False  # asks gmail.readonly (a RESTRICTED scope)
+    # Real Google endpoints by default; tests and staging override them (fake Google).
+    google_auth_url: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    google_token_url: str = "https://oauth2.googleapis.com/token"
+    google_userinfo_url: str = "https://openidconnect.googleapis.com/v1/userinfo"
+    google_revoke_url: str = "https://oauth2.googleapis.com/revoke"
+    google_calendar_base_url: str = "https://www.googleapis.com/calendar/v3"
+    google_gmail_base_url: str = "https://gmail.googleapis.com/gmail/v1"
+    google_state_ttl_s: int = 600  # consent link / OAuth state lifetime (10 minutes)
+    google_token_expiry_margin_s: int = 120  # refresh the access token this early
     geocoder_provider: GeocoderProviderName = "auto"
     discovery_max_candidates: int = 10  # fetched from the directory
     discovery_shortlist_size: int = 3  # called after the brain shortlists
