@@ -13,7 +13,7 @@ from alembic import op
 import friday.db.base
 
 revision = "0008_savings_engine"
-down_revision = "0006_google_connector"
+down_revision = "0007_consumer_calls"
 branch_labels = None
 depends_on = None
 

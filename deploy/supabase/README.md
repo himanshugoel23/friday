@@ -1,7 +1,7 @@
 # Friday on Supabase (managed Postgres)
 
 Status (13 Oct 2026): project `zxbiapcppbfnctndmnab` in the Supabase organization "Friday"
-(region ap-southeast-1, Postgres 17, free plan). The full schema (Alembic 0001 to 0006, 90 tables
+(region ap-southeast-1, Postgres 17, free plan). The full schema (Alembic 0001 to 0007, 97 tables
 including the monthly partitions) is applied and Row Level Security is ON for every table (no
 policies: the public Data API reads nothing; only the server's database owner role can).
 
@@ -32,3 +32,9 @@ nothing to match. NOT done here (needs the live database): apply 0006 and `rls.s
 (`python -m friday.db.migrate up` then `rls`, or run the new parts of `schema.sql` / `rls.sql`).
 
 Savings engine (Alembic 0008, tables `wallet_cards`, `card_rules`, `bills`, `savings_ledger`): RLS is ON with no policy for the public API roles, like every other table. Per-user rows are keyed by `user_id` and their sensitive columns are encrypted by the application (AES-GCM). NOT done here (needs the live database): apply 0008 and `rls.sql` to the project.
+
+Consumer calls (Alembic 0007, tables `consumer_contacts`, `call_requests`, `call_briefs`,
+`call_outcomes`, `call_attempts`, `call_strikes`, `call_dnc`): RLS ON with no policy, same reasoning
+as above. `call_dnc` is the global do-not-call registry: it holds only a keyed hash of a number (no
+number, no user id) and is deliberately not part of a user's erasure. NOT done here (needs the live
+database): apply 0007 and `rls.sql` to the project.
