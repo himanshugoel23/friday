@@ -21,9 +21,10 @@ import hashlib
 from datetime import timedelta
 from typing import Any
 
-from friday.core.clock import ist_day_bounds
+from friday.core.clock import ist_day_bounds, to_ist
 from friday.core.logging import get_logger
 from friday.core.models import (
+    AutonomyCategory,
     AutonomyLevel,
     AutonomySetting,
     FeedbackType,
@@ -81,6 +82,12 @@ class ProactiveEngine:
         self._handlers: set[asyncio.Task] = set()
         self._created: list[Nudge] = []
         self._closed = False
+        # extra candidate sources / after-send hooks registered by other packages (the consumer
+        # beta: bill reminders, life-state follow-ups). They feed the SAME process() path, so
+        # caps, quiet hours, dedupe and ignore-learning apply to them unchanged.
+        self._sources: list[Any] = []
+        self._sent_hooks: list[Any] = []
+        self._briefing_providers: list[Any] = []
         self.worker_id = worker_id("proactive")
         self.retention = RetentionJob(c)
         self.bus.subscribe(WellbeingAlertRaised, self._on_alert)
@@ -150,6 +157,72 @@ class ProactiveEngine:
             if t is not None and not t.done():
                 t.cancel()
         self.bus.unsubscribe(WellbeingAlertRaised, self._on_alert)
+
+    # ------------------------------------------------------------------ extension points
+    def register_source(self, source: Any) -> None:
+        """``async source(user_id, now) -> list[NudgeCandidate]``, asked on every evaluation.
+        A candidate may carry ``data["fixed_text"]`` (+ ``data["fixed_buttons"]``): its approved
+        wording is sent as is, without the brain rewriting it."""
+        if source not in self._sources:
+            self._sources.append(source)
+
+    def register_sent_hook(self, hook: Any) -> None:
+        """``async hook(nudge, candidate)`` after a nudge was handed to the notifier."""
+        if hook not in self._sent_hooks:
+            self._sent_hooks.append(hook)
+
+    def register_briefing_provider(self, provider: Any) -> None:
+        """``async provider(user_id, now, digest_lines) -> str | None``: the text of the morning
+        briefing. The briefing keeps its own opt-in, key, quiet hours and digest delivery; the
+        provider only supplies the wording. ``None`` keeps the generic text, ``""`` drops it."""
+        if provider not in self._briefing_providers:
+            self._briefing_providers.append(provider)
+
+    async def _apply_briefing_providers(
+        self,
+        user_id: str,
+        now: Any,
+        briefs: list[NudgeCandidate],
+        deferred: list[Nudge],
+        profile: Any,
+    ) -> list[NudgeCandidate]:
+        if not self._briefing_providers:
+            return briefs
+        lines = [n.text or n.reason for n in deferred]
+        today = to_ist(now)
+        in_window = bool(
+            profile.morning_briefing
+            and profile.briefing_hour_ist <= today.hour < profile.briefing_hour_ist + 2
+        )
+        if not briefs and in_window:  # nothing in the tasks, but the provider may know the day
+            briefs = [
+                NudgeCandidate(
+                    user_id=user_id,
+                    kind=NudgeKind.MORNING_BRIEFING,
+                    category=AutonomyCategory.BRIEFING,
+                    reason="morning briefing",
+                    due_at=now,
+                    dedupe_key=f"briefing:{today.date()}",
+                    data={"lines": [], "digest_ids": [], "provider_only": True},
+                )
+            ]
+        out: list[NudgeCandidate] = []
+        for cand in briefs:
+            text: str | None = None
+            for provider in self._briefing_providers:
+                try:
+                    text = await provider(user_id, now, lines)
+                except Exception:  # noqa: BLE001
+                    log.exception("briefing provider failed")
+                    text = None
+                if text is not None:
+                    break
+            if text == "" or (cand.data.get("provider_only") and not text):
+                continue
+            if text:
+                cand = cand.model_copy(update={"data": {**cand.data, "fixed_text": text}})
+            out.append(cand)
+        return out
 
     # ------------------------------------------------------------------ jobs (S-8)
     async def _enqueue(
@@ -276,12 +349,18 @@ class ProactiveEngine:
             *vendor_triggers.open_quotes(user_id, tasks, now),
             *vendor_triggers.unanswered_vendors(user_id, tasks, now),
         ]
+        for source in self._sources:
+            try:
+                out += list(await source(user_id, now) or [])
+            except Exception:  # noqa: BLE001 - one broken source must not silence the others
+                log.exception("proactive source %s failed", getattr(source, "__name__", "?"))
         deferred = await self._digest_waiting(user_id)
         if profile is not None:
-            out += triggers.morning_briefing(
+            briefs = triggers.morning_briefing(
                 user_id, profile, tasks, facts, now,
                 deferred=[(n.id, n.text or n.reason) for n in deferred],
             )
+            out += await self._apply_briefing_providers(user_id, now, briefs, deferred, profile)
         # rank: safety > urgent > normal, earliest due first (US-10.2 #6)
         order = {Urgency.SAFETY: 0, Urgency.URGENT: 1, Urgency.NORMAL: 2}
         return sorted(out, key=lambda c: (order[c.urgency], c.due_at))
@@ -346,7 +425,11 @@ class ProactiveEngine:
         if verdict.action == "schedule":
             nudge.status = NudgeStatus.SCHEDULED
             nudge.scheduled_for = verdict.send_at
-            nudge.text = cand.reason  # re-judged when due
+            nudge.text = cand.data.get("fixed_text") or cand.reason  # re-judged when due
+            if cand.data.get("fixed_buttons"):  # approved wording survives the quiet-hours hold
+                nudge.buttons = [
+                    ReplyButton(id=b["id"], title=b["title"]) for b in cand.data["fixed_buttons"]
+                ][:3]
             stored = await self._store(nudge)
             await self._enqueue(
                 "nudge.send",
@@ -417,11 +500,15 @@ class ProactiveEngine:
 
     async def _judge_and_send(self, nudge: Nudge, cand: NudgeCandidate) -> Nudge:
         ctx = await build_context(self.repos, cand.user_id, self.clock.now())
-        try:
-            decision = await self.c.get("brain").judge_nudge(ctx, cand)
-        except Exception as e:  # noqa: BLE001 - fall back to a plain, actionable nudge
-            log.error("judge_nudge failed: %r", e)
-            decision = NudgeDecision(send=True, text=cand.reason, reason="fallback")
+        fixed = cand.data.get("fixed_text")
+        if fixed:  # approved wording from the package that made the candidate: no rewriting
+            decision = NudgeDecision(send=True, text=str(fixed), reason="fixed text")
+        else:
+            try:
+                decision = await self.c.get("brain").judge_nudge(ctx, cand)
+            except Exception as e:  # noqa: BLE001 - fall back to a plain, actionable nudge
+                log.error("judge_nudge failed: %r", e)
+                decision = NudgeDecision(send=True, text=cand.reason, reason="fallback")
         if not decision.send:
             nudge.status = NudgeStatus.SUPPRESSED
             nudge.reason = decision.reason or "brain said no"
@@ -442,6 +529,10 @@ class ProactiveEngine:
             buttons = [ReplyButton(id=nudge_button_id(nudge.id, "undo"), title="Undo")]
         else:
             buttons = self._buttons(nudge, decision, level)
+        if cand.data.get("fixed_buttons"):  # ids belong to the owning package (bill:, life:)
+            buttons = [
+                ReplyButton(id=b["id"], title=b["title"]) for b in cand.data["fixed_buttons"][:3]
+            ]
         nudge.text = text
         nudge.buttons = buttons
         nudge.sent_at = self.clock.now()
@@ -462,6 +553,11 @@ class ProactiveEngine:
         )
         if cand.kind == NudgeKind.MORNING_BRIEFING and cand.data.get("digest_ids"):
             await self._mark_digested(cand.user_id, list(cand.data["digest_ids"]))
+        for hook in self._sent_hooks:
+            try:
+                await hook(nudge, cand)
+            except Exception:  # noqa: BLE001
+                log.exception("proactive sent hook failed")
         return nudge
 
     def _buttons(
@@ -534,6 +630,14 @@ class ProactiveEngine:
                 fact_id=n.fact_id,
                 person_id=n.person_id,
                 dedupe_key=n.dedupe_key,
+                data=(
+                    {
+                        "fixed_text": n.text,
+                        "fixed_buttons": [x.model_dump() for x in n.buttons],
+                    }
+                    if n.buttons
+                    else {}
+                ),
             )
             verdict = await self._guard(cand)  # the cap may have filled up meanwhile
             if verdict.action != "send":

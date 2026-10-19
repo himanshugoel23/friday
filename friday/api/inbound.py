@@ -231,8 +231,25 @@ class InboundPipeline:
             action, user_id=user.id if user else None, actor=actor, subject_id=subject, **detail
         )
 
+    def consumer(self) -> Any:
+        """The consumer-beta router (friday/integration), or None while every consumer switch is
+        off. Built lazily; a failure to build it never stops the old flows."""
+        try:
+            return self.c.get("consumer")
+        except ComponentNotAvailable:
+            return None
+        except Exception:  # noqa: BLE001
+            log.exception("consumer integration failed to build; continuing without it")
+            return None
+
     async def context(self, user: User) -> ConversationContext:
-        return await build_context(self.repos, self.clock, user)
+        ctx = await build_context(self.repos, self.clock, user)
+        consumer = self.consumer()
+        if consumer is not None:
+            summary = await consumer.context_summary(user.id)
+            if summary:
+                ctx = ctx.model_copy(update={"day_summary": summary})
+        return ctx
 
     async def apply_profile_updates(self, user: User, updates: dict[str, Any]) -> Profile:
         profile = await self.repos.profiles.get_or_default(user.id)
@@ -579,6 +596,10 @@ class InboundPipeline:
     async def _active(self, user: User, msg: InboundMessage) -> None:
         pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None and await self._continue_pending(user, msg, pending):
+            return
+
+        consumer = self.consumer()
+        if consumer is not None and await consumer.handle(user, msg, quotes=self.quotes):
             return
 
         if await self.quotes.handle(user, msg):

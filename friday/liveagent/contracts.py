@@ -109,6 +109,10 @@ class CallOutcome(BaseModel):
     commitments: list[Commitment] = Field(default_factory=list)
     needs_user_approval: list[ApprovalRequest] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
+    # structured copies of what the summary says in words (numbers already masked); the
+    # integration bridge needs them to fill W1's CallOutcome without parsing English
+    answers: dict[str, str] = Field(default_factory=dict)
+    callback_time: str | None = None
 
 
 class TranscriptTurn(BaseModel):

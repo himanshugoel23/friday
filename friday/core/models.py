@@ -1826,6 +1826,9 @@ class ConversationContext(_Model):
     people: list[Person] = Field(default_factory=list)  # owner's circle
     places: list[Place] = Field(default_factory=list)  # owner's saved places
     autonomy: list[AutonomySetting] = Field(default_factory=list)
+    # one line about the user's day ("now: in event (interview) until 15:00"); kinds, times and
+    # counts only, never titles or names (friday/lifestate). None when the switch is off.
+    day_summary: str | None = None
 
 
 class Interpretation(_Model):

@@ -130,6 +130,7 @@ class CallOrchestrator:
         self.recordings = recordings
         self.reports = reports or ReportBuilder()
         self.max_attempts = min(self.policy.max_attempts, self.settings.retry_max_attempts)
+        self._group_locks: dict[str, asyncio.Lock] = {}
 
     # ================================================================== approval -> schedule
     async def submit(self, request_id: str) -> SubmitResult:
@@ -311,6 +312,11 @@ class CallOrchestrator:
         return SubmitResult(CallStatus.GROUP_WAITING, None, task_id)
 
     async def _maybe_finish_group(self, parent_id: str) -> None:
+        # two children can finish at the same moment on a concurrent worker: one report only
+        async with self._group_locks.setdefault(parent_id, asyncio.Lock()):
+            await self._finish_group_locked(parent_id)
+
+    async def _finish_group_locked(self, parent_id: str) -> None:
         parent = await self.store.get_request(parent_id)
         if parent is None or parent.status != CallStatus.GROUP_WAITING:
             return

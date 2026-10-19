@@ -86,6 +86,7 @@ class Runtime:
         self.callbacks.subscribe()
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.subscribe()
+        self._attach_consumer()
         if background:
             from friday.core.warmup import warm_llm
 
@@ -93,6 +94,20 @@ class Runtime:
             await self._start_roles()
             await self._resume_pm()
         self.running = True
+
+    def _attach_consumer(self) -> None:
+        """Consumer beta (friday/integration): register its call job on the task engine and its
+        reminders on the proactive engine. A no-op while every consumer switch is off."""
+        consumer = self.pipeline.consumer()
+        if consumer is None:
+            return
+        from friday.integration.wiring import attach
+
+        attach(
+            consumer,
+            task_engine=self._component("task_engine"),
+            proactive=self._component("proactive"),
+        )
 
     async def _resume_pm(self) -> None:
         """Project-manager jobs that were running when the server stopped continue now."""
@@ -111,6 +126,9 @@ class Runtime:
             self._tasks.append(asyncio.create_task(self.worker_loop(), name="friday-worker"))
             self._tasks.append(asyncio.create_task(self.quotes_loop(), name="friday-quotes"))
             await self._start_component("task_engine")
+            consumer = self.pipeline.consumer()
+            if consumer is not None:  # run_due / recover_stale / purge_expired / calendar sync
+                self._tasks.append(asyncio.create_task(consumer.loop(), name="friday-consumer"))
         if voice_worker is not None:
             await voice_worker.start()
             self._started.append(voice_worker)
