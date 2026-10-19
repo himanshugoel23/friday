@@ -33,3 +33,11 @@ Send me the last 20 lines of `friday doctor` output (it never prints secrets) or
 
 ## What comes after
 Slice 1 (call someone for me): needs the Vobiz keys, an approved opening line, and one real call to your own phone.
+
+## If you already have the DigitalOcean server (founder, 19 Oct): update it instead of creating one
+The droplet (Bangalore, Ubuntu 24.04, code in /opt/friday, service `friday`, HTTPS at https://<ip-with-dashes>.sslip.io) already exists, so skip "create the droplet". In its web console, inside tmux:
+1. `tmux new -As friday`
+2. `curl -fsSL https://raw.githubusercontent.com/himanshugoel23/friday/claude/friday-phase-1/deploy/small-server.sh -o /root/small-server.sh && sudo bash /root/small-server.sh`
+   The script is safe to re-run: it switches the server to the current branch, updates the code, asks for each key again (press Enter to KEEP the value already stored), applies the new database changes (0006 to 0009) and restarts Friday.
+3. Then continue from step 3 of "Steps" (friday doctor, Meta webhook, "hi" on WhatsApp, off-switch test).
+Note: the server only runs the first-generation features until the new switches are turned on; all four stay off in slice 0.

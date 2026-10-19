@@ -747,3 +747,6 @@ Founder: stop building many things in parallel; complete each to 100% and then m
 
 ## Task (2026-10-19): Slice 0 foundation (founder: "Let's do 0")
 Goal: Friday running on a server with migrations applied and WhatsApp replying, health check and off switches. Founder has no server now. Claude cannot SSH or create cloud servers; Claude prepares scripts, a runbook and a health check; founder runs steps from the iPad console.
+
+## Clarification (2026-10-19): the founder already has a DigitalOcean server
+Slice 0 updates the existing droplet (small-server.sh is re-runnable; now restarts the service and checks out the current branch). Runbook section added.

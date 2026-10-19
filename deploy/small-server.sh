@@ -104,7 +104,7 @@ UNIT
 systemctl daemon-reload
 echo "== database changes (migrations)"
 su friday -c "cd $APP && ~/.local/bin/uv run python -m friday.db.migrate up" || echo "WARNING: migrations did not apply; run friday doctor"
-systemctl enable --now friday
+systemctl enable friday; systemctl restart friday   # restart so an existing server loads the new code
 sleep 5
 systemctl --no-pager status friday | head -12 || true
 echo
