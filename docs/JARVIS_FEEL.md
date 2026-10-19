@@ -176,3 +176,15 @@ Cost per user is too high, so the receptionist uses ONE shared inbound number (o
 3. **Fallback B, paid tier:** a dedicated number only for users who pay or who are heavy users; everyone else uses the shared number if option 1 works.
 4. **Not recommended:** matching the caller's number against each user's contacts (ambiguous and a privacy risk).
 Whatever we pick, calls whose user cannot be determined are never recorded or summarised for a guessed user: Friday says it cannot take the message and ends politely.
+
+### 8c. Making call forwarding almost one tap (asked 19 Oct 2026; carrier codes and phone behaviour from general knowledge, verify per carrier)
+Nobody can switch on carrier forwarding silently: the user's own phone must send the code. The shortest honest flow:
+1. In WhatsApp Friday asks the carrier with buttons (Jio, Airtel, Vi, BSNL, other) and what to forward (when busy or unanswered, or all calls during an event).
+2. Friday sends one https link to a small setup page that shows ONE big button. The button is a `tel:` link carrying the right code with the Friday number and `#` encoded as %23.
+   Tapping it opens the phone dialler with the code filled in; the user presses call once; the network shows a confirmation.
+   Typical GSM codes (Airtel, Vi, BSNL; Jio uses its own codes, verify): busy `**67*<number>#`, no answer `**61*<number>#`, unreachable `**62*<number>#`, all calls `**21*<number>#`, cancel all `##002#`.
+3. The same page has "Turn off" (cancel code) and "Check status" (`*#21#` style) buttons.
+4. Verification: a "Test it" button makes Friday ring the user's phone; the user declines or ignores it, the call forwards back, Friday confirms "forwarding works" on WhatsApp (this also doubles as the redirecting-number probe).
+5. iPhone: iOS may refuse USSD-style `tel:` links; fallback is Settings > Phone > Call Forwarding (all calls only) with a two-line instruction and a screenshot; conditional forwarding by dial code still works if the dialler accepts it. Test on a real iPhone.
+6. Android later: a Friday app can send the code itself in one tap (USSD permission), which gives a true one-tap setup. The web page route needs no app.
+Risks: wrong code for a carrier or plan (some plans do not allow conditional forwarding), dual SIM and eSIM, carrier charges (tell the user first), users forgetting it is on (a monthly reminder and a "Turn off" button in every summary).

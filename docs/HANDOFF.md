@@ -703,3 +703,7 @@ Added as problem group E (E1-E15) to docs/CONSUMER_PROBLEMS.md and to the regist
 Founder: a number per user is too expensive. Plan: ONE shared inbound number (or a very small pool); identify the user from the carrier's redirecting/original-called number
 (SIP Diversion / History-Info / provider "forwarded from" field) -- to be verified with a test using the founder's own phone; fallback: ask the caller "kisse baat karni hai?" with
 name matching on a small pool, or a paid tier with a dedicated number. Recorded in docs/JARVIS_FEEL.md section 8.
+
+## Question (2026-10-19): one-click way to forward calls to Friday
+Answered: near one-tap: WhatsApp button -> Friday setup page -> carrier choice -> tap-to-dial link with the carrier's forwarding code; user presses call once; Friday verifies with a test call.
+Android app could send the code in one tap later; iPhone: tel: link then Settings fallback. Codes/behaviour from general knowledge, to verify per carrier. Recorded in docs/JARVIS_FEEL.md 8c.
