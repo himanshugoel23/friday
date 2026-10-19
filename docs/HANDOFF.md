@@ -637,3 +637,7 @@ Bills: forward / Gmail. Recorded in docs/BROWSER_AGENT_PLAN.md. Platform rules f
 
 ## Question (2026-10-17): how do grocery/quick-commerce price comparison sites work?
 Founder noticed many comparison sites (Blinkit/Zepto/Instamart etc.). Searching how they get prices; result goes to docs/BETA_SCOPE_PROPOSAL.md.
+
+## Question (2026-10-19): the key five things to build in the beta for high adoption
+Answered with a recommendation, recorded in docs/BETA_SCOPE_PROPOSAL.md ("Beta: the five things"). Zomato login test still waiting on the
+founder's choice about giving the login code in chat (option 1/2/3 in the last answer).

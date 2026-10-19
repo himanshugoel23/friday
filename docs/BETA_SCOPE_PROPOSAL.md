@@ -192,3 +192,19 @@ other), a lawyer's read on AA/FIU, UPI Circle and payments, and a privacy policy
 - Nothing found on official public price APIs, or on legality; platform terms are the main constraint. Needs a lawyer.
 - Consequence for Friday: do not build a scraping business. Use official routes first (Swiggy Instamart MCP, Zepto), then the
   user's own screenshots or the user-initiated session, and label any price "approximate, for your pincode, at this time".
+
+## Beta: the five things to build for high adoption (recommendation, 19 Oct 2026)
+Adoption comes from instant value, weekly habit, trust and sharing. In this order:
+1. **"Friday, do the calls for me" with ONE comparison message.** The hero, already built: salon, home repair, restaurant table,
+   clinic/lab, PG. Make 5 categories reliable, result in minutes, with proof (transcript summary, outcome page).
+2. **Voice-first on WhatsApp.** Voice note in, voice note out in Hinglish; Friday can speak first (voice note, opt-in call).
+   No typing, one contact to save. This is the Jarvis/Siri feel without an app.
+3. **Savings engine v1.** "Kaun sa card / kaunsa app sasta", bill reminders with a pay link, and a monthly "Friday saved you Rs X".
+   Money saved is the habit and the proof, and it is the no-sales-pitch promise made real.
+4. **Your day, remembered: shared life state + morning brief + follow-ups.** Appointments, bills, "interview kaisa gaya?",
+   Google Calendar connect. Gives a reason to open Friday every day, not only when something is needed.
+5. **Trust and sharing:** public "what Friday never does", one-step "what do you remember / delete", approval for every action
+   (exact amount, WhatsApp buttons), shareable outcome page and a referral link. Trust is the entry ticket; sharing is the growth loop.
+Not in the five (next): call screening / divert unknown calls to Friday (strong India fit, needs per-user numbers and legal read),
+browser ordering (site blocks and OTP questions unresolved; link out for now), payments by Friday, devices, Gmail read.
+Beta size: 50 to 100 users in one city, measure weekly active use, calls completed, success rate, saved Rs per user, referrals.
