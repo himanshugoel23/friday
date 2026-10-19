@@ -31,6 +31,12 @@ from friday.db.tables import (
     VendorInteractionRow,
 )
 from friday.google.dbmodel import GoogleConnectionRow, GoogleOAuthStateRow
+from friday.lifestate.dbmodel import (
+    LifeCommitmentRow,
+    LifeEventRow,
+    LifeFollowupRow,
+    MuteTopicRow,
+)
 from friday.quality.models import QualityCallRow
 from friday.quotes.dbmodel import QuoteConversationRow
 
@@ -85,6 +91,10 @@ class DataPurger(Repo):
             counts["consents_kept_minimised"] = await self._minimise_consents(s, user_id)
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
+            await wipe(LifeFollowupRow, LifeFollowupRow.user_id == user_id)  # life state
+            await wipe(MuteTopicRow, MuteTopicRow.user_id == user_id)
+            await wipe(LifeCommitmentRow, LifeCommitmentRow.user_id == user_id)
+            await wipe(LifeEventRow, LifeEventRow.user_id == user_id)
             await wipe(QualityCallRow, QualityCallRow.user_id == user_id)  # stored transcripts
             await wipe(QuoteConversationRow, QuoteConversationRow.user_id == user_id)
             await wipe(NudgeFeedbackRow, NudgeFeedbackRow.user_id == user_id)

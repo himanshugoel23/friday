@@ -1009,5 +1009,83 @@ CREATE INDEX ix_google_oauth_states_expires_at ON google_oauth_states (expires_a
 
 UPDATE alembic_version SET version_num='0006_google_connector' WHERE alembic_version.version_num = '0005_quote_conversations';
 
+-- Running upgrade 0006_google_connector -> 0009_life_state
+
+CREATE TABLE life_events (
+    user_id VARCHAR(32) NOT NULL, 
+    title TEXT NOT NULL, 
+    start_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    end_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    kind VARCHAR(16) NOT NULL, 
+    source VARCHAR(16) NOT NULL, 
+    source_ref VARCHAR(128), 
+    location TEXT, 
+    protected BOOLEAN NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    note TEXT, 
+    repeat JSON, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_life_events PRIMARY KEY (id), 
+    CONSTRAINT fk_life_events_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_life_events_source_ref UNIQUE (user_id, source, source_ref)
+);
+
+CREATE INDEX ix_life_events_user_start ON life_events (user_id, start_at);
+
+CREATE TABLE life_commitments (
+    user_id VARCHAR(32) NOT NULL, 
+    text TEXT NOT NULL, 
+    due_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    source VARCHAR(16) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    repeat JSON, 
+    person TEXT, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_life_commitments PRIMARY KEY (id), 
+    CONSTRAINT fk_life_commitments_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_life_commitments_user_due ON life_commitments (user_id, due_at);
+
+CREATE TABLE mute_topics (
+    user_id VARCHAR(32) NOT NULL, 
+    topic VARCHAR(64) NOT NULL, 
+    muted BOOLEAN NOT NULL, 
+    channel VARCHAR(12) NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_mute_topics PRIMARY KEY (id), 
+    CONSTRAINT fk_mute_topics_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_mute_topics_user_topic UNIQUE (user_id, topic)
+);
+
+CREATE INDEX ix_mute_topics_user_id ON mute_topics (user_id);
+
+CREATE TABLE life_followups (
+    user_id VARCHAR(32) NOT NULL, 
+    key VARCHAR(160) NOT NULL, 
+    topic VARCHAR(32) NOT NULL, 
+    event_id VARCHAR(32), 
+    status VARCHAR(12) NOT NULL, 
+    text TEXT, 
+    due_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    sent_at TIMESTAMP WITH TIME ZONE, 
+    responded_at TIMESTAMP WITH TIME ZONE, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_life_followups PRIMARY KEY (id), 
+    CONSTRAINT fk_life_followups_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_life_followups_user_key UNIQUE (user_id, key)
+);
+
+CREATE INDEX ix_life_followups_user_sent ON life_followups (user_id, sent_at);
+
+UPDATE alembic_version SET version_num='0009_life_state' WHERE alembic_version.version_num = '0006_google_connector';
+
 COMMIT;
 

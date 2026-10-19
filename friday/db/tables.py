@@ -797,5 +797,6 @@ for _row, _clear, _hm in (
     event.listen(_row, "before_insert", _fill_hmac(_clear, _hm))
 
 import friday.google.dbmodel  # noqa: E402,F401  (registers google_connections, google_oauth_states)
+import friday.lifestate.dbmodel  # noqa: E402,F401  (registers life_events, life_commitments, ...)
 import friday.quality.models  # noqa: E402,F401  (registers quality_calls)
 import friday.quotes.dbmodel  # noqa: E402,F401  (registers quote_conversations)
