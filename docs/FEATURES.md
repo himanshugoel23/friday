@@ -36,7 +36,7 @@ Rules that apply to everything: nothing is spoken or sent to a real person befor
 - [LATER] Subscription finder and cancellation, bank link through Account Aggregator, offer stacking, travel and big-purchase advice.
 ## 6. Connections (each user connects their own account)
 - [LAUNCH] Google: Calendar read/write and clash check; Gmail read-only narrow search for bills and tickets (switch off by default; testers only until Google verifies). (built vs fake Google)
-- [PARKED] Social accounts, Gmail broad access, Drive.
+- [NEVER, founder 19 Oct] Social account connections (LinkedIn, Facebook, Instagram, X). [PARKED] Gmail broad access, Drive.
 ## 7. Trust and control
 - [LAUNCH] Approval before calls and actions, code-level safety gates, truthful disclosure, no voice cloning, no emergency-number calls, abuse limits and strikes, shared do-not-call, recordings stored 30 days by default and deletable, encryption per user, "delete everything". (built)
 - [LAUNCH] A public "what Friday never does", legal map with open questions, consent screens that say what and why. (drafted; legal read pending)

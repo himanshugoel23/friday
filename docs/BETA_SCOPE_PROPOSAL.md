@@ -217,3 +217,5 @@ never raw posts or messages, and shows them back for the user to edit or delete 
 - **Instagram.** (A) The API works only for business and creator accounts; the old basic-display API for personal accounts was retired, so personal accounts cannot be linked by OAuth. (B) "Download your information" export. Little value.
 - **X.** (A) OAuth 2.0 with PKCE works for sign-in, but reading a user's data needs a paid API tier (check current pricing). (B) "Download an archive of your data". Little value.
 Recommendation: LinkedIn sign-in for identity plus the data-export upload for work context, as an optional step after the launch set; do not build Meta or X API connections until we know the facts they add are useful. Register problem D13 (priority 3) covers it.
+
+DECISION (founder, 19 Oct 2026): no social account integration at all. The section above stays as research only.

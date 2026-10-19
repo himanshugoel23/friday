@@ -726,3 +726,6 @@ Founder: include both in this phase. Added problem group F (F1-F16) to docs/CONS
 ## Question (2026-10-19): how to connect LinkedIn, Instagram, X, Facebook accounts of the user
 Answered with concrete routes (general knowledge, verify current API terms and prices): OAuth sign-in gives little (LinkedIn name/email; Facebook public profile/email; Instagram API business/creator only; X paid tiers);
 practical route = user uploads each platform's "download your data" export, parsed with consent into a few derived facts; skip API integrations until value is proven. Problem D13 stays priority 3 in the register. Recorded in docs/BETA_SCOPE_PROPOSAL.md.
+
+## Decision (2026-10-19): NO social account integration (LinkedIn, Facebook, Instagram, X)
+Founder: avoid account integration. Register problem D13 marked Never (written to the artifact db on the founder's instruction). Not built, not planned; only Google (Calendar, Gmail read-only) connects.
