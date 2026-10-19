@@ -641,3 +641,8 @@ Founder noticed many comparison sites (Blinkit/Zepto/Instamart etc.). Searching 
 ## Question (2026-10-19): the key five things to build in the beta for high adoption
 Answered with a recommendation, recorded in docs/BETA_SCOPE_PROPOSAL.md ("Beta: the five things"). Zomato login test still waiting on the
 founder's choice about giving the login code in chat (option 1/2/3 in the last answer).
+
+## Decision (2026-10-19): build the CONSUMER calling agent + savings engine + day memory; list every problem first
+Founder: build a complete calling agent for the customer: the user can ask Friday to call ANYONE (not only businesses); plus a complete
+savings engine and "remembers the whole day". Before building: list every problem as multiple points, then decide how to build each.
+Reason: all voice work so far is for the business use case; now the consumer use case. Problem list: docs/CONSUMER_PROBLEMS.md.
