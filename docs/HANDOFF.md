@@ -716,3 +716,6 @@ blocking) and by phone settings (iPhone Silence Unknown Callers routes unknown c
 ## Decision (2026-10-19): the consumer voice agent must cover every use case ("complete" before publishing)
 Founder: a voice agent for consumers should cover every use case so it can be published as a complete voice agent. Created docs/VOICE_AGENT_COVERAGE.md (use-case matrix by direction: user talks to Friday,
 Friday calls others, Friday receives calls, Friday calls the user, assist during the user's own call), status per use case, gaps, and the release criteria for "complete".
+
+## Decision (2026-10-19): founder AGREES the proposed launch set for the consumer voice agent
+Launch set: A1, A2, B1-B8, C1, C3, C4, C5, C6, C7, D1, D2, D4 (docs/VOICE_AGENT_COVERAGE.md). Founder asked for the full feature list: rewritten docs/FEATURES.md (v2, 19 Oct 2026).
