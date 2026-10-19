@@ -729,3 +729,10 @@ practical route = user uploads each platform's "download your data" export, pars
 
 ## Decision (2026-10-19): NO social account integration (LinkedIn, Facebook, Instagram, X)
 Founder: avoid account integration. Register problem D13 marked Never (written to the artifact db on the founder's instruction). Not built, not planned; only Google (Calendar, Gmail read-only) connects.
+
+## Done (2026-10-19): W5 integration merged and pushed (full suite 4807 passed)
+friday/integration: bridge W1<->W2, QueueTaskPort (consumer.call job, retries, periodic jobs in Runtime), router hooked into InboundPipeline before the quotes flow, button registry
+(callap/callact/led/bill/life), proactive registration (bill reminders, life follow-ups, morning brief), `friday consumer demo`, docs/CONSUMER_INTEGRATION.md.
+Four switches default OFF: FRIDAY_CONSUMER_CALLS_ENABLED, FRIDAY_SAVINGS_ENABLED, FRIDAY_LIFESTATE_ENABLED, FRIDAY_GOOGLE_ENABLED. Production telephony factory refuses consumer calls (no TelephonyFactory yet = nothing can dial).
+NEXT workstreams (launch set): W6 receptionist/voicemail (inbound), W7 hold-fighting + reminder calls, W8 voice channels (call Friday's number, voice notes, voice nudges), plus a TelephonyFactory for consumer calls.
+Open founder decisions from W5 added to docs/CONSUMER_DECISIONS.md (items 19-26).

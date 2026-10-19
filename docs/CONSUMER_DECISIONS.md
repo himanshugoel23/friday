@@ -28,3 +28,13 @@ friday/lifestate/copy.py, friday/google/consent_copy.py.
 18. Who calls /google routes (admin token now), Gmail switch for testers, redirect URI, consent wording; create the Google Cloud project (docs/GOOGLE_CONNECTOR.md).
 ## Still open
 A3.1 free-form level for personal calls (recommended: bounded moves, as built); the remaining register items.
+
+## Integration (W5)
+19. Callee hears "mere user ki virtual assistant" when the profile has no name: ask for the name at onboarding?
+20. No voicemail message is ever left today. Add a voicemail consent to the approval?
+21. Nothing a callee proposes is pre-approved (every time or visit returns "needs your OK"). Add allowed times to the approval?
+22. A left voicemail counts as a finished call (not retried); unresolved or dropped calls are retried.
+23. A bill stated in words goes to the savings engine when it is on.
+24. W4's morning-brief text replaces the generic text for users who opted in.
+25. Delete everything: keep both W4's two-step phrase and the PIN flow?
+26. A group child opens with a neutral "Hello, namaste" because the approved parent plan has no single name.
