@@ -64,3 +64,11 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "SIM"]
 ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# keyword lexicons and fixed user-facing lines (one long regex or sentence per line is clearer)
+"friday/calls/copy.py" = ["E501"]
+"friday/calls/classify.py" = ["E501"]
+"friday/calls/understand.py" = ["E501"]
+"friday/calls/dnc.py" = ["E501"]
+"tests/calls/*.py" = ["E501"]
