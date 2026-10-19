@@ -408,6 +408,9 @@ def main(argv: list[str] | None = None) -> int:
     wsim.add_argument("--redirect", default=None, help="vendor calls dial THIS number instead")
     wsim.add_argument("--real-hours", action="store_true",
                       help="keep the 9:00-19:00 calling window (default: open all day)")
+    from friday.savings.cli import add_parser as _add_savings
+
+    _add_savings(sub)  # `friday savings rules import|verify|list|export`
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -689,6 +692,10 @@ def main(argv: list[str] | None = None) -> int:
         except KeyboardInterrupt:
             print("\nStopped by you (Ctrl+C).")
             return 130
+    if args.cmd == "savings":
+        from friday.savings.cli import run as run_savings
+
+        return run_savings(args, settings.database_url)
     if args.cmd == "initdb":
         asyncio.run(_initdb(settings))
         return 0

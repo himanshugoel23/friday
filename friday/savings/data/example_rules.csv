@@ -1,0 +1,7 @@
+bank,card_name,category,reward_type,rate_bp,monthly_cap_paise,per_txn_cap_paise,min_spend_paise,exclusions,merchants,source_url,checked_on,verified_by,valid_from,valid_to,notes
+Example Bank,Example Cashback Card,food_delivery,cashback,500,30000,,,,,https://example.invalid/example-cashback-card,2026-10-01,EXAMPLE_NOT_REAL,,,EXAMPLE ROW: invented for tests and demos. NOT a real offer.
+Example Bank,Example Cashback Card,grocery,cashback,200,20000,,10000,,,https://example.invalid/example-cashback-card,2026-10-01,EXAMPLE_NOT_REAL,,,EXAMPLE ROW: invented for tests and demos. NOT a real offer.
+Example Bank,Example Cashback Card,all,cashback,100,,5000,,fuel;rent;wallet_load;insurance,,https://example.invalid/example-cashback-card,2026-10-01,EXAMPLE_NOT_REAL,,,EXAMPLE ROW: invented for tests and demos. NOT a real offer.
+Example Bank,Example Travel Card,travel,points,300,,,,,,https://example.invalid/example-travel-card,2026-10-01,EXAMPLE_NOT_REAL,,,EXAMPLE ROW: invented for tests and demos. NOT a real offer.
+Example Bank,Example Travel Card,all,points,100,,,,fuel;rent;wallet_load,,https://example.invalid/example-travel-card,2026-10-01,EXAMPLE_NOT_REAL,,,EXAMPLE ROW: invented for tests and demos. NOT a real offer.
+Example Bank,Example Discount Card,online_shopping,discount,1000,50000,25000,,,amazon;flipkart,https://example.invalid/example-discount-card,2026-10-01,EXAMPLE_NOT_REAL,,,EXAMPLE ROW: invented for tests and demos. NOT a real offer.
