@@ -443,7 +443,6 @@ _WAIT = _rx(
     "zara ruk",
     "thoda (ruko|ruk|wait|intezaar|intezar)",
     "hold (kar|karo|kijiye|on)",
-    "line par (rahiye|bane rahiye|rukiye)",
     "wait (karo|kijiye|kariye|karna|a (minute|second|moment|sec|bit))",
     "hold on( a (minute|second|moment))?",
     "hang on",
@@ -1468,6 +1467,9 @@ def understand(utt: HeardUtterance | None) -> Understanding:
     m = _BUSY.search(t)
     if m:
         return done(CalleeIntent.BUSY_CALL_BACK_LATER, 0.85, m.group(0), entities=ent, flags=flags)
+    m = _OFFTOPIC.search(t)
+    if m and not (ent.times or ent.amounts):
+        return done(CalleeIntent.OFF_TOPIC, 0.7, m.group(0), flags=flags)
     m = _REPEAT.search(t)
     if m and len(t.split()) <= 9:
         return done(CalleeIntent.ASKS_TO_REPEAT, 0.8, m.group(0), flags=flags)
@@ -1493,9 +1495,6 @@ def understand(utt: HeardUtterance | None) -> Understanding:
     m = _REFUSE.search(t)
     if m:
         return done(CalleeIntent.REFUSES, 0.8, m.group(0), flags=flags)
-    m = _OFFTOPIC.search(t)
-    if m and not (ent.times or ent.amounts):
-        return done(CalleeIntent.OFF_TOPIC, 0.7, m.group(0), flags=flags)
 
     # --- replies
     words = t.split()
