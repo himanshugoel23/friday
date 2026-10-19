@@ -37,6 +37,7 @@ from friday.core.models import ReplyButton
 from friday.integration.bridge import (
     LiveEngineAdapter,
     LiveOpeningLineProvider,
+    RefusingTelephonyFactory,
     TelephonyFactory,
 )
 from friday.integration.buttons import ButtonRegistry, Handled
@@ -235,6 +236,9 @@ def build_stack(
         calls=calls, savings=savings, life=life, google=google,
     )  # fmt: skip
     router.extras = extras
+    router.line_available = telephony is not None and not isinstance(
+        telephony, RefusingTelephonyFactory
+    )
     if calls is not None:
         orch_ = calls.orchestrator
 

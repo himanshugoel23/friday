@@ -40,6 +40,7 @@ from friday.lifestate import copy as life_copy
 from friday.lifestate.capture import PendingCapture, capture_message, undo_last
 from friday.lifestate.conversation import LifeContextProvider
 from friday.lifestate.followups import FollowupScheduler, build_morning_brief
+from friday.lifestate.kinds import guess_kind
 from friday.lifestate.memory import MemoryControls
 from friday.lifestate.models import EventKind
 from friday.lifestate.ports import BillsPort, CalendarPort
@@ -87,6 +88,13 @@ _GOOGLE_STATUS = re.compile(
 _DAY = re.compile(
     r"(?:\bmera\s+din\b|\baaj\s+ka\s+(?:din|schedule|plan)\b|\bwhat(?:'s|\s+is)\s+my\s+day\b|"
     r"\bmy\s+(?:day|schedule)\b|\baaj\s+kya\s+(?:hai|plan|schedule)\b|\bwhat(?:'s|\s+is)\s+today\b)",
+    re.I,
+)
+# words that make a message a request or a question for the old flows, never a life statement
+_REQUESTISH = re.compile(
+    r"\?|\b(chahiye|chahie|chaahiye|mangta|mangti|dilao|dila\s+do|lagwa|laga\s+do|need|want|"
+    r"please|can\s+you|could\s+you|would\s+you|get\s+me|show|dikhao|batao|bata\s+do|bolo|"
+    r"kya|kaisa|kaisi|kaise|kab|kitna|kitne|kitni|kaun|kahan|kidhar|what|when|where|how|why)\b",
     re.I,
 )
 _GALAT = re.compile(r"^\s*galat\s*[.!]?\s*$", re.I)
@@ -176,6 +184,9 @@ class ConsumerRouter:
         self._edit = _State(clock)  # user -> request id whose plan the next message replaces
         self.last_sync: datetime | None = None
         self.extras: dict[str, Any] = {}  # pieces wiring.attach() registers on the engines
+        # False while no telephony line is plugged in: a call request is then answered at once
+        # ("the calling line is not switched on") instead of being approved and failing later
+        self.line_available = True
 
     # ------------------------------------------------------------------ switches
     @property
@@ -268,6 +279,9 @@ class ConsumerRouter:
         if state is not None and _CANCEL.match(text):
             self._intake.set(uid, None)
             await self.send(uid, copy.line("intake_cancelled", await self._lang(uid)), [])
+            return True
+        if state is None and not self.line_available:
+            await self.send(uid, copy.line("call_no_voice", await self._lang(uid)), [])
             return True
         name, lang = await self.profile(uid)
         reply = await self.calls.intake.handle(
@@ -377,7 +391,11 @@ class ConsumerRouter:
                 return True
             return False
         pending: PendingCapture | None = self._capture.get(user_id)
+        if pending is None and _REQUESTISH.search(text):
+            return False  # a question or a request: the old flows and the brain answer it
         res = await capture_message(self.life.store, user_id, text, now, pending=pending)
+        if res.status == "clarify" and pending is None and guess_kind(text) == EventKind.OTHER:
+            return False  # nothing in it names an event: do not start a question about it
         if res.status == "none":
             if pending is not None:
                 self._capture.set(user_id, None)  # the answer was not for us: drop the question

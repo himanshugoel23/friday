@@ -247,3 +247,48 @@ async def test_google_not_configured_says_so(world: World):
         assert "set up nahi hai" in (r[-1].text or "")
     finally:
         await close_world(w)
+
+
+async def test_without_a_telephony_line_a_call_request_is_answered_honestly(world: World):
+    """Production default until a real line is wired: say so, store nothing, dial nothing."""
+    world.consumer.line_available = False
+    await add_contact(world, "Mummy", MUMMY, nicknames=["mummy"], relationship="mother")
+    r = await world.say(LATE)
+    assert "rasta chalu nahi hai" in (r[-1].text or "") and not r[-1].buttons
+    assert await world.c.repos.consumer_calls.list_for_user(world.user.id) == []
+    assert world.brain.seen == []
+
+
+async def test_the_container_default_has_no_line():
+    from friday.integration.wiring import build_stack
+
+    w = await make_world()
+    try:
+        router = build_stack(
+            settings=w.c.settings, clock=w.clock, repos=w.c.repos,
+            send=lambda *a: None, queue=w.c.get("job_queue"),
+        )  # fmt: skip
+        assert router is not None and router.line_available is False
+        assert w.consumer.line_available is True  # the test world plugs in a simulated line
+    finally:
+        await close_world(w)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "kal subah 8 baje mujhe cab chahiye",
+        "kal ka mausam kaisa hai",
+        "book a table tomorrow 8pm",
+        "aaj shaam 6 baje pizza order karo",
+        "what time is it",
+        "Sharma ji ka number kya hai",
+        "haan",
+        "thanks",
+    ],
+)
+async def test_requests_and_questions_are_never_taken_for_life_statements(world: World, text):
+    replies = await world.say(text)
+    assert world.brain.seen[-1] == text and replies[-1].text == "I can make calls for you."
+    assert await world.consumer.life.store.list_events(world.user.id) == []
+    assert world.consumer._capture.get(world.user.id) is None  # no half-open question either

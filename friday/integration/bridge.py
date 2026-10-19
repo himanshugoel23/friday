@@ -118,8 +118,6 @@ def to_live_brief(
     goal_spoken: str | None = goal
     if any(_norm(q) in _norm(goal) or _norm(goal) in _norm(q) for q in ask_list):
         goal_spoken = copy.spoken("goal_spoken_ask", lang.value)
-    elif brief.must_say and not must_say:
-        goal_spoken = goal  # an inform call: the purpose IS the message, said once
     seconds = max_call_seconds or (callee.max_duration_s if callee else None)
     limits = LiveLimits(
         max_amount_inr=brief.limits.max_price_inr,
