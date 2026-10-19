@@ -652,3 +652,8 @@ Founder: for Friday to know the user, Gmail, Calendar and the rest should be con
 build everything else. Implication: Google connector (Calendar + Gmail read) moves into the beta using Google's testing mode with named
 testers (about 100, to verify) while verification / the Gmail security assessment starts in parallel. The Zomato login test is paused.
 Browser connector code stays in the repo, off by default.
+
+## Task (2026-10-19): problem list as an approval artifact, prioritised; start building the decided parts meanwhile
+Founder: put the ~120 problems in an artifact with approve options (he reads them over time), priorities from my view, and start working
+meanwhile. Plan: artifact with per-problem decision (Must for beta / Later / Never / Needs discussion) + comment, state saved so Claude can
+read it; builder starts on what is already decided (Google connector with per-user OAuth + Calendar, life-state store).
