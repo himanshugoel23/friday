@@ -712,3 +712,7 @@ Android app could send the code in one tap later; iPhone: tel: link then Setting
 Founder: not all calls forwarded; Friday should handle only unanswered calls, spam, etc. Design: carrier CONDITIONAL forwarding (no answer, busy, unreachable) to the shared Friday number
 is exactly how voicemail works, so Friday replaces voicemail; optional temporary all-calls mode for protected events; spam handled after the ring (Friday ends it politely, flags, suggests
 blocking) and by phone settings (iPhone Silence Unknown Callers routes unknown callers to voicemail; verify). Recorded in docs/JARVIS_FEEL.md 8d.
+
+## Decision (2026-10-19): the consumer voice agent must cover every use case ("complete" before publishing)
+Founder: a voice agent for consumers should cover every use case so it can be published as a complete voice agent. Created docs/VOICE_AGENT_COVERAGE.md (use-case matrix by direction: user talks to Friday,
+Friday calls others, Friday receives calls, Friday calls the user, assist during the user's own call), status per use case, gaps, and the release criteria for "complete".
