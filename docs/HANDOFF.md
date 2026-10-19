@@ -681,3 +681,13 @@ Founder: "the priority one which you have mentioned, let's proceed with that." T
 choices: A1.1-A1.8 = Must (so calls to service providers, customer care, family/friends, officials, unknown persons, group calls and call-backs are all in scope,
 beyond my priority 1). Design and build plan: docs/CONSUMER_BETA_DESIGN.md. Builders run in separate git worktrees (W1 call brief+safety, W2 live call engine,
 W3 savings engine, W4 life state+proactive). Open decision flagged for the founder: how free-form personal calls may be (A3.1).
+
+## Done (2026-10-19): four consumer workstreams merged and pushed (full suite 4678 passed)
+W1 friday/calls (brief, gate, DNC, approval, retries, reports, recordings; migration 0007; docs/CALLS_W1.md, docs/LEGAL_MAP.md),
+W2 friday/liveagent (moves, 297 PENDING lines, callee intents, slot guards, IVR/voicemail, 37 personas x 3 languages simulated 111/111; docs/LIVE_AGENT.md),
+W3 friday/savings (wallet by card name, rules table with only EXAMPLE rows, calculator, bills + reminders, ledger; migration 0008; docs/SAVINGS_ENGINE.md),
+W4 friday/lifestate (events, capture, Hinglish dates, now status, follow-ups, morning brief, memory controls; migration 0009; docs/LIFE_STATE.md).
+Migration chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state; supabase schema regenerated; NOT applied to the live DB.
+NOT wired: front door, task-engine adapter for calls, W1<->W2 model unification (adapter), proactive tick, notifier, button dispatch. NEXT: an integration builder.
+All new user-facing/spoken text is PENDING_FOUNDER_APPROVAL (calls/copy.py, liveagent/lines.py, savings/copy.py, lifestate/copy.py, google/consent_copy.py).
+Founder decisions collected from the builders are listed in docs/CONSUMER_DECISIONS.md.
