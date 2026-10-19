@@ -33,6 +33,7 @@ from friday.db.tables import (
 from friday.google.dbmodel import GoogleConnectionRow, GoogleOAuthStateRow
 from friday.quality.models import QualityCallRow
 from friday.quotes.dbmodel import QuoteConversationRow
+from friday.savings.dbmodel import BillRow, SavingsLedgerRow, WalletCardRow
 
 
 def tombstone_phone(user_id: str) -> str:
@@ -87,6 +88,9 @@ class DataPurger(Repo):
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(QualityCallRow, QualityCallRow.user_id == user_id)  # stored transcripts
             await wipe(QuoteConversationRow, QuoteConversationRow.user_id == user_id)
+            await wipe(WalletCardRow, WalletCardRow.user_id == user_id)  # savings engine
+            await wipe(BillRow, BillRow.user_id == user_id)
+            await wipe(SavingsLedgerRow, SavingsLedgerRow.user_id == user_id)
             await wipe(NudgeFeedbackRow, NudgeFeedbackRow.user_id == user_id)
             await wipe(NudgeRow, NudgeRow.user_id == user_id)
             await wipe(HotelBookingRow, HotelBookingRow.user_id == user_id)

@@ -799,3 +799,4 @@ for _row, _clear, _hm in (
 import friday.google.dbmodel  # noqa: E402,F401  (registers google_connections, google_oauth_states)
 import friday.quality.models  # noqa: E402,F401  (registers quality_calls)
 import friday.quotes.dbmodel  # noqa: E402,F401  (registers quote_conversations)
+import friday.savings.dbmodel  # noqa: E402,F401  (registers wallet_cards, card_rules, bills, savings_ledger)

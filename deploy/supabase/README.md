@@ -30,3 +30,5 @@ database owner role) is the only reader and every repository call filters by `us
 users are WhatsApp users, not Supabase Auth users, so a per-user `auth.uid()` policy would have
 nothing to match. NOT done here (needs the live database): apply 0006 and `rls.sql` to the project
 (`python -m friday.db.migrate up` then `rls`, or run the new parts of `schema.sql` / `rls.sql`).
+
+Savings engine (Alembic 0008, tables `wallet_cards`, `card_rules`, `bills`, `savings_ledger`): RLS is ON with no policy for the public API roles, like every other table. Per-user rows are keyed by `user_id` and their sensitive columns are encrypted by the application (AES-GCM). NOT done here (needs the live database): apply 0008 and `rls.sql` to the project.

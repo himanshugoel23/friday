@@ -1009,5 +1009,91 @@ CREATE INDEX ix_google_oauth_states_expires_at ON google_oauth_states (expires_a
 
 UPDATE alembic_version SET version_num='0006_google_connector' WHERE alembic_version.version_num = '0005_quote_conversations';
 
+-- Running upgrade 0006_google_connector -> 0008_savings_engine
+
+CREATE TABLE wallet_cards (
+    user_id VARCHAR(32) NOT NULL, 
+    card_key_hmac VARCHAR(64) NOT NULL, 
+    bank TEXT NOT NULL, 
+    card_name TEXT NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_wallet_cards PRIMARY KEY (id), 
+    CONSTRAINT fk_wallet_cards_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_wallet_cards_user_id UNIQUE (user_id, card_key_hmac)
+);
+
+CREATE INDEX ix_wallet_cards_user_id ON wallet_cards (user_id);
+
+CREATE TABLE card_rules (
+    card_key VARCHAR(160) NOT NULL, 
+    scope VARCHAR(200) NOT NULL, 
+    bank VARCHAR(80) NOT NULL, 
+    card_name VARCHAR(80) NOT NULL, 
+    category VARCHAR(40) NOT NULL, 
+    reward_type VARCHAR(12) NOT NULL, 
+    rate_bp INTEGER NOT NULL, 
+    monthly_cap_paise INTEGER, 
+    per_txn_cap_paise INTEGER, 
+    min_spend_paise INTEGER NOT NULL, 
+    exclusions JSON NOT NULL, 
+    merchants JSON NOT NULL, 
+    source_url TEXT NOT NULL, 
+    checked_on DATE, 
+    verified_by VARCHAR(100), 
+    valid_from DATE, 
+    valid_to DATE, 
+    notes TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_card_rules PRIMARY KEY (id), 
+    CONSTRAINT uq_card_rules_card_key UNIQUE (card_key, scope)
+);
+
+CREATE INDEX ix_card_rules_card_key ON card_rules (card_key);
+
+CREATE TABLE bills (
+    user_id VARCHAR(32) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    confirmed BOOLEAN NOT NULL, 
+    due_on DATE NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_bills PRIMARY KEY (id), 
+    CONSTRAINT fk_bills_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_bills_user_id ON bills (user_id);
+
+CREATE INDEX ix_bills_status ON bills (status);
+
+CREATE INDEX ix_bills_due_on ON bills (due_on);
+
+CREATE TABLE savings_ledger (
+    user_id VARCHAR(32) NOT NULL, 
+    month VARCHAR(7) NOT NULL, 
+    fingerprint_hmac VARCHAR(64) NOT NULL, 
+    outcome VARCHAR(20) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_savings_ledger PRIMARY KEY (id), 
+    CONSTRAINT fk_savings_ledger_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_savings_ledger_user_id UNIQUE (user_id, fingerprint_hmac)
+);
+
+CREATE INDEX ix_savings_ledger_user_id ON savings_ledger (user_id);
+
+CREATE INDEX ix_savings_ledger_month ON savings_ledger (month);
+
+CREATE INDEX ix_savings_ledger_outcome ON savings_ledger (outcome);
+
+UPDATE alembic_version SET version_num='0008_savings_engine' WHERE alembic_version.version_num = '0006_google_connector';
+
 COMMIT;
 
