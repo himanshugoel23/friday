@@ -188,3 +188,18 @@ Nobody can switch on carrier forwarding silently: the user's own phone must send
 5. iPhone: iOS may refuse USSD-style `tel:` links; fallback is Settings > Phone > Call Forwarding (all calls only) with a two-line instruction and a screenshot; conditional forwarding by dial code still works if the dialler accepts it. Test on a real iPhone.
 6. Android later: a Friday app can send the code itself in one tap (USSD permission), which gives a true one-tap setup. The web page route needs no app.
 Risks: wrong code for a carrier or plan (some plans do not allow conditional forwarding), dual SIM and eSIM, carrier charges (tell the user first), users forgetting it is on (a monthly reminder and a "Turn off" button in every summary).
+
+### 8d. Friday as the user's voicemail, not a call diverter (founder, 19 Oct 2026; carrier and phone behaviour from general knowledge, verify)
+Voicemail on a phone network IS conditional forwarding: when you do not answer, are busy or are unreachable, the network sends the call to a voicemail number. So Friday becomes the voicemail by
+being that number. The user's phone still rings first; Friday only ever sees calls the user did not take.
+Modes (the user picks one, default 2):
+1. Unanswered only (code `**61*<number>#`; the ring time before it forwards is set by the carrier, often 20-30 s; GSM allows `**61*<number>**<seconds>#`, verify per carrier).
+2. Unanswered + busy + unreachable (recommended): adds `**67*...#` and `**62*...#`. Covers declined calls on iPhone (a decline usually behaves as busy), calls while on another call, phone off, no network.
+3. Temporary all calls during a protected event (interview, flight, sleep): `**21*...#` set and cancelled by the user or by a reminder link; never the default.
+4. Unknown callers only: handled on the phone, not by forwarding. iPhone "Silence Unknown Callers" and Android spam filters send unknown callers to voicemail, which then reaches Friday through mode 1 or 2 (verify that silenced calls take the forwarding path).
+What Friday does with each forwarded call (receptionist moves): ask who and why, repeat back, take a call-back number and time, classify as normal, urgent or spam, end politely, then send the WhatsApp summary.
+- **Spam:** Friday cannot stop the phone ringing (that happens before she hears it). After the call she ends it politely, marks the number, and offers "Block this number" with the exact phone steps (Friday cannot block on the user's phone).
+- **Urgent:** keyword and known-contact rules; when unsure, flag it; an urgent flag pings or rings the user at once.
+- **Callers who hang up:** a missed-call note is still sent ("someone called at 3:12 and left no message").
+Why this is better than forwarding everything: far fewer calls (lower cost), no change for answered calls, and it matches what users already understand as voicemail.
+Same open item as before: telling which user the call was for (redirecting number on one shared number; see 8b) and the carrier's ring-time and charges.

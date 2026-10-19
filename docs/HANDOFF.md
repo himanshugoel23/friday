@@ -707,3 +707,8 @@ name matching on a small pool, or a paid tier with a dedicated number. Recorded 
 ## Question (2026-10-19): one-click way to forward calls to Friday
 Answered: near one-tap: WhatsApp button -> Friday setup page -> carrier choice -> tap-to-dial link with the carrier's forwarding code; user presses call once; Friday verifies with a test call.
 Android app could send the code in one tap later; iPhone: tel: link then Settings fallback. Codes/behaviour from general knowledge, to verify per carrier. Recorded in docs/JARVIS_FEEL.md 8c.
+
+## Decision (2026-10-19): Friday as the user's voicemail (conditional forwarding), not all calls
+Founder: not all calls forwarded; Friday should handle only unanswered calls, spam, etc. Design: carrier CONDITIONAL forwarding (no answer, busy, unreachable) to the shared Friday number
+is exactly how voicemail works, so Friday replaces voicemail; optional temporary all-calls mode for protected events; spam handled after the ring (Friday ends it politely, flags, suggests
+blocking) and by phone settings (iPhone Silence Unknown Callers routes unknown callers to voicemail; verify). Recorded in docs/JARVIS_FEEL.md 8d.
