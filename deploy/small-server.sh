@@ -21,7 +21,8 @@ ufw allow 22/tcp >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/de
 
 echo "== 2/6 service user and code"
 id friday >/dev/null 2>&1 || useradd -r -m -d /home/friday -s /bin/bash friday
-if [ -d "$APP/.git" ]; then git -C "$APP" pull --ff-only; else git clone "$REPO" "$APP"; fi
+BRANCH="${FRIDAY_BRANCH:-claude/friday-phase-1}"   # the branch that holds the current code
+if [ -d "$APP/.git" ]; then git -C "$APP" fetch origin "$BRANCH" && git -C "$APP" checkout "$BRANCH" && git -C "$APP" pull --ff-only origin "$BRANCH"; else git clone -b "$BRANCH" "$REPO" "$APP"; fi
 chown -R friday:friday "$APP"
 if ! su friday -c 'command -v ~/.local/bin/uv' >/dev/null 2>&1; then
   su friday -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
@@ -52,6 +53,11 @@ ask SARVAM_API_KEY "Sarvam API key"
 ask OPENAI_API_KEY "OpenAI API key"
 ask SARVAM_TELEPHONY_AUTH_ID "Vobiz Auth ID"
 ask SARVAM_TELEPHONY_AUTH_TOKEN "Vobiz Auth Token"
+ask FRIDAY_PILOT_ALLOWED_NUMBERS "Your own test phone, with +91 (the only number Friday may call)"
+ask WHATSAPP_ACCESS_TOKEN "Meta WhatsApp access token (Enter to skip for now)"
+ask WHATSAPP_PHONE_NUMBER_ID "Meta WhatsApp phone number ID (Enter to skip)"
+ask WHATSAPP_APP_SECRET "Meta app secret (Enter to skip)"
+ask WHATSAPP_VERIFY_TOKEN "A random word you choose as the webhook verify token (Enter to skip)"
 unset FRIDAY_NEW_NAME FRIDAY_NEW_VAL
 
 # non-secret settings (replace if present)
@@ -61,7 +67,6 @@ setv FRIDAY_PROFILE pilot
 setv FRIDAY_LLM_PROVIDER openai
 setv FRIDAY_TELEPHONY_PROVIDER sarvam
 setv SARVAM_CALLER_IDS +918064267861
-setv FRIDAY_PILOT_ALLOWED_NUMBERS +918607549916
 setv FRIDAY_PUBLIC_BASE_URL "https://$HOST"
 setv FRIDAY_HOST 127.0.0.1
 setv FRIDAY_PORT 8000
@@ -97,6 +102,8 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
+echo "== database changes (migrations)"
+su friday -c "cd $APP && ~/.local/bin/uv run python -m friday.db.migrate up" || echo "WARNING: migrations did not apply; run friday doctor"
 systemctl enable --now friday
 sleep 5
 systemctl --no-pager status friday | head -12 || true
@@ -105,4 +112,6 @@ echo "Done. Public address: https://$HOST"
 echo "  logs:      journalctl -u friday -f"
 echo "  check:     cd $APP && sudo -u friday ~/.local/bin/uv run friday doctor   (as friday user: /home/friday/.local/bin/uv)"
 echo "  restart:   systemctl restart friday      stop (frees the number): systemctl stop friday"
-echo "Then call +91 80 6426 7861 from 8607549916."
+echo "Webhook for Meta (WhatsApp): callback URL https://$HOST/webhooks/whatsapp  (verify token = the word you typed above)"
+echo "Slice 0 check (no calls, no messages sent): cd $APP && sudo -u friday /home/friday/.local/bin/uv run friday doctor"
+echo "Then message the Meta test number from your phone: Friday should reply."

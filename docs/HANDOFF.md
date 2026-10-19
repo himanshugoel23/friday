@@ -744,3 +744,6 @@ audio deepfake detectors; we never hide it: fixed disclosure, truthful "are you 
 ## Decision (2026-10-19): build ONE slice at a time, finish it 100% before the next
 Founder: stop building many things in parallel; complete each to 100% and then move on. Agreed. Board with slices and a definition of done: docs/BUILD_BOARD.md. Order: 0 foundation (server, DB, WhatsApp), 1 call someone for me end to end,
 2 voicemail/receptionist, 3 hold-fighting + reminder calls, 4 voice channels, 5 savings with real rules, 6 your day + Google. No new parallel builders.
+
+## Task (2026-10-19): Slice 0 foundation (founder: "Let's do 0")
+Goal: Friday running on a server with migrations applied and WhatsApp replying, health check and off switches. Founder has no server now. Claude cannot SSH or create cloud servers; Claude prepares scripts, a runbook and a health check; founder runs steps from the iPad console.
