@@ -124,6 +124,7 @@ Each point: P-number, the problem, why it is hard.
 - D10 Legal and compliance map: TRAI/DLT, DPDP, RBI/BBPS/UPI, IRDAI/SEBI, consumer protection, WhatsApp Business policy.
 - D11 Quality and learning: labelling real calls, approval of any spoken line, regression tests, never changing words unreviewed.
 - D12 Team and build order: what ships in the beta vs later, ownership, and how decisions are recorded.
+- D13 Social accounts (Facebook, Instagram, LinkedIn, X): platform APIs give little data or cost money, users resist linking, privacy and purpose limits (DPDP), little value compared with Gmail and Calendar; decide whether to link at all and for what purpose.
 
 ## Next step (agreed way of working)
 Walk through the areas one at a time (A first), mark each problem as MUST for the beta, LATER, or NEVER, then write the design for

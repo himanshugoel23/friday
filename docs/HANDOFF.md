@@ -657,3 +657,8 @@ Browser connector code stays in the repo, off by default.
 Founder: put the ~120 problems in an artifact with approve options (he reads them over time), priorities from my view, and start working
 meanwhile. Plan: artifact with per-problem decision (Must for beta / Later / Never / Needs discussion) + comment, state saved so Claude can
 read it; builder starts on what is already decided (Google connector with per-user OAuth + Calendar, life-state store).
+
+## Question (2026-10-19): link the user's Facebook, LinkedIn, Instagram, X accounts to know the user better
+Answered: technically possible via each platform's login, but the APIs give little (Meta, LinkedIn restricted; X paid), users resist, DPDP purpose limits,
+low value vs Gmail/Calendar. Recommendation: LATER; at most optional LinkedIn for professional context. Added as problem D13 in the register.
+Note: the register has 95 problems (earlier said ~120).
