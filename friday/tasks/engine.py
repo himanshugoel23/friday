@@ -217,6 +217,7 @@ class TaskEngine:
         self._closed = False
         self._local_locks = MemoryLock()
         self.worker_id = worker_id("task")
+        self._extra_handlers: dict[str, Callable[[Job], Awaitable[None]]] = {}
         self._calls: dict[str, asyncio.Task] = {}  # task_id -> running call coroutine task
         self._pending: dict[str, tuple[asyncio.Future, str, str, MidCallQuestion]] = {}
         self._offer_questions: dict[str, str] = {}  # question id -> task id
@@ -288,10 +289,16 @@ class TaskEngine:
         """Job kinds this process consumes (JOB_ROUTES x Settings.roles)."""
         return tuple(
             k
-            for k in (JOB_STEP, JOB_SCHEDULED, JOB_CALL)
+            for k in (JOB_STEP, JOB_SCHEDULED, JOB_CALL, *self._extra_handlers)
             if self.settings.has_role(JOB_ROUTES.get(k, "task"))
             and (k != JOB_CALL or self.claim_calls)
         )
+
+    def register_job_handler(self, kind: str, handler: Callable[[Job], Awaitable[None]]) -> None:
+        """Let another package own a durable job kind on this engine's queue (consumer calls:
+        ``consumer.call`` runs ``CallOrchestrator.execute``). The engine claims, acks and
+        retries it like its own jobs; nothing about the existing kinds changes."""
+        self._extra_handlers[kind] = handler
 
     async def _enqueue(
         self,
@@ -366,6 +373,8 @@ class TaskEngine:
                     await self._run(task_id, needs_approval=bool(job.payload.get("needs_approval")))
             elif job.kind == JOB_CALL:
                 await self._run_call_job(job)
+            elif job.kind in self._extra_handlers:
+                await self._extra_handlers[job.kind](job)
             else:
                 log.warning("task engine got unknown job kind %s", job.kind)
             await self.queue.ack(job.id)
@@ -1926,7 +1935,7 @@ class TaskEngine:
         await call_opt(self.tasks, "add_question", q)
         await self.outbox.to_user(
             task.requester_user_id,
-            _offer_text(summary.summary, q.text),
+            _offer_text(summary.summary, q.text) + await self._clash_note(task, summary, result),
             buttons=[
                 ReplyButton(id=question_button_id(q.id, i), title=o[:20])
                 for i, o in enumerate(q.options)
@@ -1935,6 +1944,20 @@ class TaskEngine:
             question_id=q.id,
             template_key="question",
         )
+
+    async def _clash_note(self, task: Task, summary: TaskResult, result: CallResult) -> str:
+        """Consumer beta: when a booking time is proposed, tell the user if it collides with their
+        day (friday/integration). Empty (and free) while the life-state switch is off."""
+        at = getattr(summary, "appointment_at", None) or getattr(result, "appointment_at", None)
+        consumer = self._opt("consumer")
+        if at is None or consumer is None:
+            return ""
+        try:
+            note = await consumer.clash_note(task.requester_user_id, at)
+        except Exception:  # noqa: BLE001 - never block the offer over a calendar check
+            log.warning("clash check failed for task %s", task.id)
+            return ""
+        return f"\n{note}" if note else ""
 
     async def _vendor_memory(
         self, task: Task, result: CallResult, summary: TaskResult | None, *, committed: bool
@@ -2216,6 +2239,12 @@ class TaskEngine:
         for child in await self.tasks.list_children(task.id):
             if not child.status.is_terminal and role_of(child) in _NEED_ROLES | {ROLE_CALLBACK}:
                 await self.cancel(child.id, by_user=False)
+        consumer = self._opt("consumer")
+        if consumer is not None:  # a booked appointment becomes part of the user's day
+            try:
+                await consumer.on_task_done(task)
+            except Exception:  # noqa: BLE001
+                log.warning("life-state booking record failed for task %s", task.id)
         if task.parent_task_id:
             await self._on_child_settled(task)
 

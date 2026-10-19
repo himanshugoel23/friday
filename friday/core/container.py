@@ -94,6 +94,8 @@ FACTORIES: dict[str, dict[str, str]] = {
     "notifier": {"*": "friday.channels.notifier:build_notifier"},
     "task_engine": {"*": "friday.tasks.engine:build_task_engine"},
     "proactive": {"*": "friday.proactive.engine:build_proactive_engine"},
+    # --- consumer beta wiring (friday/integration): None unless a consumer switch is on
+    "consumer": {"*": "friday.integration.wiring:build_consumer"},
     # --- caller-ID reputation & rotation (Backend B)
     "number_pool": {"*": "friday.tasks.number_pool:build_number_pool"},
     # --- scale-out (core memory impls; durable impls by Backend A in friday/db/)
@@ -159,6 +161,7 @@ JOB_ROUTES: dict[str, str] = {
     "task.scheduled": "task",  # retries, call-backs, recurring instances, reconfirms
     "call.place": "voice",  # pinned to the voice worker that claims it
     "call.inbound": "voice",
+    "consumer.call": "task",  # one consumer call attempt (friday/integration)
     "message.send": "task",  # outbox -> notifier
     "nudge.evaluate": "proactive",
     "nudge.send": "proactive",

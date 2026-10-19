@@ -114,4 +114,6 @@ def build_outcome(
         commitments=commitments,
         needs_user_approval=approvals,
         next_actions=list(dict.fromkeys(actions)),
+        answers={q or "note": mask_numbers(a) for q, a in answers.items()},
+        callback_time=mask_numbers(callback_time) if callback_time else None,
     )

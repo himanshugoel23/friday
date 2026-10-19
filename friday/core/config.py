@@ -509,6 +509,14 @@ class Settings(BaseSettings):
     hotel_shortlist_size: int = 3
     hotel_reconfirm_hour_ist: int = 11  # day-before reconfirm call time
 
+    # ------------------------------------------------------------------ consumer beta switches
+    # docs/CONSUMER_INTEGRATION.md. All OFF: production behaves exactly as before until the
+    # founder turns a switch on (env FRIDAY_CONSUMER_CALLS_ENABLED=true etc.).
+    consumer_calls_enabled: bool = False  # "call mummy ...": friday/calls + friday/liveagent
+    savings_enabled: bool = False  # cards, bills: friday/savings
+    lifestate_enabled: bool = False  # the user's day: friday/lifestate
+    google_enabled: bool = False  # connect/disconnect/status intents and the calendar sync job
+
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
     proactive_tick_s: int = 60
