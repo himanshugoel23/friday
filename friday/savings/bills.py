@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from urllib.parse import urlsplit
 
@@ -374,6 +375,33 @@ def bill_from_parse(
         source=source,
         pay_link=link,
         pay_link_source=link_src,
+    )
+
+
+# ------------------------------------------------------------------ Gmail (later)
+
+
+def bill_from_email_summary(user_id: str, summary) -> Bill | None:  # noqa: ANN001
+    """An UNCONFIRMED bill from the Google connector's typed ``UntrustedEmailSummary``
+    (friday/google/gmail.py). Only typed fields are used: the sender domain, the extracted amount
+    and due date, and the subject for a keyword kind. Email text is data, never instructions, and
+    nothing is reminded until the user confirms. Returns None when there is no due date."""
+    due = getattr(summary, "due_date", None)
+    if due is None:
+        return None
+    amount = getattr(summary, "amount_inr", None)
+    domain = (getattr(summary, "sender_domain", "") or "").lower()
+    label = domain.split(".")[0].replace("-", " ").title() if domain else "Bill"
+    kind = _detect_kind(getattr(summary, "subject", "") or "")
+    return Bill(
+        user_id=user_id,
+        biller=_detect_biller(getattr(summary, "subject", "") or "", kind)
+        if kind != BillKind.OTHER
+        else label,
+        kind=kind,
+        amount_paise=None if amount is None else int(Decimal(amount) * 100),
+        due_date=due,
+        source=BillSource.GMAIL,
     )
 
 

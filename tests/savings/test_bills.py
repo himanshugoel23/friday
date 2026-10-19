@@ -229,3 +229,21 @@ async def test_bills_encrypted_at_rest_scoped_by_user(srepos, sdb, user_id, othe
     b.status = BillStatus.PAID
     await srepos.bills.save(b)
     assert await srepos.bills.active_for_user(user_id) == []
+
+
+def test_bill_from_gmail_summary_is_typed_unconfirmed_and_pays_no_link():
+    from decimal import Decimal
+
+    from friday.google.gmail import UntrustedEmailSummary
+
+    summ = UntrustedEmailSummary(
+        message_id="m1", kind="bill", sender_domain="bsesdelhi.com",
+        subject="Your electricity bill is ready", received_at=None,
+        amount_inr=Decimal("1240.50"), due_date=date(2026, 10, 25),
+    )
+    bill = B.bill_from_email_summary("u1", summ)
+    assert bill and bill.source == B.BillSource.GMAIL and not bill.confirmed
+    assert (bill.amount_paise, bill.due_date, bill.kind) == (124050, date(2026, 10, 25), BillKind.ELECTRICITY)
+    assert bill.pay_link is None and not bill.active  # nothing reminds until the user says sahi hai
+    no_due = UntrustedEmailSummary(message_id="m2", kind="bill", sender_domain="x.com", subject="hi", received_at=None)
+    assert B.bill_from_email_summary("u1", no_due) is None
