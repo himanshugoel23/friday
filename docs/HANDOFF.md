@@ -698,3 +698,8 @@ Answered from the merged code; summary written to docs/STATE_OF_FRIDAY.md (updat
 ## Decision (2026-10-19): incoming-call receptionist is IN scope (forward to Friday, take message, summarise, flag urgent)
 Founder: when the user allows, their incoming calls forward to Friday; Friday takes the message, summarises it, shares it with the user and flags anything urgent.
 Added as problem group E (E1-E15) to docs/CONSUMER_PROBLEMS.md and to the register artifact; design starts in docs/JARVIS_FEEL.md section 8. Build as workstream W6 after W5 lands.
+
+## Decision (2026-10-19): NO per-user forwarding numbers (cost too high) for the receptionist
+Founder: a number per user is too expensive. Plan: ONE shared inbound number (or a very small pool); identify the user from the carrier's redirecting/original-called number
+(SIP Diversion / History-Info / provider "forwarded from" field) -- to be verified with a test using the founder's own phone; fallback: ask the caller "kisse baat karni hai?" with
+name matching on a small pool, or a paid tier with a dedicated number. Recorded in docs/JARVIS_FEEL.md section 8.

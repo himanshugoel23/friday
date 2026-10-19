@@ -164,3 +164,15 @@ general knowledge; verify with each carrier before promising.)
 2. Per-user forwarding numbers + mapping table; onboarding message with codes per carrier.
 3. WhatsApp summary and the action buttons.
 4. Calendar-linked protected events and VIP lists after the Google connector and the life-state store.
+
+### 8b. Decision (founder, 19 Oct 2026): no per-user forwarding number
+Cost per user is too high, so the receptionist uses ONE shared inbound number (or a very small pool). How to know which user a forwarded call is for:
+1. **Redirecting / original-called number from the carrier (preferred, to verify).** When a call is forwarded, the network may pass the number originally dialled
+   (SIP Diversion or History-Info header, or a provider field such as "forwarded from"). If our telephony provider delivers it reliably for Jio, Airtel, Vi and BSNL, one
+   shared number serves every user and costs nothing extra. Test: forward the founder's own phone to Friday's number, call it, and log the webhook fields (masked).
+   Build a small inbound-probe command that prints which fields arrived.
+2. **Fallback A, ask the caller:** "Aap kisse baat karna chahte hain?" on a small pool where each number holds a handful of users; match the spoken name against those
+   few users only. Cost: a slightly awkward first question, and it can reveal that the person is a Friday user (decide wording with the founder).
+3. **Fallback B, paid tier:** a dedicated number only for users who pay or who are heavy users; everyone else uses the shared number if option 1 works.
+4. **Not recommended:** matching the caller's number against each user's contacts (ambiguous and a privacy risk).
+Whatever we pick, calls whose user cannot be determined are never recorded or summarised for a guessed user: Friday says it cannot take the message and ends politely.

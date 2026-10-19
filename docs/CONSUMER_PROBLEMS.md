@@ -128,7 +128,7 @@ Each point: P-number, the problem, why it is hard.
 
 ## E. Incoming calls: Friday as the user's receptionist (founder, 19 Oct 2026)
 - E1 Forwarding setup: carrier forwarding codes differ (Jio, Airtel, Vi, BSNL), conditional vs unconditional, iPhone limits, user mistakes; needs a guided setup and a verification test call.
-- E2 Which user was this call for: a forwarded call reaches Friday's number; needs a unique number per user or reliable original-number information.
+- E2 Which user was this call for: a forwarded call reaches Friday's number. DECIDED 19 Oct: no per-user numbers (cost); use the carrier's redirecting/original-called number on one shared number (to verify with a probe), else ask the caller on a small pool, else a paid tier. Never guess the user.
 - E3 Carrier charges for forwarded calls may fall on the user; they must be told before turning it on.
 - E4 Answering as the user's assistant: fixed disclosure line, tone, and nothing private about the user (location, health, money) is ever said.
 - E5 Capturing the message: who, why, call-back number, best time, repeated back; Hindi/English, noisy lines, callers who will not talk to a bot.
