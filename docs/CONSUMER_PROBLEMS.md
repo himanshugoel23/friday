@@ -143,6 +143,24 @@ Each point: P-number, the problem, why it is hard.
 - E14 Telephony for inbound: number cost per user, capacity, how the carrier passes caller and original number, call queue behaviour.
 - E15 Harassing callers: the user wants to block or report; repeated calls from one number.
 
+## F. Customer-care hold-fighting and reminder calls to others (founder, 19 Oct 2026: both in the launch set)
+- F1 Phone menus (IVR): finding the right option, voice menus vs keypad, menus that change, "press 0" tricks, languages; never guessing a digit that could cancel or buy something.
+- F2 Hold: detecting hold music vs a human, silence, repeated announcements, queue position messages; time and cost caps; calls dropped after a long wait; retries.
+- F3 Handing the human agent to the user: when a person picks up, Friday must either handle it or bring the user in (warm transfer), within seconds, without the agent hanging up.
+- F4 Authentication: customer care asks for account number, date of birth, last digits, OTP; Friday must never say anything not in the brief, never read an OTP; ask the user live with a time limit or end and report.
+- F5 Disputes and commitments: refund, cancellation, plan changes need user approval; Friday records reference numbers and promised dates and sets follow-ups.
+- F6 Verifying it worked: ticket or complaint number captured and read back; follow-up call or reminder if no resolution by the promised date.
+- F7 Per-company knowledge: menus and escalation paths of the common Indian companies (telecom, banks, broadband, courier, e-commerce); how to learn them safely from real calls and keep them current.
+- F8 Customer-care norms: recorded lines, "the call may be recorded", agents refusing to talk to a third party; the authorised-caller problem (many companies only talk to the account holder).
+- F9 Reminder calls: what the user can ask Friday to remind others about (medicine, meeting, bill, pickup, birthday); one-time and recurring; time zones and calling hours.
+- F10 The other person's consent and dignity: a parent or friend must agree to receive Friday's calls and can say stop; the first call explains who is calling for whom.
+- F11 Reaching the person: no answer, wrong person, phone off; retries; alert the user when a reminder was not delivered or not acknowledged.
+- F12 Safe content: medicine reminders must not give medical advice, doses or changes; fixed wording only; sensitive health information stays out of logs.
+- F13 Acknowledgement: how the recipient confirms ("haan kha li") and how Friday records and reports it to the user.
+- F14 Language and manner for elders: slower pace, repetition, simple words, a familiar tone; accents, hearing difficulty, background noise.
+- F15 Limits: per recipient frequency, daily caps, quiet hours, escalation when a recipient keeps missing calls (message the user rather than calling more).
+- F16 Recipient data: storing their name and number and call history for a person who is not a user; purpose, retention and deletion on request.
+
 ## Next step (agreed way of working)
 Walk through the areas one at a time (A first), mark each problem as MUST for the beta, LATER, or NEVER, then write the design for
 the MUST items. Nothing is built until its problems are marked. Start with A1 (what people will ask Friday to call), because it

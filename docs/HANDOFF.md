@@ -719,3 +719,6 @@ Friday calls others, Friday receives calls, Friday calls the user, assist during
 
 ## Decision (2026-10-19): founder AGREES the proposed launch set for the consumer voice agent
 Launch set: A1, A2, B1-B8, C1, C3, C4, C5, C6, C7, D1, D2, D4 (docs/VOICE_AGENT_COVERAGE.md). Founder asked for the full feature list: rewritten docs/FEATURES.md (v2, 19 Oct 2026).
+
+## Decision (2026-10-19): hold-fighting for customer care (B3) and reminder calls to others (B10) join the LAUNCH set
+Founder: include both in this phase. Added problem group F (F1-F16) to docs/CONSUMER_PROBLEMS.md and the register artifact; launch set in docs/VOICE_AGENT_COVERAGE.md and docs/FEATURES.md updated. Build as workstream W7 after W5 (integration) and W6 (receptionist).

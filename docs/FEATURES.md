@@ -15,7 +15,9 @@ Rules that apply to everything: nothing is spoken or sent to a real person befor
 - [LAUNCH] Anyone else: service providers, customer care, family and friends, officials, unknown people, groups with RSVPs, call-backs. (built offline)
 - [LAUNCH] You approve the exact brief and opening line first; safety check, shared do-not-call list, limits, calling hours; plain-language report with transcript summary and next-action buttons. (built)
 - [LAUNCH] Live call behaviour: always says she is an assistant, truthful if asked "AI?", never invents numbers or reveals private facts, never promises outside your limits, stops on "stop" or "wrong number", handles voicemail, phone menus and hold. (built offline)
-- [LATER] Hold-fighting for customer care, reminder and wake-up calls to others (with their consent), personal negotiation, warm transfer "connect me when they pick up".
+- [LAUNCH] Customer-care hold-fighting: navigates phone menus, waits on hold, brings you in when a human agent picks up (warm transfer), never reads an OTP or says anything outside your brief, captures the ticket number and sets a follow-up. (basic built; hold-fighting open)
+- [LAUNCH] Reminder calls to others on your behalf (parent's medicine, a meeting, a pickup) with their consent, recurring or one-time, acknowledgement reported to you, you alerted if not reached; fixed wording only, no medical advice. (open)
+- [LATER] Wake-up calls, personal negotiation.
 ## 3. Friday answers calls for you (the receptionist and voicemail)
 - [LAUNCH] Voicemail replacement via conditional forwarding (no answer, busy, unreachable): takes name, reason, call-back number, summary on WhatsApp. (designed)
 - [LAUNCH] Spam handling after the ring: polite end, mark number, show how to block. (designed)

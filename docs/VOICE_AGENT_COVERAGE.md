@@ -17,14 +17,14 @@ Status words: DONE-REAL (tried on a real test phone) / BUILT (tested offline wit
 |---|---|---|
 | B1 | Businesses: quote, book, enquire (10 scripts, 22 categories) | DONE-REAL (test phone), scripts pending approval |
 | B2 | Service providers you already use (plumber, driver, tutor) | BUILT (W1+W2) |
-| B3 | Customer care incl. phone menus and hold | BUILT basic; hold-fighting hero feature OPEN |
+| B3 | Customer care incl. phone menus, hold and hold-fighting (LAUNCH, founder 19 Oct) | BUILT basic; hold-fighting OPEN |
 | B4 | Family and friends (late, wishes, plans, check-ins) | BUILT |
 | B5 | Officials (school, society office, helpdesks) | BUILT |
 | B6 | Unknown person from an ad or message | BUILT |
 | B7 | Groups: invite many, collect RSVPs | BUILT (fan-out + one report) |
 | B8 | Call-backs and retries | BUILT |
 | B9 | Negotiation inside limits | BUILT (business scripts), personal calls OPEN |
-| B10 | Reminder calls to others on the user's behalf (parent's medicine, "meeting at 5") with the other person's consent | OPEN |
+| B10 | Reminder calls to others on the user's behalf (parent's medicine, "meeting at 5") with the other person's consent (LAUNCH, founder 19 Oct) | OPEN |
 | B11 | Appointment-confirmation and wake-up calls | OPEN |
 | B12 | Warm transfer: "connect me when they pick up" | DESIGNED (hook), not built |
 ## C. Friday receives calls for the user
@@ -58,4 +58,4 @@ monitoring and a human support path, cost controls, accessibility (elders, speec
 ## Release criteria: "complete v1 voice agent"
 A use case counts as shipped only when all hold: (1) its spoken lines are approved by the founder (audio heard); (2) simulated callees cover it in every launch language with the safety invariants passing;
 (3) the legal map row is cleared or the risk accepted in writing; (4) it has run on real test calls to allow-listed numbers; (5) monitoring and an off switch exist; (6) the user can see, undo and delete what it did.
-Proposed launch set (needs the founder's confirmation): A1, A2, B1-B8, C1, C3, C4, C5, C6, C7, D1, D2, D4. Later: A3-A4 regional languages, B9 personal negotiation, B10-B12, C2, D3, D5, E1-E3.
+Launch set (confirmed by the founder 19 Oct, plus B3 hold-fighting and B10 reminder calls added the same day): A1, A2, B1-B8, B10, C1, C3, C4, C5, C6, C7, D1, D2, D4. Later: A3-A4 regional languages, B9 personal negotiation, B11-B12, C2, D3, D5, E1-E3.
