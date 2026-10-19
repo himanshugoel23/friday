@@ -736,3 +736,7 @@ friday/integration: bridge W1<->W2, QueueTaskPort (consumer.call job, retries, p
 Four switches default OFF: FRIDAY_CONSUMER_CALLS_ENABLED, FRIDAY_SAVINGS_ENABLED, FRIDAY_LIFESTATE_ENABLED, FRIDAY_GOOGLE_ENABLED. Production telephony factory refuses consumer calls (no TelephonyFactory yet = nothing can dial).
 NEXT workstreams (launch set): W6 receptionist/voicemail (inbound), W7 hold-fighting + reminder calls, W8 voice channels (call Friday's number, voice notes, voice nudges), plus a TelephonyFactory for consumer calls.
 Open founder decisions from W5 added to docs/CONSUMER_DECISIONS.md (items 19-26).
+
+## Question (2026-10-19): do AI calls have signatures that identify them as AI?
+Answered from general knowledge (verify): no standard telephony marker; detection is by behaviour (latency, no backchannels, uniform prosody), call patterns (volume, short calls, caller ID reputation) and
+audio deepfake detectors; we never hide it: fixed disclosure, truthful "are you AI?", dedicated caller ID, optional verified business profile (Truecaller) naming Friday as an assistant.
