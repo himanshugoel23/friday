@@ -675,3 +675,9 @@ Unverified: real Google; Testing-mode tester limit and 7-day refresh-token expir
 migration/RLS not applied to live Supabase. Founder to: create the Google Cloud project per docs/GOOGLE_CONNECTOR.md, approve friday/google/consent_copy.py,
 decide who calls the routes (admin bearer now), Gmail switch for testers, confirm redirect URI https://64-227-183-183.sslip.io/google/callback (assumed).
 Note: the server (droplet) may no longer exist ("I do not have any server right now"): the redirect URI and hosting need re-deciding.
+
+## Decision (2026-10-19): proceed with Claude's priority-1 problems + the founder's own Musts
+Founder: "the priority one which you have mentioned, let's proceed with that." The register (artifact UXSu1w778JegYvANQXS5PC) already shows his explicit
+choices: A1.1-A1.8 = Must (so calls to service providers, customer care, family/friends, officials, unknown persons, group calls and call-backs are all in scope,
+beyond my priority 1). Design and build plan: docs/CONSUMER_BETA_DESIGN.md. Builders run in separate git worktrees (W1 call brief+safety, W2 live call engine,
+W3 savings engine, W4 life state+proactive). Open decision flagged for the founder: how free-form personal calls may be (A3.1).
