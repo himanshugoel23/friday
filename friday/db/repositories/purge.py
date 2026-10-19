@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from sqlalchemy import delete, select, update
 
+from friday.calls.dbmodel import CallOutcomeRow
 from friday.core.models import OnboardingStep, UserStatus
 from friday.db.repositories._base import Repo, phone_index
+from friday.db.repositories.consumer_calls import purge_user_calls
 from friday.db.tables import (
     AccountIdentifierRow,
     AuditRow,
@@ -50,7 +52,15 @@ class DataPurger(Repo):
                     .where(TaskRow.requester_user_id == user_id, CallRow.recording_url.is_not(None))
                 )
             ).scalars()
-            return [u for u in rows if u]
+            urls = [u for u in rows if u]
+            consumer = (  # consumer-call recordings (friday/calls)
+                await s.execute(
+                    select(CallOutcomeRow.recording_ref).where(
+                        CallOutcomeRow.user_id == user_id, CallOutcomeRow.recording_ref.is_not(None)
+                    )
+                )
+            ).scalars()
+            return urls + [u for u in consumer if u]
 
     async def _minimise_consents(self, s, user_id: str) -> int:  # noqa: ANN001
         """SECURITY-33: keep DPDP receipts (kind, granted, policy_version, recorded_at)
@@ -83,6 +93,7 @@ class DataPurger(Repo):
                 counts[table.__tablename__] = int(res.rowcount or 0)  # type: ignore[attr-defined]
 
             counts["consents_kept_minimised"] = await self._minimise_consents(s, user_id)
+            counts.update(await purge_user_calls(s, user_id))  # consumer calls (not the global DNC)
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(QualityCallRow, QualityCallRow.user_id == user_id)  # stored transcripts

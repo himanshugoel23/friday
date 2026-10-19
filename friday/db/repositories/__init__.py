@@ -33,6 +33,11 @@ from friday.db.repositories.calls import (
     InboundKind,
     MatchStatus,
 )
+from friday.db.repositories.consumer_calls import (
+    CallDncRepo,
+    ConsumerCallsRepo,
+    ConsumerContactsRepo,
+)
 from friday.db.repositories.google import GoogleRepo
 from friday.db.repositories.memory import AuditRepo, CostRepo, FactRepo, IdentifierRepo
 from friday.db.repositories.messages import MessageRepo, StoredMessage
@@ -67,6 +72,9 @@ __all__ = [
     "MatchStatus",
     "ConsentRepo",
     "CostRepo",
+    "CallDncRepo",
+    "ConsumerCallsRepo",
+    "ConsumerContactsRepo",
     "DataPurger",
     "FactRepo",
     "GoogleRepo",
@@ -116,6 +124,9 @@ class Repositories:
     pin_locks: PinLockRepo
     numbers: NumberRepo  # caller-ID pool state (NP-1)
     google: GoogleRepo  # per-user Google OAuth connection (friday/google)
+    consumer_calls: ConsumerCallsRepo  # call requests, briefs, outcomes (friday/calls)
+    consumer_contacts: ConsumerContactsRepo  # the user's own contact book (friday/calls)
+    call_dnc: CallDncRepo  # global do-not-call registry, keyed hash only (friday/calls)
     purger: DataPurger
     retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
@@ -154,6 +165,9 @@ def make_repositories(
         pin_locks=PinLockRepo(db, clock),
         numbers=NumberRepo(db, clock),
         google=GoogleRepo(db, clock),
+        consumer_calls=ConsumerCallsRepo(db, clock),
+        consumer_contacts=ConsumerContactsRepo(db, clock),
+        call_dnc=CallDncRepo(db, clock),
         purger=DataPurger(db, clock),
     )
     from friday.db.retention import RetentionService

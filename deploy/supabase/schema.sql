@@ -1009,5 +1009,152 @@ CREATE INDEX ix_google_oauth_states_expires_at ON google_oauth_states (expires_a
 
 UPDATE alembic_version SET version_num='0006_google_connector' WHERE alembic_version.version_num = '0005_quote_conversations';
 
+-- Running upgrade 0006_google_connector -> 0007_consumer_calls
+
+CREATE TABLE call_dnc (
+    number_hash VARCHAR(64) NOT NULL, 
+    reason VARCHAR(24) NOT NULL, 
+    source VARCHAR(60) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_call_dnc PRIMARY KEY (id), 
+    CONSTRAINT uq_call_dnc_number_hash UNIQUE (number_hash)
+);
+
+CREATE TABLE call_attempts (
+    user_id VARCHAR(32) NOT NULL, 
+    request_id VARCHAR(32) NOT NULL, 
+    number_hash VARCHAR(64) NOT NULL, 
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    duration_s FLOAT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_call_attempts PRIMARY KEY (id), 
+    CONSTRAINT fk_call_attempts_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_call_attempts_number_hash ON call_attempts (number_hash);
+
+CREATE INDEX ix_call_attempts_started_at ON call_attempts (started_at);
+
+CREATE INDEX ix_call_attempts_user_id ON call_attempts (user_id);
+
+CREATE TABLE call_requests (
+    user_id VARCHAR(32) NOT NULL, 
+    callee_kind VARCHAR(20) NOT NULL, 
+    purpose TEXT NOT NULL, 
+    purpose_kind VARCHAR(20) NOT NULL, 
+    callee_ref TEXT, 
+    callee_name TEXT, 
+    callee_number TEXT, 
+    callee_number_hash VARCHAR(64), 
+    number_confirmed BOOLEAN NOT NULL, 
+    company TEXT, 
+    language VARCHAR(12) NOT NULL, 
+    scheduled_for TIMESTAMP WITH TIME ZONE, 
+    parent_id VARCHAR(32), 
+    callback_of VARCHAR(32), 
+    group_members TEXT NOT NULL, 
+    raw_text TEXT, 
+    source_message_id VARCHAR(80), 
+    idempotency_key VARCHAR(64) NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    attempts INTEGER NOT NULL, 
+    next_attempt_at TIMESTAMP WITH TIME ZONE, 
+    task_id VARCHAR(32), 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_call_requests PRIMARY KEY (id), 
+    CONSTRAINT fk_call_requests_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_call_requests_idempotency_key UNIQUE (idempotency_key)
+);
+
+CREATE INDEX ix_call_requests_callee_number_hash ON call_requests (callee_number_hash);
+
+CREATE INDEX ix_call_requests_next_attempt_at ON call_requests (next_attempt_at);
+
+CREATE INDEX ix_call_requests_parent_id ON call_requests (parent_id);
+
+CREATE INDEX ix_call_requests_status ON call_requests (status);
+
+CREATE INDEX ix_call_requests_user_id ON call_requests (user_id);
+
+CREATE TABLE call_strikes (
+    user_id VARCHAR(32) NOT NULL, 
+    reason VARCHAR(40) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_call_strikes PRIMARY KEY (id), 
+    CONSTRAINT fk_call_strikes_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_call_strikes_user_id ON call_strikes (user_id);
+
+CREATE TABLE consumer_contacts (
+    user_id VARCHAR(32) NOT NULL, 
+    name TEXT NOT NULL, 
+    nicknames TEXT NOT NULL, 
+    relationship VARCHAR(40), 
+    number TEXT NOT NULL, 
+    number_hash VARCHAR(64) NOT NULL, 
+    confirmed_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_consumer_contacts PRIMARY KEY (id), 
+    CONSTRAINT fk_consumer_contacts_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_consumer_contacts_user_id UNIQUE (user_id, number_hash)
+);
+
+CREATE INDEX ix_consumer_contacts_number_hash ON consumer_contacts (number_hash);
+
+CREATE INDEX ix_consumer_contacts_user_id ON consumer_contacts (user_id);
+
+CREATE TABLE call_briefs (
+    request_id VARCHAR(32) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    payload TEXT NOT NULL, 
+    content_hash VARCHAR(64) NOT NULL, 
+    approved BOOLEAN NOT NULL, 
+    approval_hash VARCHAR(64), 
+    approved_at TIMESTAMP WITH TIME ZONE, 
+    version INTEGER NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_call_briefs PRIMARY KEY (id), 
+    CONSTRAINT fk_call_briefs_request_id_call_requests FOREIGN KEY(request_id) REFERENCES call_requests (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_call_briefs_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_call_briefs_request_id UNIQUE (request_id)
+);
+
+CREATE INDEX ix_call_briefs_user_id ON call_briefs (user_id);
+
+CREATE TABLE call_outcomes (
+    request_id VARCHAR(32) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    attempt INTEGER NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    payload TEXT NOT NULL, 
+    number_hash VARCHAR(64), 
+    duration_s FLOAT NOT NULL, 
+    started_at TIMESTAMP WITH TIME ZONE, 
+    recording_ref TEXT, 
+    transcript_ref TEXT, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_call_outcomes PRIMARY KEY (id), 
+    CONSTRAINT fk_call_outcomes_request_id_call_requests FOREIGN KEY(request_id) REFERENCES call_requests (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_call_outcomes_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_call_outcomes_request_id ON call_outcomes (request_id);
+
+CREATE INDEX ix_call_outcomes_started_at ON call_outcomes (started_at);
+
+CREATE INDEX ix_call_outcomes_user_id ON call_outcomes (user_id);
+
+UPDATE alembic_version SET version_num='0007_consumer_calls' WHERE alembic_version.version_num = '0006_google_connector';
+
 COMMIT;
 

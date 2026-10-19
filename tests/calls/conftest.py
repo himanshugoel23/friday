@@ -81,17 +81,25 @@ class World:
 
 
 def build_world(
-    *, settings: CallsSettings | None = None, core: Settings | None = None, hour: int = 11
+    *,
+    settings: CallsSettings | None = None,
+    core: Settings | None = None,
+    hour: int = 11,
+    store=None,  # noqa: ANN001 - any CallStore (default in-memory)
+    contact_store=None,  # noqa: ANN001
+    dnc_store=None,  # noqa: ANN001
+    hasher: NumberHasher | None = None,
+    user: User | None = None,
 ) -> World:
     clock = FakeClock(datetime(2026, 1, 5, hour, 0, tzinfo=IST))  # Monday
     cipher = make_cipher()
-    hasher = NumberHasher(cipher)
+    hasher = hasher or NumberHasher(cipher)
     cs = settings or CallsSettings()
-    store = MemoryCallStore()
-    dnc_store = MemoryDncStore()
+    store = store or MemoryCallStore()
+    dnc_store = dnc_store or MemoryDncStore()
     dnc = DncRegistry(dnc_store, hasher, clock)
     users = Users()
-    user = users.add(User(phone=USER_PHONE, status=UserStatus.ACTIVE))
+    user = users.add(user or User(phone=USER_PHONE, status=UserStatus.ACTIVE))
     gate = CallGate(store=store, dnc=dnc, hasher=hasher, settings=cs, core_settings=core)
     approval = ApprovalService(FakeOpeningLineProvider(), clock)
     engine, notifier, tasks = FakeLiveCallEngine(), RecordingNotifier(), FakeTaskPort()
@@ -99,7 +107,7 @@ def build_world(
         store=store, gate=gate, approval=approval, dnc=dnc, hasher=hasher, engine=engine,
         notifier=notifier, tasks=tasks, users=users, clock=clock, settings=cs,
     )  # fmt: skip
-    book = ContactBook(MemoryContactStore(), hasher, clock)
+    book = ContactBook(contact_store or MemoryContactStore(), hasher, clock)
     intake = CallIntake(
         understander=RequestUnderstander(), contacts=book, orchestrator=orch, approval=approval
     )
