@@ -750,3 +750,7 @@ Goal: Friday running on a server with migrations applied and WhatsApp replying, 
 
 ## Clarification (2026-10-19): the founder already has a DigitalOcean server
 Slice 0 updates the existing droplet (small-server.sh is re-runnable; now restarts the service and checks out the current branch). Runbook section added.
+
+## Clarification (2026-10-19): founder has the new SIM; needs to register it on Meta (WhatsApp Cloud API)
+Guide added to docs/SLICE0_RUNBOOK.md (general knowledge; verify in Meta's current screens): Business portfolio + WhatsApp Business Account, add the number (must not be active on WhatsApp / WhatsApp Business), verify by SMS/voice OTP typed by the founder on Meta's page,
+display name approval (needs a brand name), System User permanent token, webhook; unverified business has low daily limits; business name still undecided.

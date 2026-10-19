@@ -41,3 +41,16 @@ The droplet (Bangalore, Ubuntu 24.04, code in /opt/friday, service `friday`, HTT
    The script is safe to re-run: it switches the server to the current branch, updates the code, asks for each key again (press Enter to KEEP the value already stored), applies the new database changes (0006 to 0009) and restarts Friday.
 3. Then continue from step 3 of "Steps" (friday doctor, Meta webhook, "hi" on WhatsApp, off-switch test).
 Note: the server only runs the first-generation features until the new switches are turned on; all four stay off in slice 0.
+
+## Registering the new SIM on Meta (WhatsApp Cloud API) - founder has the SIM (19 Oct)
+Steps and screens are from general knowledge; Meta changes them often, so follow what the screen says if it differs. You type every code on Meta's own page; nothing goes through Friday or this chat.
+1. Make sure the SIM is active and can receive SMS or a voice call (keep it in a phone for now). The number must NOT be registered on the normal WhatsApp or WhatsApp Business app. If it is, delete that WhatsApp account first (Settings > Account > Delete account), then wait a few minutes.
+2. business.facebook.com: create a Business portfolio (Meta Business Suite) if you do not have one. Use your real name or company name.
+3. developers.facebook.com: your app (type Business) > WhatsApp > API Setup > "Add phone number". Fill the display name, category, then choose SMS or voice verification, and type the 6-digit code you receive on the SIM.
+   - The display name is reviewed by Meta and must match the brand (a generic or misleading name is rejected). The business name is not final; you can start with a working name and change it later, or use the free test number meanwhile.
+4. Set a 6-digit two-step verification PIN for the number when asked and keep it in your password manager (not in chat).
+5. Permanent token: business.facebook.com > Business settings > Users > System users > Add (admin) > Assign assets (your app and the WhatsApp account, full control) > Generate token with `whatsapp_business_messaging` and `whatsapp_business_management`. Copy it once into the server prompt (hidden). The temporary 24-hour token on the API Setup page also works for a first test.
+6. Copy: Phone number ID, App secret (App settings > Basic), your chosen verify token. Enter them when the installer asks (or re-run it and press Enter to keep the others).
+7. Webhook: WhatsApp > Configuration > Callback URL `https://<server>.sslip.io/webhooks/whatsapp`, your verify token, subscribe to `messages`.
+8. Limits to expect: a number without Meta business verification can message only a small number of new people a day and has restrictions on display name changes; messages Friday starts outside 24 hours after the user's last message need approved templates (docs/LAUNCH_CHECKLIST.md section 4). For slice 0 you only message yourself first, so none of this blocks.
+9. Keep the free Meta test number as a backup while the new number is being approved.
