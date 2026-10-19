@@ -662,3 +662,8 @@ read it; builder starts on what is already decided (Google connector with per-us
 Answered: technically possible via each platform's login, but the APIs give little (Meta, LinkedIn restricted; X paid), users resist, DPDP purpose limits,
 low value vs Gmail/Calendar. Recommendation: LATER; at most optional LinkedIn for professional context. Added as problem D13 in the register.
 Note: the register has 95 problems (earlier said ~120).
+
+## Done (2026-10-19): problem register artifact published
+https://claude.ai/artifact/UXSu1w778JegYvANQXS5PC (95 problems: 56 priority 1, 28 priority 2, 11 priority 3). Founder's choices are saved in the
+artifact db collection `decisions` (doc id = problem id with "." -> "-", fields decision: must|soon|later|never|discuss, note); read with ArtifactData.
+Meanwhile building (already decided by the founder): Google connector with per-user OAuth + Calendar + Gmail read (fakes only until the founder creates the Google Cloud project).
