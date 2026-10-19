@@ -126,6 +126,23 @@ Each point: P-number, the problem, why it is hard.
 - D12 Team and build order: what ships in the beta vs later, ownership, and how decisions are recorded.
 - D13 Social accounts (Facebook, Instagram, LinkedIn, X): platform APIs give little data or cost money, users resist linking, privacy and purpose limits (DPDP), little value compared with Gmail and Calendar; decide whether to link at all and for what purpose.
 
+## E. Incoming calls: Friday as the user's receptionist (founder, 19 Oct 2026)
+- E1 Forwarding setup: carrier forwarding codes differ (Jio, Airtel, Vi, BSNL), conditional vs unconditional, iPhone limits, user mistakes; needs a guided setup and a verification test call.
+- E2 Which user was this call for: a forwarded call reaches Friday's number; needs a unique number per user or reliable original-number information.
+- E3 Carrier charges for forwarded calls may fall on the user; they must be told before turning it on.
+- E4 Answering as the user's assistant: fixed disclosure line, tone, and nothing private about the user (location, health, money) is ever said.
+- E5 Capturing the message: who, why, call-back number, best time, repeated back; Hindi/English, noisy lines, callers who will not talk to a bot.
+- E6 Urgency detection: keywords, known contacts, the user's own rules; a missed urgent call is the worst failure, so when unsure, flag it.
+- E7 Spam, scam and sales callers: polite end, block list, anonymised shared spam signals across users.
+- E8 Summary delivery: a WhatsApp summary within a minute with the transcript and buttons (call back, busy, block); urgent ones ring or ping the user at once.
+- E9 User rules: VIP callers always ring through, screen unknown callers only, protected events (an interview), quiet hours and sleep.
+- E10 What Friday promises the caller ("they will call you back"): no commitments, and callers who insist on speaking to the user.
+- E11 Recording and consent of callers who never signed up: disclosure, TRAI and recording laws, retention.
+- E12 Emergency and distress callers (hospital, police, family emergency): always urgent, offer to patch through.
+- E13 Patch through and warm transfer: let the user pick up midway or join the call.
+- E14 Telephony for inbound: number cost per user, capacity, how the carrier passes caller and original number, call queue behaviour.
+- E15 Harassing callers: the user wants to block or report; repeated calls from one number.
+
 ## Next step (agreed way of working)
 Walk through the areas one at a time (A first), mark each problem as MUST for the beta, LATER, or NEVER, then write the design for
 the MUST items. Nothing is built until its problems are marked. Start with A1 (what people will ask Friday to call), because it

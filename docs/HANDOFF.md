@@ -694,3 +694,7 @@ Founder decisions collected from the builders are listed in docs/CONSUMER_DECISI
 
 ## Question (2026-10-19): what are the final functionalities Friday has?
 Answered from the merged code; summary written to docs/STATE_OF_FRIDAY.md (updated). Integration builder (W5) still running.
+
+## Decision (2026-10-19): incoming-call receptionist is IN scope (forward to Friday, take message, summarise, flag urgent)
+Founder: when the user allows, their incoming calls forward to Friday; Friday takes the message, summarises it, shares it with the user and flags anything urgent.
+Added as problem group E (E1-E15) to docs/CONSUMER_PROBLEMS.md and to the register artifact; design starts in docs/JARVIS_FEEL.md section 8. Build as workstream W6 after W5 lands.
