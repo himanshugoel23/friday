@@ -24,6 +24,6 @@ Parked: ordering through platforms, payments by Friday, devices, social accounts
 ## Status
 | Slice | Code | Real-world | Blocked by |
 |---|---|---|---|
-| 0 | partly (deploy scripts exist for the old server) | no | founder: where to run, DB password, WhatsApp number |
+| 0 | DONE: installer, migrations, friday doctor, runbook | no | founder: run installer on the existing droplet, Meta account/app, doctor PASS, 'hi' reply |
 | 1 | built offline | no | slice 0; telephony factory; audio approval |
 | 2-6 | built or designed offline | no | earlier slices |

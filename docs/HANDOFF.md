@@ -757,3 +757,6 @@ display name approval (needs a brand name), System User permanent token, webhook
 
 ## Clarification (2026-10-20): founder has no Facebook/Meta account; WhatsApp setup from zero
 Added "From zero" section to docs/SLICE0_RUNBOOK.md (Facebook account, Business portfolio, developer account, app, WhatsApp product, test number first, own SIM later). The `friday doctor` builder stopped on the weekly usage limit (resets 3am UTC); resume it with SendMessage afterwards (agent aecd00cb9b077ebf2, branch worktree-agent-aecd00cb9b077ebf2).
+
+## Done (2026-10-20): friday doctor merged and pushed (full suite 4846 passed)
+`friday doctor` = new server readiness check (8 sections, --json/--offline/--section, no secrets, off-switch check); the old laptop check is `friday doctor --laptop`. docs/DOCTOR.md. Slice 0 code side done; remaining: founder runs installer on the droplet, Meta account/app/WhatsApp setup (existing personal Facebook account is fine), doctor PASS, "hi" reply, off switch.
