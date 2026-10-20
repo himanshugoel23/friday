@@ -90,7 +90,7 @@ if [ "$LISTEN" = 1 ]; then
 fi
 
 echo "Running the read-only checks..."
-uv run friday doctor || { echo "Fix what doctor lists above, then run this command again."; exit 1; }
+uv run friday doctor --laptop || { echo "Fix what doctor lists above, then run this command again."; exit 1; }
 echo
 echo "About to call $to from your Vobiz number (a few rupees). Type YES when asked."
 uv run friday livecall --to "$to"

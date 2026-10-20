@@ -58,7 +58,7 @@ Leave it open. It prints an address like `https://something-random.trycloudflare
 ## 5. Check everything
 Back in the first window:
 ```powershell
-uv run friday doctor
+uv run friday doctor --laptop
 ```
 Fix every `[FIX]` line. Also make sure the Vobiz account has **call queuing OFF** (ask Vobiz support if
 doctor says it is on) and enough balance (a few rupees per test).
