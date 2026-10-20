@@ -435,7 +435,14 @@ def main(argv: list[str] | None = None) -> int:
                      help="which voice vendor (elevenlabs needs ELEVENLABS_API_KEY + _VOICE_ID)")
     say.add_argument("--phone", action="store_true",
                      help="8 kHz mu-law round trip: what the business hears on a phone call")
-    sub.add_parser("doctor", help="read-only, free checks for the laptop live test")
+    doc = sub.add_parser(
+        "doctor", help="read-only server check: settings, database, URL, providers, switches"
+    )
+    doc.add_argument("--offline", action="store_true", help="skip every external call")
+    doc.add_argument("--json", action="store_true", help="machine-readable output (no secrets)")
+    doc.add_argument("--section", default=None, help="run one section (see docs/DOCTOR.md)")
+    doc.add_argument("--laptop", action="store_true",
+                     help="the older laptop live-test checks (Python, uv, tunnel, Vobiz)")
     live = sub.add_parser("livecall", help="place ONE real test call to an allow-listed number")
     live.add_argument("--to", required=True, help="your own phone, E.164 e.g. +919812345678")
     live.add_argument("--goal", default=None)
@@ -639,9 +646,13 @@ def main(argv: list[str] | None = None) -> int:
             rc = run_live_check(settings) or rc
         return rc
     if args.cmd == "doctor":
-        from friday.pilot import doctor
+        if args.laptop:
+            from friday.pilot import doctor
 
-        return asyncio.run(doctor(settings))
+            return asyncio.run(doctor(settings))
+        from friday.ops.doctor import run_doctor
+
+        return run_doctor(settings, offline=args.offline, as_json=args.json, section=args.section)
     if args.cmd == "livecall":
         from friday.pilot import run_livecall
 

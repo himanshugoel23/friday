@@ -44,7 +44,7 @@ Put keys only in the Codespace `.env` (or Codespaces secrets: repo Settings -> S
 3. Open `.env` in the editor. Fill the empty names listed above and set `FRIDAY_MODE=live`, `FRIDAY_PROFILE=pilot`.
 4. Second terminal tab: `cloudflared tunnel --url http://localhost:8000` prints `https://<random>.trycloudflare.com`.
    Put that in `.env` as `FRIDAY_PUBLIC_BASE_URL` (https, no trailing slash). It changes on every restart.
-5. In the first tab: `uv run friday doctor` (read-only checks; fix what it names), then optionally a free dry run
+5. In the first tab: `uv run friday doctor --laptop` (read-only checks; fix what it names), then optionally a free dry run
    `uv run friday livecall --to +910000000000 --simulate`.
 6. The real call: `uv run friday livecall --to +91XXXXXXXXXX` (your own number). Your phone rings from the Vobiz number.
    Expect the AI disclosure first, language mirroring, an honest answer to "are you a bot?". Logs go to `var/livecalls/`.
