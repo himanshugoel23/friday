@@ -54,3 +54,14 @@ Steps and screens are from general knowledge; Meta changes them often, so follow
 7. Webhook: WhatsApp > Configuration > Callback URL `https://<server>.sslip.io/webhooks/whatsapp`, your verify token, subscribe to `messages`.
 8. Limits to expect: a number without Meta business verification can message only a small number of new people a day and has restrictions on display name changes; messages Friday starts outside 24 hours after the user's last message need approved templates (docs/LAUNCH_CHECKLIST.md section 4). For slice 0 you only message yourself first, so none of this blocks.
 9. Keep the free Meta test number as a backup while the new number is being approved.
+
+## From zero: no Facebook or Meta account yet (founder, 20 Oct). Do A to F now (about 45 minutes), G later
+Meta changes screens often; follow what the screen says if it differs. Use your own real name and your own email and phone everywhere (fake details get accounts blocked). Keep passwords in a password manager, never in chat.
+A. Facebook account: facebook.com > Create new account, real name, your email, birthday. Confirm the email. Turn on two-factor login (Settings > Accounts Centre > Password and security > Two-factor authentication, use an authenticator app). A brand-new account can be asked for an ID or a selfie check; do it, it is normal.
+B. Business portfolio: business.facebook.com > Create account. Business name: a working name is fine (for example "Friday"), your name, your email. This is the home of your WhatsApp account. Business verification (documents) is NOT needed for slice 0.
+C. Developer account: developers.facebook.com > Get started > log in with the same Facebook account > verify your phone or email > accept the terms > choose "Developer".
+D. Create the app: My Apps > Create App > use case "Other" > app type "Business" > name "Friday" > connect the Business portfolio from step B.
+E. Add WhatsApp: in the app, Add products > WhatsApp > Set up. Meta creates a WhatsApp Business Account and a free TEST number automatically.
+F. First test with the free test number: WhatsApp > API Setup. Note down (do not paste in chat): the Phone number ID, the temporary access token (24 hours), and add YOUR phone under "To" (Meta sends a code to your WhatsApp to confirm). Then App settings > Basic > App secret. Choose a random verify word.
+   Enter these three values plus the verify word when the server installer asks (hidden typing). Set the webhook (callback URL from the installer, verify word, subscribe to `messages`). Send "hi" from your phone.
+G. Later, once the business name is decided: add the new SIM as the real number (section above), create a System User permanent token, and start business verification if Meta asks for it for higher limits.

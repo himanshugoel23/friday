@@ -754,3 +754,6 @@ Slice 0 updates the existing droplet (small-server.sh is re-runnable; now restar
 ## Clarification (2026-10-19): founder has the new SIM; needs to register it on Meta (WhatsApp Cloud API)
 Guide added to docs/SLICE0_RUNBOOK.md (general knowledge; verify in Meta's current screens): Business portfolio + WhatsApp Business Account, add the number (must not be active on WhatsApp / WhatsApp Business), verify by SMS/voice OTP typed by the founder on Meta's page,
 display name approval (needs a brand name), System User permanent token, webhook; unverified business has low daily limits; business name still undecided.
+
+## Clarification (2026-10-20): founder has no Facebook/Meta account; WhatsApp setup from zero
+Added "From zero" section to docs/SLICE0_RUNBOOK.md (Facebook account, Business portfolio, developer account, app, WhatsApp product, test number first, own SIM later). The `friday doctor` builder stopped on the weekly usage limit (resets 3am UTC); resume it with SendMessage afterwards (agent aecd00cb9b077ebf2, branch worktree-agent-aecd00cb9b077ebf2).
