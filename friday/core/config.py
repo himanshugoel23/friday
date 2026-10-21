@@ -369,6 +369,16 @@ class Settings(BaseSettings):
     voice_early_commit_words: int = 6  # close short complete answers early (0 = off)
     voice_short_end_silence_ms: int = 650  # close short answers sooner (0 = off; long speech 900)
     sarvam_tts_streaming: bool = True  # FRIDAY_SARVAM_TTS_STREAMING: stream uncached call lines
+    # Latency switches (docs/LATENCY.md, 2026-10-21). All default OFF; none changes a spoken word.
+    # FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING: start understanding the early / stable transcript
+    # while the caller's pause is still being timed out; reuse it if the final text is the same.
+    voice_speculative_understanding: bool = False
+    # FRIDAY_LLM_STREAM_TO_TTS: stream a model-written reply and speak it sentence by sentence.
+    llm_stream_to_tts: bool = False
+    # FRIDAY_INTENT_CLASSIFIER (+ _THRESHOLD): the small trained classifier answers the common
+    # replies the rules are unsure about, above the threshold; otherwise rules + model as before.
+    intent_classifier: bool = False
+    intent_classifier_threshold: float = Field(default=0.9, ge=0.5, le=1.0)
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")
     )

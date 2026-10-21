@@ -1,0 +1,339 @@
+{
+  "alpha": 0.05,
+  "beta": 0.5,
+  "code_version": 1,
+  "cross_validation": {
+    "alpha": 0.05,
+    "beta": 0.5,
+    "folds": 5,
+    "gold_examples": 117,
+    "log_loss": 0.1819,
+    "table": [
+      {
+        "fires": 53,
+        "precision": 0.9811,
+        "threshold": 0.9
+      },
+      {
+        "fires": 51,
+        "precision": 0.9804,
+        "threshold": 0.93
+      },
+      {
+        "fires": 49,
+        "precision": 0.9796,
+        "threshold": 0.95
+      },
+      {
+        "fires": 42,
+        "precision": 1.0,
+        "threshold": 0.97
+      },
+      {
+        "fires": 38,
+        "precision": 1.0,
+        "threshold": 0.98
+      },
+      {
+        "fires": 34,
+        "precision": 1.0,
+        "threshold": 0.99
+      },
+      {
+        "fires": 23,
+        "precision": 1.0,
+        "threshold": 0.995
+      }
+    ],
+    "threshold_found": true
+  },
+  "data_hash": "dc098278eb5d2891f7a169896a41a42f4c71bbe21eacc29f67feaf29e20eebb3",
+  "data_note": "repo data only: held-out labelled sentences, playbook test rows, persona replies, deterministic synthetic templates; no real call data",
+  "eval_count": 50,
+  "format": 1,
+  "gate": {
+    "checks": [
+      {
+        "detail": "held-out set has 50 sentences (need >= 30)",
+        "name": "enough_eval",
+        "ok": true
+      },
+      {
+        "detail": "classifier answered 22 held-out sentences at threshold 0.9 (need >= 10 for the precision figure to mean anything)",
+        "name": "enough_fires",
+        "ok": true
+      },
+      {
+        "detail": "precision at threshold 0.9 is 100.0% (need >= 98%)",
+        "name": "precision",
+        "ok": true
+      },
+      {
+        "detail": "live-path accuracy 80.0% vs rules baseline 74.0%",
+        "name": "beats_rules",
+        "ok": true
+      },
+      {
+        "detail": "live-path 80.0% / precision 100.0% vs current model 80.0% / 100.0%",
+        "name": "beats_previous_model",
+        "ok": true
+      }
+    ],
+    "passed": true
+  },
+  "metrics": {
+    "classifier_accuracy": 86.0,
+    "combined_accuracy": 80.0,
+    "confusion_pairs": [
+      {
+        "count": 2,
+        "expected": "YES",
+        "got": "SLOT_FREE"
+      },
+      {
+        "count": 1,
+        "expected": "GIVES_STYLIST",
+        "got": "WHO_IS_THIS"
+      },
+      {
+        "count": 1,
+        "expected": "GIVES_TIME",
+        "got": "SLOT_FREE"
+      },
+      {
+        "count": 1,
+        "expected": "OFFERS_SLOTS",
+        "got": "SLOT_FREE"
+      },
+      {
+        "count": 1,
+        "expected": "PRICE_RANGE",
+        "got": "GIVES_PRICE"
+      },
+      {
+        "count": 1,
+        "expected": "UNCLEAR",
+        "got": "ASKS_REPEAT"
+      }
+    ],
+    "coverage": 44.0,
+    "engine_fires": 3,
+    "engine_fires_correct": 3,
+    "engine_fires_rules_correct": 0,
+    "fires": 22,
+    "fires_correct": 22,
+    "n": 50,
+    "per_intent": {
+      "ACK": {
+        "classifier": 100.0,
+        "combined": 50.0,
+        "n": 2,
+        "rules": 0.0
+      },
+      "ASKS_CUSTOMER_PHONE": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "ASKS_OFFTOPIC": {
+        "classifier": 100.0,
+        "combined": 0.0,
+        "n": 1,
+        "rules": 0.0
+      },
+      "ASKS_REPEAT": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 2,
+        "rules": 100.0
+      },
+      "ASKS_SECRET": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "BUSY_LATER": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "CONTINUE": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "GIVES_PRICE": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 6,
+        "rules": 100.0
+      },
+      "GIVES_STYLIST": {
+        "classifier": 0.0,
+        "combined": 0.0,
+        "n": 1,
+        "rules": 0.0
+      },
+      "GIVES_TIME": {
+        "classifier": 66.67,
+        "combined": 66.67,
+        "n": 3,
+        "rules": 66.67
+      },
+      "HOLD_ON": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "NEEDS_APPOINTMENT": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 3,
+        "rules": 66.67
+      },
+      "NO": {
+        "classifier": 100.0,
+        "combined": 66.67,
+        "n": 3,
+        "rules": 66.67
+      },
+      "NO_CHARGE": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "OFFERS_SLOTS": {
+        "classifier": 50.0,
+        "combined": 50.0,
+        "n": 2,
+        "rules": 50.0
+      },
+      "PRICE_DEPENDS": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 2,
+        "rules": 100.0
+      },
+      "PRICE_RANGE": {
+        "classifier": 66.67,
+        "combined": 66.67,
+        "n": 3,
+        "rules": 66.67
+      },
+      "REFUSES_PRICE": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "SLOT_BUSY": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "SLOT_FREE": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "STOP_CALLING": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "UNCLEAR": {
+        "classifier": 66.67,
+        "combined": 66.67,
+        "n": 3,
+        "rules": 66.67
+      },
+      "VISIT_NEEDED": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 2,
+        "rules": 100.0
+      },
+      "WHO_IS_THIS": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 3,
+        "rules": 66.67
+      },
+      "WRONG_NUMBER": {
+        "classifier": 100.0,
+        "combined": 100.0,
+        "n": 1,
+        "rules": 100.0
+      },
+      "YES": {
+        "classifier": 33.33,
+        "combined": 33.33,
+        "n": 3,
+        "rules": 33.33
+      }
+    },
+    "precision": 1.0,
+    "precision_ci95_low": 0.8513,
+    "rules_accuracy": 74.0,
+    "threshold": 0.9
+  },
+  "model_file": "intent_classifier.json",
+  "model_sha256": "9d572884abca2eec587676b0b59198601cd09711a933f32daac2dae30b3b3d09",
+  "seed": 7,
+  "threshold": 0.9,
+  "threshold_source": "cross_validation",
+  "train_by_intent": {
+    "ACK": 77,
+    "ARE_YOU_BOT": 100,
+    "ASKS_CUSTOMER_PHONE": 67,
+    "ASKS_OFFTOPIC": 105,
+    "ASKS_REPEAT": 101,
+    "ASKS_SECRET": 69,
+    "BUSY_LATER": 124,
+    "CONTINUE": 147,
+    "GIVES_PRICE": 225,
+    "GIVES_STYLIST": 99,
+    "GIVES_TIME": 102,
+    "HOLD_ON": 125,
+    "NEEDS_ADVANCE": 96,
+    "NEEDS_APPOINTMENT": 68,
+    "NO": 132,
+    "NO_ADVANCE": 67,
+    "NO_CHARGE": 86,
+    "OFFERS_SLOTS": 81,
+    "OUT_OF_STOCK": 87,
+    "PRICE_DEPENDS": 81,
+    "PRICE_RANGE": 100,
+    "REFUSES_PRICE": 68,
+    "RUDE": 87,
+    "SAME_NUMBER": 41,
+    "SLOT_BUSY": 128,
+    "SLOT_FREE": 165,
+    "STOP_CALLING": 78,
+    "UNCLEAR": 73,
+    "VISIT_NEEDED": 77,
+    "WHATSAPP_PLEASE": 81,
+    "WHO_IS_THIS": 112,
+    "WRONG_NUMBER": 93,
+    "YES": 176
+  },
+  "train_by_source": {
+    "labels": 75,
+    "personas": 296,
+    "synth": 2905,
+    "tests": 42
+  },
+  "train_count": 3318,
+  "unknown_intents": [
+    "GIVES_NUMBER"
+  ]
+}

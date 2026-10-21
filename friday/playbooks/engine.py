@@ -37,6 +37,8 @@ from friday.core.models import (
     Transcript,
     UserAnswer,
 )
+from friday.latency.speculative import Speculator
+from friday.playbooks import classifier as clf
 from friday.playbooks import slots as sl
 from friday.playbooks.intents import ANY, FACT_INPUTS, QUESTION_INPUTS, RESUME_INPUTS, Intent
 from friday.playbooks.model import (
@@ -165,6 +167,7 @@ class CallState:
     outcome: str | None = None
     blocked: int = 0
     transcript: Any = None  # strong ref: keeps id(transcript) unique while the state lives
+    speculator: Any = None  # friday.latency.speculative.Speculator (only with the switch on)
 
 
 @dataclass
@@ -386,7 +389,15 @@ class PlaybookPolicy:
         playbooks: dict[str, Playbook] | None = None,
         answerer: Any = None,
         open_questions: bool = False,
+        classifier: clf.IntentClassifier | None = None,
+        classifier_threshold: float = clf.DEFAULT_THRESHOLD,
+        speculative: bool = False,
     ) -> None:
+        # latency switches (docs/LATENCY.md 2026-10-21), all OFF unless the caller passes them
+        self.classifier = classifier
+        self.classifier_threshold = classifier_threshold
+        self.speculative = speculative
+        self.stats: Counter[str] = Counter()
         self.answerer = answerer
         self.open_questions = open_questions  # founder switch: model-written open answers
         self.understander = understander or HeuristicUnderstander()
@@ -556,6 +567,16 @@ class PlaybookPolicy:
     async def next_call_action(
         self, brief: CallBrief, transcript: Transcript, answers: list[UserAnswer] | Any
     ) -> CallAction:
+        try:
+            return await self._next_call_action(brief, transcript, answers)
+        finally:  # a leftover guess from this turn must not leak into the next
+            st = self._states.get(id(transcript))
+            if st is not None and st.speculator is not None:
+                st.speculator.end_turn()
+
+    async def _next_call_action(
+        self, brief: CallBrief, transcript: Transcript, answers: list[UserAnswer] | Any
+    ) -> CallAction:
         pb = self.playbook(brief)
         st = self._state(pb, transcript)
         turns = transcript.turns
@@ -716,23 +737,20 @@ class PlaybookPolicy:
     async def _understand_raw(self, c: Ctx, reply: str) -> Understanding:
         st, pb = c.st, c.pb
         if is_stop_request(reply):  # hard rule: no model needed, none trusted
+            self._end_speculation(c)
             return Understanding(intent=Intent.STOP_CALLING.value, confident=True)
         ext = self._ext_known(pb, st.step)
         h = heuristic(reply, step=st.step, known={"hints": hints_of(c), **ext})
         use_llm = self.llm_mode == "always" or (self.llm_mode == "auto" and not h.confident)
         if self.llm_mode == "never" or not use_llm:
+            self._end_speculation(c)
             return h
+        said = self._classify(c, reply, h)
+        if said is not None:  # the small trained classifier is sure: no model call
+            self._end_speculation(c)
+            return said
         try:
-            u = await self.understander.understand(
-                reply=reply,
-                friday_said=st.last_friday,
-                step=st.step,
-                allowed=self._allowed(pb, st.step),
-                known={
-                    "slot": c.slot_text, "price_inr": st.price_inr, "hints": hints_of(c), **ext
-                },
-                task_id=c.brief.task_id,
-            )
+            u = await self._model_understanding(c, reply, ext)
             st.llm_calls += 1
         except Exception as e:  # noqa: BLE001 - never stall a call on a model failure
             log.warning("playbook understand failed (%s); using the heuristic", type(e).__name__)
@@ -743,6 +761,102 @@ class PlaybookPolicy:
         if u.intent == Intent.UNCLEAR.value and h.intent != Intent.UNCLEAR.value and h.confident:
             return h
         return u
+
+    # ------------------------------------------------------------------ model call (+ speculation)
+    def _model_args(self, c: Ctx, reply: str, ext: dict[str, Any]) -> dict[str, Any]:
+        """Everything the understander is asked, captured NOW (a speculative call must not read
+        call state later)."""
+        st = c.st
+        return {
+            "reply": reply,
+            "friday_said": st.last_friday,
+            "step": st.step,
+            "allowed": self._allowed(c.pb, st.step),
+            "known": {"slot": c.slot_text, "price_inr": st.price_inr, "hints": hints_of(c), **ext},
+            "task_id": c.brief.task_id,
+        }
+
+    async def _model_understanding(
+        self, c: Ctx, reply: str, ext: dict[str, Any]
+    ) -> Understanding:
+        sp = c.st.speculator
+        if sp is not None:
+            got, _how = await sp.take(self._spec_key(c), reply)
+            if got is not None:  # the guess made while she was still talking is for these words
+                self.stats["speculative_hit"] += 1
+                return got  # type: ignore[no-any-return]
+            self.stats["speculative_miss" if _how == "miss" else "speculative_none"] += 1
+        return await self.understander.understand(**self._model_args(c, reply, ext))
+
+    @staticmethod
+    def _spec_key(c: Ctx) -> tuple[str, str]:
+        return (c.st.step, c.st.last_friday)
+
+    def _classify(
+        self, c: Ctx, reply: str, h: Understanding, *, record: bool = True
+    ) -> Understanding | None:
+        """The trained classifier's answer, or None (take the model path). Only when the rules are
+        not confident; the hard rules (stop, secrets, rude, AI question) already ran."""
+        if self.classifier is None or h.confident:
+            return None
+        d = clf.decide(
+            reply, self.classifier, self.classifier_threshold, self._allowed(c.pb, c.st.step)
+        )
+        if record:
+            self.stats["classifier_hit" if d.used else "classifier_miss"] += 1
+            if d.used:
+                log.info("classifier hit %s conf=%.3f (no model call)", d.intent, d.confidence)
+            else:
+                log.info("classifier miss %s conf=%.3f (%s); rules + model path",
+                         d.intent, d.confidence, d.reason)
+        if not d.used:
+            return None
+        return Understanding(intent=d.intent, confident=True)
+
+    def speculate(self, brief: CallBrief, transcript: Transcript, text: str) -> bool:
+        """Start understanding ``text`` (an early / stable transcript) while the caller's pause is
+        still being timed out. Pure: it changes no call state and speaks nothing; the result is
+        used only if the committed words are the same (``_model_understanding``). False when the
+        switch is off, the rules / classifier already know, or this turn already guessed once."""
+        if not self.speculative or self.llm_mode == "never":
+            return False
+        st = self._states.get(id(transcript))
+        text = (text or "").strip()
+        if st is None or not (st.started and st.seeded) or st.finished or not text:
+            return False
+        pb = self.playbook(brief)
+        if st.step not in pb.steps or is_stop_request(text):
+            return False
+        now = self.clock.now() if self.clock else datetime.now().astimezone()
+        c = Ctx(pb, brief, st, resolve_inputs(pb, brief), self.recording, now, [])
+        ext = self._ext_known(pb, st.step)
+        h = heuristic(text, step=st.step, known={"hints": hints_of(c), **ext})
+        if h.confident and self.llm_mode != "always":
+            return False  # rules are sure: there is nothing to start
+        if self._classify(c, text, h, record=False) is not None:
+            return False  # the classifier will answer: no model call to start
+        if st.speculator is None:
+            st.speculator = Speculator()
+        args = self._model_args(c, text, ext)
+        started = st.speculator.start(
+            self._spec_key(c), text, lambda: self.understander.understand(**args)
+        )
+        if started:
+            self.stats["speculative_started"] += 1
+        return started
+
+    def cancel_speculation(
+        self, transcript: Transcript, reason: str = "caller kept talking"
+    ) -> bool:
+        st = self._states.get(id(transcript))
+        sp = st.speculator if st is not None else None
+        return bool(sp is not None and sp.cancel(reason))
+
+    @staticmethod
+    def _end_speculation(c: Ctx) -> None:
+        sp = c.st.speculator
+        if sp is not None:
+            sp.end_turn()
 
     @staticmethod
     def _price_step(pb: Playbook, step_id: str) -> bool:
@@ -1368,3 +1482,10 @@ class RoutingCallPolicy:
 
     def fixed_lines(self, brief: CallBrief) -> dict[Language, list[str]]:
         return self.playbook_policy.fixed_lines(brief) if brief.playbook else {}
+
+    def speculate(self, brief: CallBrief, transcript: Any, text: str) -> bool:
+        """Latency switch: start understanding an early transcript (scripted calls only)."""
+        return bool(brief.playbook and self.playbook_policy.speculate(brief, transcript, text))
+
+    def cancel_speculation(self, transcript: Any, reason: str = "caller kept talking") -> bool:
+        return self.playbook_policy.cancel_speculation(transcript, reason)
