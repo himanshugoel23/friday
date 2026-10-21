@@ -695,6 +695,7 @@ class _Session:
         self.result.provider = getattr(tel, "name", "unknown")
         try:
             self.leg = await tel.place_call(req)
+            self._attach_speculation(self.leg)
         except ProviderError as e:
             self.result.error = truncate(str(e), 300)
             self.result.dial_status = DialStatus.FAILED
@@ -1002,6 +1003,26 @@ class _Session:
             ):
                 return action.outcome
         return CallOutcome.HUNG_UP
+
+    # ================================================================== speculative understanding
+    def _attach_speculation(self, leg: Any) -> None:
+        """FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING (default OFF): let the leg hand early transcripts
+        to the policy, which starts understanding them before the caller's pause is over. Does
+        nothing unless the switch is on AND the leg and the policy both support it."""
+        if not getattr(self.settings, "voice_speculative_understanding", False):
+            return
+        if not hasattr(leg, "early_text_hook") or not hasattr(self.r.policy, "speculate"):
+            return
+        leg.early_text_hook = self._speculate
+        leg.early_cancel_hook = self._cancel_speculation
+
+    def _speculate(self, text: str) -> None:
+        self.r.policy.speculate(self.brief, self.transcript, text)  # type: ignore[attr-defined]
+
+    def _cancel_speculation(self, reason: str) -> None:
+        cancel = getattr(self.r.policy, "cancel_speculation", None)
+        if cancel is not None:
+            cancel(self.transcript, reason)
 
     # ================================================================== policy
     async def _decide(self, *, record_latency: bool = True) -> CallAction | None:
@@ -1636,6 +1657,13 @@ def build_scripted_policy(c: Container) -> CallPolicy:
     from friday.playbooks.engine import PlaybookPolicy, RoutingCallPolicy
     from friday.playbooks.understand import LazyBrainUnderstander
 
+    classifier = None
+    if getattr(c.settings, "intent_classifier", False):  # latency switch, default OFF
+        from friday.playbooks.classifier import load_active
+
+        classifier = load_active()  # None = rules + model exactly as before
+        if classifier is None:
+            log.warning("FRIDAY_INTENT_CLASSIFIER is on but no gate-passed model is available")
     return RoutingCallPolicy(
         lambda: c.brain,
         PlaybookPolicy(
@@ -1645,6 +1673,9 @@ def build_scripted_policy(c: Container) -> CallPolicy:
             clock=c.clock,
             answerer=BrainAnswerer(lambda: c.brain),
             open_questions=c.settings.playbooks_open_questions,
+            classifier=classifier,
+            classifier_threshold=getattr(c.settings, "intent_classifier_threshold", 0.9),
+            speculative=getattr(c.settings, "voice_speculative_understanding", False),
         ),
     )
 

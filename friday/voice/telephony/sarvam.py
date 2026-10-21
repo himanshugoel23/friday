@@ -290,6 +290,11 @@ class SarvamCallLeg(TwilioCallLeg):
         self._partial_lang: str | None = None
         self._stable_task: asyncio.Task | None = None
         self.reply_gaps: list[float] = []  # ms from "caller stopped" to "first audio queued"
+        # speculative understanding (FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING, default OFF): the call
+        # session sets these; with both None this leg behaves exactly as before.
+        self.early_text_hook: Callable[[str], None] | None = None
+        self.early_cancel_hook: Callable[[str], None] | None = None
+        self._early_text = ""
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -323,6 +328,7 @@ class SarvamCallLeg(TwilioCallLeg):
                 if self._spec is not None:  # a guess made before she started talking is stale
                     self._spec.cancel()
                     self._spec = None
+                self._cancel_early("friday speaking / barge-in")
                 self._watch_for_barge_in(frame)
             else:
                 if rms(frame) >= self._segmenter.threshold:
@@ -346,6 +352,7 @@ class SarvamCallLeg(TwilioCallLeg):
             if self._spec is not None:
                 self._spec.cancel()
                 self._spec = None
+            self._cancel_early("caller kept talking")
             return
         if self._spec is not None or seg._silence_ms + 20 < self.EARLY_STT_SILENCE_MS:
             return
@@ -354,7 +361,39 @@ class SarvamCallLeg(TwilioCallLeg):
         if dur >= self.EARLY_STT_MIN_S:
             snap = Segment(pcm, seg.sample_rate, dur, False)
             self._spec = asyncio.ensure_future(super()._transcribe(snap))
+            self._spec.add_done_callback(self._announce_early)
             self._spec.add_done_callback(self._maybe_commit_early)
+
+    def _announce_early(self, fut: asyncio.Future[Any]) -> None:
+        """Speculative understanding: hand the early transcript to the call session so it can start
+        understanding it while the rest of the pause runs out. No-op unless the hook is set."""
+        hook = self.early_text_hook
+        if hook is None or fut.cancelled() or fut is not self._spec or self.hold_mode:
+            return
+        try:
+            t = fut.result()
+        except Exception:  # noqa: BLE001
+            return
+        text = (getattr(t, "text", "") or "").strip()
+        if text:
+            self._early_text = text
+            self._call_hook(hook, text)
+
+    def _cancel_early(self, reason: str) -> None:
+        """The caller kept talking / barged in / hold started: drop any speculative guess."""
+        if not self._early_text:
+            return
+        self._early_text = ""
+        hook = self.early_cancel_hook
+        if hook is not None:
+            self._call_hook(hook, reason)
+
+    @staticmethod
+    def _call_hook(hook: Callable[[str], None], arg: str) -> None:
+        try:
+            hook(arg)
+        except Exception as e:  # noqa: BLE001 - a latency extra must never break the call
+            log.warning("speculative understanding hook failed (%s)", type(e).__name__)
 
     def _maybe_commit_early(self, fut: asyncio.Future[Any]) -> None:
         """A short, complete-looking answer ("haan ji bataiye.") is closed as soon as its guess
@@ -384,6 +423,7 @@ class SarvamCallLeg(TwilioCallLeg):
         if self._stream_handles(seg):
             return None  # the words come from the stream (partials / final)
         spec, self._spec = self._spec, None
+        self._early_text = ""  # the commit is here: the session's guess (if any) is judged now
         if spec is not None and not seg.forced_cut and not self.hold_mode:
             try:
                 return await spec
@@ -391,6 +431,9 @@ class SarvamCallLeg(TwilioCallLeg):
                 pass
         elif spec is not None:
             spec.cancel()
+            hook = self.early_cancel_hook
+            if hook is not None:
+                self._call_hook(hook, "forced cut / hold")
         return await super()._transcribe(seg)
 
     # ------------------------------------------------------------------ streaming speech-to-text
@@ -433,6 +476,7 @@ class SarvamCallLeg(TwilioCallLeg):
             return
         if text != self._partial_text:
             self._partial_text, self._partial_lang = text, lang
+            self._cancel_early("partial changed")
         if self._stable_task is not None:
             self._stable_task.cancel()
         self._stable_task = asyncio.ensure_future(self._commit_if_stable(text, idx))
@@ -445,6 +489,15 @@ class SarvamCallLeg(TwilioCallLeg):
             return
         await asyncio.sleep(cfg.stable_ms / 1000)
         seg = self._segmenter
+        hook = self.early_text_hook
+        if (
+            hook is not None
+            and text == self._partial_text
+            and idx > self._committed_idx
+            and not (self._playing and not self._barged)
+        ):
+            self._early_text = text  # a stable partial: start understanding it now
+            self._call_hook(hook, text)
         if (
             text != self._partial_text
             or idx <= self._committed_idx
@@ -469,6 +522,7 @@ class SarvamCallLeg(TwilioCallLeg):
     ) -> None:
         self._committed_idx = idx
         self._partial_text = ""
+        self._early_text = ""
         if self._stable_task is not None:
             self._stable_task.cancel()
             self._stable_task = None
