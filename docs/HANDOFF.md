@@ -767,3 +767,6 @@ Slice 0 is waiting on the founder (Meta setup/installer), so this voice-quality 
 
 ## Task (2026-10-21): ask the product-manager agent whether it can see an Instagram video
 Founder shared https://www.instagram.com/p/DdFUKV1s8Mb/ and asked to create a product agent and ask if it can see it. Agent launched; it must say honestly what it can and cannot retrieve (video content is not viewable by text tools).
+
+## Decision (2026-10-21): Friday should understand media users send (videos, images, PDFs, voice notes, links)
+Founder wants "send Friday a video and it understands it" built into Friday (prompted by an Instagram video the agent could not see). Added design docs/MEDIA_UNDERSTANDING.md, FEATURES line, and a board slice (after the launch slices unless the founder reorders). Instagram/X links sit behind login walls: users forward the video file or a screen recording.

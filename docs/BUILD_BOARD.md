@@ -17,6 +17,7 @@ Rule (founder): finish a slice to 100% before starting the next. A slice is 100%
 - **Slice 2: voicemail and receptionist** (conditional forwarding setup, shared-number user probe, take message, spam, urgent, missed-call note).
 - **Slice 3: hold-fighting and reminder calls to others.**
 - **Slice 4: voice channels** (call Friday's number, voice notes, voice nudges).
+- **Slice 4b: understand media you send** (images, PDFs, voice notes, video, links; docs/MEDIA_UNDERSTANDING.md), founder-requested 21 Oct; order to be confirmed.
 - **Slice 5: savings with real, verified card rules.**
 - **Slice 6: your day with Google Calendar and Gmail (testers).**
 Parked: ordering through platforms, payments by Friday, devices, social accounts.
