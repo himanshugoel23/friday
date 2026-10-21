@@ -426,11 +426,19 @@ def main(argv: list[str] | None = None) -> int:
     for f in ("end_silence_ms", "stt_ms", "model_ms", "tts_first_ms", "ttft_ms", "tokens_per_s"):
         ap.add_argument("--" + f.replace("_", "-"), type=int, default=getattr(Timing, f))
     ap.add_argument("--verbose", action="store_true", help="show the speculative / classifier log lines")
+    ap.add_argument("--eot", action="store_true",
+                    help="also simulate the semantic end-of-turn detector on the held-out sentences")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO if a.verbose else logging.WARNING,
                         format="%(levelname)s %(name)s: %(message)s")
-    t = Timing(**{k: v for k, v in vars(a).items() if k != "verbose"})
+    t = Timing(**{k: v for k, v in vars(a).items() if k not in ("verbose", "eot")})
     print(run_benchmark(t).format())
+    if a.eot:
+        from friday.latency.eot_sim import format_report
+        from friday.learning.eot_train import load_gold
+
+        print()
+        print(format_report(load_gold()[1]))
     return 0
 
 

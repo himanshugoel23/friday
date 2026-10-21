@@ -84,6 +84,7 @@ from friday.voice.commit import (
     is_commit_action,
     slot_of,
 )
+from friday.voice.eot import EotConfig, build_semantic_eot
 from friday.voice.events import CallCostReport, CallLanguageSwitched, CallLatencyReport
 from friday.voice.latency import LatencyRecorder
 from friday.voice.text import mask_digits, redact_secrets, strip_fillers
@@ -697,6 +698,7 @@ class _Session:
         try:
             self.leg = await tel.place_call(req)
             self._attach_speculation(self.leg)
+            self._attach_semantic_eot(self.leg)
         except ProviderError as e:
             self.result.error = truncate(str(e), 300)
             self.result.dial_status = DialStatus.FAILED
@@ -1016,6 +1018,31 @@ class _Session:
             return
         leg.early_text_hook = self._speculate
         leg.early_cancel_hook = self._cancel_speculation
+
+    # ================================================================== semantic end-of-turn
+    def _attach_semantic_eot(self, leg: Any) -> None:
+        """FRIDAY_VOICE_SEMANTIC_EOT (default OFF): let the leg judge from the words whether the
+        caller has finished. Nothing is attached unless the switch is on AND the leg supports it."""
+        s = self.settings
+        if not getattr(s, "voice_semantic_eot", False) or not hasattr(leg, "eot"):
+            return
+        cfg = EotConfig(
+            enabled=True, extend_ms=s.voice_semantic_eot_extend_ms,
+            threshold=s.voice_semantic_eot_threshold,
+        )
+        leg.eot = build_semantic_eot(cfg)
+        leg.eot_cfg = cfg
+        leg.eot_context = self._expected_answer
+
+    def _expected_answer(self) -> str:
+        """price | time | yesno | name | phone | "" : what the current script step asks for."""
+        fn = getattr(self.r.policy, "expected_answer", None)
+        if fn is None:
+            return ""
+        try:
+            return str(fn(self.brief, self.transcript) or "")
+        except Exception:  # noqa: BLE001 - a hint only
+            return ""
 
     def _speculate(self, text: str) -> None:
         self.r.policy.speculate(self.brief, self.transcript, text)  # type: ignore[attr-defined]

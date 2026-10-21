@@ -184,10 +184,13 @@ def evaluate(
         "false_extend_count": len(false_ext),
         "extended_correctly": len(good_ext),
         "committed_early_correctly": len(good_commit),
-        # mean added delay in ms (positive = the caller waits longer, negative = answered sooner)
-        "added_delay_ms_on_finished": round((len(false_ext) * extend_ms - len(good_commit) * save_ms) / len(gold_c), 1) if gold_c else 0.0,
-        "wasted_wait_ms_on_finished": round(len(false_ext) * extend_ms / len(gold_c), 1) if gold_c else 0.0,
-        "saved_ms_on_finished": round(len(good_commit) * save_ms / len(gold_c), 1) if gold_c else 0.0,
+        # MEAN ADDED DELAY (ms, averaged over the finished turns): the pointless extra wait when a
+        # finished answer is judged unfinished. This is the real cost and it does not depend on the STT.
+        "added_delay_ms_on_finished": round(len(false_ext) * extend_ms / len(gold_c), 1) if gold_c else 0.0,
+        # the most an early commit could save, ONLY if the text is ready before the wait ends (a streaming
+        # partial at ~350 ms; with REST speech-to-text the text arrives at ~840 ms, after the 650 ms wait,
+        # and the saving is ~0: see friday/latency/eot_sim.py)
+        "potential_saving_ms_on_finished": round(len(good_commit) * save_ms / len(gold_c), 1) if gold_c else 0.0,
         "extra_wait_ms_on_unfinished": round(len(good_ext) * extend_ms / len(gold_i), 1) if gold_i else 0.0,
         "mistakes": [
             {"text": e.text, "gold": e.label, "said": v.value, "type": e.answer_type}
@@ -210,9 +213,9 @@ def format_eval(m: dict[str, Any], title: str = "") -> str:
     lines.append(f"  FALSE-CUT rate {m['false_cut_rate']:.1%} ({m['false_cut_count']} of {m['n_incomplete']} unfinished judged finished; "
                  f"{m['false_cut_rate_all_turns']:.1%} of all turns)")
     lines.append(f"  false-extend rate {m['false_extend_rate']:.1%} ({m['false_extend_count']} of {m['n_complete']} finished judged unfinished)")
-    lines.append(f"  mean added delay on finished turns {m['added_delay_ms_on_finished']:+.0f} ms "
-                 f"(wasted wait +{m['wasted_wait_ms_on_finished']:.0f}, early-commit saving -{m['saved_ms_on_finished']:.0f}); "
-                 f"mean extra wait on unfinished turns +{m['extra_wait_ms_on_unfinished']:.0f} ms (intended)")
+    lines.append(f"  mean added delay on finished turns +{m['added_delay_ms_on_finished']:.0f} ms (false extends); "
+                 f"mean extra wait on unfinished turns +{m['extra_wait_ms_on_unfinished']:.0f} ms (intended); "
+                 f"potential early-commit saving -{m['potential_saving_ms_on_finished']:.0f} ms (only if the text is ready in time)")
     return "\n".join(lines)
 
 

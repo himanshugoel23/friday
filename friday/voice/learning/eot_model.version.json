@@ -82,13 +82,18 @@
         "detail": "1 vs rules-only 1 (+1 allowed)",
         "name": "no more false cuts than the baseline",
         "ok": true
+      },
+      {
+        "detail": "90.3% vs 90.3% (same held-out set)",
+        "name": "not worse than the model in the repo",
+        "ok": true
       }
     ],
     "passed": true
   },
   "held_out": {
     "accuracy": 0.9026,
-    "added_delay_ms_on_finished": -260.9,
+    "added_delay_ms_on_finished": 24.1,
     "committed_early_correctly": 80,
     "coverage": 0.9286,
     "decided": 143,
@@ -121,14 +126,13 @@
         "said": 62
       }
     },
-    "saved_ms_on_finished": 285.1,
-    "wasted_wait_ms_on_finished": 24.1
+    "potential_saving_ms_on_finished": 285.1
   },
   "held_out_count": 154,
   "model_sha256": "783f4a443402928a8fb12647a09c053ad5a7e80005ff4a52e5a4bc8fa7853d7f",
   "rules_only_baseline": {
     "accuracy": 0.8831,
-    "added_delay_ms_on_finished": -257.4,
+    "added_delay_ms_on_finished": 24.1,
     "committed_early_correctly": 79,
     "coverage": 0.9091,
     "decided": 140,
@@ -161,8 +165,7 @@
         "said": 60
       }
     },
-    "saved_ms_on_finished": 281.5,
-    "wasted_wait_ms_on_finished": 24.1
+    "potential_saving_ms_on_finished": 281.5
   },
   "threshold": 0.8,
   "threshold_source": "cross-validation (false-cut <= 1.5%)",

@@ -67,6 +67,13 @@ class EotDecision:
     confidence: float
     source: str  # "rule:<name>" | "model" | "rule+model" | "none"
     detail: str = ""
+    # an UNSURE verdict that still leans one way (a soft rule at 0.8+): never enough to extend a
+    # wait, but enough to NOT commit early (a missed early commit costs milliseconds, a cut costs a turn)
+    lean: Verdict | None = None
+
+    @property
+    def vetoes_early_commit(self) -> bool:
+        return self.verdict is Verdict.INCOMPLETE or self.lean is Verdict.INCOMPLETE
 
     @property
     def complete(self) -> bool:
@@ -465,6 +472,13 @@ class SemanticEot:
     def _assess(self, text: str, answer_type: str) -> EotDecision:
         thr = self.threshold
         hit = apply_rules(text, answer_type)
+        lean_hit = hit if hit is not None and hit.verdict is Verdict.INCOMPLETE and hit.confidence >= 0.8 else None
+        res = self._decide(text, answer_type, thr, hit)
+        if res.verdict is Verdict.UNSURE and lean_hit is not None:
+            return EotDecision(Verdict.UNSURE, lean_hit.confidence, "none", "", Verdict.INCOMPLETE)
+        return res
+
+    def _decide(self, text: str, answer_type: str, thr: float, hit: RuleHit | None) -> EotDecision:
         if hit is not None and hit.confidence >= max(HARD_RULE, thr):
             return EotDecision(hit.verdict, hit.confidence, "rule:" + hit.name)
         if self.model is None:
