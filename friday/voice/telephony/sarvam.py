@@ -159,6 +159,7 @@ from friday.voice.audio import (
 )
 from friday.voice.callerid import CallerIdSelector, choose_from_number
 from friday.voice.classifier import HeuristicAudioClassifier
+from friday.voice.eot import EotConfig, EotDecision, SemanticEot
 from friday.voice.events import InboundCallReceived, MissedCallReceived
 from friday.voice.langs import from_vendor_code, refine_hindi
 from friday.voice.signals import block_signal
@@ -169,6 +170,7 @@ from friday.voice.telephony.media import Segment
 from friday.voice.telephony.twilio import FRAME_BYTES, TwilioCallLeg
 from friday.voice.text import detect_language, strip_fillers
 from friday.voice.tts.cache import cached_tts
+from friday.voice.vad import VadFrame, build_vad
 
 log = get_logger(__name__)
 
@@ -277,6 +279,14 @@ class SarvamCallLeg(TwilioCallLeg):
         self._segmenter.end_silence_ms = 900
         self._segmenter.short_end_silence_ms = getattr(tel, "short_end_silence_ms", 0)
         self._segmenter.max_continuous_ms = 20000
+        # voice-activity backend (FRIDAY_VOICE_VAD_BACKEND, default energy = the loudness rule)
+        vcfg = getattr(tel, "vad", None)
+        if vcfg is not None and vcfg.get("backend") == "silero":
+            self._segmenter.vad = build_vad(
+                "silero", sample_rate=self._segmenter.sample_rate,
+                start_prob=vcfg.get("start_prob", 0.5), stop_prob=vcfg.get("stop_prob", 0.35),
+            )
+        self.barge_in_prob = float((vcfg or {}).get("barge_prob", 0.75))
         self._playing = False  # Friday's voice is on the line
         self._barged = False  # the caller spoke over her: do not speak the rest of the turn
         self._loud_run = 0
@@ -296,6 +306,13 @@ class SarvamCallLeg(TwilioCallLeg):
         self.early_cancel_hook: Callable[[str], None] | None = None
         self._early_text = ""
         self._spec_task: asyncio.Task | None = None
+        # semantic end-of-turn (FRIDAY_VOICE_SEMANTIC_EOT, default OFF): set by the call session;
+        # with eot None this leg behaves exactly as before.
+        self.eot: SemanticEot | None = None
+        self.eot_cfg: EotConfig | None = None
+        self.eot_context: Callable[[], str] | None = None  # the step's expected answer type
+        self.eot_last: tuple[str, EotDecision] | None = None  # (text, verdict) of this pause
+        self.eot_log: list[tuple[str, EotDecision]] = []
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -330,17 +347,18 @@ class SarvamCallLeg(TwilioCallLeg):
             pcm = resample_pcm16(pcm, rate, 8000)
         for i in range(0, len(pcm) - 319, 320):  # 20 ms frames for the VAD
             frame = pcm[i : i + 320]
+            fr = self._segmenter.analyse(frame)  # once per frame: speech or not (energy / neural)
             if self._playing:
                 if self._spec is not None:  # a guess made before she started talking is stale
                     self._spec.cancel()
                     self._spec = None
                 self._cancel_early("friday speaking / barge-in")
-                self._watch_for_barge_in(frame)
+                self._watch_for_barge_in(frame, fr)
             else:
-                if rms(frame) >= self._segmenter.threshold:
+                if fr.speech:
                     self._last_loud_t = time.perf_counter()
-                self._watch_for_early_pause(frame)
-            for seg in self._segmenter.feed_pcm16(frame):
+                self._watch_for_early_pause(frame, fr)
+            for seg in self._segmenter.feed_pcm16(frame, fr):
                 if self._playing and not self._barged:
                     continue  # her own voice coming back (echo / speakerphone): not the caller
                 self._segments.put_nowait(seg)
@@ -348,17 +366,18 @@ class SarvamCallLeg(TwilioCallLeg):
     EARLY_STT_SILENCE_MS = 340  # start transcribing this long into a pause, before it is final
     EARLY_STT_MIN_S = 0.5
 
-    def _watch_for_early_pause(self, frame: bytes) -> None:
+    def _watch_for_early_pause(self, frame: bytes, fr: VadFrame | None = None) -> None:
         """Speculative speech-to-text: when the caller pauses, transcribe what they said so far
         while we wait out the rest of the pause. If they carry on, the guess is thrown away."""
         seg = self._segmenter
         if self.hold_mode or not seg._active or self._stream_active():
             return
-        if rms(frame) >= seg.threshold:
+        if (fr.speech if fr is not None else rms(frame) >= seg.threshold):
             if self._spec is not None:
                 self._spec.cancel()
                 self._spec = None
             self._cancel_early("caller kept talking")
+            self.eot_last = None
             return
         if self._spec is not None or seg._silence_ms + 20 < self.EARLY_STT_SILENCE_MS:
             return
@@ -367,8 +386,54 @@ class SarvamCallLeg(TwilioCallLeg):
         if dur >= self.EARLY_STT_MIN_S:
             snap = Segment(pcm, seg.sample_rate, dur, False)
             self._spec = asyncio.ensure_future(super()._transcribe(snap))
+            if self.eot is not None:  # judge the words before the pause is closed
+                seg.hold_close(True)
+                self._spec.add_done_callback(self._judge_eot)
             self._spec.add_done_callback(self._announce_early)
             self._spec.add_done_callback(self._maybe_commit_early)
+
+    def _eot_context(self) -> str:
+        fn = self.eot_context
+        if fn is None:
+            return ""
+        try:
+            return fn() or ""
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _judge_eot(self, fut: asyncio.Future[Any]) -> None:
+        """Semantic end-of-turn on the early REST transcript: confidently unfinished -> wait longer
+        for THIS pause; the verdict is kept for ``_maybe_commit_early``. Never raises."""
+        seg = self._segmenter
+        current = fut is self._spec or self._spec is None
+        try:
+            if fut.cancelled() or not current or self.hold_mode or self.eot is None:
+                return
+            try:
+                t = fut.result()
+            except Exception:  # noqa: BLE001
+                return
+            text = (getattr(t, "text", "") or "").strip()
+            if text:
+                self._apply_eot(text)
+        finally:
+            if current:
+                seg.hold_close(False)
+
+    def _apply_eot(self, text: str) -> EotDecision | None:
+        eot, cfg, seg = self.eot, self.eot_cfg, self._segmenter
+        if eot is None or cfg is None:
+            return None
+        dec = eot.assess(text, self._eot_context())
+        self.eot_last = (text, dec)
+        self.eot_log.append((text, dec))
+        if dec.incomplete and seg.extend_wait(cfg.extend):
+            log.info("semantic eot: unfinished (%.2f, %s) -> wait +%d ms, text %r",
+                     dec.confidence, dec.source, cfg.extend, text[:60])
+        elif dec.complete:
+            log.info("semantic eot: finished (%.2f, %s), text %r", dec.confidence, dec.source,
+                     text[:60])
+        return dec
 
     def _announce_early(self, fut: asyncio.Future[Any]) -> None:
         """Speculative understanding: hand the early transcript to the call session so it can start
@@ -406,7 +471,10 @@ class SarvamCallLeg(TwilioCallLeg):
         is ready instead of waiting out the rest of the pause: saves ~300-550 ms a turn. Long
         or unfinished speech keeps the normal wait, so nobody is cut mid-sentence."""
         limit = getattr(self.tel_s, "early_commit_max_words", 0)
-        if not limit or fut.cancelled() or fut is not self._spec or self.hold_mode:
+        sem = self.eot_last[1] if self.eot is not None and self.eot_last else None
+        sem_limit = self.eot_cfg.commit_max_words if self.eot_cfg is not None else 0
+        if (not limit and not (sem and sem.complete)) or fut.cancelled() or fut is not self._spec \
+                or self.hold_mode:
             return
         try:
             t = fut.result()
@@ -414,13 +482,14 @@ class SarvamCallLeg(TwilioCallLeg):
             return
         text = (getattr(t, "text", "") or "").strip()
         seg = self._segmenter
-        if (
-            not text
-            or not seg._active
-            or seg._silence_ms < self.EARLY_STT_SILENCE_MS
-            or len(text.split()) > limit
-            or text[-1] not in ".?!।"
-        ):
+        if not text or not seg._active or seg._silence_ms < self.EARLY_STT_SILENCE_MS:
+            return
+        words = len(text.split())
+        if sem is not None and sem.vetoes_early_commit:
+            return  # unfinished by its meaning: never commit early, even if the STT added a "."
+        by_meaning = sem is not None and sem.complete and words <= sem_limit
+        by_punctuation = bool(limit) and words <= limit and text[-1] in ".?!।"
+        if not (by_meaning or by_punctuation):
             return
         for done in seg.flush():
             self._segments.put_nowait(done)
@@ -527,6 +596,12 @@ class SarvamCallLeg(TwilioCallLeg):
             or seg._silence_ms < 200  # the caller is still making sound
         ):
             return
+        if self.eot is not None:  # unfinished by its meaning: let the stream's own final decide
+            dec = self.eot.assess(text, self._eot_context())
+            if dec.vetoes_early_commit:
+                log.info("semantic eot: partial %r looks unfinished (%.2f); not committed early",
+                         text[:60], dec.confidence)
+                return
         self._emit_stream_utterance(text, self._partial_lang, None, idx)
 
     def _stt_final(self, text: str, lang: str | None, conf: float | None, idx: int) -> None:
@@ -573,11 +648,15 @@ class SarvamCallLeg(TwilioCallLeg):
     BARGE_IN_FRAMES = 7  # this many loud ones in the window = the caller is talking over her
     BARGE_IN_LEVEL = 1.6  # times the normal speech threshold, so her own echo does not interrupt
 
-    def _watch_for_barge_in(self, frame: bytes) -> None:
-        """The caller talks over Friday: stop her voice at once and listen."""
+    def _watch_for_barge_in(self, frame: bytes, fr: VadFrame | None = None) -> None:
+        """The caller talks over Friday: stop her voice at once and listen. Own-voice echo
+        protection is the loudness gate (BARGE_IN_LEVEL x the speech threshold) in BOTH backends; a
+        neural VAD adds its own, stricter probability bar on top (``barge_in_prob``)."""
         if self._barged:
             return
         loud = rms(frame) >= self._segmenter.threshold * self.BARGE_IN_LEVEL
+        if loud and fr is not None and fr.prob is not None:
+            loud = fr.prob >= self.barge_in_prob
         self._loud_win = (self._loud_win + [loud])[-self.BARGE_IN_WINDOW :]
         if sum(self._loud_win) >= self.BARGE_IN_FRAMES:
             self._barged = True
@@ -764,6 +843,7 @@ class SarvamCallLeg(TwilioCallLeg):
             seg._voiced_run = 0
             seg._silence_ms = 0
             seg._pre = []
+            seg.reset_vad()
 
     async def _play_audio(self, ulaw: bytes, wait: bool = True) -> None:
         assert self._send is not None
@@ -903,7 +983,11 @@ class SarvamTelephony:
         short_end_silence_ms: int = 650,
         early_commit_max_words: int = 6,
         stream_stt: StreamSTTConfig | None = None,
+        vad: dict[str, Any] | None = None,
     ) -> None:
+        # voice-activity settings: {"backend": "energy"|"silero", "start_prob", "stop_prob",
+        # "barge_prob"}; None / "energy" = the loudness rule, exactly as before
+        self.vad = vad
         self.stream_stt = stream_stt  # None = per-utterance REST speech-to-text only
         self.short_end_silence_ms = short_end_silence_ms  # 0 = off (voice_short_end_silence_ms)
         self.early_commit_max_words = early_commit_max_words  # 0 = off (voice_early_commit_words)
@@ -1311,4 +1395,10 @@ def build_sarvam_telephony(c: Container) -> SarvamTelephony:
         short_end_silence_ms=s.voice_short_end_silence_ms,
         early_commit_max_words=s.voice_early_commit_words,
         stream_stt=_stream_stt_config(s),
+        vad={
+            "backend": s.voice_vad_backend,
+            "start_prob": s.voice_vad_start_prob,
+            "stop_prob": s.voice_vad_stop_prob,
+            "barge_prob": s.voice_vad_barge_prob,
+        },
     )

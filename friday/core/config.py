@@ -379,6 +379,19 @@ class Settings(BaseSettings):
     # replies the rules are unsure about, above the threshold; otherwise rules + model as before.
     intent_classifier: bool = False
     intent_classifier_threshold: float = Field(default=0.9, ge=0.5, le=1.0)
+    # Voice quality (docs/LATENCY.md, 2026-10-21 second section). Both OFF; neither changes a word.
+    # FRIDAY_VOICE_SEMANTIC_EOT: judge from the words whether the caller has finished; confidently
+    # unfinished -> the pause wait grows by _EXTEND_MS (capped 1500), confidently finished and short
+    # -> commit at the early point. _THRESHOLD: confidence needed (default: the trained model's).
+    voice_semantic_eot: bool = False
+    voice_semantic_eot_extend_ms: int = Field(default=700, ge=0, le=1500)
+    voice_semantic_eot_threshold: float | None = Field(default=None, ge=0.5, le=1.0)
+    # FRIDAY_VOICE_VAD_BACKEND: energy = the loudness rule (default); silero = trained neural VAD
+    # (needs the optional extra `vad`; falls back to energy if it cannot load).
+    voice_vad_backend: Literal["energy", "silero"] = "energy"
+    voice_vad_start_prob: float = Field(default=0.5, ge=0.05, le=0.99)  # speech turns on
+    voice_vad_stop_prob: float = Field(default=0.35, ge=0.02, le=0.99)  # speech turns off below
+    voice_vad_barge_prob: float = Field(default=0.75, ge=0.3, le=0.99)  # stricter: talk over her
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")
     )

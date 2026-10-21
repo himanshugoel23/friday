@@ -845,6 +845,29 @@ class PlaybookPolicy:
             self.stats["speculative_started"] += 1
         return started
 
+    _EXPECT_ORDER: tuple[tuple[str, frozenset[str]], ...] = (
+        ("price", frozenset({"GIVES_PRICE", "PRICE_RANGE"})),
+        ("phone", frozenset({"GIVES_NUMBER"})),
+        ("time", frozenset({"GIVES_TIME", "OFFERS_SLOTS", "SLOT_FREE"})),
+        ("name", frozenset({"GIVES_STYLIST"})),
+        ("yesno", frozenset({"YES", "NO"})),
+    )
+
+    def expected_answer(self, brief: CallBrief, transcript: Transcript) -> str:
+        """What the current step is waiting for: price | phone | time | name | yesno | "" (a hint
+        for the semantic end-of-turn detector; it changes nothing in the script)."""
+        st = self._states.get(id(transcript))
+        if st is None or st.finished or not brief.playbook:
+            return ""
+        step = self.playbook(brief).steps.get(st.step)
+        if step is None:
+            return ""
+        keys = {str(k) for k in step.branches}
+        for kind, intents in self._EXPECT_ORDER:
+            if keys & intents:
+                return kind
+        return ""
+
     def cancel_speculation(
         self, transcript: Transcript, reason: str = "caller kept talking"
     ) -> bool:
@@ -1500,3 +1523,7 @@ class RoutingCallPolicy:
 
     def cancel_speculation(self, transcript: Any, reason: str = "caller kept talking") -> bool:
         return self.playbook_policy.cancel_speculation(transcript, reason)
+
+    def expected_answer(self, brief: CallBrief, transcript: Any) -> str:
+        """Hint for the semantic end-of-turn detector (scripted calls only)."""
+        return self.playbook_policy.expected_answer(brief, transcript) if brief.playbook else ""

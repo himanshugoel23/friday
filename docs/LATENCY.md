@@ -286,3 +286,122 @@ Judge them against the existing `reply gap N ms` lines, switch on vs off, on the
 ### Turning them on for a test call (founder decision)
 Start with `FRIDAY_INTENT_CLASSIFIER=true`: it needs no new audio path. Then `FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING=true` together with `FRIDAY_VOICE_STREAM_STT=true`
 (speculation helps little with REST speech-to-text). `FRIDAY_LLM_STREAM_TO_TTS=true` last, and listen for a pause or a restart between sentences. Compare the `reply gap` lines.
+
+## 2026-10-21 (second section): semantic end-of-turn and a trained voice-activity model (built; BOTH OFF; measured offline only)
+Founder ask (21 Oct): decide that the caller has finished from the MEANING of the words, not only the silence, and detect speech with a
+trained model instead of the loudness rule. Each has its own switch, default OFF; with both off the code path is the old one (tests:
+`tests/voice/test_vad.py` runs the old segmenter side by side with the new one on random frames and demands identical segments, and the default
+call leg is compared with it too). No spoken word changed. Nothing here has been heard on a real call.
+
+| Switch (env) | Default | What it does |
+|---|---|---|
+| `FRIDAY_VOICE_SEMANTIC_EOT` | false | Judge the early / partial transcript: confidently unfinished -> this pause waits longer; confidently finished and short -> commit early; unsure -> nothing changes. |
+| `FRIDAY_VOICE_SEMANTIC_EOT_EXTEND_MS` | 700 | The extra silence wait for an unfinished turn (0 to 1500; the segmenter also hard-caps it at 1500 and never stacks two extensions). |
+| `FRIDAY_VOICE_SEMANTIC_EOT_THRESHOLD` | unset | Confidence needed (0.5 to 1.0). Unset = the threshold the trained model chose by cross-validation (0.8 today). |
+| `FRIDAY_VOICE_VAD_BACKEND` | energy | `energy` = the loudness rule, unchanged. `silero` = trained neural VAD (needs the extra `vad`); falls back to energy if it cannot load or fails mid-call. |
+| `FRIDAY_VOICE_VAD_START_PROB` / `_STOP_PROB` | 0.5 / 0.35 | Hysteresis of the neural decision (speech turns on at the first, off below the second). |
+| `FRIDAY_VOICE_VAD_BARGE_PROB` | 0.75 | Barge-in's own, stricter probability bar (on top of the loudness echo gate). |
+
+### 1. Semantic end-of-turn (`friday/voice/eot.py`, `friday/learning/eot_*.py`)
+- Pure Python, no libraries. `SemanticEot.assess(text, answer_type)` -> `complete | incomplete | unsure` + confidence + source. The caller passes the step's
+  expected answer type (`price | time | yesno | name | phone`, from `PlaybookPolicy.expected_answer`: derived from the intents the step branches on; the
+  free-form brain policy passes none).
+- Layer 1, deterministic rules (Roman and Devanagari Hindi, Hinglish, English): trailing postpositions and connectors (ko se ka ke ki mein par aur lekin toh matlab
+  so and but because kyunki ...), trailing fillers (umm hmm acha), ellipsis, `ke liye`, a dangling numeral, an hour without `baje`, "around / lagbhag", a phone number
+  with fewer than 10 digits so far ("98765" waits), "mera naam hai ..." (the name is still to come), a price after a price question is complete without `rupaye`,
+  closed short answers ("haan ji", "nahi", "ji bataiye"), verb-final sentences ("... hai", "... hoga"), a unit ("rupaye", "baje"). A rule at confidence >= 0.9 is final.
+- Layer 2, a small trained model: naive Bayes over hashed word 1-2-grams, last-word features (alone and with the answer type), end punctuation and character n-grams;
+  `friday/voice/learning/eot_model.json` (206 KB) + `eot_model.version.json` (data hash, model sha256, cross-validation table, held-out metrics, gate verdict). Same data -> same bytes. Used only where
+  no hard rule fired; a softer rule that disagrees with the model gives "unsure".
+- Data: `friday/learning/data/eot_examples.txt`, 420 hand-written, invented, public-safe examples (Roman Hinglish, Devanagari, English), 266 `train` + **154 `test` (held out: never trained on,
+  never used to choose anything)**; plus 1,066 deterministic synthetic rows (`eot_synth.py`: complete templates per answer type; unfinished = a finished core + a connector/filler, a
+  day-part without hour, number without unit, half a phone number, a noun phrase waiting for its postposition). Anything in the synthetic data equal to a held-out sentence is dropped.
+- `uv run friday learn train-eot [--dry-run]`: picks smoothing, sharpness and the threshold by 5-fold cross-validation on the hand-written TRAIN rows, trains, scores the held-out set against
+  the rules-only baseline, applies the REGRESSION GATE and writes the model ONLY if it passes: the model must beat the rules-only baseline on the held-out set (accuracy, "unsure" counts as wrong), the
+  false-cut rate must be <= 2% at the chosen threshold, the held-out set must be >= 100 sentences with >= 30 unfinished, it may not cause more false cuts than the baseline (+1), and it may not be worse than the model
+  already in the repo. A refused model is never written (tested). `uv run friday learn eval-eot [--split test|train|all] [--mistakes]` prints the numbers below.
+- REAL NUMBERS (held-out 154 sentences: 87 finished, 67 unfinished; threshold 0.8; data hash `8ab902cb53b11bb4`; the held-out set is scored by the training command itself, and its errors were NOT used to change any rule, template or label; two label mistakes in the TRAIN split, found while developing the rules on the train split, were corrected before the held-out set was first scored):
+
+| | rules only | rules + model |
+|---|---|---|
+| accuracy (unsure counted as wrong) | 88.3% | **90.3%** |
+| coverage (not "unsure") / accuracy on the decided ones | 90.9% / 97.1% | 92.9% / 97.2% |
+| finished: precision / recall | 98.8% / 90.8% | 98.8% / 92.0% |
+| unfinished: precision / recall | 95.0% / 85.1% | 95.2% / 88.1% |
+| **false-cut rate** (unfinished judged finished = would be cut) | 1.5% (1 of 67) | **1.5% (1 of 67)** (0.7% of all turns) |
+| false-extend rate (finished judged unfinished = a pointless extra wait) | 3.5% (3 of 87) | 3.5% (3 of 87) |
+| mean added delay on finished turns (false extends only) | +24 ms | +24 ms |
+| mean extra wait on unfinished turns (intended) | +596 ms | +616 ms |
+
+  The held-out mistakes: "tomorrow morning at 10" (English "at 10" taken as an hour without baje), "yes we have that" and "no sir we do not do that" (called unfinished), "haan toh main yeh keh raha tha"
+  (called finished: a verb-final word, `tha`, ends it). Honest reading: the model adds only 2 points on this set (3 more sentences right); most of the work is done by the rules. 1 false cut in 67 is
+  inside the 2% gate, but 67 unfinished sentences cannot prove a 2% rate (the 95% interval for 1 in 67 is roughly 0.3% to 8%). Also, the rules, the templates and the held-out list were written by the same author in the same sitting,
+  so the held-out set is "never trained on" but NOT blind to the author's ideas of what a pause looks like; real recorded calls are the only real test.
+- Wiring (`SarvamCallLeg`, `UtteranceSegmenter`): when the early REST transcript of a pause arrives, the leg judges it (`_judge_eot`). While the transcript is being made the segmenter HOLDS the close (at most 800 ms; free for
+  a finished answer, which needs the transcript anyway). Unfinished: `extend_wait(+700 ms)` for THIS pause only (the next speech frame clears it). Finished and <= 6 words: committed at the early point (also without a
+  final "."). Unfinished (or leaning unfinished, a rule at >= 0.8) also VETOES the old punctuation-based early commit ("haan kal shaam ko." is no longer committed early). With streaming STT only that veto applies (the stream's own
+  final closes the turn). Nothing the detector does can break a call: it never raises, and a failed judgement releases the hold.
+- Simulator (`uv run python -m friday.latency.simulator --eot`, `friday/latency/eot_sim.py`, `tests/latency/test_eot_sim.py`), on the held-out sentences, REST speech-to-text, pause median 700 ms (log-normal, sigma 0.5: an ASSUMPTION, no real pause data):
+  unfinished turns cut at the pause today 54.8% -> **14.2% with the extension** (rules only: 21.1%; extending every unfinished turn: 9.0%); at median 500 ms 29.8% -> 5.1%; at 1000 ms 80.1% -> 33.2%. Finished turns:
+  +20 ms on average (the false extends); the early-commit gain is **0 ms with REST speech-to-text**, because the early transcript (340 + 500 ms = 840 ms) arrives after the 650 ms short wait, and ~60 ms on a long answer.
+  The commit-early half only pays with streaming partials, and there it is not wired (only the veto): that is a decision for later, after real partials are seen. So today's real value is the EXTENSION (fewer cut-off callers), not speed.
+
+### 2. Trained voice-activity model (`friday/voice/vad/`)
+- Interface `VadModel.process(pcm16, rate) -> VadFrame(speech, prob, level)`, one instance per call. `EnergyVad` is the old rule moved behind it (adaptive noise floor, 3x, floor 450): same decisions bit for bit (regression test
+  against a verbatim copy of the old segmenter on 12 random 4,000-frame sequences, incl. forced cuts and short waits). `UtteranceSegmenter` keeps everything after the decision (start frames, end wait, short wait, padding, forced cut).
+- `SileroVad`: Silero VAD **v5.1.2** `silero_vad.onnx`, committed at `friday/voice/vad/silero_vad.onnx` (2,327,524 bytes, sha256 `2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f`, pinned in code and checked on load),
+  fetched once on 2026-10-21 from `https://raw.githubusercontent.com/snakers4/silero-vad/v5.1.2/src/silero_vad/data/silero_vad.onnx`. **Licence: MIT, Copyright (c) 2020-present Silero Team**; the licence text is committed beside it
+  (`LICENSE-silero-vad.txt`, copied from the same tag). Runs through `onnxruntime` + `numpy`, the optional extra `vad` (`uv add --optional vad onnxruntime numpy`; install with `uv sync --extra vad`; the Dockerfile does NOT install it
+  yet, so a deploy that wants the model must add `--extra vad`). Without the extra, with a bad file or a failing run, the energy rule keeps working (one WARNING); tests skip the model cases cleanly (verified in an isolated environment without the extra: 6 skipped, the rest pass).
+- 8 kHz telephony: mu-law (or L16) is decoded and resampled to 8 kHz PCM16 by the leg as before; the model gets 256-sample windows (32 ms) with a 32-sample context (16 kHz: 512 + 64), fed from the leg's 20 ms / 160-sample frames through a buffer; every frame carries
+  the probability of the newest window (<= 32 ms old). One onnxruntime thread, one shared session per process.
+- Decision: hysteresis (on at 0.5, off below 0.35), then the segmenter's own 3 start frames, end-of-speech wait and a longer pre-roll (8 frames = 160 ms for the neural backend). **Barge-in** keeps its own, stricter bar: the existing loudness gate
+  (1.6x the speech threshold: her own echo is faint) AND probability >= 0.75; the existing window of 7 loud frames in 12 and the "ignore segments while she speaks" echo protection are unchanged.
+- CPU: **5,749 frames/s including the segmenter = 115x real time on one thread of this sandbox machine** (the energy rule: 77,776 frames/s). A call is 50 frames/s, so one call is ~0.9% of one core here. NOT measured on the 1 vCPU server.
+- Offline evaluation, **SYNTHETIC evidence only** (`uv run --extra vad python -m friday.voice.vad.evaluate --speech-dir DIR`; `tests/voice/test_vad.py` runs a quick version). Speech: 15 single utterances cut from text-to-speech clips already rendered in this sandbox
+  (Sarvam and ElevenLabs voices; NOT committed, no third-party audio in the repo; there are no recordings of real callers anywhere in the repo or sandbox). Noise: synthesised (shop hum = mains harmonics + fan, traffic = rumble + pass-bys + horns, crowd babble = 12 gated
+  harmonic "voices" of mixed tones, music = plucked chords), SNR 20 / 10 / 5 / 0 dB against a speech RMS of 2000 ("normal") and 700 ("quiet" caller), then mu-law. Ground truth = the clean speech's own energy. The real `UtteranceSegmenter` (900 / 650 ms waits) runs each backend:
+
+| SNR | backend | utterances OK | cut off | missed | never closed ("stuck") | false trigger on noise-only clips | frame precision / recall |
+|---|---|---|---|---|---|---|---|
+| no noise | energy | 100% | 0% | 0% | 0% | 0% | 100% / 81% |
+| no noise | silero | 100% | 0% | 0% | 0% | 0% | 90% / 96% |
+| 20 dB | energy | 100% | 0% | 0% | 0% | 0% | 100% / 68% |
+| 20 dB | silero | 99.2% | 0% | 0% | 0.8% | 0% | 88% / 96% |
+| 10 dB | energy | 58.3% | 18.3% | 0% | 23.3% | 41.7% | 70% / 55% |
+| 10 dB | silero | 97.5% | 0% | 0% | 2.5% | 0% | 85% / 96% |
+| 5 dB | energy | 10.8% | 25.8% | 21.7% | 41.7% | 83.3% | 24% / 48% |
+| 5 dB | silero | 92.5% | 0% | 0% | 7.5% | 8.3% | 81% / 96% |
+| 0 dB | energy | 5.0% | 0.8% | 15.0% | 79.2% | 100% | 29% / 80% |
+| 0 dB | silero | 80.8% | 7.5% | 0% | 11.7% | 16.7% | 76% / 92% |
+| ALL 33 cells | energy | 45.2% | 10.9% | 8.9% | 34.9% | 54.5% | 57% / 63% |
+| ALL 33 cells | silero | **92.7%** | 1.8% | 0% | 5.5% | 6.1% | 82% / 95% |
+
+  Per noise at 10 and 5 dB: hum energy 23% OK / silero 100%; music 23% / 100%; traffic 55% / 97% (silero false-triggers on 17% of noise-only traffic clips); babble 37% / 83%. The energy rule's collapse is the
+  known weakness: noise that is louder than its 450 floor keeps the line "busy" (the utterance never closes, so the reply never comes) or hides quiet speech. Its frame recall is only 68-81% even on a clean line because the floor is high
+  (it clips quiet syllables); silero's frame precision (82-90%) is lower than energy's on a clean line because it keeps a short hangover through pauses inside a word run (harmless to the segmenter).
+  What this does NOT show: the babble is a mixture of tones, not real voices (a neural VAD may treat real background talk as speech, which is the failure to expect in a shop); the speech is clean synthetic voice, not a phone codec, room or far-field mic; the noise
+  levels are set against the speech level, not measured shop levels; only 15 utterances x 33 cells. Real validation needs real shop recordings (the lead will request them).
+
+### Reading the logs (INFO, same style as `reply gap`)
+    semantic eot: unfinished (0.95, rule:tail:ko) -> wait +700 ms, text 'haan kal shaam ko'
+    semantic eot: finished (0.96, rule:closed_answer), text 'haan ji bataiye'
+    semantic eot: partial 'haan kal shaam ko' looks unfinished (0.95); not committed early        (streaming STT)
+    silero VAD unavailable (onnxruntime / numpy not installed (uv sync --extra vad)); using the energy rule     (WARNING, once per call)
+    VAD backend silero failed (RuntimeError: ...); using the energy rule                                         (WARNING, once)
+    barge-in: caller spoke over her (frame level ..., speech threshold ..., trigger ...)                          (unchanged)
+Judge by `reply gap` and by how often callers are cut: compare calls with the switches on and off on the same script. The leg keeps `eot_log` (every text and verdict) and `reply_gaps` for tests.
+
+### NOT verified
+- Real phone audio of any kind: the VAD numbers use clean text-to-speech and synthetic noise; the end-of-turn numbers use 420 sentences written by the author. No real caller, shop, codec or room was involved.
+- Real noisy shops: level, babble made of real voices, TV and music are not modelled; a neural VAD may react to real background talk more than it did here (false triggers / a turn that never closes).
+- Real STT partial quality: whether the early / partial text on real speech looks like these sentences (ElevenLabs partials were already seen to be wrong on real Hindi); an STT that adds a "." or drops the last word changes the verdict.
+- Real hesitation-pause lengths (the simulator's log-normal is an assumption) and whether +700 ms is the right extension; the cost of a longer wait on a caller who really had finished is only +24 ms on average here but depends on the false-extend rate on real speech.
+- CPU on the real 1 vCPU server (115x real time here, one thread of a shared 4-core sandbox); memory of the shared ONNX session (not measured).
+- Barge-in with the neural VAD on a live call (the probability bar 0.75 is a guess; the loudness echo gate is unchanged); the 160 ms pre-roll and 0.5 / 0.35 hysteresis were not tuned on anything.
+- The Dockerfile does not install the `vad` extra; `--extra vad` is needed at deploy for `silero` to take effect (otherwise it silently stays on energy, with the WARNING).
+
+### Turning them on for a test call (founder decision)
+1. `FRIDAY_VOICE_VAD_BACKEND=silero` (after `uv sync --extra vad` on the server): check the log for a WARNING-free start, listen for chopped first syllables and for answers that never end; compare `reply gap`.
+2. `FRIDAY_VOICE_SEMANTIC_EOT=true`: listen for a caller who says "kal shaam ko ..." and is no longer cut; watch for an odd extra 0.7 s on finished answers. The first real recordings should be labelled and added to `eot_examples.txt`
+   (a new `test` set from REAL speech, scored once, is worth more than anything above).
