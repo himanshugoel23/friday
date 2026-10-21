@@ -802,3 +802,8 @@ Wrote docs/VOICE_NEXT_STEPS.md (ranked steps: finish semantic end-of-turn + trai
 
 ## Question (2026-10-21): train a model on how the founder pronounces certain words so Friday says them the same way?
 Answer: yes for specific words/names via a "pronunciation lab" (record -> speech-to-text view -> candidate respellings -> render with Ritu -> founder picks by ear -> pronunciation dictionary, versioned, tested); no voice cloning of the user (standing rule, impersonation risk) and no custom TTS training. Added to docs/VOICE_NEXT_STEPS.md as step 5b.
+
+## Done (2026-10-21): semantic end-of-turn + trained VAD merged and pushed (full suite 5082 passed)
+friday/voice/eot.py (rules + naive Bayes over hashed n-grams, 206 KB JSON; held-out 154 sentences: accuracy 88.3% rules -> 90.3% with model, false-cut 1.5% (1/67, CI 0.3-8%), +24 ms mean delay; simulated unfinished-turn cuts 54.8% -> 14.2% with +700 ms extension; no speed gain with REST STT, value is fewer cut-off callers).
+friday/voice/vad (Silero VAD v5.1.2 ONNX, MIT, pinned sha256, optional extra `vad`): synthetic noisy evidence: utterances OK 45.2% (energy) vs 92.7% (Silero); ~115x real time on one thread. Switches OFF: FRIDAY_VOICE_SEMANTIC_EOT, FRIDAY_VOICE_VAD_BACKEND=energy|silero. small-server.sh now installs the vad extra.
+UNVERIFIED: real phone audio, real noisy shops (babble was synthetic tones), real STT partials, CPU on 1 vCPU. Suggested first test-call order: Silero VAD, then semantic EOT.
