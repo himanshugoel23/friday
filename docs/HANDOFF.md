@@ -796,3 +796,6 @@ Founder: (1) decide the end of the caller's turn from the MEANING of the words, 
 
 ## Question (2026-10-21): more changes to sound more human
 Answered; consumer-call section added to docs/HUMANIZING_CALLS.md (relationship register, emotion/pace, backchannels, timing variation, natural speech, voices per relationship, audio finishing, interruption manners, language mirroring, honesty). Next: an audio listening kit for the founder (hear-before-change); nothing spoken changes without approval.
+
+## Task (2026-10-21): "improve the voice agent: next steps"
+Wrote docs/VOICE_NEXT_STEPS.md (ranked steps: finish semantic end-of-turn + trained VAD (builder running), turn latency switches on during slice 1 calls, listening kit for approval, backchannels, number/time reading + prosody profiles, STT provider comparison on real audio, replay/regression harness from real calls, voices per relationship). Build the next bundle after the current builder (adb08af15838088c3) lands, to avoid merge conflicts.
