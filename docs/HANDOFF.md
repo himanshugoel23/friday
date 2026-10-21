@@ -760,3 +760,7 @@ Added "From zero" section to docs/SLICE0_RUNBOOK.md (Facebook account, Business 
 
 ## Done (2026-10-20): friday doctor merged and pushed (full suite 4846 passed)
 `friday doctor` = new server readiness check (8 sections, --json/--offline/--section, no secrets, off-switch check); the old laptop check is `friday doctor --laptop`. docs/DOCTOR.md. Slice 0 code side done; remaining: founder runs installer on the droplet, Meta account/app/WhatsApp setup (existing personal Facebook account is fine), doctor PASS, "hi" reply, off switch.
+
+## Task (2026-10-21): voice latency (founder's three items)
+Founder: (1) start understanding the caller's words before they finish speaking (about 0.6 s saved), (2) stream the LLM reply straight into the voice, (3) a small trained classifier for common answers so most turns need no LLM.
+Slice 0 is waiting on the founder (Meta setup/installer), so this voice-quality work proceeds meanwhile; it belongs to slice 1 (calls). Hear-before-change: no change to spoken words; only timing.
