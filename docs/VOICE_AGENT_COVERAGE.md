@@ -59,3 +59,6 @@ monitoring and a human support path, cost controls, accessibility (elders, speec
 A use case counts as shipped only when all hold: (1) its spoken lines are approved by the founder (audio heard); (2) simulated callees cover it in every launch language with the safety invariants passing;
 (3) the legal map row is cleared or the risk accepted in writing; (4) it has run on real test calls to allow-listed numbers; (5) monitoring and an off switch exist; (6) the user can see, undo and delete what it did.
 Launch set (confirmed by the founder 19 Oct, plus B3 hold-fighting and B10 reminder calls added the same day): A1, A2, B1-B8, B10, C1, C3, C4, C5, C6, C7, D1, D2, D4. Later: A3-A4 regional languages, B9 personal negotiation, B11-B12, C2, D3, D5, E1-E3.
+
+## Note 21 Oct: ElevenLabs Agents ad (docs/COMPETITORS.md update i)
+Use cases seen: after-hours receptionist, caller qualification, booking into the calendar, a spoken morning summary the user asks for by voice ("what did I miss?" -> counts, who asked for you). All are in the launch set (C1, C3-C5, D1, A1). New small item: the morning voice summary must support follow-up questions by voice ("read the urgent one", "call them back").

@@ -438,3 +438,14 @@ Web search plus page fetches on 2026-10-17. Builds on B2, B3 and (g); not repeat
 - Swiggy MCP: who gets production access, login and payment flow; Zomato MCP public or not; Zepto docs.
 - NPCI UPI Reserve Pay pilot access terms and caps; ONDC agent buying; RBI position.
 - Ninth Circuit scope in India-relevant terms: none (US law); only a signal on how platforms may sue.
+
+## Update 2026-10-21 (i): the ElevenLabs Agents Instagram ad (watched from the founder's screen recording)
+Source: the founder's own screen recording (35 s, 480x360) of the Instagram post by @elevenlabs (marked "Ad", about 1.7K likes). I read it from sampled frames (one per second) and a speech transcript (faster-whisper "small", English, on the normalised audio; the audio is quiet, so treat exact words as probably right, not verified). The caption is cut off in the recording ("Overnight applications used to sit...").
+What happens in the ad:
+1. A person leaves the office at night and says "I'm literally walking out of the door now. Can't wait to see you." Their phone stays on a desk stand.
+2. After hours the phone answers an inbound call: "Good evening, Robin speaking." Caller: "Hi, is anyone still there?" Agent: "I am. You're looking at the enterprise plan?" (an on-screen waveform and live transcript show the call).
+3. Next morning the person asks the phone: "Morning Robin, what I missed?" Agent: "Four inbound, two qualified. Both booked this week, they're in HubSpot. One is a fit, one asked for you specifically." Person: "Great, thanks."
+4. End card: "ElevenLabs Agents", 5 stars "by 1.1M+ reviews on G2.com".
+So it is a SALES/after-hours inbound agent (qualify callers, book meetings, write to the CRM, brief you by voice next morning), not an HR calling candidates as first remembered. The agent answers as "Robin" without saying it is an assistant in the clip shown.
+What it shows that matters for Friday: (a) an after-hours receptionist that takes calls when you are away, (b) qualification (asks what they need), (c) it books into the calendar and writes to a business tool, (d) a spoken morning summary you can ask by voice ("what did I miss?") with counts and who asked for you, (e) the phone itself as the always-on device.
+Friday mapping (all in the agreed launch set): C1 voicemail replacement via conditional forwarding, C3-C5 spam, urgent and missed-call notes, D1 morning brief by voice, A1 "call Friday and ask what did I miss", calendar booking from the Google connector. Differences we keep: honest disclosure in the first line (the ad's agent says only "Robin speaking"), consumer use (family, doctor, school, delivery) instead of enterprise CRM, user approval before anything is booked, per-user data.

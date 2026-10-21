@@ -770,3 +770,9 @@ Founder shared https://www.instagram.com/p/DdFUKV1s8Mb/ and asked to create a pr
 
 ## Decision (2026-10-21): Friday should understand media users send (videos, images, PDFs, voice notes, links)
 Founder wants "send Friday a video and it understands it" built into Friday (prompted by an Instagram video the agent could not see). Added design docs/MEDIA_UNDERSTANDING.md, FEATURES line, and a board slice (after the launch slices unless the founder reorders). Instagram/X links sit behind login walls: users forward the video file or a screen recording.
+
+## Task (2026-10-21): analyse the ElevenLabs ad video the founder uploaded (HR device that calls candidates)
+Founder uploaded a .MOV (the ad). Process with ffmpeg: frames + audio; describe what the ad shows and how Friday can do it; add to docs/COMPETITORS.md.
+
+## Done (2026-10-21): the ElevenLabs ad analysed (COMPETITORS.md update (i))
+Video uploaded this time. ffmpeg frames + faster-whisper small transcript: an after-hours sales/inbound voice agent ("Robin") that answers calls, qualifies, books, writes to HubSpot, and gives a spoken morning summary; not an HR candidate-calling ad. Maps to launch items C1, C3-C5, D1, A1. This also proves the media-understanding pipeline (ffmpeg + speech-to-text + vision) works in principle; a 1 GB server should use Sarvam STT, not local Whisper.
