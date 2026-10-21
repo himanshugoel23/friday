@@ -764,3 +764,6 @@ Added "From zero" section to docs/SLICE0_RUNBOOK.md (Facebook account, Business 
 ## Task (2026-10-21): voice latency (founder's three items)
 Founder: (1) start understanding the caller's words before they finish speaking (about 0.6 s saved), (2) stream the LLM reply straight into the voice, (3) a small trained classifier for common answers so most turns need no LLM.
 Slice 0 is waiting on the founder (Meta setup/installer), so this voice-quality work proceeds meanwhile; it belongs to slice 1 (calls). Hear-before-change: no change to spoken words; only timing.
+
+## Task (2026-10-21): ask the product-manager agent whether it can see an Instagram video
+Founder shared https://www.instagram.com/p/DdFUKV1s8Mb/ and asked to create a product agent and ask if it can see it. Agent launched; it must say honestly what it can and cannot retrieve (video content is not viewable by text tools).
