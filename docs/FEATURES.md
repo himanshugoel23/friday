@@ -9,7 +9,8 @@ Rules that apply to everything: nothing is spoken or sent to a real person befor
 - [LAUNCH] WhatsApp voice notes in and out. (open)
 - [LAUNCH] Call Friday's number and talk by voice: ask about your day, bills, cards, or tell her to call someone; she recognises you by your number. (open)
 - [LAUNCH] Corrections mid-conversation ("nahi, kal nahi, parso"), one question at a time, confirmation of what she understood. (partly built)
-- [LATER] Elder-friendly mode, regional languages, Siri / "Hey Friday" phone app, Apple Watch. [PARKED: hands-free app]
+- [LATER] Elder-friendly mode, regional languages.
+- [PARKED, founder 21 Oct] Always-on listening, "Hello Friday" wake word, desk mode, Alexa skill, Siri hands-free app, Apple Watch. Users reach Friday by a button press (saved contact, Action Button, lock-screen control), WhatsApp text or voice note, or by calling her number; Friday also speaks first.
 - [LATER, founder wants it] Understands what you send: forward a screenshot, PDF, voice note or video on WhatsApp and Friday summarises it and offers actions (remind, add to calendar, research); Instagram and X links need the file instead. (designed: docs/MEDIA_UNDERSTANDING.md)
 ## 2. Friday calls others for you
 - [LAUNCH] Businesses: quotes, bookings, enquiries across 22 categories, one comparison message, retries at +1 h and +3 h, "could not reach" message. (built; scripts pending audio approval)

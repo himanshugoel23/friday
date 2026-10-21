@@ -62,3 +62,6 @@ Launch set (confirmed by the founder 19 Oct, plus B3 hold-fighting and B10 remin
 
 ## Note 21 Oct: ElevenLabs Agents ad (docs/COMPETITORS.md update i)
 Use cases seen: after-hours receptionist, caller qualification, booking into the calendar, a spoken morning summary the user asks for by voice ("what did I miss?" -> counts, who asked for you). All are in the launch set (C1, C3-C5, D1, A1). New small item: the morning voice summary must support follow-up questions by voice ("read the urgent one", "call them back").
+
+## Decision 21 Oct: always-on / wake word PARKED
+Access to Friday is by a button press (a saved contact 'Friday', Action Button, lock-screen control), WhatsApp text, WhatsApp voice note, calling her number, and Friday speaking first. Desk mode and any wake word (A3) stay parked.

@@ -782,3 +782,6 @@ Answered; recorded in docs/JARVIS_FEEL.md section 9: (1) zero-build route: saved
 
 ## Founder (2026-10-21): does not want to say "Hey Siri/Alexa, call Friday"; wants "Hello Friday" directly
 Honest answer recorded in docs/JARVIS_FEEL.md 9b: no custom system-wide wake word on iPhone (and Alexa/Siri words are fixed); real options: a desk device (iPad or old phone in the foreground with an on-device wake word), Android foreground-service app, Friday calls the user first (no wake word needed), one-press Action Button.
+
+## Decision (2026-10-21): always-on / wake-word functionality PARKED; users reach Friday by a button press, WhatsApp text or voice note, calling her number, and Friday-initiated messages/calls
+Desk mode, "Hello Friday" wake word, Alexa skill, background listening: parked (docs/JARVIS_FEEL.md section 9 stays as research). Kept in the launch set: A1 (call Friday's number, one tap via saved contact/Action Button/widget), A2 (voice notes), WhatsApp text, Friday speaking first (D1, D2, D4).
