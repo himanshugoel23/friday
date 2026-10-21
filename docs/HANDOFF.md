@@ -776,3 +776,6 @@ Founder uploaded a .MOV (the ad). Process with ffmpeg: frames + audio; describe 
 
 ## Done (2026-10-21): the ElevenLabs ad analysed (COMPETITORS.md update (i))
 Video uploaded this time. ffmpeg frames + faster-whisper small transcript: an after-hours sales/inbound voice agent ("Robin") that answers calls, qualifies, books, writes to HubSpot, and gives a spoken morning summary; not an HR candidate-calling ad. Maps to launch items C1, C3-C5, D1, A1. This also proves the media-understanding pipeline (ffmpeg + speech-to-text + vision) works in principle; a 1 GB server should use Sarvam STT, not local Whisper.
+
+## Question (2026-10-21): how does the user activate an always-on voice bot by just saying "Hello Friday, I will give you an update" (as in the ElevenLabs ad)?
+Answered; recorded in docs/JARVIS_FEEL.md section 9: (1) zero-build route: saved contact "Friday" + "Hey Siri / Hey Google, call Friday" -> the inbound user line (A1); (2) later "desk mode" app on a phone/tablet on a stand with an on-device wake word ("Hello Friday"); iPhone only while the app is in the foreground; Android via a foreground service; (3) optional Alexa skill. Platform rules from general knowledge; verify.
