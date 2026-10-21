@@ -799,3 +799,6 @@ Answered; consumer-call section added to docs/HUMANIZING_CALLS.md (relationship 
 
 ## Task (2026-10-21): "improve the voice agent: next steps"
 Wrote docs/VOICE_NEXT_STEPS.md (ranked steps: finish semantic end-of-turn + trained VAD (builder running), turn latency switches on during slice 1 calls, listening kit for approval, backchannels, number/time reading + prosody profiles, STT provider comparison on real audio, replay/regression harness from real calls, voices per relationship). Build the next bundle after the current builder (adb08af15838088c3) lands, to avoid merge conflicts.
+
+## Question (2026-10-21): train a model on how the founder pronounces certain words so Friday says them the same way?
+Answer: yes for specific words/names via a "pronunciation lab" (record -> speech-to-text view -> candidate respellings -> render with Ritu -> founder picks by ear -> pronunciation dictionary, versioned, tested); no voice cloning of the user (standing rule, impersonation risk) and no custom TTS training. Added to docs/VOICE_NEXT_STEPS.md as step 5b.
