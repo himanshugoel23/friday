@@ -779,3 +779,6 @@ Video uploaded this time. ffmpeg frames + faster-whisper small transcript: an af
 
 ## Question (2026-10-21): how does the user activate an always-on voice bot by just saying "Hello Friday, I will give you an update" (as in the ElevenLabs ad)?
 Answered; recorded in docs/JARVIS_FEEL.md section 9: (1) zero-build route: saved contact "Friday" + "Hey Siri / Hey Google, call Friday" -> the inbound user line (A1); (2) later "desk mode" app on a phone/tablet on a stand with an on-device wake word ("Hello Friday"); iPhone only while the app is in the foreground; Android via a foreground service; (3) optional Alexa skill. Platform rules from general knowledge; verify.
+
+## Founder (2026-10-21): does not want to say "Hey Siri/Alexa, call Friday"; wants "Hello Friday" directly
+Honest answer recorded in docs/JARVIS_FEEL.md 9b: no custom system-wide wake word on iPhone (and Alexa/Siri words are fixed); real options: a desk device (iPad or old phone in the foreground with an on-device wake word), Android foreground-service app, Friday calls the user first (no wake word needed), one-press Action Button.

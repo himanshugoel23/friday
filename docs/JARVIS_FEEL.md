@@ -213,3 +213,12 @@ The ElevenLabs ad shows a phone on a stand that answers calls and is addressed b
 What the user says after activation, and what Friday does (intents for the voice line): "give you an update" (capture mode: Friday listens, saves events and commitments to the life state, reads back a one-line confirmation), "what did I miss" (the morning summary with counts, urgent items and who asked for you), "call X for me" (starts the call flow with approval), "which card for ..." (savings), "stop listening".
 Privacy rules for always-listening: local wake word only, visible indicator, a hardware-style mute button in the app, no audio stored unless the user agrees, household members' consent noted, easy off switch, accidental activations discarded.
 Build order: A1 (inbound user line) is in the launch set; desk mode is a later slice and needs the founder's go-ahead.
+
+### 9b. "I do not want to say Hey Siri / Hey Alexa first" (founder, 21 Oct; platform rules from general knowledge, verify)
+Truth: a third-party app cannot own a system-wide wake word on an iPhone, and Siri and Alexa wake words are fixed. Real ways to get a direct "Hello Friday":
+1. **A desk device running the Friday app in the foreground with an on-device wake word.** An iPad on a stand, plugged in, screen kept on, works on iOS because the app is in the foreground. An old Android phone or tablet works too. This is the ad's setup. Cost: a device that stays at home or the office.
+2. **Android phone with a foreground-service app** that listens for the wake word with a persistent notification (battery cost; some phone makers kill background apps, so reliability varies). Not possible on iPhone.
+3. **Friday starts the conversation** (no wake word needed): she calls or sends a voice note at the right moment (morning brief, after an event, urgent flag) and the user just answers. This covers many cases because the assistant speaks first.
+4. **One press instead of a phrase:** Action Button (iPhone 15 Pro and newer), Back Tap, lock-screen control, or a widget that opens a live call with Friday.
+5. Hardware accessory (pendant, earbuds with their own wake word): parked by the founder.
+Recommendation: build 3 (already designed) and 4 first, then the desk-mode app (1) for iPad and Android, as the way to get "Hello Friday" at home or at a desk.
