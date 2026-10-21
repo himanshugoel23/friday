@@ -785,3 +785,8 @@ Honest answer recorded in docs/JARVIS_FEEL.md 9b: no custom system-wide wake wor
 
 ## Decision (2026-10-21): always-on / wake-word functionality PARKED; users reach Friday by a button press, WhatsApp text or voice note, calling her number, and Friday-initiated messages/calls
 Desk mode, "Hello Friday" wake word, Alexa skill, background listening: parked (docs/JARVIS_FEEL.md section 9 stays as research). Kept in the launch set: A1 (call Friday's number, one tap via saved contact/Action Button/widget), A2 (voice notes), WhatsApp text, Friday speaking first (D1, D2, D4).
+
+## Done (2026-10-21): voice latency work merged and pushed (full suite 4978 passed)
+Three switches, all OFF: FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING, FRIDAY_LLM_STREAM_TO_TTS, FRIDAY_INTENT_CLASSIFIER (+ threshold). friday/latency (speculative, streaming, adapters, simulator), friday/playbooks/classifier.py + committed model (gate passed: 86% alone vs rules 74%, answered 22/50 held-out all right at threshold 0.9; only 50 held-out sentences, so 98% not proven).
+Simulator gains are modest: speculation saves almost nothing with REST STT (~0-6 ms scripted), ~70-350 ms with streaming STT; streamed free-form replies save 238-350 ms for 2-3 sentences. Honest correction of the founder's "0.6 s" expectation. Enable one at a time on a test call (classifier, then speculation + streaming STT, then streamed replies). Unverified: live audio, real streaming APIs, real STT partials, classifier on real phone speech.
+Open: grow the labelled set; allow classifier to override confident-but-wrong rules ("ok shukriya" read as YES).
