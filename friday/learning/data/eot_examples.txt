@@ -1,0 +1,428 @@
+# Hand-written end-of-turn examples (public-safe: invented, no real caller, no real number).
+# Format: split|label|answer_type|text     (answer_type may be empty)
+#   split  train = may be trained on / used for rule development; test = HELD-OUT, never trained
+#          on, never used to tune rules or templates after its errors were seen (docs/LATENCY.md)
+#   label  complete   = the caller has finished what they were saying (a pause here is the end)
+#          incomplete = the caller was cut mid-thought (they will carry on after the pause)
+#   answer_type  price | time | yesno | name | phone | (empty = no particular question)
+# Texts are what a phone speech-to-text typically returns: Roman Hinglish, Devanagari, English.
+# ----------------------------------------------------------------------------------- TRAIN
+train|complete|yesno|haan ji
+train|complete|yesno|ji haan
+train|complete|yesno|haan
+train|complete|yesno|nahi
+train|complete|yesno|nahi ji
+train|complete|yesno|bilkul
+train|complete|yesno|theek hai
+train|complete|yesno|thik hai ji
+train|complete|yesno|haan boliye
+train|complete||ji bataiye
+train|complete||haan ji bataiye
+train|complete||ji boliye
+train|complete|yesno|yes
+train|complete|yesno|no sir
+train|complete|yesno|okay sir
+train|complete|yesno|haan haan
+train|complete|yesno|sure
+train|complete|yesno|yes please
+train|complete|yesno|no thanks
+train|complete|yesno|हाँ जी
+train|complete|yesno|जी नहीं
+train|complete|yesno|बिल्कुल सही
+train|complete|yesno|ठीक है
+train|complete||जी बोलिए
+train|complete||हाँ जी बताइए
+train|complete|price|500 rupaye
+train|complete|price|500
+train|complete|price|paanch sau rupaye lagenge
+train|complete|price|paanch sau
+train|complete|price|haan ji 500 rupaye
+train|complete|price|chaar sau pachas
+train|complete|price|450 mein ho jayega
+train|complete|price|600 lagega
+train|complete|price|ek hazaar
+train|complete|price|1200 rupees
+train|complete|price|it will be 700
+train|complete|price|seven hundred rupees
+train|complete|price|around 800 rupaye
+train|complete|price|300 se 400 ke beech
+train|complete|price|₹550
+train|complete|price|500 ji
+train|complete|price|do sau rupaye hai
+train|complete|price|ye 350 ka hai
+train|complete|price|saat sau
+train|complete|price|lagbhag 600 rupaye
+train|complete|price|haan 400 lagega
+train|complete|price|dedh sau
+train|complete|price|पाँच सौ रुपये
+train|complete|price|चार सौ लगेंगे
+train|complete|price|हज़ार रुपये
+train|complete|price|it is 900 rupees per head
+train|complete|price|price 250 hai
+train|complete|price|rate toh 800 hai
+train|complete|time|kal shaam 6 baje
+train|complete|time|6 baje
+train|complete|time|shaam ko 6 baje aa jaiye
+train|complete|time|kal subah 10 baje
+train|complete|time|aaj shaam 5 baje
+train|complete|time|dopahar 2 baje
+train|complete|time|6:30 pm
+train|complete|time|tomorrow at 5 pm
+train|complete|time|saat baje ke baad
+train|complete|time|11 baje
+train|complete|time|parso subah
+train|complete|time|kal dopahar 3 baje free hai
+train|complete|time|abhi free hai aap aa sakte hain
+train|complete|time|tomorrow evening works
+train|complete|time|aaj raat 8 baje tak
+train|complete|time|kal 4 baje
+train|complete|time|शाम 6 बजे
+train|complete|time|कल सुबह 11 बजे
+train|complete|time|आज दोपहर 2 बजे आ जाइए
+train|complete|time|kal tak ho jayega
+train|complete|time|monday ko free hai
+train|complete|name|mera naam Rohan hai
+train|complete|name|Rohan
+train|complete|name|main Sunita bol rahi hoon
+train|complete|name|naam Imran hai
+train|complete|name|Priya ji
+train|complete|name|this is Vikram
+train|complete|name|my name is Neha
+train|complete|name|Kavita speaking
+train|complete|name|मेरा नाम राकेश है
+train|complete|name|मैं अंजलि बोल रही हूँ
+train|complete|phone|9876543210
+train|complete|phone|98765 43210
+train|complete|phone|mera number 9876543210 hai
+train|complete|phone|nau aath saat chhe paanch chaar teen do ek shunya
+train|complete|phone|my number is 9123456780
+train|complete|phone|9988776655 hai ji
+train|complete|phone|९८७६५४३२१०
+train|complete||wo kal aa jayega
+train|complete||abhi nahi hai
+train|complete||hum log kal band hain
+train|complete||parking available hai
+train|complete||aap WhatsApp pe bhej do
+train|complete||main baad mein call karta hoon
+train|complete||I will check and let you know
+train|complete||yes that works for me
+train|complete||aap kal subah aa jaiye
+train|complete||ok thank you
+train|complete||dhanyavad
+train|complete||ye toh free hai
+train|complete||delivery mil jayegi
+train|complete||mujhe sochna padega
+train|complete||sorry wrong number hai
+train|complete||main abhi busy hoon
+train|complete||aap thodi der baad call kijiye
+train|complete||haan ji wo available hai
+train|complete||nahi sir aisa nahi hota
+train|complete||discount nahi milega
+train|complete||ek minute ruko
+train|complete||hold kijiye ji
+train|complete||yes we are open till eight
+train|complete||I am not interested
+train|complete||it is out of stock right now
+train|complete||aap ghar aake dekh lijiye
+train|complete||haan woh stylist abhi nahi hai
+train|complete||theek hai main bata dunga
+train|complete||ji main manager se baat karke batati hoon
+train|complete||no problem at all
+train|complete||आप कल आ जाइए
+train|complete||मैं बाद में बात करता हूँ
+train|complete||यह तो फ्री है
+train|complete||हमारे यहाँ पार्किंग है
+train|complete||मुझे सोचना पड़ेगा
+train|complete||जी हाँ वो उपलब्ध है
+train|complete||अभी स्टॉक में नहीं है
+train|complete||धन्यवाद
+train|complete||haan sir bataiye kya chahiye
+train|complete||kaun bol raha hai
+train|complete||kitne log honge
+train|complete||kya aap kal aa sakte hain
+train|complete||aur kuch chahiye
+train|complete||that should be fine
+train|complete||thanks for calling
+train|complete||please call me back tomorrow
+train|complete||yes sir it is possible
+train|complete||nahi nahi aisa kuch nahi hai
+train|complete||ji wahi number hai
+train|complete||main hi baat kar raha hoon
+train|incomplete|time|haan kal shaam ko
+train|incomplete|time|haan, kal shaam ko...
+train|incomplete|time|kal subah ko
+train|incomplete|time|shaam ko
+train|incomplete|time|kal shaam
+train|incomplete|time|kal shaam 6
+train|incomplete|time|aaj subah
+train|incomplete|time|parso dopahar
+train|incomplete|time|tomorrow evening at
+train|incomplete|time|around 5
+train|incomplete|time|lagbhag
+train|incomplete|time|around
+train|incomplete|time|kal tak ya phir
+train|incomplete|time|कल शाम को
+train|incomplete|time|आज सुबह
+train|incomplete|time|शाम 6
+train|incomplete|time|haan woh kal dopahar mein
+train|incomplete|time|aaj raat ko kisi bhi time
+train|incomplete|price|500 ke liye
+train|incomplete|price|400 se
+train|incomplete|price|400 se 600 ke
+train|incomplete|price|price toh around
+train|incomplete|price|haan ji lagbhag
+train|incomplete|price|roughly
+train|incomplete|price|approximately
+train|incomplete|price|paanch
+train|incomplete|price|wo toh 500 aur
+train|incomplete|price|rate ye hai ki
+train|incomplete|price|around 800 but
+train|incomplete|price|500 lagega lekin
+train|incomplete|price|ek hazaar ke
+train|incomplete|price|price depend karta hai ki
+train|incomplete|price|पाँच सौ के
+train|incomplete|price|क़ीमत तो लगभग
+train|incomplete|price|चार सौ से
+train|incomplete|price|aapko pata hai ki
+train|incomplete|name|mera naam
+train|incomplete|name|my name is
+train|incomplete|name|main bol raha hoon ki
+train|incomplete|name|naam hai
+train|incomplete|name|मेरा नाम
+train|incomplete|name|main Sunita
+train|incomplete|phone|9876
+train|incomplete|phone|98765
+train|incomplete|phone|98765 43
+train|incomplete|phone|mera number hai 98
+train|incomplete|phone|mera number
+train|incomplete|phone|nau aath saat chhe
+train|incomplete|phone|my number is 91234
+train|incomplete|phone|99887
+train|incomplete|phone|९८७६५
+train|incomplete|phone|number hai 9988 aur
+train|incomplete|yesno|haan lekin
+train|incomplete|yesno|haan toh
+train|incomplete|yesno|haan ji aur
+train|incomplete|yesno|nahi matlab
+train|incomplete|yesno|yes but
+train|incomplete|yesno|no because
+train|incomplete|yesno|haan umm
+train|incomplete|yesno|hmm
+train|incomplete|yesno|acha
+train|incomplete|yesno|achha toh
+train|incomplete|yesno|haan, wo
+train|incomplete|yesno|haan magar
+train|incomplete|yesno|nahi par
+train|incomplete|yesno|हाँ लेकिन
+train|incomplete|yesno|नहीं क्योंकि
+train|incomplete|yesno|हम्म
+train|incomplete||main kal aaunga lekin
+train|incomplete||aap ek kaam kijiye ki
+train|incomplete||kyunki
+train|incomplete||because
+train|incomplete||and then
+train|incomplete||I was thinking that
+train|incomplete||so basically
+train|incomplete||haan ji lekin woh
+train|incomplete||uh
+train|incomplete||umm
+train|incomplete||matlab
+train|incomplete||aur
+train|incomplete||lekin
+train|incomplete||toh
+train|incomplete||dekhiye
+train|incomplete||actually
+train|incomplete||wo mere bhai ka
+train|incomplete||mere paas ek problem hai aur
+train|incomplete||aapke yahan se
+train|incomplete||hum log kal
+train|incomplete||main aapko bata deta hoon ki
+train|incomplete||ye cheez ke liye
+train|incomplete||we can do it but
+train|incomplete||I will call you if
+train|incomplete||the thing is that the
+train|incomplete||let me think about
+train|incomplete||please send it to
+train|incomplete||it depends on
+train|incomplete||woh stylist jo hai na
+train|incomplete||aap jab bhi
+train|incomplete||agar aap
+train|incomplete||ek minute main
+train|incomplete||sir wo kya hai ki
+train|incomplete||theek hai toh phir
+train|incomplete||haan haan matlab
+train|incomplete||mujhe lagta hai ki hum
+train|incomplete||main manager se pooch ke
+train|incomplete||isme kuch
+train|incomplete||ye toh
+train|incomplete||aap ka naam
+train|incomplete||देखिए
+train|incomplete||मतलब
+train|incomplete||और
+train|incomplete||लेकिन
+train|incomplete||तो
+train|incomplete||वो मेरे भाई का
+train|incomplete||क्योंकि
+train|incomplete||मैं कल आऊँगा लेकिन
+train|incomplete||आपके यहाँ से
+train|incomplete||हम लोग कल
+train|incomplete||उम्म
+train|incomplete||अच्छा तो
+train|incomplete||मैं मैनेजर से पूछ के
+train|incomplete||haan ji main bol rahi thi ki
+train|incomplete||suno na
+# ----------------------------------------------------------------------------------- TEST (held out)
+test|complete|yesno|ji haan bilkul
+test|complete|yesno|haan ji theek hai
+test|complete|yesno|nahin
+test|complete|yesno|nahi nahi ji
+test|complete|yesno|yeah okay
+test|complete|yesno|no no
+test|complete|yesno|हाँ
+test|complete|yesno|नहीं जी
+test|complete||haan ji boliye
+test|complete||ji bataiye sir
+test|complete||bolo
+test|complete||haan boliye madam
+test|complete||जी बताइए
+test|complete|price|paanch sau rupaye
+test|complete|price|600 rupees
+test|complete|price|haan ji 700 lagega
+test|complete|price|ek hazaar paanch sau
+test|complete|price|aath sau
+test|complete|price|350
+test|complete|price|dhai sau rupaye
+test|complete|price|the rate is 1500
+test|complete|price|do hazaar rupaye hai ji
+test|complete|price|₹900
+test|complete|price|chhe sau mein ho jayega
+test|complete|price|हज़ार रुपये लगेंगे
+test|complete|price|तीन सौ
+test|complete|price|its around 500 rupees
+test|complete|price|bas 250 rupaye lagenge
+test|complete|price|1200 ji
+test|complete|time|kal shaam paanch baje
+test|complete|time|aaj 7 baje
+test|complete|time|subah 9 baje
+test|complete|time|kal dopahar 12 baje ke baad
+test|complete|time|shaam 6:30
+test|complete|time|tomorrow morning at 10
+test|complete|time|aaj hi aa jaiye
+test|complete|time|parso shaam 4 baje
+test|complete|time|कल सुबह 9 बजे
+test|complete|time|शाम 5 बजे के बाद
+test|complete|time|8 baje
+test|complete|time|abhi aa jaiye
+test|complete|name|Aman
+test|complete|name|mera naam Deepak hai
+test|complete|name|main Pooja bol rahi hoon
+test|complete|name|it is Salman
+test|complete|name|मेरा नाम मीना है
+test|complete|name|Karan ji bol raha hoon
+test|complete|phone|9812345670
+test|complete|phone|mera number 9898989898 hai
+test|complete|phone|98123 45670
+test|complete|phone|my number is 9001122334
+test|complete|phone|nau aath ek do teen chaar paanch chhe saat aath
+test|complete|phone|९८१२३४५६७०
+test|complete||aap shaam ko aa jaiye
+test|complete||haan woh sab available hai
+test|complete||nahi abhi stock nahi hai
+test|complete||main kal subah call karta hoon
+test|complete||yes we have that
+test|complete||I cannot say right now
+test|complete||WhatsApp pe bhej dijiye
+test|complete||ye service free hai
+test|complete||aaj hum band hain
+test|complete||parking bhi hai
+test|complete||theek hai dekhte hain
+test|complete||aap ghar par aa jaiye
+test|complete||sir main thodi der mein batata hoon
+test|complete||I will call you back in ten minutes
+test|complete||wrong number hai ji
+test|complete||ek second ruko
+test|complete||thank you so much
+test|complete||bye bye
+test|complete||dhanyavaad ji
+test|complete||haan wo kal ho jayega
+test|complete||mujhe nahi pata
+test|complete||discount nahi milega sir
+test|complete||kitne baje aana hai
+test|complete||aap kaun bol rahe hain
+test|complete||ji main hi owner hoon
+test|complete||delivery kal tak ho jayegi
+test|complete||no sir we do not do that
+test|complete||haan ji wo to ho jayega
+test|complete||मैं कल सुबह फोन करता हूँ
+test|complete||आप शाम को आ जाइए
+test|complete||अभी फ्री है
+test|complete||कोई दिक्कत नहीं है
+test|complete||जी मैं ही बोल रहा हूँ
+test|complete||वो सब मिल जाएगा
+test|incomplete|time|haan, kal subah ko
+test|incomplete|time|parso shaam ko
+test|incomplete|time|aaj raat
+test|incomplete|time|kal dopahar
+test|incomplete|time|shaam 7
+test|incomplete|time|lagbhag 5
+test|incomplete|time|tomorrow at
+test|incomplete|time|about
+test|incomplete|time|कल दोपहर को
+test|incomplete|time|haan woh Monday ko
+test|incomplete|time|subah 10 ya phir
+test|incomplete|price|600 ke liye
+test|incomplete|price|500 se
+test|incomplete|price|chhe sau aur
+test|incomplete|price|haan price toh
+test|incomplete|price|dhai
+test|incomplete|price|nearly
+test|incomplete|price|7 hundred and
+test|incomplete|price|आठ सौ के
+test|incomplete|price|rate is around
+test|incomplete|price|haan lagbhag 400 ya
+test|incomplete|name|mera naam hai
+test|incomplete|name|this is
+test|incomplete|name|main Rakesh bol raha hoon aur
+test|incomplete|name|मेरा नाम है
+test|incomplete|phone|98123
+test|incomplete|phone|mera number hai 9812
+test|incomplete|phone|9001122
+test|incomplete|phone|nau aath ek do
+test|incomplete|phone|my number is 98
+test|incomplete|phone|९८१२३
+test|incomplete|yesno|haan par
+test|incomplete|yesno|nahi lekin
+test|incomplete|yesno|yes and
+test|incomplete|yesno|ji haan matlab
+test|incomplete|yesno|umm haan
+test|incomplete|yesno|ummm
+test|incomplete|yesno|haan ji toh
+test|incomplete|yesno|नहीं पर
+test|incomplete||haan ji main keh raha tha ki
+test|incomplete||wo kal ka program
+test|incomplete||aap bataiye na kya
+test|incomplete||okay so
+test|incomplete||well I think
+test|incomplete||the problem is that
+test|incomplete||I will let you know if
+test|incomplete||mere bhai ke
+test|incomplete||aap jo
+test|incomplete||dekhiye sir
+test|incomplete||haan toh main yeh keh raha tha
+test|incomplete||agar aap kal
+test|incomplete||wo manager jo hai na
+test|incomplete||hum aapko bata denge jab
+test|incomplete||isliye
+test|incomplete||ek baat bolun
+test|incomplete||and also the
+test|incomplete||as soon as
+test|incomplete||because of
+test|incomplete||yaar wo
+test|incomplete||toh phir
+test|incomplete||mujhe aapse ek kaam ke
+test|incomplete||सर वो क्या है कि
+test|incomplete||मैं आपको बता दूँगा कि
+test|incomplete||अगर आप
+test|incomplete||और फिर
+test|incomplete||मेरे भाई के
+test|incomplete||haan ji bilkul lekin woh

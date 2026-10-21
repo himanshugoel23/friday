@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """``friday learn report | label | eval | fewshot | train-classifier | eval-classifier``
 (wired from friday/cli.py).
 
@@ -9,6 +10,10 @@
                                                    model ONLY if the regression gate passes
     friday learn eval-classifier [--model PATH]    accuracy per intent, confusion pairs, comparison
                                                    with the rules baseline, gate verdict
+    friday learn train-eot [--dry-run]             train the semantic end-of-turn model (writes it
+                                                   ONLY if the regression gate passes)
+    friday learn eval-eot [--split test|train|all] accuracy / precision / recall per class, false-cut
+                                                   rate, mean added delay; rules-only baseline beside it
 """
 
 from __future__ import annotations
@@ -38,6 +43,15 @@ def register(sub: Any) -> None:
     tc.add_argument("--threshold", type=float, default=None,
                     help="confidence threshold (default: chosen by cross-validation)")
     tc.add_argument("--model", default=None, help="model file (default: the repo's)")
+    te = s.add_parser("train-eot", help="train the semantic end-of-turn model (gate-protected)")
+    te.add_argument("--dry-run", action="store_true", help="train and report, write nothing")
+    te.add_argument("--seed", type=int, default=7, help="seed of the synthetic data")
+    ee = s.add_parser("eval-eot", help="score the end-of-turn detector on the hand-written list")
+    ee.add_argument("--model", default=None, help="model file (default: the repo's)")
+    ee.add_argument("--threshold", type=float, default=None, help="default: the version file's")
+    ee.add_argument("--split", choices=("test", "train", "all"), default="test",
+                    help="test = the held-out set (default); train/all include trained-on rows")
+    ee.add_argument("--mistakes", action="store_true", help="list the wrong and the unsure ones")
     ec = s.add_parser("eval-classifier", help="score the classifier on the held-out labels")
     ec.add_argument("--model", default=None)
     ec.add_argument("--threshold", type=float, default=None,
@@ -89,7 +103,12 @@ def run(args: argparse.Namespace) -> int:
         return _train_classifier(args)
     if cmd == "eval-classifier":
         return _eval_classifier(args)
-    print("usage: friday learn report|label|eval|fewshot|train-classifier|eval-classifier")
+    if cmd == "train-eot":
+        return _train_eot(args)
+    if cmd == "eval-eot":
+        return _eval_eot(args)
+    print("usage: friday learn report|label|eval|fewshot|train-classifier|eval-classifier"
+          "|train-eot|eval-eot")
     return 2
 
 
@@ -152,6 +171,71 @@ def _eval_classifier(args: argparse.Namespace) -> int:
         print(f"model version: data {str(ver.get('data_hash', ''))[:16]}  "
               f"gate_passed={(ver.get('gate') or {}).get('passed')}")
     gate = apply_gate(metrics)
+    for c in gate.checks:
+        print(f"  gate {'ok  ' if c['ok'] else 'FAIL'} {c['name']}: {c['detail']}")
+    return 0 if gate.passed else 1
+
+
+def _train_eot(args: argparse.Namespace) -> int:
+    from friday.learning.eot_train import TrainConfig, format_eval, run_training
+
+    res = run_training(cfg=TrainConfig(seed=args.seed), write=not args.dry_run)
+    v = res.version
+    print(f"training rows: {v['train_count']} {v['train_by_source']}   held-out: {v['held_out_count']} "
+          f"(never trained on)")
+    print(f"data hash: {v['data_hash'][:16]}   alpha={v['alpha']} beta={v['beta']}   "
+          f"threshold={v['threshold']} ({v['threshold_source']})")
+    print(format_eval(res.baseline, "HELD-OUT, rules only (the baseline):"))
+    print(format_eval(res.metrics, "HELD-OUT, rules + trained model:"))
+    for c in res.gate.checks:
+        print(f"  gate {'ok  ' if c['ok'] else 'FAIL'} {c['name']}: {c['detail']}")
+    if not res.gate.passed:
+        print("REFUSED: the model is NOT written (regression gate failed).")
+        return 1
+    print("written: friday/voice/learning/eot_model.json and eot_model.version.json"
+          if res.written else "gate passed (dry run: nothing written)")
+    return 0
+
+
+def _eval_eot(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from friday.learning.eot_train import (
+        apply_gate,
+        evaluate,
+        format_eval,
+        load_gold,
+    )
+    from friday.voice.eot import MODEL_PATH, VERSION_PATH, EotModel, SemanticEot, load_version
+
+    model_path = Path(args.model) if args.model else MODEL_PATH
+    version_path = (
+        model_path.with_name(model_path.stem + ".version.json") if args.model else VERSION_PATH
+    )
+    try:
+        model = EotModel.loads(model_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, KeyError):
+        print(f"no usable model at {model_path} (run: friday learn train-eot)")
+        return 2
+    ver = load_version(version_path) or {}
+    thr = args.threshold if args.threshold is not None else float(ver.get("threshold", 0.9))
+    train, test = load_gold()
+    items = {"test": test, "train": train, "all": train + test}[args.split]
+    if args.split != "test":
+        print("NOTE: includes rows the model trained on (optimistic)")
+    base = evaluate(SemanticEot(None, thr, rules_only=True), items)
+    mod = evaluate(SemanticEot(model, thr), items)
+    print(format_eval(base, f"{args.split} split, rules only (baseline), threshold {thr}:"))
+    print(format_eval(mod, f"{args.split} split, rules + trained model, threshold {thr}:"))
+    if args.mistakes:
+        for m in mod["mistakes"]:
+            print(f"  WRONG  gold={m['gold']:<10} said={m['said']:<10} [{m['type'] or '-'}] {m['text']}")
+        for m in mod["unsure"]:
+            print(f"  unsure gold={m['gold']:<10} [{m['type'] or '-'}] {m['text']}")
+    if ver:
+        print(f"model version: data {str(ver.get('data_hash', ''))[:16]}  "
+              f"gate_passed={(ver.get('gate') or {}).get('passed')}")
+    gate = apply_gate(mod, base, thr)
     for c in gate.checks:
         print(f"  gate {'ok  ' if c['ok'] else 'FAIL'} {c['name']}: {c['detail']}")
     return 0 if gate.passed else 1

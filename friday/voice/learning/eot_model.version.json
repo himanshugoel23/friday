@@ -1,0 +1,175 @@
+{
+  "alpha": 0.1,
+  "beta": 0.4,
+  "code_version": 1,
+  "cross_validation": {
+    "best": {
+      "alpha": 0.1,
+      "beta": 0.4,
+      "logloss": 0.3715
+    },
+    "folds": 5,
+    "thresholds": [
+      {
+        "accuracy": 0.9015,
+        "false_cut_rate": 0.0081,
+        "n": 264,
+        "threshold": 0.8
+      },
+      {
+        "accuracy": 0.8826,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.85
+      },
+      {
+        "accuracy": 0.8485,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.9
+      },
+      {
+        "accuracy": 0.6742,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.93
+      },
+      {
+        "accuracy": 0.5871,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.95
+      },
+      {
+        "accuracy": 0.1439,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.97
+      },
+      {
+        "accuracy": 0.1061,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.98
+      },
+      {
+        "accuracy": 0.0341,
+        "false_cut_rate": 0.0,
+        "n": 264,
+        "threshold": 0.99
+      }
+    ]
+  },
+  "data_hash": "8ab902cb53b11bb44a7846014111d1c724d5787d0f4a3dde49f5fe74be93891b",
+  "gate": {
+    "checks": [
+      {
+        "detail": "154 sentences (67 unfinished); need >= 100 and >= 30",
+        "name": "held-out size",
+        "ok": true
+      },
+      {
+        "detail": "accuracy 90.3% vs rules-only 88.3% (unsure counts as wrong)",
+        "name": "beats the rules-only baseline",
+        "ok": true
+      },
+      {
+        "detail": "1.5% (1 of 67) at threshold 0.8",
+        "name": "false-cut rate <= 2%",
+        "ok": true
+      },
+      {
+        "detail": "1 vs rules-only 1 (+1 allowed)",
+        "name": "no more false cuts than the baseline",
+        "ok": true
+      }
+    ],
+    "passed": true
+  },
+  "held_out": {
+    "accuracy": 0.9026,
+    "added_delay_ms_on_finished": -260.9,
+    "committed_early_correctly": 80,
+    "coverage": 0.9286,
+    "decided": 143,
+    "decided_accuracy": 0.972,
+    "extended_correctly": 59,
+    "extra_wait_ms_on_unfinished": 616.4,
+    "false_cut_count": 1,
+    "false_cut_rate": 0.0149,
+    "false_cut_rate_all_turns": 0.0065,
+    "false_extend_count": 3,
+    "false_extend_rate": 0.0345,
+    "n": 154,
+    "n_complete": 87,
+    "n_incomplete": 67,
+    "per_class": {
+      "complete": {
+        "correct": 80,
+        "f1": 0.9524,
+        "gold": 87,
+        "precision": 0.9877,
+        "recall": 0.9195,
+        "said": 81
+      },
+      "incomplete": {
+        "correct": 59,
+        "f1": 0.9147,
+        "gold": 67,
+        "precision": 0.9516,
+        "recall": 0.8806,
+        "said": 62
+      }
+    },
+    "saved_ms_on_finished": 285.1,
+    "wasted_wait_ms_on_finished": 24.1
+  },
+  "held_out_count": 154,
+  "model_sha256": "783f4a443402928a8fb12647a09c053ad5a7e80005ff4a52e5a4bc8fa7853d7f",
+  "rules_only_baseline": {
+    "accuracy": 0.8831,
+    "added_delay_ms_on_finished": -257.4,
+    "committed_early_correctly": 79,
+    "coverage": 0.9091,
+    "decided": 140,
+    "decided_accuracy": 0.9714,
+    "extended_correctly": 57,
+    "extra_wait_ms_on_unfinished": 595.5,
+    "false_cut_count": 1,
+    "false_cut_rate": 0.0149,
+    "false_cut_rate_all_turns": 0.0065,
+    "false_extend_count": 3,
+    "false_extend_rate": 0.0345,
+    "n": 154,
+    "n_complete": 87,
+    "n_incomplete": 67,
+    "per_class": {
+      "complete": {
+        "correct": 79,
+        "f1": 0.9461,
+        "gold": 87,
+        "precision": 0.9875,
+        "recall": 0.908,
+        "said": 80
+      },
+      "incomplete": {
+        "correct": 57,
+        "f1": 0.8976,
+        "gold": 67,
+        "precision": 0.95,
+        "recall": 0.8507,
+        "said": 60
+      }
+    },
+    "saved_ms_on_finished": 281.5,
+    "wasted_wait_ms_on_finished": 24.1
+  },
+  "threshold": 0.8,
+  "threshold_source": "cross-validation (false-cut <= 1.5%)",
+  "train_by_source": {
+    "gold": 264,
+    "synthetic": 1066
+  },
+  "train_count": 1330,
+  "trained_on_held_out": false
+}
