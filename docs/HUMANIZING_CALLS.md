@@ -65,3 +65,20 @@ people than a flat statement. Never deny, never argue.
 - Disclosure timing: keep "virtual assistant" in the opening and "AI assistant" on request, or test saying "AI assistant" up front? (Measure hang-up rates; do not hide it.)
 - OK to message the business on WhatsApp before the call?
 - Which vendor categories are most important to tune first (salon, clinic, AC repair)?
+
+## Consumer calls: what else makes Friday sound human (21 Oct 2026)
+The sections above cover business calls. For calls to family, friends, providers and officials the extra levers are below; every change that alters sound or wording is previewed as audio for the founder first (hear before change). Ranked by effect over effort.
+1. **Relationship register.** aap/tum/tu, "mummy", "beta", "bhaiya", "sir", chosen from the brief's relationship; the callee's name used once or twice, not every sentence; elders get slower pace and repeats, friends get lighter lines.
+2. **Pace and pitch by meaning.** Slower and clearer for numbers, prices, times and phone digits (grouped the Indian way); a slight lift on questions; a short pause before the important fact; warmer and softer for bad news. Mostly TTS settings per line type, no new words.
+3. **Backchannels.** "haan ji", "achha", "hmm", "theek hai" at natural pauses while the other person talks, pre-rendered so they are instant; capped (not more than one every 4 seconds), never over their speech, off for elders who may hear it as interruption. Needs approved audio.
+4. **Timing that varies like a person.** Instant for a backchannel, 300 to 600 ms for short yes/no, up to about 1 s for a longer answer; never a fixed metronome gap and never over 1.2 s. (The latency switches already built give the headroom.)
+5. **Spoken-language writing.** Shorter sentences, one idea per breath, contractions and everyday words ("kar dungi", "bata do"), split long lines at commas, no list-reading, no written-style phrases; sparing fillers ("dekhiye", "toh") from the approved filler list.
+6. **Interruption manners.** She stops within 300 ms, says a short "haan boliye", answers, then resumes with a connector ("toh main yeh keh rahi thi") instead of restarting the sentence.
+7. **Remembering inside the call.** Reuse the other person's own words and numbers ("aapne kaha kal shaam, toh kal shaam ko...") instead of repeating the brief.
+8. **Language mirroring.** Match the callee's Hindi/Hinglish/English mix and formality; switch when they switch (only on an explicit signal or a clear change of language, as built).
+9. **Audio finishing.** Phone-tuned EQ and loudness, short crossfades between streamed chunks, no clicks or clipped starts, gentle line noise instead of dead digital silence (comfort noise only; never fake a busy room).
+10. **Voices per relationship.** Two or three approved voices (for example a warmer, slower one for elders) from the same family as Ritu; no voice cloning of the user or anyone else.
+11. **Light emotional reactions** from a small safe set ("arre wah", "achha", a short soft laugh to a joke) for friendly callees only, off for businesses and officials.
+Never: pretend to be human (no human name given as if she were a person, always the assistant line first), imitate the user, or use background noise to look like a person in a room. Honest and warm beats convincing.
+How we measure: blind listening tests (the same 5 lines in the old and new treatment, 10 listeners rate natural 1 to 5 and say "bot or person"), callee stay-on-line rate, hang-up after the assistant line, and callee answers that needed repeats.
+Next step: a listening kit (audio of the same lines in the current and the new treatments) for the founder; nothing changes in production without his approval.

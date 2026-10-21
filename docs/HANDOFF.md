@@ -793,3 +793,6 @@ Open: grow the labelled set; allow classifier to override confident-but-wrong ru
 
 ## Task (2026-10-21): voice quality next steps (founder): (1) semantic end-of-turn, (2) trained voice-activity model
 Founder: (1) decide the end of the caller's turn from the MEANING of the words, not only silence ("Haan, kal shaam ko..." unfinished; "Haan ji, 500 rupaye" complete); (2) a trained voice-activity model instead of the loudness rule, better in noisy shops. Builder launched; both behind switches (default off), measured offline; real validation needs real recordings.
+
+## Question (2026-10-21): more changes to sound more human
+Answered; consumer-call section added to docs/HUMANIZING_CALLS.md (relationship register, emotion/pace, backchannels, timing variation, natural speech, voices per relationship, audio finishing, interruption manners, language mirroring, honesty). Next: an audio listening kit for the founder (hear-before-change); nothing spoken changes without approval.
