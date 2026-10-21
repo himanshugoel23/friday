@@ -295,9 +295,15 @@ class SarvamCallLeg(TwilioCallLeg):
         self.early_text_hook: Callable[[str], None] | None = None
         self.early_cancel_hook: Callable[[str], None] | None = None
         self._early_text = ""
+        self._spec_task: asyncio.Task | None = None
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
+
+    @property
+    def barged(self) -> bool:
+        """The caller spoke over Friday during this turn (a streamed reply stops speaking)."""
+        return self._barged
 
     def set_media_format(self, fmt: Mapping[str, Any] | None) -> None:
         """``start.mediaFormat`` {"encoding": "audio/x-l16", "sampleRate": 8000}."""
@@ -480,6 +486,29 @@ class SarvamCallLeg(TwilioCallLeg):
         if self._stable_task is not None:
             self._stable_task.cancel()
         self._stable_task = asyncio.ensure_future(self._commit_if_stable(text, idx))
+        if self.early_text_hook is not None:  # speculative understanding (default OFF)
+            if self._spec_task is not None:
+                self._spec_task.cancel()
+            self._spec_task = asyncio.ensure_future(self._speculate_if_stable(text, idx))
+
+    SPECULATE_STABLE_MS = 150  # a partial unchanged this long, in a pause, is worth a guess
+
+    async def _speculate_if_stable(self, text: str, idx: int) -> None:
+        """Start understanding a stable streaming partial while the caller's pause runs out.
+        Any length of speech (only SHORT ones are committed early); the commit judges the guess."""
+        await asyncio.sleep(self.SPECULATE_STABLE_MS / 1000)
+        hook, seg = self.early_text_hook, self._segmenter
+        if (
+            hook is None
+            or text != self._partial_text
+            or idx <= self._committed_idx
+            or (self._playing and not self._barged)
+            or not seg._active
+            or seg._silence_ms < 100  # the caller is still making sound
+        ):
+            return
+        self._early_text = text
+        self._call_hook(hook, text)
 
     async def _commit_if_stable(self, text: str, idx: int) -> None:
         """A short answer whose partial text stopped changing is acted on now, not after the
@@ -489,15 +518,6 @@ class SarvamCallLeg(TwilioCallLeg):
             return
         await asyncio.sleep(cfg.stable_ms / 1000)
         seg = self._segmenter
-        hook = self.early_text_hook
-        if (
-            hook is not None
-            and text == self._partial_text
-            and idx > self._committed_idx
-            and not (self._playing and not self._barged)
-        ):
-            self._early_text = text  # a stable partial: start understanding it now
-            self._call_hook(hook, text)
         if (
             text != self._partial_text
             or idx <= self._committed_idx
@@ -523,6 +543,9 @@ class SarvamCallLeg(TwilioCallLeg):
         self._committed_idx = idx
         self._partial_text = ""
         self._early_text = ""
+        if self._spec_task is not None:
+            self._spec_task.cancel()
+            self._spec_task = None
         if self._stable_task is not None:
             self._stable_task.cancel()
             self._stable_task = None

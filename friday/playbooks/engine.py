@@ -1483,6 +1483,17 @@ class RoutingCallPolicy:
     def fixed_lines(self, brief: CallBrief) -> dict[Language, list[str]]:
         return self.playbook_policy.fixed_lines(brief) if brief.playbook else {}
 
+    async def next_call_action_streamed(
+        self, brief: CallBrief, transcript: Any, answers: Any, **kw: Any
+    ) -> Any:
+        """Latency switch FRIDAY_LLM_STREAM_TO_TTS: only the model-written free-form turns stream;
+        a scripted (playbook) call speaks fixed lines, so it returns None (= the ordinary call)."""
+        base = self._get_base()
+        fn = getattr(base, "next_call_action_streamed", None)
+        if brief.playbook or fn is None:
+            return None
+        return await fn(brief, transcript, answers, **kw)
+
     def speculate(self, brief: CallBrief, transcript: Any, text: str) -> bool:
         """Latency switch: start understanding an early transcript (scripted calls only)."""
         return bool(brief.playbook and self.playbook_policy.speculate(brief, transcript, text))

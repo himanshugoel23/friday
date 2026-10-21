@@ -374,6 +374,7 @@ class _Session:
         self.context = context
         self.from_number = from_number or brief.from_number
         self.keybuf = KeyBuffer(brief)  # SECURITY-24: keys since the last IVR prompt
+        self._stream_policy_ms: float | None = None  # streamed reply: time to the first sentence
         self.committed = False  # SECURITY-4: a gated commit was actually spoken
         self.human_reached = False
         self.pressed: list[str] = []  # menu keys (for learned IVR maps)
@@ -1028,10 +1029,11 @@ class _Session:
     async def _decide(self, *, record_latency: bool = True) -> CallAction | None:
         for attempt in range(2):
             t0 = time.perf_counter()
+            self._stream_policy_ms = None
             try:
-                action = await self.r.policy.next_call_action(
-                    self.brief, self.transcript, list(self.answers)
-                )
+                action = await self._next_action(stream=record_latency)
+            except CallEnded:
+                raise  # the caller hung up while a streamed reply was being spoken
             except ComponentNotAvailable as e:
                 self.result.error = f"no call policy: {e}"
                 return None
@@ -1044,7 +1046,11 @@ class _Session:
             finally:
                 self.result.policy_calls += 1
             if record_latency:
-                self.latency.policy((time.perf_counter() - t0) * 1000)
+                self.latency.policy(
+                    self._stream_policy_ms
+                    if self._stream_policy_ms is not None
+                    else (time.perf_counter() - t0) * 1000
+                )
             self.result.error = None
             return action
         return None
@@ -1062,6 +1068,44 @@ class _Session:
         if action.care is not None:
             path = self.care.ivr_path if self.care else []
             self.care = action.care.model_copy(update={"ivr_path": action.care.ivr_path or path})
+
+    # ------------------------------------------------------------------ streamed model replies
+    async def _next_action(self, *, stream: bool) -> CallAction:
+        """The policy's next action. With FRIDAY_LLM_STREAM_TO_TTS on (default OFF), a model-written
+        free-form reply is spoken sentence by sentence while it is still being written; every other
+        case (scripted playbooks, zero-LLM paths, any stream problem) is the ordinary call."""
+        policy = self.r.policy
+        streamed = getattr(policy, "next_call_action_streamed", None)
+        if (
+            stream
+            and streamed is not None
+            and self.leg is not None
+            and getattr(self.settings, "llm_stream_to_tts", False)
+            and not self.brief.playbook
+        ):
+            leg = self.leg
+            lang = self._speak_lang(self._lang())
+
+            async def speak(sentence: str) -> None:
+                clean = strip_fillers(sentence) or sentence
+                await leg.speak(clean, lang)
+                self.tts_chars += len(clean)
+
+            turn = await streamed(
+                self.brief, self.transcript, list(self.answers), speak=speak,
+                should_stop=lambda: bool(getattr(leg, "barged", False)), language=lang,
+            )
+            if turn is not None:
+                if turn.spoken:
+                    text = " ".join(turn.spoken)
+                    await self._record(Speaker.FRIDAY, text, lang)
+                    if is_commit_action(CallAction(type=CallActionType.SAY, text=text)):
+                        self.committed = True
+                    res = turn.result
+                    if res is not None and res.first_sentence_ms is not None:
+                        self._stream_policy_ms = res.first_sentence_ms
+                return turn.action  # type: ignore[no-any-return]
+        return await policy.next_call_action(self.brief, self.transcript, list(self.answers))
 
     def _guard(self, action: CallAction) -> list[str]:
         b = self.brief

@@ -429,6 +429,8 @@ class FridayBrain:
         self.settings = settings or Settings(_env_file=None)
         self._speakable = speakable
         self.router = ModelRouter(self.settings)
+        # FRIDAY_LLM_STREAM_TO_TTS (default OFF): a friday.latency.stream_adapters adapter, or None
+        self.streaming_llm: Any = None
 
     # ------------------------------------------------------------------ plumbing
     @property
@@ -889,14 +891,7 @@ class FridayBrain:
 
         out = self._call_shortcut(brief, transcript)  # zero-LLM paths (hold, learned IVR)
         if out is None:
-            payload: dict[str, Any] = {
-                **compact_transcript(brief, transcript),
-                "answers": [a.model_dump(mode="json") for a in answers],
-                "speakable": sorted(lang.value for lang in speak) if speak else None,
-            }
-            if getattr(self.llm, "provider", None) == "fake":
-                # the deterministic fake needs the whole call; real models get the compact one
-                payload["transcript_full"] = transcript.model_dump(mode="json", exclude_none=True)
+            payload = self._call_turn_payload(brief, transcript, answers)
             out = await self._ask(
                 "call_turn",
                 payload,
@@ -911,6 +906,128 @@ class FridayBrain:
         if learned is not None and "ivr_map" not in action.collected:
             action.collected["ivr_map"] = learned.to_note()
         return action
+
+    def _call_turn_payload(
+        self, brief: CallBrief, transcript: Transcript, answers: Sequence[UserAnswer]
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            **compact_transcript(brief, transcript),
+            "answers": [a.model_dump(mode="json") for a in answers],
+            "speakable": sorted(lang.value for lang in self.speakable) if self.speakable else None,
+        }
+        if getattr(self.llm, "provider", None) == "fake":
+            # the deterministic fake needs the whole call; real models get the compact one
+            payload["transcript_full"] = transcript.model_dump(mode="json", exclude_none=True)
+        return payload
+
+    async def next_call_action_streamed(
+        self,
+        brief: CallBrief,
+        transcript: Transcript,
+        answers: Sequence[UserAnswer],
+        speak: Callable[[str], Any],
+        should_stop: Callable[[], bool] | None = None,
+        language: Language | None = None,
+    ) -> Any:
+        """FRIDAY_LLM_STREAM_TO_TTS: the free-form turn with the reply streamed into the voice.
+
+        The model's reply is read as it is written; the first sentence that passes the per-sentence
+        guards goes to ``speak`` at once, the rest follow, instead of waiting for the whole JSON.
+        Returns a ``StreamedTurn``: the action to execute and the sentences already spoken. Any
+        problem before the first sentence (no streaming client, a stream error, a reply that is
+        not a plain "say", a call that must not commit) runs the old ``next_call_action``: same
+        words, same guards. See friday/latency/streaming.py."""
+        from friday.latency.streaming import RepeatGuard, StreamedTurn, stream_to_voice
+
+        async def plain(why: str) -> StreamedTurn:
+            if why:
+                log.info("stream-to-tts not used: %s", why)
+            action = await self.next_call_action(brief, transcript, answers)
+            return StreamedTurn(action=action, fell_back=True)
+
+        streamer = self.streaming_llm
+        if streamer is None or not getattr(self.settings, "llm_stream_to_tts", False):
+            return await plain("")
+        if self._call_shortcut(brief, transcript) is not None:
+            return await plain("")  # a zero-LLM path (hold, learned IVR): nothing to stream
+        if brief.task_type in guards._COMMIT_TYPES_NEED_APPROVAL and not brief.can_commit(
+            list(answers)
+        ):
+            return await plain("call type that must not commit")
+        answers = list(answers)
+        payload = self._call_turn_payload(brief, transcript, answers)
+        system = system_prompt("call_turn")
+        sep = CACHE_BREAK if getattr(self.settings, "llm_prompt_caching", True) else "\n"
+        system = f"{system}{sep}{render_input({'brief': brief_payload(brief)}, tag='data')}"
+        content = render_input(payload)
+        model = self.router.model_for("call_turn", task_id=brief.task_id)
+        lang = language or brief.opening_language
+        recent = [t.text for t in transcript.turns if t.speaker == Speaker.FRIDAY]
+        repeat = RepeatGuard(recent)
+        replacement: dict[str, CallAction] = {}
+
+        def check(sentence: str, accepted: Sequence[str]) -> str | None:
+            """The whole-reply guards, applied to ONE sentence (guards.to_call_action)."""
+            pseudo = CallActionOut(type=CallActionType.SAY, text=sentence, language=lang)
+            act = guards.to_call_action(pseudo, brief, answers, transcript)
+            reason = (act.collected or {}).get("guard")
+            if act.type != CallActionType.SAY or reason:
+                replacement["action"] = act
+                return str(reason or act.type.value)
+            said_before = repeat(sentence, accepted)
+            if said_before:  # the same safe line the whole-reply "repeating_herself" rule uses
+                replacement["action"] = guards.callback_action(brief, pseudo, "repeating_herself")
+            return said_before
+
+        chunks = streamer.stream(
+            system=system,
+            messages=[LLMMessage(role="user", content=content)],
+            purpose="call_turn",
+            model=model,
+            max_tokens=self.router.max_tokens("call_turn"),
+            effort=self.router.effort("call_turn"),
+            json_schema=strict_schema(CallActionOut),
+        )
+        res = await stream_to_voice(chunks, speak=speak, check=check, should_stop=should_stop)
+        spoken = list(res.spoken)
+        if res.reason and res.reason.startswith("guard"):
+            act = replacement.get("action")
+            if act is not None:  # the safe fixed line the guard produced
+                return StreamedTurn(action=act, spoken=spoken, result=res, language=lang)
+        if res.reason == "barge_in":
+            return StreamedTurn(
+                action=CallAction(type=CallActionType.WAIT), spoken=spoken, result=res,
+                language=lang,
+            )
+        out: CallActionOut | None = None
+        usable = res.complete and (res.reason is None or res.reason.startswith("gate"))
+        if usable:
+            try:
+                out = CallActionOut.model_validate_json(res.raw)
+            except (ValidationError, ValueError):
+                out = None
+        if out is None:
+            if spoken:  # words are never replayed: the reply ends where it was cut
+                log.warning("stream-to-tts: reply cut after %d sentences (%s)",
+                            len(spoken), res.reason)
+                return StreamedTurn(
+                    action=CallAction(type=CallActionType.WAIT), spoken=spoken, result=res,
+                    language=lang,
+                )
+            return await plain(f"stream unusable ({res.reason})")
+        action = guards.to_call_action(out, brief, answers, transcript)
+        if spoken and action.type == CallActionType.SAY:
+            said = norm(" ".join(spoken))
+            full = norm(action.text or "")
+            if full == said or said.startswith(full) or not full.startswith(said):
+                # everything (or, if the final text was reworded, as much as can be told) is spoken
+                action = action.model_copy(update={"type": CallActionType.WAIT, "text": None})
+            else:
+                rest = (action.text or "")[len(" ".join(spoken)) :].strip()
+                action = action.model_copy(update={"text": rest or None})
+                if not rest:
+                    action = action.model_copy(update={"type": CallActionType.WAIT})
+        return StreamedTurn(action=action, spoken=spoken, result=res, language=lang)
 
     async def door_turn(
         self, facts: dict[str, Any], volatile: dict[str, Any], language: Language
@@ -1182,7 +1299,12 @@ def build_brain(c: Container) -> FridayBrain:
             return None
         return frozenset(c.tts.supported_languages)
 
-    return FridayBrain(c.llm, c.settings, speakable=speakable)
+    brain = FridayBrain(c.llm, c.settings, speakable=speakable)
+    if getattr(c.settings, "llm_stream_to_tts", False):  # latency switch, default OFF
+        from friday.latency.stream_adapters import streaming_for
+
+        brain.streaming_llm = streaming_for(c.llm, "call_turn")
+    return brain
 
 
 __all__ = ["FridayBrain", "build_brain", "InboundCallBrief", "InboundContext", "RelatedTask"]
