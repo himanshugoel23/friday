@@ -851,3 +851,6 @@ Founder: "Yes, please read all the docs" (after I admitted missing the other ses
 
 ## Done (2026-10-22): all docs read; docs/STATE_OF_FRIDAY.md rewritten
 Eight reader agents covered all 71 docs and HANDOFF. New STATE_OF_FRIDAY.md has: big picture, built vs verified, founder decision list (6 groups), contradictions/stale list, and a 5-day pilot critical path. Founder next: confirm "live in 5 days = private pilot" and pick what to do first.
+
+## Question (2026-10-22): how to build an agent like the ElevenLabs ad (after-hours receptionist "Robin" + morning "what did I miss?")
+Founder asked how to make it and how to proceed. Answer given in chat: it is the receptionist/voicemail slice (conditional call forwarding to the shared Friday inbound number, take message, qualify, summarise, flag urgent, WhatsApp summary + spoken morning brief on request). Existing: friday/receptionist builder (switch FRIDAY_RECEPTIONIST_ENABLED off), front door, morning brief, Google Calendar. Needs: forwarding probe on founder's phone, wording audio approval, real inbound Vobiz test.
