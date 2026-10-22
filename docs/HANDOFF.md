@@ -826,3 +826,8 @@ Builder launched: (1) voice note in -> speech-to-text -> router -> voice note ou
 
 ## Question (2026-10-22): guardrails for the chatbot ("the user can ask anything"); also a sample line "jeans kaisa hai?"
 Wrote docs/CHATBOT_GUARDRAILS.md (policy table by category, layers, red-team test plan). Build after the running builders as `friday/guardrails` (policy classifier before the router, fixed wording, output filter, injection defence, eval + red-team set). Chat Lab builder launched (token-protected test UI, simulator only).
+
+## Done (2026-10-22): chatbot pilot layer merged and pushed (full suite 5429 passed)
+friday/chatbot (first-run onboarding with consent record, menu/help/stop/support, contact-card and location capture, off-topic redirect + wishlist, composer rules, WhatsApp list messages, template drafts), migration 0010_chatbot, switch FRIDAY_CHATBOT_ONBOARDING (off), docs/CHATBOT_PILOT.md, docs/WHATSAPP_TEMPLATES.md. 78 copy ids + 18 template bodies pending the founder's approval.
+Founder decisions: separate chat-tester list vs the dial allow-list; "delete everything" phrase (typed DELETE vs "haan, sab mita do"); support forwarding needs the founder's 24 h window open.
+Still running: voice-note + Devanagari builder, Chat Lab builder. Next to build: guardrails module (docs/CHATBOT_GUARDRAILS.md) after they land.
