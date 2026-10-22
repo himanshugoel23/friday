@@ -372,26 +372,41 @@ class Settings(BaseSettings):
     # Latency switches (docs/LATENCY.md, 2026-10-21). All default OFF; none changes a spoken word.
     # FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING: start understanding the early / stable transcript
     # while the caller's pause is still being timed out; reuse it if the final text is the same.
-    voice_speculative_understanding: bool = False
+    voice_speculative_understanding: bool = True
     # FRIDAY_LLM_STREAM_TO_TTS: stream a model-written reply and speak it sentence by sentence.
-    llm_stream_to_tts: bool = False
+    llm_stream_to_tts: bool = True
     # FRIDAY_INTENT_CLASSIFIER (+ _THRESHOLD): the small trained classifier answers the common
     # replies the rules are unsure about, above the threshold; otherwise rules + model as before.
-    intent_classifier: bool = False
+    intent_classifier: bool = True
     intent_classifier_threshold: float = Field(default=0.9, ge=0.5, le=1.0)
     # Voice quality (docs/LATENCY.md, 2026-10-21 second section). Both OFF; neither changes a word.
     # FRIDAY_VOICE_SEMANTIC_EOT: judge from the words whether the caller has finished; confidently
     # unfinished -> the pause wait grows by _EXTEND_MS (capped 1500), confidently finished and short
     # -> commit at the early point. _THRESHOLD: confidence needed (default: the trained model's).
-    voice_semantic_eot: bool = False
+    voice_semantic_eot: bool = True
     voice_semantic_eot_extend_ms: int = Field(default=700, ge=0, le=1500)
     voice_semantic_eot_threshold: float | None = Field(default=None, ge=0.5, le=1.0)
     # FRIDAY_VOICE_VAD_BACKEND: energy = the loudness rule (default); silero = trained neural VAD
     # (needs the optional extra `vad`; falls back to energy if it cannot load).
-    voice_vad_backend: Literal["energy", "silero"] = "energy"
+    voice_vad_backend: Literal["energy", "silero"] = "silero"
     voice_vad_start_prob: float = Field(default=0.5, ge=0.05, le=0.99)  # speech turns on
     voice_vad_stop_prob: float = Field(default=0.35, ge=0.02, le=0.99)  # speech turns off below
     voice_vad_barge_prob: float = Field(default=0.75, ge=0.3, le=0.99)  # stricter: talk over her
+    # ---- human-like voice (docs/HUMAN_VOICE.md). FRIDAY_VOICE_PROFILE=internal-test switches ON every
+    # element below that is not already on, unless the env sets it explicitly. Production / pilot
+    # keep the AUDIBLE ones OFF until the founder approves the audio. Silent ones are ON.
+    voice_profile: Literal["production", "internal-test"] = "production"
+    human_resume: bool = True  # FRIDAY_HUMAN_RESUME: after barge-in continue the unfinished point
+    human_metrics: bool = True  # FRIDAY_HUMAN_METRICS: per-call human-feel report (silent)
+    human_noise_adapt: bool = False  # FRIDAY_HUMAN_NOISE_ADAPT: noise-aware thresholds + repeat ask
+    human_backchannels: bool = False  # FRIDAY_HUMAN_BACKCHANNELS: "haan ji" in long answers
+    human_prosody: bool = False  # FRIDAY_HUMAN_PROSODY: per-line pace and pauses
+    human_numbers: bool = False  # FRIDAY_HUMAN_NUMBERS: spoken Hinglish numbers/times/prices
+    human_variants: bool = False  # FRIDAY_HUMAN_VARIANTS: phrasing variety (pending table)
+    human_mirror: bool = False  # FRIDAY_HUMAN_MIRROR: pure English / pure Hindi variants
+    human_mood: bool = False  # FRIDAY_HUMAN_MOOD: rushed / annoyed callee -> shorter lines
+    human_match_listener: bool = False  # FRIDAY_HUMAN_MATCH_LISTENER: pace + length follow the listener
+    human_pauses: bool = False  # FRIDAY_HUMAN_PAUSES: right-sized thoughtful silences
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")
     )
@@ -715,6 +730,19 @@ class Settings(BaseSettings):
 
             for key, name in template_names().items():
                 self.whatsapp_templates.setdefault(key, name)
+        return self
+
+    @model_validator(mode="after")
+    def _internal_test_voice(self) -> Settings:
+        """FRIDAY_VOICE_PROFILE=internal-test: every human-voice switch ON unless set explicitly."""
+        if self.voice_profile == "internal-test":
+            from friday.human.profile import INTERNAL_TEST_ON
+
+            for name in INTERNAL_TEST_ON:
+                if name not in self.model_fields_set:
+                    setattr(self, name, True)
+            if "voice_vad_backend" not in self.model_fields_set:
+                self.voice_vad_backend = "silero"
         return self
 
     @model_validator(mode="after")
