@@ -21,7 +21,7 @@ No calls are placed and no real person is messaged in this slice. Never paste a 
 
 ## Slice 0 is 100% when
 - [ ] `friday doctor` shows PASS with no FAIL (WARN lines are explained and accepted)
-- [ ] database at the latest migration (0009_life_state)
+- [ ] database at the latest migration (0010_chatbot)
 - [ ] "hi" on WhatsApp gets a reply, and a message with a wrong signature is rejected (doctor checks the handshake)
 - [ ] the off switch works and you tried it
 - [ ] the four consumer switches are still off (FRIDAY_CONSUMER_CALLS_ENABLED, FRIDAY_SAVINGS_ENABLED, FRIDAY_LIFESTATE_ENABLED, FRIDAY_GOOGLE_ENABLED)

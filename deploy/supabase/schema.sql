@@ -1320,5 +1320,55 @@ CREATE INDEX ix_life_followups_user_sent ON life_followups (user_id, sent_at);
 
 UPDATE alembic_version SET version_num='0009_life_state' WHERE alembic_version.version_num = '0008_savings_engine';
 
+-- Running upgrade 0009_life_state -> 0010_chatbot
+
+CREATE TABLE chatbot_sessions (
+    phone_hash VARCHAR(64) NOT NULL, 
+    user_id VARCHAR(32), 
+    step VARCHAR(24) NOT NULL, 
+    lang VARCHAR(8) NOT NULL, 
+    step_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    pending_kind VARCHAR(24), 
+    pending TEXT, 
+    last_hash VARCHAR(32), 
+    refused_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_chatbot_sessions PRIMARY KEY (id), 
+    CONSTRAINT fk_chatbot_sessions_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_chatbot_sessions_phone_hash UNIQUE (phone_hash)
+);
+
+CREATE INDEX ix_chatbot_sessions_user_id ON chatbot_sessions (user_id);
+
+CREATE TABLE chatbot_waitlist (
+    phone_hash VARCHAR(64) NOT NULL, 
+    first_seen_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    hits INTEGER NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_chatbot_waitlist PRIMARY KEY (id), 
+    CONSTRAINT uq_chatbot_waitlist_phone_hash UNIQUE (phone_hash)
+);
+
+CREATE TABLE chatbot_inbox (
+    kind VARCHAR(12) NOT NULL, 
+    user_id VARCHAR(32), 
+    text TEXT NOT NULL, 
+    lang VARCHAR(8) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_chatbot_inbox PRIMARY KEY (id), 
+    CONSTRAINT fk_chatbot_inbox_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_chatbot_inbox_user_id ON chatbot_inbox (user_id);
+
+CREATE INDEX ix_chatbot_inbox_kind_created ON chatbot_inbox (kind, created_at);
+
+UPDATE alembic_version SET version_num='0010_chatbot' WHERE alembic_version.version_num = '0009_life_state';
+
 COMMIT;
 

@@ -414,6 +414,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.integration.demo import add_parser as _add_consumer
 
     _add_consumer(sub)  # `friday consumer demo` (offline)
+    from friday.chatbot.cli import add_parser as _add_chatbot
+
+    _add_chatbot(sub)  # `friday chatbot wishlist | status | templates check | templates render`
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -542,6 +545,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.integration.demo import run_command as run_consumer_command
 
         return run_consumer_command(args)
+    if args.cmd == "chatbot" and args.chatbot_cmd == "templates":  # offline: no .env, no network
+        from friday.chatbot.cli import run_offline as run_chatbot_templates
+
+        return run_chatbot_templates(args)
     if args.cmd == "pm-sim":  # offline: fakes only, never reads .env
         from friday.pm.cli import run_pm_sim
 
@@ -710,6 +717,10 @@ def main(argv: list[str] | None = None) -> int:
         except KeyboardInterrupt:
             print("\nStopped by you (Ctrl+C).")
             return 130
+    if args.cmd == "chatbot":
+        from friday.chatbot.cli import run as run_chatbot
+
+        return run_chatbot(args, settings.database_url)
     if args.cmd == "savings":
         from friday.savings.cli import run as run_savings
 

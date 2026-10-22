@@ -44,8 +44,9 @@ TITLES = {
     "off_switch": "7. off switch (kill switch)",
     "systemd": "8. service (systemd)",
 }
-# chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state must be in the code
-EXPECTED_HEAD_CHAIN = "0009_life_state"
+# chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
+# must be in the code
+EXPECTED_HEAD_CHAIN = "0010_chatbot"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"

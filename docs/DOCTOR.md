@@ -24,8 +24,8 @@ The older laptop checks (Python, uv, tunnel) are still available as `friday doct
 
 ## 2. database
 - `cannot connect` (FAIL): the database address or password in `FRIDAY_DATABASE_URL` is wrong, or this machine is not allowed in. Re-check the Supabase connection string.
-- `migrations have never been applied` / `migration mismatch` (FAIL): the database is behind the code. Run `uv run python -m friday.db.migrate up`. The latest step must be `0009_life_state` (chain 0006, 0007_consumer_calls, 0008_savings_engine, 0009_life_state).
-- `this code does not contain migration 0009_life_state` (WARN): the server has an old copy of Friday. Update it.
+- `migrations have never been applied` / `migration mismatch` (FAIL): the database is behind the code. Run `uv run python -m friday.db.migrate up`. The latest step must be `0010_chatbot` (chain 0006, 0007_consumer_calls, 0008_savings_engine, 0009_life_state, 0010_chatbot).
+- `this code does not contain migration 0010_chatbot` (WARN): the server has an old copy of Friday. Update it.
 - `N expected table(s) missing` (FAIL): the migration did not finish. Run the same `migrate up` command.
 - `row level security is OFF on ...` (FAIL, Postgres/Supabase only): the tables are readable through Supabase's public key. Run `uv run python -m friday.db.migrate rls`.
 - RLS `[SKIP]` on SQLite is normal for a test machine.
