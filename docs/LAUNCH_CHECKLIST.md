@@ -80,6 +80,8 @@ and the circle opt-in `beneficiary_optin` (name, requester, relation, what). Eac
 (the message text, <= 1024 chars) except the opt-in. Register Hindi and English (`FRIDAY_WHATSAPP_TEMPLATES` can
 override names). Free-form messages are only allowed inside the 24 h window after the user's last message.
 
+Chatbot pilot drafts (morning brief, follow-up, bill reminder, call outcome, re-engage, consent again; Hinglish, Hindi, English): `docs/WHATSAPP_TEMPLATES.md`, checked by `uv run friday chatbot templates check`. Wording pending founder approval; do not submit before it.
+
 ## 5. SMS: DLT, Truecaller
 
 * **DLT** (TRAI): register the entity (-> `DLT_ENTITY_ID`), a 6-char header (`FRIDAY_SMS_SENDER_ID`) and templates for
