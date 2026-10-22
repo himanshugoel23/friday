@@ -23,6 +23,13 @@ class ToolDef:
     input: dict[str, Any]
     output: dict[str, Any]
     tags: tuple[str, ...] = field(default=())
+    # (argument name, values) -> the call is irreversible when args[name] is one of the values
+    escalate: tuple[str, tuple[str, ...]] | None = None
+
+    def level_for(self, args: dict[str, Any]) -> Level:
+        if self.escalate and args.get(self.escalate[0]) in self.escalate[1]:
+            return Level.irreversible
+        return self.level
 
     @property
     def versioned(self) -> str:

@@ -84,7 +84,8 @@ class ToolRegistry:
             self._log(ctx, name, "?", "deny", "unknown tool", args, "not_run")
             raise ToolError("unknown_tool")
         tool, handler = entry
-        lvl = tool.level.value
+        eff = tool.level_for(args) if isinstance(args, dict) else tool.level
+        lvl = eff.value
 
         def refuse(code: str, decision: str, why: str) -> ToolError:
             self._log(ctx, tool.versioned, lvl, decision, why, args, "not_run")
@@ -97,7 +98,7 @@ class ToolRegistry:
         problems = validate(args, tool.input)
         if problems:
             raise refuse("invalid", "invalid", "; ".join(problems[:3]))
-        if tool.level is Level.irreversible and not self.approvals.is_approved(
+        if eff is Level.irreversible and not self.approvals.is_approved(
                 ctx.user_id, ctx.task_id, name, args):
             raise refuse("needs_approval", "ask", "irreversible step needs the user's approval")
         try:
