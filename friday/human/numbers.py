@@ -66,21 +66,17 @@ def phone_words(digits: str) -> str:
     return digits_words(d)
 
 
-_PERIOD_PM = ((12, 15, "dopahar"), (16, 18, "shaam"), (19, 24, "raat"))
-
-
 def _period(h24: int, explicit: bool) -> str:
     if not explicit:
         return ""
-    if h24 == 0:
+    if h24 < 4:
         return "raat"
     if h24 < 12:
-        return "subah" if h24 >= 4 else "raat"
-    for lo, hi, w in _PERIOD_PM:
-        if lo <= h24 <= hi - (0 if lo != 12 else 0) and h24 < hi + 1:
-            if lo == 12 and h24 > 15:
-                continue
-            return w
+        return "subah"
+    if h24 < 16:
+        return "dopahar"
+    if h24 < 19:
+        return "shaam"
     return "raat"
 
 
@@ -96,7 +92,6 @@ def time_words(hour: int, minute: int, mer: str | None = None) -> str:
     explicit = bool(m) or hour >= 13 or hour == 0
     per = _period(h24, explicit)
     pre = f"{per} " if per else ""
-    nxt = h24 % 12 + 1 if h24 % 12 + 1 <= 12 else 1
     nxt = (h12 % 12) + 1
     if minute == 0:
         return f"{pre}{_U[h12]} baje"
@@ -112,7 +107,7 @@ def time_words(hour: int, minute: int, mer: str | None = None) -> str:
 _RUPEE = r"(?:₹|rs\.?|inr)\s*"
 _RE_PRICE_PRE = re.compile(rf"{_RUPEE}(\d[\d,]*)", re.I)
 _RE_PRICE_POST = re.compile(r"\b(\d[\d,]*)\s*(?:rs\.?|rupees?|rupaye|rupaiye|₹)(?=\W|$)", re.I)
-_RE_TIME = re.compile(r"\b(\d{1,2})[:.](\d{2})\s*(a\.?m\.?|p\.?m\.?)?(?!\d)", re.I)
+_RE_TIME = re.compile(r"\b(\d{1,2})[:.](\d{2})(?:\s*(a\.?m\.?|p\.?m\.?))?(?!\d)", re.I)
 _RE_TIME_MER = re.compile(r"\b(\d{1,2})\s*(a\.?m\.?|p\.?m\.?)(?=\W|$)", re.I)
 _RE_PHONE = re.compile(r"(?<![\d])(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?![\d])")
 _RE_NUM = re.compile(r"(?<![\w.])(\d[\d,]*)(?![\w])")
@@ -136,4 +131,5 @@ def speak_numbers(text: str, language: str = "hinglish") -> str:
         if int(m.group(1)) <= 24 and int(m.group(2)) < 60 else m.group(0), out)
     out = _RE_TIME_MER.sub(lambda m: time_words(int(m.group(1)), 0, m.group(2)) if int(m.group(1)) <= 12 else m.group(0), out)
     out = _RE_NUM.sub(lambda m: number_words(int(m.group(1).replace(",", ""))) if len(m.group(1)) <= 9 else digits_words(m.group(1)), out)
-    return out
+    out = re.sub(r"\b(subah|dopahar|shaam|raat) (?=(?:subah|dopahar|shaam|raat) )", "", out)
+    return re.sub(r"\bbaje(?: baje)+\b", "baje", out)
