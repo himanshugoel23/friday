@@ -85,8 +85,8 @@ _PROMISE = re.compile(
 _INFO = re.compile(
     r"\b(?:where (?:is|are)|kahan (?:hain|hai|gaye|gayi)|kidhar|which city|kis shehar|(?:his|her|unka|unki|inka|ghar ka|office ka|home) address|"
     r"ghar ka|office ka|his number|her number|unka number|mobile number do|what time|kab aayenge|"
-    r"kab milenge|when will (?:he|she)|is he (?:at|in|home)|ghar par hain|schedule|busy kyun|"
-    r"kya kar rahe|kaun sa hotel|location|kab tak)\b",
+    r"kab milenge|when will (?:he|she)|is he (?:at|in|home)|ghar par hain|(?:his|her|unka|unki) schedule|busy kyun|"
+    r"kya kar rahe|kaun sa hotel|(?:his|her|unki|unka) location|kab tak)\b",
     re.I,
 )
 _NAME_PATTERNS = [
@@ -117,7 +117,7 @@ _PHONE = re.compile(r"(?:\+?91[\s-]?)?(?:\d[\s-]?){10}")
 _SECRET = re.compile(r"\b(?:otp|pin|cvv|cvc|password|passcode|card number|ओटीपी|पिन)\b", re.I)
 
 
-def _clean_name(raw: str | None) -> str | None:
+def clean_name(raw: str | None) -> str | None:
     if not raw:
         return None
     parts = []
@@ -137,7 +137,7 @@ def extract_name(text: str) -> str | None:
     for rx in _NAME_PATTERNS:
         m = rx.search(text)
         if m:
-            n = _clean_name(m.group("n"))
+            n = clean_name(m.group("n"))
             if n:
                 return n
     return None
@@ -186,6 +186,8 @@ def hear(utt: HeardUtterance | None, *, awaiting_confirm: bool = False) -> Heard
     name = extract_name(text)
     number = extract_number(text)
 
+    long_text = len(text.split()) > 18  # a long message is content, not a question about the user
+
     def mk(said: Said) -> Heard:  # keep a self-introduction / number given in the same breath
         return Heard(said, text, name=name, callback_number=number, language=lang)
 
@@ -197,11 +199,11 @@ def hear(utt: HeardUtterance | None, *, awaiting_confirm: bool = False) -> Heard
         return Heard(Said.WRONG_NUMBER, text, language=lang)
     if _DECLINE.search(text):
         return mk(Said.DECLINES_NOTES)
-    if _CONNECT.search(text):
+    if not long_text and _CONNECT.search(text):
         return mk(Said.WANTS_CONNECT)
-    if _PROMISE.search(text):
+    if not long_text and _PROMISE.search(text):
         return mk(Said.WANTS_PROMISE)
-    if u.intent == CalleeIntent.ASKS_ABOUT_USER or _INFO.search(text):
+    if not long_text and (u.intent == CalleeIntent.ASKS_ABOUT_USER or _INFO.search(text)):
         return mk(Said.ASKS_USER_INFO)
     if u.intent == CalleeIntent.WHO_IS_THIS and len(text.split()) <= 6:
         return Heard(Said.WHO, text, language=lang)

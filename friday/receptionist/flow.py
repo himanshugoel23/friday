@@ -26,7 +26,7 @@ from collections.abc import Callable
 from friday.liveagent.contracts import CallLanguage
 from friday.liveagent.ports import CallDropped, TelephonyPort
 from friday.receptionist import lines
-from friday.receptionist.hear import Heard, Said, hear
+from friday.receptionist.hear import Heard, Said, clean_name, hear
 from friday.receptionist.models import CallCapture, CallOutcomeKind, ReceptionistConfig
 from friday.voice.text import redact_secrets
 
@@ -220,7 +220,7 @@ class ReceptionistFlow:
             return
         words = h.text.split()
         if self.expect == "name" and not self.name and len(words) <= 3:
-            self.name = self._safe_name(h.name or " ".join(words)) or self.name
+            self.name = self._safe_name(h.name or clean_name(" ".join(words))) or self.name
             if not h.reason or h.reason == h.text:
                 h = Heard(Said.CONTENT, h.text, name=self.name, reason=None, callback_number=h.callback_number)
         if self.expect == "reason" and not h.reason and h.text:
