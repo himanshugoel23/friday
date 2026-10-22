@@ -20,14 +20,14 @@ Caller ID can be spoofed or shared (switchboard, employee mobile). A number matc
 
 Lookup `identify(channel, from, context)` returns `{result: exactly_one | several | none, task_ids, confidence, evidence}`:
 1. Quoted message id or button payload names a task: **exactly_one, 0.98** (sender number must match the vendor, else rule 3).
-2. Number has one open row: **exactly_one, 0.9**. Closed within 7 days (founder to confirm window) and no open row: exactly_one, 0.7, "follow-up".
+2. Number has one open row: **exactly_one, 0.9**. Closed within 7 days (window: founder to confirm), no open row: exactly_one, 0.7.
 3. Several rows (other channel, chain number): **several**, ask.
 4. No row: **none**.
 
-Confidence below 0.9 means "confirm first", never "act".
+Below 0.9: confirm first.
 
 ## (c) Rules
-- **Queueing.** A second user's task to a busy vendor waits (`queued`) until the first closes or times out (default 24 h). The user is told "waiting for Salon X's earlier request".
+- **Queueing.** A second user's task to a busy vendor waits (`queued`) until the first closes or times out (default 24 h); the user is told it is waiting.
 - **Reference code.** Four digits from 2-9, no triple repeats, unique among that vendor's rows, e.g. 4829. Spoken as "chaar, aath, do, nau". Digits beat word pairs: STT handles Hinglish digits well, word pairs break under accent and transliteration. Say it twice at call end. WhatsApp: "Ref FR-4829".
 - **Ask without leaking.** Never offer names or options. Ask open: "Aap kis ke baare mein baat kar rahe hain? Kis naam se, kaunsi service?" Compare the answer only against the candidate tasks of that number.
 - **Fuzzy match.** Normalise Devanagari/Roman (`lang_dev`), phonetic key, edit distance, service words. Accept only if the best beats the second by a clear margin.
