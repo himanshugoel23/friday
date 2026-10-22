@@ -38,3 +38,11 @@ A3.1 free-form level for personal calls (recommended: bounded moves, as built); 
 24. W4's morning-brief text replaces the generic text for users who opted in.
 25. Delete everything: keep both W4's two-step phrase and the PIN flow?
 26. A group child opens with a neutral "Hello, namaste" because the approved parent plan has no single name.
+
+## Call test (22 Oct)
+27. Real consumer calls are pilot-profile-only for now. OK?
+28. `friday pause` now also ends a consumer call in progress (older rule: calls in progress finish). Keep?
+29. The test call never retries; normal calls retry +1 h, +3 h.
+30. If no Friday user has your number, call-test creates one; or require a WhatsApp message to Friday first?
+31. Approve the default test message: "Friday abhi test chal raha hai, aap mujhe aaram se sun sakte hain." and the printed wording in friday/integration/copy.py.
+32. Test calls count toward the per-number limits (3 a day, 6 a week).
