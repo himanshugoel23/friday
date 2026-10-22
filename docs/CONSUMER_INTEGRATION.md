@@ -42,6 +42,8 @@ proactive path (one tick)
 | File | What |
 |---|---|
 | `friday/integration/bridge.py` | W1 brief -> W2 brief, W2 result -> W1 outcome (`STATUS_MAP`), `LiveEngineAdapter` (the production `LiveCallEngine`), `LiveOpeningLineProvider`, `TelephonyFactory` (default REFUSES), redirect/allow-list on the dial target |
+| `friday/integration/telephony.py` | `ConsumerTelephonyFactory`: the production line (real Sarvam/Vobiz leg), built by `build_consumer` only for live + pilot profile + calls switch; see docs/CONSUMER_CALL_TEST.md |
+| `friday/integration/call_test.py` | `friday consumer call-test [--dry-run]`: one test call to your own allow-listed phone |
 | `friday/integration/taskport.py` | `QueueTaskPort` (W1 `TaskPort`), `job_handler`, `ConsumerJobs` (`run_due`, `recover_stale`, `purge_expired`) |
 | `friday/integration/router.py` | `ConsumerRouter`: the front door, `clash_note`, `on_task_done`, `periodic`, calendar sync |
 | `friday/integration/buttons.py` | `ButtonRegistry` and the prefixes |
@@ -107,8 +109,8 @@ callee and an in-memory database (no network, no `.env`; the card rows are inven
 
 - Real WhatsApp: templates outside the 24-hour window (the simulator renders a template; the real template names/approval are unchecked), button
   payload limits, delivery receipts for the new messages.
-- Real voice: no `TelephonyFactory` for the real Sarvam/Vobiz leg exists yet (`liveagent/sarvam_adapter.SarvamLegPort` wraps a leg, nothing opens one for
-  a consumer call). Real latency, Hindi/Hinglish STT on real callees, IVR and voicemail on a live line, the opening line heard aloud.
+- Real voice: the production `TelephonyFactory` now exists (`friday/integration/telephony.py`, tested with fakes) but no real call has been placed through it
+  (run `friday consumer call-test`, docs/CONSUMER_CALL_TEST.md). Real latency, Hindi/Hinglish STT on real callees, IVR and voicemail on a live line, the opening line heard aloud.
 - Live database: migrations 0006-0009 were not applied to Supabase/Postgres; the integration tests ran on SQLite only. No Postgres run.
 - The call-intake state (a half-finished request, an Edit in progress, a pending capture question) is in process memory with a 30-minute life; it
   is lost on restart and not shared between replicas (it holds a pending number, so it must not go in the shared cache).
@@ -137,7 +139,7 @@ only EXAMPLE rows that are never served), set `FRIDAY_SAVINGS_ENABLED=true` and/
 wording of `savings/copy.py`, `lifestate/copy.py` and this module's `copy.py`. Google: create the Google Cloud project per `docs/GOOGLE_CONNECTOR.md`, set its
 client id/secret/redirect, `FRIDAY_GOOGLE_ENABLED=true`, named testers only.
 
-Calls: `FRIDAY_CONSUMER_CALLS_ENABLED=true` AND a real `TelephonyFactory` (the one missing piece: open a Sarvam/Vobiz leg to the dial number and return it as a
-`TelephonyLease`), approval of `calls/copy.py` and the `liveagent/lines.py` audio, `FRIDAY_PILOT_ALLOWED_NUMBERS` limited to the founder's own number and
-`FRIDAY_VENDOR_CALL_REDIRECT_TO` set to it for the first test, and his approval of one specific test call. Until the factory exists the switch only makes Friday
+Calls: `FRIDAY_CONSUMER_CALLS_ENABLED=true` with `FRIDAY_MODE=live` and `FRIDAY_PROFILE=pilot` (then the production `ConsumerTelephonyFactory` is wired; in any other
+profile the line still refuses), approval of `calls/copy.py` and the `liveagent/lines.py` audio, `FRIDAY_PILOT_ALLOWED_NUMBERS` limited to the founder's own number and
+`FRIDAY_VENDOR_CALL_REDIRECT_TO` set to it for the first test, and his approval of one specific test call. Outside live + pilot the switch only makes Friday
 say that the calling line is not on.

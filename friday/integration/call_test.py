@@ -359,9 +359,11 @@ async def run_call_test(
     opts: Options,
     *,
     settings: Settings | None = None,
-    out: Callable[[str], None] = print,
-    ask: Callable[[str], str] = input,
+    out: Callable[[str], None] | None = None,
+    ask: Callable[[str], str] | None = None,
 ) -> int:
+    out = out or print
+    ask = ask or input  # looked up now, so a test (or a wrapper) can replace the builtin
     dry = opts.dry_run
     base = settings or (Settings(_env_file=None) if dry else Settings())
     cs = CallsSettings()
