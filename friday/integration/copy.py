@@ -128,3 +128,71 @@ def line(key: str, lang: str = DEFAULT_LANGUAGE, **fmt: object) -> str:
 def spoken(key: str, lang: str = DEFAULT_LANGUAGE) -> str:
     variants = SPOKEN[key]
     return variants.get(lang) or variants[DEFAULT_LANGUAGE]
+
+
+# ------------------------------------------------------------------------------ call-test CLI
+# `friday consumer call-test` is a founder-only tool (English, printed on the server console, never
+# sent to a user). PENDING_FOUNDER_APPROVAL like the rest. The one SPOKEN line is "test_goal": the
+# default message of the test call when the founder gives no --goal (it is said verbatim).
+CALL_TEST: dict[str, str] = {
+    "banner_dry": "DRY RUN: nothing will be dialled. A simulated callee ({persona}) plays the other side.",
+    "banner_real": "REAL CALL TEST: this places ONE real phone call from Friday to {to}.",
+    "refuse": "REFUSED: {why}",
+    "why_not_allowed": "{to} is not on your allow-list (FRIDAY_PILOT_ALLOWED_NUMBERS), so Friday will not call it.",
+    "why_no_allowlist": "no number is on your allow-list. Set FRIDAY_PILOT_ALLOWED_NUMBERS to your own phone first.",
+    "why_bad_number": "that is not a valid phone number (use +91XXXXXXXXXX).",
+    "why_switch_off": "FRIDAY_CONSUMER_CALLS_ENABLED is not true.",
+    "why_not_live": "FRIDAY_MODE is not 'live'.",
+    "why_not_pilot": "FRIDAY_PROFILE is not 'pilot'; real consumer calls are pilot-only for now.",
+    "why_paused": "the kill switch is on (run `friday pause --resume` or remove FRIDAY_PAUSED to continue).",
+    "why_problem": "setup problem: {problem}",
+    "why_seconds": "--max-seconds must be between {low} and {high}.",
+    "why_gate": "the safety gate did not allow this call ({reasons}). Nothing was dialled.",
+    "why_window": "it is outside the calling window for this kind of call, so nothing was dialled. Try again inside the window.",
+    "user_created": "Note: no Friday user had this number, so a local test user was created for it.",
+    "server_failed": "REFUSED: could not start Friday on port {port} (is `friday` still running? stop it first).",
+    "server_unreachable": "REFUSED: {base}/health is not reachable from the internet. Check the tunnel/domain and FRIDAY_PUBLIC_BASE_URL.",
+    "server_up": "Friday is serving on port {port}.",
+    "head_plan": "The call plan",
+    "plan_to": "  To          : {to} ({who})",
+    "plan_goal": "  Goal        : {goal}",
+    "plan_goal_default": "  Goal        : {goal}   [default test message, PENDING founder approval]",
+    "plan_say": "  Friday says : {items}",
+    "plan_ask": "  Friday asks : {items}",
+    "plan_opening": "  FIRST THING YOU WILL HEAR (exact words):",
+    "plan_opening_line": '    "{line}"',
+    "plan_from": "  Caller ID   : {from_}",
+    "plan_max": "  Max length  : {seconds} s (hard cap)",
+    "plan_cost": "  Est. cost   : up to about Rs {cost} (upper-bound estimate)",
+    "plan_recording": "  Recording   : {state}. No recording notice is played (founder decision).",
+    "recording_on": "ON (the reference is kept for the retention period)",
+    "recording_off": "OFF",
+    "ask_yes": "Type YES to place the call: ",
+    "cancelled": "Cancelled. No call was placed.",
+    "placing": "Placing the call... answer your phone and talk. Ctrl+C hangs up and stops.",
+    "stopped": "Stopped by you (Ctrl+C). The line was hung up.",
+    "not_dialled": "No call was placed ({why}).",
+    "head_report": "Report Friday would send on WhatsApp ({sent}):",
+    "report_sent": "also sent",
+    "report_not_sent": "NOT sent; add --whatsapp-report to send it",
+    "head_summary": "===== CALL SUMMARY =====",
+    "sum_dial": "Dial status    : {v}",
+    "sum_duration": "Duration       : {v} s",
+    "sum_turns": "Turns          : {v}",
+    "sum_langs": "Languages      : {v}",
+    "sum_gap": "Reply gap      : p50 {p50} ms, p95 {p95} ms ({n} replies)",
+    "sum_gap_none": "Reply gap      : n/a (no replies measured)",
+    "sum_safety": "Safety blocks  : {v}",
+    "sum_outcome": "Outcome        : {v}",
+    "sum_cost": "Estimated cost : about Rs {v}",
+    "sum_transcript": "Transcript file: {v}",
+    "sum_log": "Call log file  : {v}",
+    "sum_none": "none",
+    "send_back": "Send back only these summary lines. Never send keys, the .env file or a full number.",
+    "test_goal": "Friday abhi test chal raha hai, aap mujhe aaram se sun sakte hain.",
+}
+
+
+def cli_line(key: str, **fmt: object) -> str:
+    text = CALL_TEST[key]
+    return text.format(**fmt) if fmt else text

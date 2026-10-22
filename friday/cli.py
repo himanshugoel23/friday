@@ -538,7 +538,7 @@ def main(argv: list[str] | None = None) -> int:
         from friday.playbooks.cli import run_command as run_playbook_command
 
         return run_playbook_command(args)
-    if args.cmd == "consumer":  # offline: fakes only, never reads .env, never dials
+    if args.cmd == "consumer":  # demo: offline; call-test: one allow-listed call
         from friday.integration.demo import run_command as run_consumer_command
 
         return run_consumer_command(args)

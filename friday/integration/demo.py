@@ -168,13 +168,20 @@ async def run_demo(which: str = "all") -> list[str]:
 
 
 def add_parser(sub: argparse._SubParsersAction) -> None:  # noqa: SLF001
-    p = sub.add_parser("consumer", help="consumer beta tools (offline)")
+    p = sub.add_parser("consumer", help="consumer beta tools (demo: offline; call-test: one call)")
     cs = p.add_subparsers(dest="consumer_cmd", required=True)
     demo = cs.add_parser("demo", help="print the WhatsApp transcript of the consumer scenarios")
     demo.add_argument("--scenario", choices=["all", *SCENARIOS], default="all")
+    from friday.integration.call_test import add_arguments as add_call_test
+
+    add_call_test(cs)  # `friday consumer call-test`: one real call to your allow-listed phone
 
 
 def run_command(args: argparse.Namespace) -> int:
+    if args.consumer_cmd == "call-test":
+        from friday.integration.call_test import run_command as run_call_test
+
+        return run_call_test(args)
     if args.consumer_cmd == "demo":
         for line in asyncio.run(run_demo(args.scenario)):
             print(line)
