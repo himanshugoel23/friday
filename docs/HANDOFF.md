@@ -831,3 +831,8 @@ Wrote docs/CHATBOT_GUARDRAILS.md (policy table by category, layers, red-team tes
 friday/chatbot (first-run onboarding with consent record, menu/help/stop/support, contact-card and location capture, off-topic redirect + wishlist, composer rules, WhatsApp list messages, template drafts), migration 0010_chatbot, switch FRIDAY_CHATBOT_ONBOARDING (off), docs/CHATBOT_PILOT.md, docs/WHATSAPP_TEMPLATES.md. 78 copy ids + 18 template bodies pending the founder's approval.
 Founder decisions: separate chat-tester list vs the dial allow-list; "delete everything" phrase (typed DELETE vs "haan, sab mita do"); support forwarding needs the founder's 24 h window open.
 Still running: voice-note + Devanagari builder, Chat Lab builder. Next to build: guardrails module (docs/CHATBOT_GUARDRAILS.md) after they land.
+
+## Done (2026-10-22): voice-note replies + Devanagari input merged and pushed (full suite 5596 passed)
+friday/chatbot_media (voice note in -> STT -> router -> voice note out, ogg/opus via ffmpeg, upload + send audio, per-user text|voice|mirror, caps, text fallback) and friday/lang_dev (Devanagari normaliser; held-out 98.9% intent / 97.9% strict, author-written so optimistic), switches FRIDAY_VOICE_NOTE_REPLIES and FRIDAY_DEVANAGARI_INPUT (off). docs/VOICE_NOTES_AND_DEVANAGARI.md. Installer now installs ffmpeg; doctor checks it.
+Founder decisions: wording approval; default mirror vs text; long replies text-only; voice preference storage in DB; cap 10/day; enable Devanagari for founder first; hear a voice sample before testers.
+Still running: Chat Lab builder. Next: guardrails module.
