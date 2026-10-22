@@ -44,7 +44,7 @@ LINES = [
     "Sunday ko hum subah dus baje se raat aath baje tak khule rehte hain.",
     "Bilkul sir, main abhi calendar dekh kar aapko bata deti hoon ki kaun sa time free hai.",
     "Dhanyavaad ji, aapka din shubh ho, Himanshu sir ko main yeh message de dungi.",
-    "Ji, unhe parso dopahar do baje aana hai, kya aap mujhe apna naam aur number bata sakte hain? Main unhe confirm kar dungi, aur agar time badalna ho toh bata dijiyega.",
+    "Ji, unhe parso dopahar do baje aana hai, kya aap mujhe apna naam aur number bata sakte hain? Main unhe confirm kar dungi, aur time badalna ho toh batana.",
 ]
 
 
