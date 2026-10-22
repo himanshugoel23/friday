@@ -97,6 +97,7 @@ class CallCapture(BaseModel):
     outcome: CallOutcomeKind = CallOutcomeKind.NO_MESSAGE
     declined_notes: bool = False  # the caller said "do not note this down"
     asked_if_ai: bool = False
+    asked_secret: bool = False  # the caller asked for an OTP / PIN / card detail
     duration_s: float = 0.0
     turns: int = 0
     transcript: list[tuple[str, str]] = Field(default_factory=list)  # (speaker, text), NOT stored

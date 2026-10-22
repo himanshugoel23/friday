@@ -801,5 +801,6 @@ import friday.chatbot.dbmodel  # noqa: E402,F401  (registers chatbot_sessions, c
 import friday.google.dbmodel  # noqa: E402,F401  (registers google_connections, google_oauth_states)
 import friday.lifestate.dbmodel  # noqa: E402,F401  (registers life_events, life_commitments, ...)
 import friday.quality.models  # noqa: E402,F401  (registers quality_calls)
+import friday.receptionist.dbmodel  # noqa: E402,F401  (registers receptionist_configs, _messages, _blocks)
 import friday.quotes.dbmodel  # noqa: E402,F401  (registers quote_conversations)
 import friday.savings.dbmodel  # noqa: E402,F401  (registers wallet_cards, card_rules, bills, savings_ledger)

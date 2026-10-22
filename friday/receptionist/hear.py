@@ -83,7 +83,7 @@ _PROMISE = re.compile(
     re.I,
 )
 _INFO = re.compile(
-    r"\b(?:where (?:is|are)|kahan (?:hain|hai|gaye|gayi)|kidhar|which city|kis shehar|address|"
+    r"\b(?:where (?:is|are)|kahan (?:hain|hai|gaye|gayi)|kidhar|which city|kis shehar|(?:his|her|unka|unki|inka|ghar ka|office ka|home) address|"
     r"ghar ka|office ka|his number|her number|unka number|mobile number do|what time|kab aayenge|"
     r"kab milenge|when will (?:he|she)|is he (?:at|in|home)|ghar par hain|schedule|busy kyun|"
     r"kya kar rahe|kaun sa hotel|location|kab tak)\b",
@@ -105,7 +105,7 @@ _NAME_STOP = re.compile(
     r"\b(?:from|se|ka|ki|ke|here|bol|bolta|bolti|speaking|hai|hoon|hu|hun|calling|and|aur|"
     r"ne|ko|mein|me|for|about|regarding|baare|bare|at|of|the|a|an|your|aapka|aapke|aap|kaam|call|"
     r"phone|se baat|karna|karni|chahta|chahti|chahte|wants|want|need|needs|have|had|was|is|are|"
-    r"sir|madam|ji|bhai|sahab|saab|उनसे|से|का|की|है|हूँ|हूं|और)\b",
+    r"sir|madam|ji|bhai|sahab|saab|plumber|electrician|driver|courier|delivery|agent|executive|manager|representative|regarding|उनसे|से|का|की|है|हूँ|हूं|और)\b",
     re.I,
 )
 _NOT_A_NAME = {

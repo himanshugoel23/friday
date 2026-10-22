@@ -420,6 +420,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.lang_dev.cli import add_parser as _add_devanagari  # voice notes + Devanagari
 
     _add_devanagari(sub)  # `friday chatbot devanagari-eval` (offline)
+    from friday.receptionist.cli import add_parser as _add_receptionist
+
+    _add_receptionist(sub)  # `friday receptionist-sim`, `friday receptionist codes|lines|probe`
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -549,6 +552,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if _devanagari_eval(args):  # offline: parsers only, never reads .env
         return _run_devanagari_eval(args)
+    from friday.receptionist.cli import handles as _receptionist_handles
+    from friday.receptionist.cli import run as _run_receptionist
+
+    if _receptionist_handles(args):  # offline: simulator, codes, lines, probe report
+        return _run_receptionist(args)
     if args.cmd == "consumer":  # demo: offline; call-test: one allow-listed call
         from friday.integration.demo import run_command as run_consumer_command
 

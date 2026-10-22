@@ -44,6 +44,7 @@ STRONG_SPAM = (
     "offer", "your number has been selected", "work from home", "part time job", "bitcoin",
     "लोन", "ऑफर", "बीमा", "इनाम", "निवेश", "क्रेडिट कार्ड", "केवाईसी",
 )  # fmt: skip
+SECRET_SCAM_CONTEXT = ("bank", "card", "account", "kyc", "block", "blocked", "atm", "upi", "debit", "credit")
 SPAM_PITCH = re.compile(
     r"\b(we are calling from|calling from .{0,30}(bank|company|team)|company se bol|bank se bol|"
     r"hamari company|aapke liye ek|aapko .{0,20}offer|product|marketing|sales team|"
@@ -126,6 +127,8 @@ class Classifier:
                 base.reasons = ["known contact"]
             return base
         spam = _has(said, STRONG_SPAM)
+        if cap.asked_secret and _has(said, SECRET_SCAM_CONTEXT):
+            spam = spam + ["asked for an OTP/PIN with bank/card wording"]
         pitch = bool(SPAM_PITCH.search(said))
         telemarketer = telemarketer_number(caller_number)
         if spam or telemarketer or (pitch and not weak):
