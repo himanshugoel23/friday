@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Human-feel metrics: one small record per call, an aggregate report, no transcripts, no numbers.
 
 Per call: hung up within 10 s of being answered, how many times the other side asked 'are you a

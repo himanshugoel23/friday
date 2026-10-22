@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The per-call human-voice layer: one object the call session talks to.
 
 Every element is gated by its own switch (``Settings.human_*``). With all of them off ``shape`` returns

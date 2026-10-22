@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Deterministic phrasing variety and light language mirroring from the PENDING table.
 
 Selection depends only on (call seed, line key, how many times the key was used before), so a call

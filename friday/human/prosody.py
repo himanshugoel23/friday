@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Per-line prosody hints: pace multiplier and pauses (as commas) by the kind of line.
 
 No new words. The pace multiplier is relative to the voice's own rate; pauses are plain commas

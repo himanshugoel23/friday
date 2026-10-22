@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The ``internal-test`` voice profile and the ON/OFF report of every voice switch.
 
 ``FRIDAY_VOICE_PROFILE=internal-test`` is for founder test calls to the allow-listed number only.

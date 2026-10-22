@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Backchannels ("haan ji", "hmm", "achha") during the other side's LONG answers.
 
 Rules (tests enforce them): only when Friday is silent AND the other person has been speaking for

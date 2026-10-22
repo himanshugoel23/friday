@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Numbers, prices, times and phone numbers read the way people say them in Hinglish.
 
 ``speak_numbers("Teen baje 450 rupaye", "hinglish")`` -> "Teen baje chaar sau pachaas rupaye".
@@ -10,17 +11,7 @@ from __future__ import annotations
 
 import re
 
-_U = (
-    "zero ek do teen chaar paanch chhe saat aath nau das gyarah barah terah chaudah pandrah solah "
-    "satrah atharah unnis bees ikkis baais teis chaubis pachchis chhabbis sattais atthais unnatis "
-    "tees ikatis battis taintis chauntis paintis chhattis saintis adtis unchalis chalis iktalis "
-    "bayalis taintalis chauvalis paintalis chhiyalis saintalis adtalis unchas pachaas ikyavan bavan "
-    "trepan chauvan pachpan chhappan sattavan atthavan unsath saath iksath baasath tirsath chausath "
-    "painsath chhiyasath adsath athsath unhattar sattar ikhattar bahattar tihattar chauhattar "
-    "pachhattar chhihattar satattar athattar unyasi assi ikyasi bayasi tirasi chaurasi pachasi "
-    "chhiyasi sataasi athasi nauasi nabbe ikyanve bayanve tiranve chauranve pachanve chhiyanve "
-    "sattanve atthanve ninyanve"
-).split()
+_U = ["zero", "ek", "do", "teen", "chaar", "paanch", "chhe", "saat", "aath", "nau", "das", "gyarah", "barah", "terah", "chaudah", "pandrah", "solah", "satrah", "atharah", "unnis", "bees", "ikkis", "baais", "teis", "chaubis", "pachchis", "chhabbis", "sattais", "atthais", "unnatis", "tees", "ikatis", "battis", "taintis", "chauntis", "paintis", "chhattis", "saintis", "adtis", "unchalis", "chalis", "iktalis", "bayalis", "taintalis", "chauvalis", "paintalis", "chhiyalis", "saintalis", "adtalis", "unchas", "pachaas", "ikyavan", "bavan", "trepan", "chauvan", "pachpan", "chhappan", "sattavan", "atthavan", "unsath", "saath", "iksath", "baasath", "tirsath", "chausath", "painsath", "chhiyasath", "adsath", "athsath", "unhattar", "sattar", "ikhattar", "bahattar", "tihattar", "chauhattar", "pachhattar", "chhihattar", "satattar", "athattar", "unyasi", "assi", "ikyasi", "bayasi", "tirasi", "chaurasi", "pachasi", "chhiyasi", "sataasi", "athasi", "nauasi", "nabbe", "ikyanve", "bayanve", "tiranve", "chauranve", "pachanve", "chhiyanve", "sattanve", "atthanve", "ninyanve"]
 assert len(_U) == 100
 DIGIT = ["zero", "ek", "do", "teen", "chaar", "paanch", "chhe", "saat", "aath", "nau"]
 

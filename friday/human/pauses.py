@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Right-sized silences: a short thoughtful pause (250-600 ms, varied, deterministic per call seed)
 before a hard question or right after the other side gives a price. Never dead air: the pause plus
 the reply gap stays under 1 s, and there is NO pause when the other side is waiting for our answer."""

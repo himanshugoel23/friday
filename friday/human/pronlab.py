@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Pronunciation lab: add a word and its preferred spoken form, test it through the TTS dictionary
 path, and (after listening) sync it. No model training, no voice cloning.
 

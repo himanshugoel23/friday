@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Barge-in resume: after an interruption continue the unfinished point, not the whole sentence."""
 
 from __future__ import annotations

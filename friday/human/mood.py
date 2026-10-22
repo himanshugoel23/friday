@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Mood adaptation: if the other side sounds rushed or annoyed, shorter lines, ONE quick apology,
 no extra questions. Rules only (no model). Stop / do-not-call requests stay with the call engine."""
 

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Match the listener: estimate how the other side talks and adapt our pace and line length.
 
 Signals from the transcript and its audio duration: speech rate (words per second), answer length,

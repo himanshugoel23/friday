@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Noise handling: estimate the line's background noise and adapt the voice detector.
 
 ``NoiseTracker`` is fed one RMS level per 20 ms frame (plus the detector's speech flag, and whether
