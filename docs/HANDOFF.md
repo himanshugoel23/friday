@@ -876,3 +876,10 @@ Founder asked to check. Reading docs/COMPETITORS.md + web search; findings appen
 
 ## Task (2026-10-22): read Meta's "Personal Agent Protocol"; is it useful for Friday?
 Founder asked. Research via web search; findings go to docs/COMPETITORS.md update (k).
+
+## Done (2026-10-22): friday/receptionist built and simulated offline (switch FRIDAY_RECEPTIONIST_ENABLED, default OFF)
+Package `friday/receptionist/` (carriers/setup/probe/identify/hear/flow/classify/store/service/wiring/sim/cli + lines.py and copy.py), migration `0011_receptionist` (tables receptionist_configs/messages/blocks), DataPurger coverage, 124 new tests (`tests/receptionist`), `friday receptionist-sim` (47 scripted callers, all pass), `friday receptionist codes|lines|probe`. Docs: `docs/RECEPTIONIST.md` (carrier code table, probe steps, UNVERIFIED list, open questions, every new spoken line + WhatsApp text for audio approval; a test keeps the doc and the line registry in sync). Wiring (inert while off): `InboundCallReceived.redirecting`, `_observe_redirect` in the Vobiz adapter, `receptionist` container component, claim hook in `CallbackService._from_event`, button / "what did I miss?" hook in `InboundPipeline._active`, digest loop in `Runtime`.
+NOT done / unverified: no real call, no audio, no real WhatsApp; the Vobiz field with the redirecting number is UNKNOWN (adapter with configurable keys + probe); all carrier codes are general knowledge; no real model behind the urgency interface; spoken "what did I miss?" is not wired into the front door voice conversation; WhatsApp template for urgent alerts outside 24 h not registered; morning digest is its own message (not merged into the generic briefing).
+Founder must: run the forwarding probe (docs/RECEPTIONIST.md section 3) on his own SIM, approve wording by audio, answer the open questions in section 12.
+Pre-existing failure seen (not from this work): tests/brain/test_sarvam_llm.py::test_default_is_sarvam_but_only_with_a_key_and_never_for_the_fake_llm.
+Lesson: the shared working directory is auto-committed ("WIP: receptionist builder in progress") by the lead session while a builder works; never `git stash` there.
