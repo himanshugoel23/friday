@@ -919,3 +919,6 @@ Founder: "for the voice, three, four, five, to make it more optimized". Items: (
 
 ## Question (2026-10-22): build a PRIVATE BROWSER where Friday ("Fred" dictated) operates browsers on the user's behalf, like Instinct's "personal computer operated by your AI"
 Existing: docs/BROWSER_AGENT_PLAN.md, friday/connectors (fake-site pizza flow, Zomato explore, parked 10-19; Zomato blocks cloud IPs). Answered in chat with a proposal; waiting for founder to confirm priority versus the 5-day pilot (HANDOFF rule: one slice at a time, finish 100% first).
+
+## Task (2026-10-22): engineering manager agent: design how Friday operates websites for the user in a private browser
+Founder asked to activate the EM agent. Output: docs/PRIVATE_BROWSER_EM.md (read-only design; builds on friday/connectors and docs/BROWSER_AGENT_PLAN.md; no code).
