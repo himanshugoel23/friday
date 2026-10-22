@@ -15,7 +15,7 @@ export DEBIAN_FRONTEND=noninteractive
 echo "== 1/6 packages"
 rm -f /etc/apt/sources.list.d/caddy-stable.list   # a leftover third-party Caddy repo returned 402; use Ubuntu's own package
 apt-get update -y
-apt-get install -y git curl ca-certificates debian-keyring debian-archive-keyring apt-transport-https gnupg python3 ufw
+apt-get install -y git curl ca-certificates debian-keyring debian-archive-keyring apt-transport-https gnupg python3 ufw ffmpeg   # ffmpeg: voice-note replies (Ogg/Opus) and decoding incoming voice notes
 command -v caddy >/dev/null || apt-get install -y caddy
 ufw allow 22/tcp >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw --force enable >/dev/null
 
