@@ -178,6 +178,12 @@ class InboundPipeline:
         from friday.pm.gateway import PMGateway
 
         self.pm_gateway = PMGateway(c)  # non-salon categories (off unless FRIDAY_PM_ENABLED)
+        # the WhatsApp chatbot pilot (docs/CHATBOT_PILOT.md): None unless FRIDAY_CHATBOT_ONBOARDING
+        self.chatbot: Any = None
+        if self.settings.chatbot_onboarding:
+            from friday.chatbot.service import ChatbotService
+
+            self.chatbot = ChatbotService(self)
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -395,6 +401,8 @@ class InboundPipeline:
                 return
             if await self._from_business(msg):
                 return
+            if self.chatbot is not None and await self.chatbot.handle_unknown(msg):
+                return  # pilot onboarding (consent first); False == the invite-code onboarding
             await self._new_user(msg)
             return
 
@@ -598,6 +606,9 @@ class InboundPipeline:
         if pending is not None and await self._continue_pending(user, msg, pending):
             return
 
+        if self.chatbot is not None and await self.chatbot.pre(user, msg):
+            return  # chatbot pilot: menu/help/stop/human/delete, captures, onboarding answers
+
         consumer = self.consumer()
         if consumer is not None and await consumer.handle(user, msg, quotes=self.quotes):
             return
@@ -609,6 +620,9 @@ class InboundPipeline:
 
         if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):
             return
+
+        if self.chatbot is not None and await self.chatbot.post(user, msg):
+            return  # chatbot pilot: a typed number becomes a contact; off-topic redirect
 
         brain = self.brain()
         if brain is None:

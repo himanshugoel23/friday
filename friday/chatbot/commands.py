@@ -94,7 +94,7 @@ _NAME_PREFIX = re.compile(
     _I,
 )
 _NAME_SUFFIX = re.compile(r"\s+(?:hai|hoon|hun|bulao|bulana|bulaiye|bolo|है|हूँ)$", _I)
-_NAME_OK = re.compile(r"^[^\W\d_][\w'.\- ]{0,38}$", re.UNICODE)
+_NAME_OK = re.compile(r"^[^\W\d_][\w\u0900-\u097f'.\- ]{0,38}$", re.UNICODE)
 _REQUESTISH = re.compile(
     r"\?|\b(?:call|karo|kar\s+do|chahiye|please|plz|batao|dikhao|kya|kaise|kab|kitna|kaun|"
     r"book|order|remind|yaad|bill|card|menu|help|stop|delete)\b",
@@ -166,7 +166,7 @@ def parse_win(text: str | None) -> str | None:
 # --------------------------------------------------------------------------- places and nicknames
 HOME_WORDS = re.compile(r"^(?:ghar|home|house|mera\s+ghar|घर)$", _I)
 OFFICE_WORDS = re.compile(r"^(?:office|offc|work|kaam|daftar|workplace|ऑफिस|दफ्तर)$", _I)
-_LABEL_OK = re.compile(r"^[^\W\d_][\w'.\- ]{0,28}$", re.UNICODE)
+_LABEL_OK = re.compile(r"^[^\W\d_][\w\u0900-\u097f'.\- ]{0,28}$", re.UNICODE)
 
 
 def parse_place_label(text: str | None) -> tuple[str, list[str]] | None:
