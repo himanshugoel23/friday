@@ -1,0 +1,12 @@
+# Placeholder owner: replace @OWNER with the real GitHub user or team before enabling
+# "Require review from Code Owners" in branch protection.
+*                                   @OWNER
+/.github/                           @OWNER
+/friday/connectors/                 @OWNER
+/friday/mcp/                        @OWNER
+/friday/calls/                      @OWNER
+/friday/core/crypto.py              @OWNER
+/friday/connectors/scrub.py         @OWNER
+/friday/connectors/gate.py          @OWNER
+/friday/db/migrations/              @OWNER
+/docs/HANDOFF.md                    @OWNER

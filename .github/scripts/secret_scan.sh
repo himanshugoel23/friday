@@ -28,7 +28,7 @@ ALLOW='secret-scan: allow'
 
 files=$(git ls-files | grep -vE '^(uv\.lock|\.github/scripts/secret_scan\.sh)$|\.(png|jpg|wav|mp3|ogg|pdf|ico)$')
 for name in "${!PATTERNS[@]}"; do
-  hits=$(echo "$files" | xargs -r grep -InE -e "${PATTERNS[$name]}" 2>/dev/null \
+  hits=$(echo "$files" | xargs -r grep -HInE -e "${PATTERNS[$name]}" 2>/dev/null \
     | grep -v "$ALLOW" | cut -d: -f1,2 || true)
   if [ -n "$hits" ]; then
     echo "FAIL: pattern '$name' matched at:"; echo "$hits" | sed 's/^/  /'; fail=1
