@@ -943,3 +943,9 @@ Synthetic Hinglish at 8 kHz, real-time frames. STT: saaras:v3-realtime is ALREAD
 
 ## Task (2026-10-22): Developer A, private browser runtime (friday/connectors/browser + friday/connectors/session)
 Lead asked: per-user isolated sessions (SessionManager, encrypted storage-state vault, default-deny network allow-list, limits, cleanup, concurrency caps), live view + takeover/give-back behind expiring single-use tokens, kill switch (`friday pause` + per-task abort), audit log without secrets, backend selector (local Playwright, cloud interface, headed-in-Xvfb option), tests on the fake site. Switch FRIDAY_BROWSER_ENABLED default off. Notes go to docs/PRIVATE_BROWSER_RUNTIME.md. Lesson to keep: do not touch files owned by others (core/config.py, recorder.py, flow.py).
+
+## Task (2026-10-22): Developer B, private-browser agents, two site connectors, user flow, simulator
+Founder/EM asked: single-job agents (planner, reader, locator, executor, verifier, safety gate, summariser) with LLM behind
+interfaces and fakes; Zomato food order extended + a second connector (chosen: BookMyShow movie tickets, see
+docs/PRIVATE_BROWSER_FLOWS.md); `friday/connectors/flow.py` user flow; `friday browser-sim`. Code in friday/connectors/sites/**,
+tests in tests/connectors_sites/**. Default OFF (FRIDAY_BROWSER_ENABLED=false). All user-facing lines PENDING approval.
