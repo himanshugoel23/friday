@@ -922,3 +922,6 @@ Existing: docs/BROWSER_AGENT_PLAN.md, friday/connectors (fake-site pizza flow, Z
 
 ## Task (2026-10-22): engineering manager agent: design how Friday operates websites for the user in a private browser
 Founder asked to activate the EM agent. Output: docs/PRIVATE_BROWSER_EM.md (read-only design; builds on friday/connectors and docs/BROWSER_AGENT_PLAN.md; no code).
+
+## Done (2026-10-22): docs/PRIVATE_BROWSER_EM.md (engineering manager design)
+Own server first behind the existing BrowserSession port; cloud-browser provider as a second backend; user's device only as optional login helper. Isolation: one container per task, one encrypted profile per user+site, default-deny network. Egress: Indian datacenter IP first; if blocked one sticky Indian residential IP per user; never rotate IPs to dodge bans. 7 single-job agents (planner, page reader, element locator, executor, verifier, safety gate, summariser); scripted connectors first, max 3 repairs per task, free browsing only with approval. Sites: no IRCTC automation, skip Amazon. Terms of Zomato/Uber/Ola/MakeMyTrip/BookMyShow/Flipkart not found: lawyer to read each. Costs are estimates. No code built. Founder to decide the order versus the 5-day pilot.
