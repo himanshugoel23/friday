@@ -108,6 +108,8 @@ class Notifier:  # implements core.interfaces.Notifier
         self.repos = repos
         self.messaging = messaging
         self.sms = sms
+        # HOOK (docs/VOICE_NOTES_AND_DEVANAGARI.md): None while both switches are off
+        self.outbound_hook: Any = None
 
     # ------------------------------------------------------------------ window
     def window(self) -> timedelta:
@@ -172,6 +174,14 @@ class Notifier:  # implements core.interfaces.Notifier
                 msg = await self._as_user_template(msg)
             else:
                 return await self._refuse(msg, TEMPLATE_REQUIRED)
+
+        # HOOK: script mirroring + optional voice note, only for free-form text inside the window
+        if self.outbound_hook is not None and msg.template is None:
+            hooked = await self.outbound_hook.before_send(msg)
+            msg = hooked.msg
+            if hooked.suppress_text and hooked.receipt is not None:
+                await self._log(msg, hooked.receipt)  # the voice note carried the whole reply
+                return hooked.receipt
 
         if self.durable and not from_job:
             return await self._enqueue(
@@ -588,7 +598,7 @@ def build_notifier(c: Container) -> Notifier:
             log.warning("notifier: %s not available", name)
             return None
 
-    return Notifier(
+    notifier = Notifier(
         settings=c.settings,
         clock=c.clock,
         bus=c.bus,
@@ -598,3 +608,8 @@ def build_notifier(c: Container) -> Notifier:
         outbox=_maybe("outbox"),
         durable=c.settings.resolve_queue() == "postgres",
     )
+    if c.settings.voice_note_replies or c.settings.devanagari_input:  # HOOK (both default off)
+        from friday.chatbot_media.wiring import attach_outbound
+
+        attach_outbound(c, notifier)
+    return notifier

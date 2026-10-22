@@ -435,6 +435,8 @@ class InboundPipeline:
     async def _transcribe(self, msg: InboundMessage) -> str | None:
         if not msg.media_url:
             return None
+        if self.settings.voice_note_replies and (hook := self._media_hook()) is not None:
+            return await hook.transcribe(msg)  # HOOK: same download caps, adds confidence
         messaging = self._opt("messaging")
         if messaging is None:
             return None
@@ -592,8 +594,38 @@ class InboundPipeline:
         await self.callbacks.on_business_message(msg, match)
         return True
 
+    # ------------------------------------------------------------------ voice notes + Devanagari
+    def _media_hook(self) -> Any:
+        """HOOK (docs/VOICE_NOTES_AND_DEVANAGARI.md): the voice-note / script side of the chatbot,
+        or None while FRIDAY_VOICE_NOTE_REPLIES and FRIDAY_DEVANAGARI_INPUT are both off."""
+        if not (self.settings.voice_note_replies or self.settings.devanagari_input):
+            return None
+        if not hasattr(self, "_media_in"):
+            from friday.chatbot_media.wiring import build_inbound
+
+            self._media_in = build_inbound(self.c, self)
+        return self._media_in
+
+    async def _media_inbound(self, user: User, msg: InboundMessage) -> InboundMessage | None:
+        hook = self._media_hook()
+        if hook is None:
+            return msg
+        out = await hook.on_inbound(user, msg)
+        if out is not None and self.settings.devanagari_input:
+            from friday.lang_dev.hook import normalise_inbound
+
+            out = normalise_inbound(out)
+        return out
+
     # ------------------------------------------------------------------ active users
     async def _active(self, user: User, msg: InboundMessage) -> None:
+        # HOOK: remember voice/script for the reply, ask back on a low-confidence transcript,
+        # normalise Devanagari to Roman for the parsers (the log above kept the original text)
+        if self._media_hook() is not None:
+            routed = await self._media_inbound(user, msg)
+            if routed is None:
+                return
+            msg = routed
         pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None and await self._continue_pending(user, msg, pending):
             return
