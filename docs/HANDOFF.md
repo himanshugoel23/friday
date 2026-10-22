@@ -916,3 +916,6 @@ Founder: "do 1, 2, 3 tests as well and post them" = (1) Sarvam saaras:v3-realtim
 
 ## Task (2026-10-22): voice items 3, 4, 5 from the "more human" list
 Founder: "for the voice, three, four, five, to make it more optimized". Items: (3) match the listener (slower/clearer for older or hesitant people, quicker for busy shops; from the other side's speech rate, answer length, repeats of 'kya?'), (4) right-sized silences (short thoughtful pause before a hard question or after a price; varied, not constant delay; never dead air), (5) better handling of noise (noisy shops: noise estimate from the incoming audio, tune VAD/endpointing and barge-in thresholds, ask to repeat gracefully, avoid cutting off or answering the noise). Sent to the voice-human builder (afbd8412995bbe70a). Same rule: ON in internal-test profile only, audio samples to the founder before pilot default.
+
+## Question (2026-10-22): build a PRIVATE BROWSER where Friday ("Fred" dictated) operates browsers on the user's behalf, like Instinct's "personal computer operated by your AI"
+Existing: docs/BROWSER_AGENT_PLAN.md, friday/connectors (fake-site pizza flow, Zomato explore, parked 10-19; Zomato blocks cloud IPs). Answered in chat with a proposal; waiting for founder to confirm priority versus the 5-day pilot (HANDOFF rule: one slice at a time, finish 100% first).
