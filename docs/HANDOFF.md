@@ -823,3 +823,6 @@ Founder decisions: (1) pilot-only real consumer calls; (2) `friday pause` now en
 
 ## Task (2026-10-22): build voice-note replies and Devanagari understanding for the WhatsApp chatbot (founder: "Built this as well")
 Builder launched: (1) voice note in -> speech-to-text -> router -> voice note out (text fallback, per-user preference, ffmpeg to ogg/opus, media upload), (2) Devanagari input understanding (digits, dates/times, amounts, intents, normaliser to Roman, script mirroring in replies). All behind switches default off; wording pending approval.
+
+## Question (2026-10-22): guardrails for the chatbot ("the user can ask anything"); also a sample line "jeans kaisa hai?"
+Wrote docs/CHATBOT_GUARDRAILS.md (policy table by category, layers, red-team test plan). Build after the running builders as `friday/guardrails` (policy classifier before the router, fixed wording, output filter, injection defence, eval + red-team set). Chat Lab builder launched (token-protected test UI, simulator only).
