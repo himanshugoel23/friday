@@ -17,7 +17,8 @@ Only one W2 model changed for this bridge: ``CallOutcome`` gained ``answers`` an
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import contextlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -241,13 +242,37 @@ class NoTelephony(RuntimeError):
     """No line is plugged in: nothing is dialled."""
 
 
+class DialNotConnected(NoTelephony):
+    """The dial itself did not reach a person (busy, no answer, voicemail, provider failure).
+    ``status`` is the W1 outcome the call ends with; nothing was said, so it is retried by the
+    normal retry rules (the same ones a W2 UNREACHABLE / VOICEMAIL_NO_MESSAGE result gets)."""
+
+    def __init__(self, status: CallsStatus, detail: str = "") -> None:
+        super().__init__(detail or status.value)
+        self.status = status
+
+
+@dataclass
+class LineFacts:
+    """What the line learned that the W2 result cannot know (from ``TelephonyLease.finish``)."""
+
+    # set when the line ended the call on its own account (max duration backstop, kill switch):
+    # replaces a DROPPED result so the outcome says what really happened
+    status_override: LiveStatus | None = None
+    recording_ref: str | None = None
+
+
 @dataclass
 class TelephonyLease:
-    """One line for one call: the port, the engine clock (simulation) and the ask-the-user hook."""
+    """One line for one call: the port, the engine clock (simulation) and the ask-the-user hook.
+
+    ``finish`` (optional) runs exactly once after the engine returns or fails: it hangs up, writes
+    the call log and hands back ``LineFacts``."""
 
     port: TelephonyPort
     clock: Callable[[], float] | None = None
     user_channel: UserChannel | None = None
+    finish: Callable[[LiveCallResult | None], Awaitable[LineFacts | None]] | None = None
 
 
 class TelephonyFactory(Protocol):
@@ -331,12 +356,25 @@ class LiveEngineAdapter:
         live_brief, live_callee = await self._match_approved_opening(brief, live_brief, live_callee)
         try:
             dial = dial_target(self.core, callee.number)
+            authorize = getattr(self.factory, "authorize", None)
+            if (
+                authorize is not None
+            ):  # a production factory checks the approval and the gate itself
+                await authorize(brief, callee)
             lease = await self.factory.open(
                 brief=live_brief,
                 callee=live_callee,
                 dial_number=dial,
                 from_number=callee.from_number,
             )
+        except DialNotConnected as e:  # the dial reached nobody: a plain W1 status, no engine run
+            log.info(
+                "consumer call %s not connected (%s) to=%s",
+                brief.request_id,
+                e.status.value,
+                mask(callee.number),
+            )
+            return CallsOutcome(request_id=brief.request_id, status=e.status, started_at=started)
         except Exception as e:  # noqa: BLE001 - no line means no call, and a clear FAILED
             log.warning(
                 "consumer call %s not opened (%s) to=%s",
@@ -353,7 +391,20 @@ class LiveEngineAdapter:
             line_model=self.line_model,
             clock=lease.clock,
         )
-        result = await engine.run(live_brief, live_callee, lease.port)
+        result: LiveCallResult | None = None
+        facts: LineFacts | None = None
+        try:
+            result = await engine.run(live_brief, live_callee, lease.port)
+        finally:
+            if lease.finish is not None:  # hang up, write the log; also on cancel (Ctrl-C)
+                with contextlib.suppress(Exception):
+                    facts = await lease.finish(result)
+        if facts is not None and facts.status_override is not None:
+            result = result.model_copy(
+                update={
+                    "outcome": result.outcome.model_copy(update={"status": facts.status_override})
+                }
+            )
         self.results = [*self.results, result][-self.max_kept :]
         if (
             result.friday_lines
@@ -363,13 +414,16 @@ class LiveEngineAdapter:
             log.warning(
                 "consumer call %s: spoken opening differs from the approved one", brief.request_id
             )
-        return to_outcome(
+        outcome = to_outcome(
             brief.request_id,
             result,
             language=brief.language,
             started_at=started,
             delivered=bool(brief.must_say),
         )
+        if facts is not None and facts.recording_ref:
+            outcome = outcome.model_copy(update={"recording_ref": facts.recording_ref})
+        return outcome
 
 
 # ----------------------------------------------------------------------------- the approved opening

@@ -19,6 +19,8 @@ class CallsSettings(BaseSettings):
     daily_call_cap: int = Field(default=10, ge=0)
     daily_minute_cap: int = Field(default=30, ge=0)
     max_call_seconds: int = Field(default=300, ge=30)  # hard per-call ceiling
+    # `friday consumer call-test`: the default (and highest) length of the founder's test call
+    test_call_seconds: int = Field(default=150, ge=30, le=300)
     # per-recipient frequency across ALL users
     number_day_cap: int = Field(default=3, ge=0)  # >= retry attempts of one request
     number_week_cap: int = Field(default=6, ge=0)

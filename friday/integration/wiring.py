@@ -11,7 +11,10 @@ off leaves its package unbuilt and its handlers unregistered.
 same stack over a SQLite container, a recording sender and a simulated line. In production
 ``build_consumer`` supplies: the repositories, the notifier, the durable job queue, the lock, the
 task engine and the proactive engine of the container. The telephony factory defaults to the one
-that REFUSES to open a line: real voice stays unwired until someone plugs it in on purpose.
+that REFUSES to open a line. ``build_consumer`` plugs in the production
+``ConsumerTelephonyFactory`` (friday/integration/telephony.py) ONLY when the calls switch is on AND
+the profile permits (live mode, pilot profile); in every other profile, and in tests and the
+simulator, the refusing default (or an explicitly passed fake) stays.
 """
 
 from __future__ import annotations
@@ -131,6 +134,7 @@ def build_stack(
     http_factory: Any = None,
     recording_deleter: Callable[[str], Awaitable[bool]] | None = None,
     switches: Switches | None = None,
+    consumer_line: Callable[..., TelephonyFactory | None] | None = None,
 ) -> ConsumerRouter | None:
     sw = switches or Switches.of(settings)
     if not sw.any:
@@ -216,6 +220,11 @@ def build_stack(
         dnc = DncRegistry(repos.call_dnc, hasher, clock)
         gate = CallGate(store=store_c, dnc=dnc, hasher=hasher, settings=cs, core_settings=settings)
         approval = ApprovalService(LiveOpeningLineProvider(), clock)
+        if telephony is None and consumer_line is not None:
+            # the production line needs the gate, the store and the hasher built just above
+            telephony = consumer_line(
+                gate=gate, store=store_c, users=repos.users, hasher=hasher, calls_settings=cs
+            )
         engine = LiveEngineAdapter(telephony, core_settings=settings, clock=clock)
         tasks = QueueTaskPort(queue, clock)
         recordings = RecordingService(store_c, recording_deleter or _no_deleter, cs, clock)
@@ -294,7 +303,23 @@ def build_consumer(c: Any) -> ConsumerRouter | None:
         store = _opt("object_store")
         return bool(store) and await _delete(ref, store=store, telephony=_opt("telephony"))
 
+    def consumer_line(**parts: Any) -> TelephonyFactory | None:
+        """The real line, only when live + pilot profile + the calls switch (else the refusing
+        default stays and the router says the calling line is not on)."""
+        from friday.integration.telephony import (
+            ConsumerTelephonyFactory,
+            VobizLineOpener,
+            line_permitted,
+        )
+
+        if not line_permitted(s):
+            return None
+        return ConsumerTelephonyFactory(
+            settings=s, opener=VobizLineOpener(lambda: c.telephony, s), pool=_opt("number_pool"),
+            clock=c.clock, **parts,
+        )  # fmt: skip
+
     return build_stack(
         settings=s, clock=c.clock, repos=c.get("repos"), send=send, queue=c.get("job_queue"),
-        locks=_opt("lock"), recording_deleter=delete_recording,
+        locks=_opt("lock"), recording_deleter=delete_recording, consumer_line=consumer_line,
     )  # fmt: skip
