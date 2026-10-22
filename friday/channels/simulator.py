@@ -140,6 +140,10 @@ class SimulatorChannel:
             lines.append(f"[media {msg.media_mime or ''} {msg.media_url}]")
         for i, b in enumerate(msg.buttons, start=1):
             lines.append(f"  {i}) {b.title}")
+        if msg.list_menu is not None:
+            lines.append(f"  [list: {msg.list_menu.button}]")
+            for i, r in enumerate(msg.list_menu.rows, start=1):
+                lines.append(f"  {i}) {r.title}" + (f" - {r.description}" if r.description else ""))
         return "\n".join(lines)
 
     def make_inbound(self, phone: str, line: str, *, default_cc: str = "+91") -> InboundMessage:
@@ -155,6 +159,13 @@ class SimulatorChannel:
             return InboundMessage(
                 kind=MessageKind.BUTTON_REPLY, text=b.title, button_id=b.id, **base
             )
+        if last and last.list_menu and not last.buttons and text.isdigit():
+            rows = last.list_menu.rows
+            if 1 <= int(text) <= len(rows):
+                r = rows[int(text) - 1]
+                return InboundMessage(
+                    kind=MessageKind.BUTTON_REPLY, text=r.title, button_id=r.id, **base
+                )
         if text.startswith("/pin"):
             arg = text[4:].strip()
             lat_s, _, lng_s = arg.partition(",")

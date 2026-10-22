@@ -540,6 +540,24 @@ class Settings(BaseSettings):
     lifestate_enabled: bool = False  # the user's day: friday/lifestate
     google_enabled: bool = False  # connect/disconnect/status intents and the calendar sync job
 
+    # ------------------------------------------------------------------ chatbot pilot (chatbot/)
+    # docs/CHATBOT_PILOT.md. All OFF: with ``chatbot_onboarding`` false the inbound pipeline behaves
+    # exactly as before. The wording of every message is PENDING_FOUNDER_APPROVAL (chatbot/copy.py).
+    chatbot_onboarding: bool = False  # first-run flow, menu/help, capture, off-topic redirect
+    # FRIDAY_PILOT: while on, only allow-listed testers can onboard; everyone else is waitlisted
+    # (number hash only). Allow-list = pilot_allowed_numbers + chatbot_testers + admin_phones.
+    pilot: bool = False
+    chatbot_testers: CsvList = Field(default_factory=list)  # E.164 testers who may onboard
+    # WhatsApp number (E.164) that receives "human"/"support" requests. Never hard-coded.
+    support_inbox: str | None = None
+    # off-topic questions: "redirect" (polite line + wishlist, recommended), "wishlist_only"
+    # (store it, let the brain answer) or "off" (do nothing special)
+    chatbot_offtopic: Literal["redirect", "wishlist_only", "off"] = "redirect"
+    # the order of the first-win buttons (any of card, day, call; at most 3 are shown)
+    chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
+    # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
+    chatbot_disclosure_every_step: bool = False
+
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
     proactive_tick_s: int = 60
@@ -643,6 +661,8 @@ class Settings(BaseSettings):
         "roles",
         "sarvam_verified_capabilities",
         "pilot_allowed_numbers",
+        "chatbot_testers",
+        "chatbot_first_wins",
         mode="before",
     )
     @classmethod
@@ -655,6 +675,17 @@ class Settings(BaseSettings):
                 return json.loads(v)
             return [x.strip() for x in v.split(",") if x.strip()]
         return v
+
+    @model_validator(mode="after")
+    def _chatbot_template_names(self) -> Settings:
+        """With the chatbot pilot on, the channel knows the draft templates' Meta names (an
+        explicit FRIDAY_WHATSAPP_TEMPLATES entry always wins). Off: the registry is untouched."""
+        if self.chatbot_onboarding:
+            from friday.chatbot.templates import template_names
+
+            for key, name in template_names().items():
+                self.whatsapp_templates.setdefault(key, name)
+        return self
 
     @model_validator(mode="after")
     def _pilot_no_recordings(self) -> Settings:

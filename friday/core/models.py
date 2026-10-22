@@ -886,6 +886,22 @@ class ReplyButton(_Model):
     title: str = Field(max_length=20)
 
 
+class ListRow(_Model):
+    """One row of a WhatsApp list message (title <= 24 chars, description <= 72)."""
+
+    id: str = Field(max_length=200)
+    title: str = Field(max_length=24)
+    description: str | None = Field(default=None, max_length=72)
+
+
+class ListMenu(_Model):
+    """WhatsApp interactive list (up to 10 rows). ``button`` is the label that opens it (<= 20)."""
+
+    button: str = Field(max_length=20)
+    rows: list[ListRow] = Field(min_length=1, max_length=10)
+    section: str | None = Field(default=None, max_length=24)
+
+
 def question_button_id(question_id: str, option_index: int) -> str:
     return f"q:{question_id}:{option_index}"
 
@@ -977,6 +993,7 @@ class OutboundMessage(_Model):
     user_id: str | None = None
     text: str | None = None
     buttons: list[ReplyButton] = Field(default_factory=list, max_length=3)
+    list_menu: ListMenu | None = None  # a WhatsApp list message (instead of buttons)
     template: TemplateRef | None = None
     media_url: str | None = None  # e.g. call recording as voice note
     media_mime: str | None = None

@@ -8,6 +8,7 @@ from sqlalchemy import delete, select, update
 from friday.calls.dbmodel import CallOutcomeRow
 from friday.core.models import OnboardingStep, UserStatus
 from friday.db.repositories._base import Repo, phone_index
+from friday.db.repositories.chatbot import purge_user_chatbot
 from friday.db.repositories.consumer_calls import purge_user_calls
 from friday.db.tables import (
     AccountIdentifierRow,
@@ -100,6 +101,7 @@ class DataPurger(Repo):
                 counts[table.__tablename__] = int(res.rowcount or 0)  # type: ignore[attr-defined]
 
             counts["consents_kept_minimised"] = await self._minimise_consents(s, user_id)
+            counts.update(await purge_user_chatbot(s, user_id))  # first-run state, wishlist
             counts.update(await purge_user_calls(s, user_id))  # consumer calls (not the global DNC)
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)

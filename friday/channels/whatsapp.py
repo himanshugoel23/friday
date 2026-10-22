@@ -258,6 +258,36 @@ def build_payload(
             ]
         body |= {"type": "template", "template": tpl}
         return body
+    if msg.list_menu is not None:
+        menu = msg.list_menu
+        body |= {
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {"text": (msg.text or " ")[:MAX_INTERACTIVE_BODY]},
+                "action": {
+                    "button": menu.button[:20],
+                    "sections": [
+                        {
+                            "title": (menu.section or "Friday")[:24],
+                            "rows": [
+                                {
+                                    "id": r.id,
+                                    "title": r.title[:24],
+                                    **(
+                                        {"description": r.description[:72]}
+                                        if r.description
+                                        else {}
+                                    ),
+                                }
+                                for r in menu.rows[:10]
+                            ],
+                        }
+                    ],
+                },
+            },
+        }
+        return body
     if msg.buttons:
         body |= {
             "type": "interactive",
