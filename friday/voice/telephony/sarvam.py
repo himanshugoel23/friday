@@ -324,6 +324,16 @@ class SarvamCallLeg(TwilioCallLeg):
         self.eot_context: Callable[[], str] | None = None  # the step's expected answer type
         self.eot_last: tuple[str, EotDecision] | None = None  # (text, verdict) of this pause
         self.eot_log: list[tuple[str, EotDecision]] = []
+        # human-voice layer hooks (docs/HUMAN_VOICE.md); all None / neutral = behaves as before
+        self.pace_mult = 1.0  # relative to the voice's own rate, set per line by the session
+        self.sent_parts = 0  # sentences fully queued for the current line (barge-in resume)
+        self.human_noise: Any = None  # friday.human.noise.NoiseTracker
+        self.human_noise_adapt = False
+        self.human_bc: Any = None  # friday.human.backchannel.BackchannelEngine
+        self._bc_busy = False
+        self._noise_tick = 0
+        self._noise_class = "clean"
+        self._base_noise: dict[str, float] = {}
 
     in_encoding = "audio/x-l16"
     in_rate = 8000
@@ -359,6 +369,8 @@ class SarvamCallLeg(TwilioCallLeg):
         for i in range(0, len(pcm) - 319, 320):  # 20 ms frames for the VAD
             frame = pcm[i : i + 320]
             fr = self._segmenter.analyse(frame)  # once per frame: speech or not (energy / neural)
+            if self.human_noise is not None:
+                self._human_noise_frame(fr)
             if self._playing:
                 if self._spec is not None:  # a guess made before she started talking is stale
                     self._spec.cancel()
@@ -369,10 +381,72 @@ class SarvamCallLeg(TwilioCallLeg):
                 if fr.speech:
                     self._last_loud_t = time.perf_counter()
                 self._watch_for_early_pause(frame, fr)
+                if self.human_bc is not None:
+                    self._maybe_backchannel(fr)
             for seg in self._segmenter.feed_pcm16(frame, fr):
                 if self._playing and not self._barged:
                     continue  # her own voice coming back (echo / speakerphone): not the caller
                 self._segments.put_nowait(seg)
+
+    # ---------------------------------------------------------------- human-voice hooks
+    def _human_noise_frame(self, fr: VadFrame) -> None:
+        """Feed the noise tracker (never her own voice); once a second adapt the detector."""
+        trk = self.human_noise
+        trk.feed(fr.level, fr.speech, friday_talking=self._playing)
+        self._noise_tick += 1
+        if self._noise_tick % 50:
+            return
+        trk.sample()
+        if not self.human_noise_adapt or trk.klass == self._noise_class:
+            return
+        from friday.human.noise import params_for
+
+        self._noise_class = trk.klass
+        prm = params_for(trk.klass)
+        seg = self._segmenter
+        base = self._base_noise
+        base.setdefault("end", float(seg.end_silence_ms))
+        seg.end_silence_ms = int(base["end"])
+        if prm.klass != "clean":
+            seg.end_silence_ms = max(seg.end_silence_ms, prm.end_silence_ms)
+        self.BARGE_IN_LEVEL = 1.6 if prm.klass == "clean" else prm.barge_level
+        self.BARGE_IN_FRAMES = 7 if prm.klass == "clean" else prm.barge_frames
+        vad = seg.vad
+        if vad is not None and hasattr(vad, "start_prob"):
+            base.setdefault("start", float(vad.start_prob))
+            base.setdefault("stop", float(vad.stop_prob))
+            vad.start_prob = min(0.95, base["start"] + prm.start_prob_delta)
+            vad.stop_prob = min(vad.start_prob, base["stop"])
+        log.info("noise: %s (snr %s dB) -> end wait %d ms, barge level %.1f",
+                 trk.klass, trk.summary()["snr_db"], seg.end_silence_ms, self.BARGE_IN_LEVEL)
+
+    def _maybe_backchannel(self, fr: VadFrame) -> None:
+        seg = self._segmenter
+        if self._bc_busy or self.hold_mode or not seg._active:
+            return
+        speech_s = len(seg._buf) / 2 / seg.sample_rate - seg._silence_ms / 1000
+        text = self.human_bc.consider(
+            now_s=time.perf_counter(), speech_s=max(speech_s, 0.0), silence_ms=seg._silence_ms,
+            friday_speaking=self._playing, speech_active=fr.speech,
+        )
+        if text:
+            self._bc_busy = True
+            asyncio.ensure_future(self._play_backchannel(text))
+
+    async def _play_backchannel(self, text: str) -> None:
+        from friday.core.models import Language
+
+        try:
+            lang = {"hi": Language.HI, "en": Language.EN}.get(
+                self.human_bc.language, Language.HINGLISH)
+            pcm = await self._synth(text, lang)
+            if not self._segmenter._active or self._segmenter._silence_ms > 700 or self.ended:
+                return  # the turn already ended or speech moved on: stay silent
+            await self._play_audio(pcm16_to_ulaw(pcm), wait=False)
+        except Exception as e:  # noqa: BLE001 - a backchannel must never hurt the call
+            log.warning("backchannel skipped: %s", e)
+        finally:
+            self._bc_busy = False
 
     EARLY_STT_SILENCE_MS = 340  # start transcribing this long into a pause, before it is final
     EARLY_STT_MIN_S = 0.5
@@ -700,6 +774,7 @@ class SarvamCallLeg(TwilioCallLeg):
             return  # she was interrupted and the caller is still talking: do not talk over them
         self._barged = False
         parts = split_sentences(strip_fillers(text))
+        self.sent_parts = 0
         streaming = self._streaming_on()
         if self._is_prerendered(text, language) or (len(parts) < 2 and not streaming):
             await super().speak(text, language)
@@ -722,6 +797,7 @@ class SarvamCallLeg(TwilioCallLeg):
                 if self._barged:
                     break
                 await self._play_audio(pcm16_to_ulaw(pcm), wait=n == len(jobs) - 1)
+                self.sent_parts = n + 1
         finally:
             for j in jobs:
                 j.cancel()
@@ -738,6 +814,9 @@ class SarvamCallLeg(TwilioCallLeg):
         got = 0
         try:
             voice = tts.voice_for(language)
+            if self.pace_mult != 1.0:  # human-voice pace hint
+                voice = voice.model_copy(
+                    update={"speaking_rate": round(voice.speaking_rate * self.pace_mult, 3)})
             hit = await tts.lookup(part, language, voice=voice)
             if hit is not None:
                 decoded = clip_to_pcm16(hit)
@@ -804,6 +883,7 @@ class SarvamCallLeg(TwilioCallLeg):
                     except TimeoutError:
                         continue
                     if item is None:
+                        self.sent_parts += 1
                         break
                     if isinstance(item, Exception):
                         raise item

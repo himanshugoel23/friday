@@ -402,6 +402,9 @@ class TwilioCallLeg:
         tts = self.tel.tts
         t0 = time.perf_counter()
         voice = tts.voice_for(language)
+        mult = getattr(self, "pace_mult", 1.0)  # human-voice pace hint (FRIDAY_HUMAN_PROSODY etc.)
+        if mult != 1.0:
+            voice = voice.model_copy(update={"speaking_rate": round(voice.speaking_rate * mult, 3)})
         cached = getattr(tts, "synthesize_cached", None)
         if cached is not None:
             clip, hit = await cached(text, language, voice=voice)

@@ -392,7 +392,7 @@ class Settings(BaseSettings):
     voice_vad_start_prob: float = Field(default=0.5, ge=0.05, le=0.99)  # speech turns on
     voice_vad_stop_prob: float = Field(default=0.35, ge=0.02, le=0.99)  # speech turns off below
     voice_vad_barge_prob: float = Field(default=0.75, ge=0.3, le=0.99)  # stricter: talk over her
-    # ---- human-like voice (docs/HUMAN_VOICE.md). FRIDAY_VOICE_PROFILE=internal-test switches ON every
+    # ---- human-like voice (docs/HUMAN_VOICE.md). FRIDAY_VOICE_PROFILE=internal-test turns ON every
     # element below that is not already on, unless the env sets it explicitly. Production / pilot
     # keep the AUDIBLE ones OFF until the founder approves the audio. Silent ones are ON.
     voice_profile: Literal["production", "internal-test"] = "production"
@@ -405,7 +405,7 @@ class Settings(BaseSettings):
     human_variants: bool = False  # FRIDAY_HUMAN_VARIANTS: phrasing variety (pending table)
     human_mirror: bool = False  # FRIDAY_HUMAN_MIRROR: pure English / pure Hindi variants
     human_mood: bool = False  # FRIDAY_HUMAN_MOOD: rushed / annoyed callee -> shorter lines
-    human_match_listener: bool = False  # FRIDAY_HUMAN_MATCH_LISTENER: pace + length follow the listener
+    human_match_listener: bool = False  # FRIDAY_HUMAN_MATCH_LISTENER: pace, length
     human_pauses: bool = False  # FRIDAY_HUMAN_PAUSES: right-sized thoughtful silences
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")

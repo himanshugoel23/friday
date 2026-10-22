@@ -78,6 +78,8 @@ from friday.core.models import (
 )
 from friday.core.safety import KeyBuffer, check_speech
 from friday.core.scale import Cache, LockTimeout, RateLimiter
+from friday.human.layer import HumanLayer
+from friday.human.lines import EXISTING_REPEAT_LINE
 from friday.voice.commit import (
     COMMIT_TYPES,
     commit_reasons,
@@ -392,6 +394,14 @@ class _Session:
         )
         self.transcript = self.result.transcript
         self.answers: list[UserAnswer] = self.result.answers
+        # human-voice layer (docs/HUMAN_VOICE.md): every element behind its own switch
+        self.human = HumanLayer.from_settings(
+            self.settings, call_id=self.result.call_id, task_id=brief.task_id,
+            relation=brief.beneficiary_relation,
+        )
+        self._noise_giveup = False
+        self._heard_at: float | None = None
+        self._hear_depth = 0
         self.disclosed_current = False
         self.disclosures = 0
         self.after_machine = False  # last thing heard was IVR/hold -> next human is new
@@ -474,6 +484,24 @@ class _Session:
             return CallOutcome.PENDING_APPROVAL if has_offer else CallOutcome.PARTIAL
         return outcome
 
+    def _human_metrics(self) -> None:
+        """FRIDAY_HUMAN_METRICS (silent): one record per call; no transcript, no phone number."""
+        h = self.human
+        if not h.on_metrics:
+            return
+        r = self.result
+        answered = bool(r.answered_at)
+        length = (r.ended_at - r.answered_at).total_seconds() if answered and r.ended_at else 0.0
+        m = h.finish(hung_up_by_callee=self.hung_up, length_s=length, answered=answered)
+        log.info("%s [call %s]", m.line(), r.call_id)
+        if answered and self.settings.mode == "live":
+            from friday.human import metrics as hm
+
+            try:
+                hm.append(m)
+            except OSError as e:  # noqa: BLE001 - measurement must never hurt the call
+                log.warning("human metrics not saved: %s", e)
+
     async def _finish(self) -> None:
         r = self.result
         if self.leg is not None and not self.hung_up and not self.left:
@@ -498,6 +526,7 @@ class _Session:
         if self.leg is not None:
             await self._store_recording()
         await self._learn_ivr_map()
+        self._human_metrics()
         summary = self.latency.summary()
         r.latency = summary
         self._collect_costs()
@@ -699,6 +728,7 @@ class _Session:
             self.leg = await tel.place_call(req)
             self._attach_speculation(self.leg)
             self._attach_semantic_eot(self.leg)
+            self._attach_human(self.leg)
         except ProviderError as e:
             self.result.error = truncate(str(e), 300)
             self.result.dial_status = DialStatus.FAILED
@@ -963,6 +993,14 @@ class _Session:
                 if outcome == CallOutcome.FAILED:
                     self.result.error = "max call duration reached"
                 return await self._end_with(_SAFE_EXIT, outcome)
+            if self._noise_giveup:
+                return await self._end_with(_SAFE_EXIT, CallOutcome.PARTIAL)
+            if self.human.pending_resume is not None:
+                again = self.human.take_resume(self.human.last_callee_text, str(self._lang().value))
+                if again:  # they only said "go on": finish the unfinished point, do not restart it
+                    await self._say(again, self._lang())
+                    await self._hear()
+                    continue
             action = await self._decide()
             if action is None:
                 self.result.error = self.result.error or "call policy failed"
@@ -1018,6 +1056,17 @@ class _Session:
             return
         leg.early_text_hook = self._speculate
         leg.early_cancel_hook = self._cancel_speculation
+
+    # ================================================================== human-voice layer
+    def _attach_human(self, leg: Any) -> None:
+        """Give the leg the noise tracker (metrics + FRIDAY_HUMAN_NOISE_ADAPT) and the backchannel
+        engine (FRIDAY_HUMAN_BACKCHANNELS). Legs without the hooks are left alone."""
+        h = self.human
+        if hasattr(leg, "human_noise") and (h.on_noise or h.on_metrics):
+            leg.human_noise = h.noise
+            leg.human_noise_adapt = h.on_noise
+        if hasattr(leg, "human_bc") and h.on_bc:
+            leg.human_bc = h.backchannel
 
     # ================================================================== semantic end-of-turn
     def _attach_semantic_eot(self, leg: Any) -> None:
@@ -1115,6 +1164,8 @@ class _Session:
 
             async def speak(sentence: str) -> None:
                 clean = strip_fillers(sentence) or sentence
+                if self.human.on_numbers or self.human.on_prosody:
+                    clean = self.human.shape(clean, str(lang.value), name=self.name).text
                 await leg.speak(clean, lang)
                 self.tts_chars += len(clean)
 
@@ -1276,10 +1327,27 @@ class _Session:
         lang = self._speak_lang(language)
         target = leg or self.leg
         assert target is not None
+        spoken = clean
+        if not disclosure and self.human.any_audible:
+            gap = (time.perf_counter() - self._heard_at) * 1000 if self._heard_at else 0.0
+            sh = self.human.shape(
+                clean, str(lang.value), name=self.name, gap_ms=gap, first_turn=self.disclosures == 0
+            )
+            spoken = sh.text
+            if hasattr(target, "pace_mult"):
+                target.pace_mult = sh.pace_mult
+            if sh.pause_ms:
+                await asyncio.sleep(sh.pause_ms / 1000)
         t0 = time.perf_counter()
-        await target.speak(clean, lang)
+        try:
+            await target.speak(spoken, lang)
+        finally:
+            if hasattr(target, "pace_mult"):
+                target.pace_mult = 1.0
         wall = (time.perf_counter() - t0) * 1000
-        self.tts_chars += len(clean)
+        self.tts_chars += len(spoken)
+        if not disclosure and getattr(target, "barged", False):
+            self.human.note_interrupted(spoken, int(getattr(target, "sent_parts", 0)))
         if not disclosure:
             self.latency.tts(getattr(target, "last_tts_ms", None) or wall)
         await self._record(Speaker.FRIDAY, f"{label}{clean}", lang)
@@ -1308,6 +1376,27 @@ class _Session:
                 await self._disclose(None)  # picked up and waiting for us to speak
             return None
         self.silences = 0
+        if t.audio_class == AudioClass.HUMAN:
+            self.human.observe_callee(t.text, t.duration_s)
+            self._heard_at = time.perf_counter()
+            if self.human.on_noise and self._hear_depth < 4:
+                act = self.human.gate.decide(
+                    t.text, confidence=t.confidence, speech_s=t.duration_s,
+                    noisy=self.human.noise.klass in ("noisy", "very_noisy"),
+                )
+                if act == "give_up":
+                    self._noise_giveup = True
+                    await self._system("NOISY LINE - two repeats failed, ending politely")
+                    return None
+                if act in ("ignore", "ask_repeat"):
+                    self._hear_depth += 1
+                    try:
+                        if act == "ask_repeat":
+                            await self._system("NOISE: asking for a repeat")
+                            await self._say(EXISTING_REPEAT_LINE, Language.HINGLISH)
+                        return await self._hear(wait_s)
+                    finally:
+                        self._hear_depth -= 1
         if t.audio_class in (AudioClass.HOLD_MUSIC, AudioClass.QUEUE_ANNOUNCEMENT):
             self.hold_s += float(getattr(t, "duration_s", None) or 0.0)
         await self._record_callee(t)
