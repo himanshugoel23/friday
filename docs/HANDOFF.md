@@ -873,3 +873,6 @@ Founder: use a BUSINESS number for the code and messages (Friday's WhatsApp Busi
 
 ## Task (2026-10-22): how do Muse and Instinct ("news and instincts" dictated) solve incoming business calls/messages and "from whose number"
 Founder asked to check. Reading docs/COMPETITORS.md + web search; findings appended to docs/COMPETITORS.md as update (j).
+
+## Task (2026-10-22): read Meta's "Personal Agent Protocol"; is it useful for Friday?
+Founder asked. Research via web search; findings go to docs/COMPETITORS.md update (k).
