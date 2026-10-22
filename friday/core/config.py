@@ -540,6 +540,27 @@ class Settings(BaseSettings):
     lifestate_enabled: bool = False  # the user's day: friday/lifestate
     google_enabled: bool = False  # connect/disconnect/status intents and the calendar sync job
 
+    # ------------------------------------------------------------------ receptionist (receptionist/)
+    # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
+    # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.
+    receptionist_enabled: bool = False
+    receptionist_inbound_number: str = ""  # the shared number users forward to (else friday_numbers[0])
+    # Where the redirecting (diverting) number may arrive in the provider webhook. UNVERIFIED for
+    # Vobiz: the probe (`friday receptionist probe`) shows which key really carries it.
+    receptionist_redirect_fields: CsvList = Field(
+        default_factory=lambda: [
+            "ForwardedFrom", "Forwarded-From", "DivertedFrom", "Diversion", "DiversionNumber",
+            "RedirectingNumber", "RedirectingParty", "OriginalCalledNumber", "OriginalTo",
+            "History-Info", "HistoryInfo", "X-Forwarded-For-Number", "SIP-Diversion",
+        ]
+    )  # fmt: skip
+    receptionist_probe: bool = False  # log the (masked) inbound webhook keys to a file
+    receptionist_max_call_s: int = 90
+    receptionist_per_user_per_day: int = 40  # answered forwarded calls per user per day
+    receptionist_per_caller_per_hour: int = 3  # the same caller number, any user
+    receptionist_snippet_days: int = 30  # how long a stored transcript snippet lives
+    receptionist_store_dir: str = "var/receptionist"
+
     # ------------------------------------------------------------------ chatbot pilot (chatbot/)
     # docs/CHATBOT_PILOT.md. All OFF: with ``chatbot_onboarding`` false the inbound pipeline behaves
     # exactly as before. The wording of every message is PENDING_FOUNDER_APPROVAL (chatbot/copy.py).
@@ -671,6 +692,7 @@ class Settings(BaseSettings):
         "pilot_allowed_numbers",
         "chatbot_testers",
         "chatbot_first_wins",
+        "receptionist_redirect_fields",
         mode="before",
     )
     @classmethod
