@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Storage of the receptionist: per-user config, messages, block list, counters.
 
 ``MemoryReceptionistStore`` (tests, simulator, offline demo) and ``SqlReceptionistStore`` (the
@@ -205,8 +206,7 @@ class SqlReceptionistStore(Repo):
                 outcome=m.outcome.value, status=m.status.value, duration_s=m.duration_s,
                 reasons=list(m.classification_reasons),
             )  # fmt: skip
-            if m.created_at:
-                row.created_at = m.created_at
+            row.created_at = m.created_at or self.now()
             s.add(row)
             await s.flush()
             return _msg(row)

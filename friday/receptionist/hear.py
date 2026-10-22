@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """What did the caller just say? Deterministic rules (Hinglish / Hindi / English), no model.
 
 Reuses the live engine's callee understanding for silence, "are you AI", "who is this", questions

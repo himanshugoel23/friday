@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Conditional call-forwarding codes for the four big Indian carriers.
 
 EVERYTHING HERE IS GENERAL KNOWLEDGE ABOUT THE GSM STANDARD (3GPP TS 22.030 supplementary-service

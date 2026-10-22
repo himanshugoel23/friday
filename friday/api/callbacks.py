@@ -115,6 +115,17 @@ class CallbackService:
         if not from_phone:
             return
         ref = getattr(event, "provider_call_id", None)
+        if answered:  # a FORWARDED call (user did not pick up): the receptionist, if switched on
+            rcp = self.receptionist()
+            if rcp is not None:
+                try:
+                    res = await rcp.claims(event)
+                except Exception:  # noqa: BLE001 - never lose the call to the old path
+                    log.exception("receptionist claim failed; using the normal path")
+                    res = None
+                if res is not None:
+                    await rcp.serve(event, res)
+                    return
         try:
             await self.on_inbound_call(
                 from_phone,
@@ -128,6 +139,16 @@ class CallbackService:
             fd = self.front_door
             if answered and fd is not None and getattr(fd, "enabled", False):
                 await fd.reject_unparsable(ref)  # cheap fixed message, then hang up
+
+    def receptionist(self) -> Any:
+        """The voicemail receptionist (friday/receptionist), or None while its switch is off."""
+        try:
+            return self.c.get("receptionist")
+        except ComponentNotAvailable:
+            return None
+        except Exception:  # noqa: BLE001
+            log.exception("receptionist failed to build; continuing without it")
+            return None
 
     def _engine(self) -> Any:
         try:

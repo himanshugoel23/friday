@@ -641,6 +641,10 @@ class InboundPipeline:
         if self.chatbot is not None and await self.chatbot.pre(user, msg):
             return  # chatbot pilot: menu/help/stop/human/delete, captures, onboarding answers
 
+        rcp = self.callbacks.receptionist()  # buttons, "what did I miss?" (None: switch off)
+        if rcp is not None and await rcp.handle(user, msg):
+            return
+
         consumer = self.consumer()
         if consumer is not None and await consumer.handle(user, msg, quotes=self.quotes):
             return

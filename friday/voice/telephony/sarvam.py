@@ -248,6 +248,17 @@ def stream_xml(ws_url: str, *, extra: str = "") -> str:
     )
 
 
+def _observe_redirect(params: Mapping[str, str]) -> str | None:
+    """Raw redirecting-number value of an inbound webhook (receptionist adapter; None unless the
+    receptionist or its probe is configured). Imported lazily so this module stays standalone."""
+    try:
+        from friday.receptionist.probe import observe_inbound
+
+        return observe_inbound(params)
+    except Exception:  # noqa: BLE001 - never break an inbound call
+        return None
+
+
 def _ring_seconds(params: Mapping[str, str]) -> float:
     """Ring time of an unanswered inbound call: ``Duration`` if sent, else EndTime - StartTime
     (local ``yyyy-MM-dd HH:mm:ss`` per the hangup callback docs)."""
@@ -1168,6 +1179,7 @@ class SarvamTelephony:
                 inbound=True,
             )
             leg.provider_call_id = sid
+            leg.redirecting = _observe_redirect(params)  # forwarded call? (receptionist)
             self.legs[key] = leg
             self.by_sid[sid] = leg
         else:
@@ -1314,6 +1326,7 @@ class SarvamTelephony:
                             provider_call_id=leg.provider_call_id,
                             from_phone=leg.to_phone,
                             to_number=leg.from_number,
+                            redirecting=getattr(leg, "redirecting", None),
                         )
                     )
                 )

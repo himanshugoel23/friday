@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The setup page text (Hinglish / English), the forwarding PROBE plan and the test-call helper.
 
 All user-facing text here is PENDING_FOUNDER_APPROVAL (see copy.py for the register). The codes come
@@ -78,6 +79,8 @@ PROBE_STEPS = (
 
 @dataclass
 class TestCallResult:
+    __test__ = False
+
     placed: bool
     found: bool = False
     detail: str = ""
@@ -88,6 +91,8 @@ ProbeWaiter = Callable[[float], Awaitable[bool]]
 
 
 class TestCallHelper:
+    __test__ = False  # not a pytest class
+
     """The "Test it" button. Friday rings the user's own phone; if they do not answer, the call is
     forwarded back and the probe sees it. Refuses anything but allow-listed numbers, and the kill
     switch (``friday pause``). With no dialer wired it only returns instructions (never dials)."""

@@ -96,6 +96,8 @@ FACTORIES: dict[str, dict[str, str]] = {
     "proactive": {"*": "friday.proactive.engine:build_proactive_engine"},
     # --- consumer beta wiring (friday/integration): None unless a consumer switch is on
     "consumer": {"*": "friday.integration.wiring:build_consumer"},
+    # --- voicemail receptionist (friday/receptionist): None unless FRIDAY_RECEPTIONIST_ENABLED
+    "receptionist": {"*": "friday.receptionist.wiring:build_receptionist"},
     # --- caller-ID reputation & rotation (Backend B)
     "number_pool": {"*": "friday.tasks.number_pool:build_number_pool"},
     # --- scale-out (core memory impls; durable impls by Backend A in friday/db/)

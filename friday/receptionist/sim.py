@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The receptionist simulator: scripted callers against the real flow, classifier and service.
 
 No network, no audio, no .env, invented numbers and names. Time is virtual (speaking and listening
@@ -408,9 +409,8 @@ def check(w: World, c: Caller, port: ScriptedPort, rep: CallReport | None, pushe
         p.append("asked if AI but no truthful answer")
     if any(w_ in low for w_ in ("insaan hoon", "i am a human", "main human", "real person")):
         p.append("denied being an AI")
-    if c.scenario == "normal":
-        if keys[:1] not in (["greet.intro"],):
-            p.append("the first line was not the greeting")
+    if c.scenario == "normal" and keys[:1] != ["greet.intro"]:
+        p.append("the first line was not the greeting")
     if rep.message is not None:
         blob = " ".join(
             str(x) for x in (rep.message.reason, rep.message.snippet, rep.message.caller_name) if x

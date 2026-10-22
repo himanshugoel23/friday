@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Data models of the receptionist: per-user config, the captured message, urgency.
 
 Phone numbers are E.164 strings in memory; they are masked in logs (``mask_phone``) and encrypted

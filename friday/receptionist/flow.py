@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The receptionist's conversation: fixed lines, deterministic understanding, a hard time limit.
 
 The conversation reuses the live engine's ideas (a closed set of moves with fixed approved lines,

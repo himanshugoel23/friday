@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Urgent / spam / normal: code rules first, a model only behind an interface (with a fake).
 
 Order of rules (the first that fires decides, except where noted):

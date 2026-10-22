@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """``friday receptionist-sim`` and ``friday receptionist codes|lines|probe|setup`` (all offline).
 
 None of these reads .env, uses the network or places a call. ``probe --show`` only reads the

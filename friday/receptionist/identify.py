@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Which user was this forwarded call for? Identify by the redirecting (diverting) number.
 
 The provider field that carries it is UNVERIFIED for Vobiz, so this is an ADAPTER: a configurable

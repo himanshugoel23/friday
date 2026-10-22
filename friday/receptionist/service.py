@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """One forwarded call, from the webhook to the WhatsApp summary; plus buttons and "what did I miss?".
 
     handle_call(port, caller, redirecting_raw)
@@ -11,6 +12,7 @@ with no message is still reported ("X called and left no message"). Logs carry m
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime, timedelta
@@ -127,10 +129,8 @@ class ReceptionistService:
         try:
             cap = await flow.run()
         finally:
-            try:
+            with contextlib.suppress(Exception):  # the line may already be gone
                 await port.hangup()
-            except Exception:  # noqa: BLE001 - the line may already be gone
-                pass
         return await self._finish(cap, flow.spoken, cfg, res, caller, now)
 
     async def _refusal(self, res: Resolution, caller: str | None, now: datetime) -> str | None:
@@ -159,10 +159,8 @@ class ReceptionistService:
         except CallDropped:
             pass
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 await port.hangup()
-            except Exception:  # noqa: BLE001
-                pass
         cap = CallCapture(outcome=CallOutcomeKind.BLOCKED if key == "blocked.end" else CallOutcomeKind.CAP_REACHED)
         msg = None
         # a blocked / capped call is counted (so caps hold) but carries no content and no push

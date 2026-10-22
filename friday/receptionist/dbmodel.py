@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Tables of the receptionist (migration 0011_receptionist).
 
 Personal text (caller number, name, reason, snippet, contacts) is encrypted at rest with the field

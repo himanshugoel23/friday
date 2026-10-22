@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The forwarding probe: what does the provider's inbound webhook carry for a FORWARDED call?
 
 UNKNOWN for Vobiz (docs do not say). The probe records, for every inbound webhook, the key names
@@ -164,3 +165,31 @@ def format_report(rows: list[dict[str, Any]]) -> str:
         else:
             out.append("    no key carries a third number: the redirecting number was NOT delivered")
     return "\n".join(out)
+
+
+# ---------------------------------------------------------------- hook used by the Vobiz adapter
+_ACTIVE: dict[str, Any] = {"fields": (), "probe": None}
+
+
+def configure(fields: Iterable[str], probe: InboundProbe | None) -> None:
+    """Called once at start-up (``wiring.build_receptionist``). With nothing configured
+    ``observe_inbound`` does nothing, so the telephony adapter behaves exactly as before."""
+    _ACTIVE["fields"] = tuple(fields)
+    _ACTIVE["probe"] = probe
+
+
+def observe_inbound(params: Mapping[str, str]) -> str | None:
+    """The raw redirecting-number value of an inbound webhook (first configured key present), and
+    a masked probe record when the probe is on. Never raises."""
+    try:
+        probe: InboundProbe | None = _ACTIVE["probe"]
+        if probe is not None:
+            probe.record(params)
+        low = {k.lower(): v for k, v in params.items()}
+        for f in _ACTIVE["fields"]:
+            v = low.get(str(f).lower())
+            if v and str(v).strip():
+                return str(v)
+    except Exception:  # noqa: BLE001 - observing must never break a call
+        return None
+    return None

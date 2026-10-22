@@ -87,6 +87,7 @@ class Runtime:
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.subscribe()
         self._attach_consumer()
+        self.callbacks.receptionist()  # build now: the Vobiz hook/probe must exist before calls
         if background:
             from friday.core.warmup import warm_llm
 
@@ -129,6 +130,9 @@ class Runtime:
             consumer = self.pipeline.consumer()
             if consumer is not None:  # run_due / recover_stale / purge_expired / calendar sync
                 self._tasks.append(asyncio.create_task(consumer.loop(), name="friday-consumer"))
+            rcp = self.callbacks.receptionist()
+            if rcp is not None:  # morning digest of missed calls + purge of old snippets
+                self._tasks.append(asyncio.create_task(rcp.loop(), name="friday-receptionist"))
         if voice_worker is not None:
             await voice_worker.start()
             self._started.append(voice_worker)

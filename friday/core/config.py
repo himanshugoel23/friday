@@ -540,13 +540,13 @@ class Settings(BaseSettings):
     lifestate_enabled: bool = False  # the user's day: friday/lifestate
     google_enabled: bool = False  # connect/disconnect/status intents and the calendar sync job
 
-    # ------------------------------------------------------------------ receptionist (receptionist/)
+    # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
     # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.
     receptionist_enabled: bool = False
-    receptionist_inbound_number: str = ""  # the shared number users forward to (else friday_numbers[0])
-    # Where the redirecting (diverting) number may arrive in the provider webhook. UNVERIFIED for
-    # Vobiz: the probe (`friday receptionist probe`) shows which key really carries it.
+    receptionist_inbound_number: str | None = None  # shared forwarding number (else friday_numbers)
+    # Where the redirecting (diverting) number may arrive in the provider webhook. UNVERIFIED
+    # for Vobiz: `friday receptionist probe` shows which key really carries it.
     receptionist_redirect_fields: CsvList = Field(
         default_factory=lambda: [
             "ForwardedFrom", "Forwarded-From", "DivertedFrom", "Diversion", "DiversionNumber",
