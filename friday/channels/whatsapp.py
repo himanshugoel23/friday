@@ -8,6 +8,8 @@
   media (audio/image/document by link). Sends exactly what it is given; the
   24h-window and consent decisions are the notifier's.
 * ``fetch_media``         - media id -> URL -> bytes (Bearer auth).
+* ``upload_media`` / ``send_audio`` - upload bytes to the media endpoint, send an audio
+  message by media id (voice-note replies, docs/VOICE_NOTES_AND_DEVANAGARI.md).
 
 Never logs message bodies, tokens or full phone numbers.
 
@@ -36,6 +38,7 @@ from friday.core.models import (
     MessageKind,
     OutboundMessage,
     SendReceipt,
+    new_id,
     normalize_phone,
 )
 from friday.core.templates import expected_params, params_mismatch
@@ -51,6 +54,7 @@ MAX_MEDIA_BYTES = 16 * 1024 * 1024
 ALLOWED_MEDIA_TYPES = ("audio/", "image/", "video/", "application/pdf")
 MEDIA_ID_RE = re.compile(r"[A-Za-z0-9_.\-]{1,128}")
 MAX_TEXT = 4096
+VOICE_NOTE_MIME = "audio/ogg; codecs=opus"
 MAX_INTERACTIVE_BODY = 1024
 
 
@@ -450,6 +454,52 @@ class WhatsAppCloudChannel:
                 "whatsapp", f"media download: {type(e).__name__}", retryable=True
             ) from e
         return MediaBlob(data=b"".join(chunks), mime=ctype.split(";")[0].strip())
+
+    async def upload_media(self, data: bytes, mime: str, filename: str = "voice.ogg") -> str:
+        """Upload bytes to ``/{phone_number_id}/media`` and return the media id. Size is capped
+        like downloads; the token only goes to the configured Graph base."""
+        if not data:
+            raise ProviderError("whatsapp", "empty media")
+        if len(data) > MAX_MEDIA_BYTES:
+            raise ProviderError("whatsapp", "media too large")
+        mime = (mime or "").split(";")[0].strip().lower()
+        if not mime.startswith(ALLOWED_MEDIA_TYPES):
+            raise ProviderError("whatsapp", "media type not allowed")
+        try:
+            resp = await self._client.post(
+                f"/{self.phone_number_id}/media",
+                data={"messaging_product": "whatsapp", "type": mime},
+                files={"file": (filename, data, mime)},
+            )
+        except httpx.HTTPError as e:
+            raise ProviderError(
+                "whatsapp", f"media upload: {type(e).__name__}", retryable=True
+            ) from e
+        if resp.status_code >= 400:
+            raise ProviderError("whatsapp", f"media upload failed: {_error_text(resp)}")
+        try:
+            media_id = str(resp.json().get("id") or "")
+        except ValueError:
+            media_id = ""
+        if not MEDIA_ID_RE.fullmatch(media_id):
+            raise ProviderError("whatsapp", "media upload returned no id")
+        return media_id
+
+    async def send_audio(
+        self, to_phone: str, media_id: str, *, user_id: str | None = None
+    ) -> SendReceipt:
+        """Send an uploaded audio file (ogg/opus renders as a voice note) by media id."""
+        if not MEDIA_ID_RE.fullmatch(media_id):
+            return SendReceipt(message_id=new_id(), ok=False, error="invalid media id")
+        return await self.send(
+            OutboundMessage(
+                channel=Channel.WHATSAPP,
+                to_phone=to_phone,
+                user_id=user_id,
+                media_url=media_id,
+                media_mime=VOICE_NOTE_MIME,
+            )
+        )
 
     async def aclose(self) -> None:
         await self._client.aclose()

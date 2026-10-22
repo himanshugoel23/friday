@@ -91,6 +91,23 @@ class SimulatorChannel:
 
             raise ProviderError("simulator", "unknown media id") from None
 
+    async def upload_media(self, data: bytes, mime: str, filename: str = "voice.ogg") -> str:
+        """Same shape as the WhatsApp channel's upload (voice-note replies in local runs)."""
+        return self.put_media(data, mime, filename)
+
+    async def send_audio(
+        self, to_phone: str, media_id: str, *, user_id: str | None = None
+    ) -> SendReceipt:
+        return await self.send(
+            OutboundMessage(
+                channel=Channel.SIMULATOR,
+                to_phone=to_phone,
+                user_id=user_id,
+                media_url=media_id,
+                media_mime="audio/ogg; codecs=opus",
+            )
+        )
+
     # ------------------------------------------------------------------ simulator helpers
     def subscribe(self, listener: Listener) -> None:
         self._listeners.append(listener)

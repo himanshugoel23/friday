@@ -1,0 +1,209 @@
+# split=dev: used while building the normaliser and the lexicon. intent<TAB>slots<TAB>message
+# slots: hour/minute (IST 24h), day (0 = today, 22 Oct 2026), dom (day of month), kind, amount (Rs), category, banks, callee, action
+# --- event capture
+event	hour=14;day=1;kind=interview	कल 2 बजे इंटरव्यू है
+event	hour=14;day=1;kind=interview	कल 2 बजे interview है
+event	hour=14;day=1;kind=interview	कल दो बजे इंटरव्यू है
+event	hour=14;day=1;kind=interview	कल २ बजे इंटरव्यू है
+event	hour=18;day=1;kind=appointment	कल शाम 6 बजे डेंटिस्ट के पास जाना है
+event	hour=18;day=1;kind=appointment	कल शाम छह बजे डेंटिस्ट का अपॉइंटमेंट है
+event	hour=10;day=2;kind=meeting	परसों सुबह 10 बजे मीटिंग है
+event	hour=10;day=2;kind=meeting	परसों सुबह दस बजे मीटिंग है
+event	hour=21;day=0;kind=personal	आज रात 9 बजे डिनर है
+event	hour=15;minute=30;day=1;kind=meeting	कल साढ़े तीन बजे क्लाइंट मीटिंग है
+event	hour=17;minute=15;day=1;kind=travel	कल सवा पाँच बजे फ्लाइट है
+event	hour=17;minute=45;day=1;kind=travel	कल पौने छह बजे ट्रेन है
+event	hour=13;minute=30;day=1;kind=personal	कल डेढ़ बजे लंच है
+event	hour=14;minute=30;day=1;kind=meeting	कल ढाई बजे मीटिंग है
+event	hour=14;minute=30;day=1;kind=meeting	कल 2:30 बजे मीटिंग है
+event	hour=11;day=1;kind=appointment	शुक्रवार को सुबह 11 बजे डॉक्टर का अपॉइंटमेंट है
+event	hour=16;day=4;kind=meeting	सोमवार को 4 बजे मीटिंग है
+event	hour=19;day=2;kind=personal	शनिवार शाम 7 बजे पार्टी है
+event	hour=10;day=3;kind=personal	रविवार सुबह 10 बजे पूजा है
+event	hour=20;day=1;kind=personal	कल रात 8 बजे शादी है
+event	hour=17;dom=25;kind=personal	25 तारीख को शाम 5 बजे पार्टी है
+event	hour=17;dom=25;kind=personal	२५ तारीख को शाम ५ बजे पार्टी है
+event	hour=10;dom=30;kind=interview	30 अक्टूबर को सुबह 10 बजे इंटरव्यू है
+event	hour=16;dom=1;kind=meeting	1 नवंबर को शाम 4 बजे मीटिंग है
+event	hour=12;day=0;kind=meeting	2 घंटे बाद मीटिंग है
+event	hour=12;day=0;kind=meeting	दो घंटे बाद मीटिंग है
+event	hour=8	रोज़ सुबह 8 बजे दवाई लेनी है
+event	hour=18	हर सोमवार शाम 6 बजे जिम जाना है
+event	hour=9;day=1	कल सुबह 9 बजे जिम है
+event	hour=14;day=1;kind=meeting	कल 2 बजे presentation है
+event	hour=17;day=1;kind=meeting	tomorrow 5 बजे meeting है
+event	hour=15;day=1;kind=travel	कल 3 बजे एयरपोर्ट जाना है
+event	hour=7;day=1;kind=travel	कल सुबह 7 बजे ट्रेन है
+event	hour=23;day=0;kind=travel	आज रात 11 बजे बस है
+event	hour=13;day=1;kind=personal	कल दोपहर 1 बजे लंच है
+event	hour=16;day=1;kind=appointment	कल 4 बजे क्लिनिक जाना है
+event	hour=16;day=2;kind=appointment	परसों 4 बजे अस्पताल जाना है
+event	hour=19;day=0;kind=personal	आज शाम 7 बजे मूवी है
+event	hour=12;day=1;kind=meeting	कल दोपहर 12 बजे डेमो है
+event	hour=11;day=1;kind=meeting	कल सुबह 11 बजे स्टैंडअप है
+event	hour=17;day=1;kind=appointment	कल शाम 5 बजे हेयरकट का अपॉइंटमेंट है
+event	hour=18;day=3;kind=personal	रविवार शाम 6 बजे बर्थडे पार्टी है
+event	hour=9;day=5;kind=interview	मंगलवार सुबह 9 बजे इंटरव्यू है
+event	hour=15;day=6;kind=meeting	बुधवार को 3 बजे मीटिंग है
+event	hour=18;day=3;kind=personal	रविवार को 6 बजे शादी है
+event	hour=10;day=2;kind=appointment	शनिवार सुबह 10 बजे डेंटिस्ट है
+event	hour=19;day=1;kind=personal	कल शाम सात बजे डिनर है
+event	hour=14;day=0;kind=meeting	आज 2 बजे मीटिंग है
+event	hour=16;day=0;kind=interview	आज 4 बजे इंटरव्यू है
+event	hour=13;day=1;kind=personal	कल 1 बजे लंच है
+event	hour=14;minute=30;day=2;kind=interview	परसों 2:30 बजे इंटरव्यू है
+event	hour=17;minute=30;day=1;kind=meeting	कल साढ़े पाँच बजे मीटिंग है
+event	hour=16;minute=15;day=1;kind=meeting	कल सवा चार बजे मीटिंग है
+event	hour=14;day=1;kind=interview	कल 2 बजे इंटरव्यू है, याद रखना
+event	hour=9;day=1;kind=meeting	कल सुबह 9 बजे मीटिंग है
+event	hour=21;day=1;kind=personal	कल रात 9 बजे पार्टी है
+event	hour=14;day=1;kind=interview	मेरा कल 2 बजे इंटरव्यू है
+event	hour=14;day=1;kind=interview	मेरा इंटरव्यू कल 2 बजे है
+event	hour=6;day=1;kind=travel	कल सुबह 6 बजे फ्लाइट है
+event	hour=14;day=1;kind=appointment	मुझे कल 2 बजे डॉक्टर के पास जाना है
+event	hour=14;day=1;kind=meeting	कल 2 बजे रिव्यू मीटिंग है
+# --- call someone
+call	callee=mummy	मम्मी को फोन करके बताओ कि मैं लेट हूँ
+call	callee=papa	पापा को कॉल करो और पूछो कि दवाई ली या नहीं
+call	callee=plumber	प्लंबर को फोन करके पूछो कब आएगा
+call	callee=bhaiya	भैया को फोन करना है
+call	callee=didi	दीदी को कॉल करके बता दो कि मैं पहुँच गया
+call	callee=dost	दोस्त को फोन करो
+call	callee=electrician	इलेक्ट्रीशियन को फोन करके बुलाओ
+call	callee=driver	ड्राइवर को कॉल करो
+call	callee=doctor	डॉक्टर को फोन करके अपॉइंटमेंट बुक करो
+call	callee=dadi	दादी को फोन करके हाल पूछो
+call	callee=nani	नानी को कॉल करके बताओ कि मैं कल आऊँगा
+call	callee=mummy	mummy को call करो
+call	callee=papa	papa को कॉल करके बताओ कि मैं लेट हूँ
+call	callee=mummy	मम्मी को कॉल करके पूछो कि खाना खाया
+call	callee=bhai	भाई को फोन कर दो
+call	callee=maali	माली को फोन करके पूछो कब आएगा
+call	callee=mistri	मिस्त्री को कॉल करके बुलाओ
+call	callee=landlord	लैंडलॉर्ड को फोन करके किराए के बारे में पूछो
+call	callee=teacher	टीचर को फोन करके पूछो कि फीस कब तक है
+call	callee=mummy	मम्मी को फोन कर दो
+call	callee=papa	पापा को फोन करके बोल दो कि मैं आ रहा हूँ
+call	callee=chacha	चाचा को फोन करो
+call	callee=airtel	एयरटेल कस्टमर केयर को फोन करके बिल के बारे में पूछो
+call	callee=bhabhi	भाभी को कॉल करके बताओ कि मैं पहुँच गया
+call	callee=mummy	मम्मी को फ़ोन करके बताओ कि खाना मत बनाना
+# --- card question
+card_question	amount=640;category=food_delivery	कौन सा कार्ड ज़ोमैटो पर 640
+card_question	amount=640;category=food_delivery	ज़ोमैटो पर ६४०
+card_question	amount=2000;category=fuel	पेट्रोल 2000 पर कौन सा कार्ड सही रहेगा
+card_question	amount=500;category=food_delivery	स्विगी पर पाँच सौ
+card_question	amount=12000;category=electronics	अमेज़न पर बारह हज़ार का फोन
+card_question	amount=1500;category=online_shopping	फ्लिपकार्ट पर डेढ़ हज़ार
+card_question	amount=250;category=cab	उबर पर ढाई सौ
+card_question	amount=3000;category=grocery	ब्लिंकिट पर तीन हज़ार
+card_question	amount=800;category=entertainment	नेटफ्लिक्स पर आठ सौ
+card_question	amount=50000;category=electronics	लैपटॉप के लिए कौन सा कार्ड ठीक है, पचास हज़ार
+card_question	amount=2500;category=dining	रेस्टोरेंट में 2500 का डिनर, कौन सा कार्ड
+card_question	amount=1000;category=fuel	पेट्रोल पर 1000 कौन सा कार्ड
+card_question	amount=400;category=cab	ओला पर चार सौ
+card_question	amount=700;category=food_delivery	ज़ोमैटो पर सात सौ
+card_question	amount=1200;category=grocery	ज़ेप्टो पर बारह सौ
+card_question	amount=6500;category=travel	इंडिगो पर साढ़े छह हज़ार
+card_question	amount=3000;category=travel	कौन सा कार्ड irctc पर 3000
+card_question	amount=900;category=food_delivery	स्विगी पर 900 कौन सा कार्ड
+card_question	amount=15000;category=electronics	क्रोमा पर पंद्रह हज़ार
+card_question	amount=600;category=pharmacy	फार्मेसी में 600 का सामान, कौन सा कार्ड
+card_question	amount=200;category=food_delivery	कौन सा कार्ड स्विगी पर 200
+card_question	amount=45000;category=electronics	कौन सा कार्ड आईफोन 45000
+card_question	amount=1800;category=online_shopping	मिंत्रा पर अठारह सौ
+card_question	amount=350;category=cab	रैपिडो पर साढ़े तीन सौ
+# --- add card
+add_card	banks=HDFC Bank	मेरे पास एचडीएफसी रीगालिया है
+add_card	banks=HDFC Bank,SBI Card	मेरे पास एचडीएफसी रीगालिया और एसबीआई कैशबैक है
+add_card	banks=ICICI Bank	मेरे पास आईसीआईसीआई अमेज़न कार्ड है
+add_card	banks=Axis Bank	मेरे पास एक्सिस मैग्नस कार्ड है
+add_card	banks=Kotak Mahindra Bank	मेरे पास कोटक रॉयल कार्ड है
+add_card	banks=SBI Card	मेरे कार्ड हैं एसबीआई कैशबैक
+add_card	banks=HDFC Bank	कार्ड ऐड करो एचडीएफसी रीगालिया
+add_card	banks=ICICI Bank,Axis Bank	मेरे पास आईसीआईसीआई कोरल और एक्सिस एसेंट है
+add_card	banks=SBI Card	मेरे पास एसबीआई सिंपलीक्लिक है
+add_card	banks=IDFC FIRST Bank	मेरे पास आईडीएफसी वाओ कार्ड है
+add_card	banks=HDFC Bank	मेरे पास HDFC रीगालिया कार्ड है
+add_card	banks=SBI Card	मेरे पास SBI कैशबैक है
+add_card	banks=Axis Bank,HDFC Bank	मेरे पास एक्सिस माइलेज और एचडीएफसी मिलेनिया है
+add_card	banks=IndusInd Bank	मेरे पास इंडसइंड लीजेंड कार्ड है
+add_card	banks=ICICI Bank	मेरे पास आईसीआईसीआई सफिरो है
+add_card	banks=HDFC Bank	मेरे पास एचडीएफसी इनफिनिया है
+add_card	banks=Kotak Mahindra Bank	मेरे पास कोटक लीग कार्ड है
+add_card	banks=HDFC Bank,SBI Card	मेरे पास एचडीएफसी रीगालिया, एसबीआई कैशबैक हैं
+add_card	banks=HDFC Bank	मेरे पास एचडीएफसी स्विगी कार्ड है
+# --- bill forward
+bill	amount=1450;day=28	आपका बिजली बिल ₹1450 है, अंतिम तिथि 28/10/2026
+bill	day=20	बिजली का बिल 20 तारीख को
+bill	amount=899;day=25	आपका एयरटेल बिल 899 रुपये का है, अंतिम तिथि 25 अक्टूबर
+bill	amount=500;day=27	वाईफाई का बिल पाँच सौ रुपये, 27 तारीख तक
+bill	day=10	गैस बिल 10 तारीख को भरना है
+bill	amount=3200;day=15	क्रेडिट कार्ड बिल 3200 रुपये 15 तारीख को
+bill	amount=1200;day=5	मोबाइल रिचार्ज 1200 का, 5 नवंबर को
+bill	amount=780;day=30	पानी का बिल ₹780 है, भुगतान की अंतिम तिथि 30/10/2026
+bill	amount=2100;day=12	आपका बिजली बिल दो हज़ार एक सौ रुपये है, अंतिम तिथि 12 नवंबर
+bill	day=18	इंटरनेट बिल 18 तारीख को
+bill	amount=649;day=26	डीटीएच रिचार्ज 649 रुपये, अंतिम तिथि 26 अक्टूबर
+bill	day=7	ब्रॉडबैंड बिल 7 तारीख को
+bill	amount=1850;day=22	बिजली बिल १८५० रुपये, अंतिम तिथि २२ नवंबर
+bill	day=14	वाईफाई बिल 14 तारीख को भरना है
+bill	amount=4500;day=9	क्रेडिट कार्ड स्टेटमेंट 4500 रुपये, अंतिम तिथि 9 नवंबर
+bill	amount=320;day=16	पानी का बिल 320 रुपये 16 तारीख तक
+bill	amount=999;day=24	जियो रिचार्ज 999 रुपये, अंतिम तिथि 24 अक्टूबर
+bill	day=3	बिजली का बिल 3 तारीख को
+# --- stop, delete, mute
+stop_delete	action=delete_all	सब डिलीट करो
+stop_delete	action=delete_all	मेरा सारा डेटा मिटा दो
+stop_delete	action=delete_all	सब कुछ भूल जाओ
+stop_delete	action=delete_all	हाँ, सब मिटा दो
+stop_delete	action=forget	डेंटिस्ट भूल जाओ
+stop_delete	action=forget	इंटरव्यू हटा दो
+stop_delete	action=forget	भूल जाओ मीटिंग
+stop_delete	action=mute	मत पूछो
+stop_delete	action=mute	बस करो
+stop_delete	action=mute	इंटरव्यू के बारे में मत पूछो
+stop_delete	action=mute	स्टॉप
+stop_delete	action=mute	बंद करो
+stop_delete	action=mute	बिल के रिमाइंडर बंद करो
+stop_delete	action=remove_card	एसबीआई कैशबैक हटा दो
+stop_delete	action=remove_card	एचडीएफसी रीगालिया हटाओ
+stop_delete	action=mute	अब मत पूछो
+stop_delete	action=mute	ये मत भेजो
+stop_delete	action=forget	पार्टी भूल जाओ
+stop_delete	action=forget	जिम हटा दो
+stop_delete	action=delete_all	सारा डेटा डिलीट करो
+stop_delete	action=delete_all	सब मिटा दो
+stop_delete	action=mute	मत पूछना
+stop_delete	action=mute	बस
+stop_delete	action=forget	मीटिंग भूल जाओ
+stop_delete	action=delete_all	सब कुछ डिलीट करो
+stop_delete	action=delete_all	mera सारा data delete करो
+# --- memory controls
+memory	action=remember	तुम्हें क्या याद है
+memory	action=remember	तुम्हें क्या क्या याद है
+memory	action=export	मेरा डेटा एक्सपोर्ट करो
+memory	action=edit	इंटरव्यू को 3 बजे कर दो
+memory	action=remember	क्या याद है
+memory	action=export	डेटा एक्सपोर्ट
+# --- menu / help
+menu	-	हेल्प
+menu	-	मेन्यू
+menu	-	मेनू
+menu	-	तुम क्या कर सकती हो
+menu	-	help
+menu	-	menu
+# --- must not be taken by the rules
+none	-	मौसम कैसा है
+none	-	धन्यवाद
+none	-	शुक्रिया
+none	-	तुम कैसी हो
+none	-	पिज़्ज़ा ऑर्डर करो
+none	-	कैब चाहिए
+none	-	आज मूड अच्छा है
+none	-	नमस्ते
+none	-	ठीक है
+none	-	आज का मौसम बताओ
+none	-	मुझे कुछ नहीं चाहिए
+none	-	हाँ
+none	-	नहीं

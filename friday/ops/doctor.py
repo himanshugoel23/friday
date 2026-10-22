@@ -419,8 +419,23 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_SAVINGS_ENABLED", settings.savings_enabled),
         ("FRIDAY_LIFESTATE_ENABLED", settings.lifestate_enabled),
         ("FRIDAY_GOOGLE_ENABLED", settings.google_enabled),
+        ("FRIDAY_VOICE_NOTE_REPLIES", settings.voice_note_replies),
+        ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):
         s.add(OK, f"{name}={'on' if on else 'off'}")
+    # ffmpeg makes the spoken reply WhatsApp-ready (Ogg/Opus) and decodes incoming voice notes
+    if shutil.which("ffmpeg"):
+        s.add(OK, "ffmpeg is installed (voice notes in and out)")
+    else:
+        s.add(
+            WARN if settings.voice_note_replies else OK,
+            "ffmpeg is MISSING: install it with 'apt-get install -y ffmpeg' (the installer does); "
+            + (
+                "voice-note replies will fall back to text"
+                if settings.voice_note_replies
+                else "it is needed once FRIDAY_VOICE_NOTE_REPLIES is turned on"
+            ),
+        )
     n = len(settings.pilot_allowed_numbers)
     s.add(OK, f"pilot allow-list: {n} number(s)")
     if settings.is_live and settings.consumer_calls_enabled and n == 0:

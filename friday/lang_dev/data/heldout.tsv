@@ -1,0 +1,96 @@
+# split=heldout: written AFTER the lexicon and rules were frozen for the first report; never tuned on after its errors were seen.
+# Labels were checked against the Roman-spelling equivalents of the same sentences (the parsers' own limits), not against the normaliser.
+event	hour=9;minute=30;day=1;kind=interview	कल सुबह साढ़े नौ बजे मेरा इंटरव्यू है
+event	hour=17;day=2;kind=appointment	परसों शाम 5 बजे डॉक्टर से मिलना है
+event	hour=20;day=1;kind=personal	शुक्रवार रात 8 बजे दोस्तों के साथ डिनर है
+event	hour=6;day=1;kind=travel	कल सवेरे 6 बजे की फ्लाइट है
+event	hour=12;day=3;kind=personal	रविवार को दोपहर 12 बजे शादी में जाना है
+event	hour=19;minute=15;day=1;kind=personal	कल शाम सवा सात बजे मूवी है
+event	hour=8;day=6;kind=travel	बुधवार को सुबह 8 बजे मेरी ट्रेन है
+event	hour=11;day=4;kind=meeting	अगले हफ्ते सोमवार को 11 बजे प्रेजेंटेशन है
+event	hour=14;minute=30;day=1;kind=appointment	कल दोपहर ढाई बजे डेंटिस्ट का अपॉइंटमेंट है
+event	hour=10;dom=28;kind=personal	28 तारीख को सुबह 10 बजे पूजा है
+event	hour=18;dom=5;kind=personal	5 नवंबर को शाम 6 बजे बर्थडे पार्टी है
+event	hour=21;minute=30;day=1;kind=personal	कल रात साढ़े नौ बजे पार्टी है
+event	hour=18;minute=45;day=0	आज शाम पौने सात बजे जिम है
+event	hour=7;day=2;kind=travel	परसों सुबह 7 बजे एयरपोर्ट जाना है
+event	hour=14;day=1;kind=meeting	कल दोपहर 2 बजे कॉलेज में मीटिंग है
+event	hour=16;day=2;kind=appointment	शनिवार को शाम 4 बजे हेयरकट है
+event	hour=11;day=1;kind=appointment	कल 11 बजे सुबह क्लिनिक में चेकअप है
+event	hour=22;day=0;kind=travel	आज रात 10 बजे बस पकड़नी है
+event	hour=22	रोज़ रात 10 बजे दवाई लेनी है
+event	hour=7	हर मंगलवार सुबह 7 बजे योगा करना है
+event	hour=10;day=1;kind=appointment	कल सुबह दस बजे हॉस्पिटल में अपॉइंटमेंट है
+event	hour=20;day=2;kind=personal	परसों रात 8 बजे शादी का फंक्शन है
+event	hour=13;day=0;kind=meeting	तीन घंटे बाद मीटिंग है
+event	hour=9;day=1;kind=personal	कल सुबह 9 बजे स्कूल में पीटीए है
+event	hour=17;day=0	आज शाम 5 बजे जिम जाना है
+event	hour=23;day=1;kind=travel	कल रात 11 बजे फ्लाइट है
+event	hour=14;dom=30;kind=interview	30 तारीख को दोपहर 2 बजे मेरा इंटरव्यू है
+event	hour=9;day=4;kind=meeting	सोमवार सुबह 9 बजे स्टैंडअप मीटिंग है
+event	hour=17;day=1	कल शाम 5 बजे मम्मी के साथ मार्केट जाना है
+event	hour=15;day=1;kind=appointment	कल 3 बजे डेंटिस्ट के पास जाना है
+event	hour=17;day=0;kind=meeting	गुरुवार को 5 बजे मीटिंग है
+event	hour=16;day=0;kind=personal	आज दोपहर 4 बजे क्लास है
+event	hour=8;day=1;kind=personal	कल सुबह 8 बजे योगा क्लास है
+event	hour=12;day=1;kind=meeting	कल दोपहर 12 बजे क्लाइंट मीटिंग है
+call	callee=mummy	मम्मी को फोन करके बोलो कि मैं कल आ रहा हूँ
+call	callee=papa	पापा को फोन लगाओ
+call	callee=bijli	बिजली वाले को फोन करके पूछो कि कब आएगा
+call	callee=behen	मेरी बहन को कॉल करो
+call	callee=ravi	रवि को फोन करके बताओ कि मीटिंग कैंसल हो गई है
+call	callee=sonu	सोनू भैया को फोन करो
+call	callee=sharma	डॉक्टर शर्मा को फोन करके अपॉइंटमेंट पूछो
+call	callee=plumber	प्लंबर को कॉल करके कहो कि आज आ जाए
+call	-	दादाजी को फोन कर दो
+call	-	आंटी को फोन करके पूछो कि पार्टी में आएँगी या नहीं
+call	-	मकान मालिक को फोन करके बताओ कि किराया कल दूँगा
+call	-	ऑफिस में फोन करके बोल दो कि मैं आज नहीं आ रहा
+card_question	amount=3000;category=online_shopping	कौन सा कार्ड इस्तेमाल करूँ, अमेज़न पर 3000 का सामान
+card_question	amount=450;category=food_delivery	ज़ोमैटो पर 450 रुपये का खाना, कौन सा कार्ड?
+card_question	amount=3000;category=fuel	पेट्रोल पंप पर 3000 कौन सा कार्ड
+card_question	amount=2000;category=grocery	कौन सा कार्ड सबसे अच्छा रहेगा बिगबास्केट पर 2000 के लिए
+card_question	amount=20000;category=electronics	मुझे 20000 का फोन लेना है, कौन सा कार्ड अच्छा है
+card_question	amount=350;category=food_delivery	स्विगी पर 350 का ऑर्डर है कौन सा कार्ड
+card_question	amount=180;category=cab	ओला पर 180 रुपये, कौन सा कार्ड?
+card_question	amount=2500;category=online_shopping	कौन सा कार्ड दूँ मिंत्रा पर 2500
+card_question	amount=8000;category=travel	फ्लाइट टिकट 8000 का है, कौन सा कार्ड
+card_question	amount=750;category=food_delivery	ज़ोमैटो पर सात सौ पचास
+card_question	amount=1500;category=grocery	बिगबास्केट पर 1500
+add_card	banks=HDFC Bank	मेरे पास एचडीएफसी की रीगालिया है
+add_card	banks=ICICI Bank	मेरे पास आईसीआईसीआई कोरल कार्ड है
+add_card	banks=HDFC Bank	मेरे पास एचडीएफसी बैंक का मिलेनिया कार्ड है
+add_card	banks=RBL Bank	मेरे पास आरबीएल बैंक का बजाज कार्ड है
+add_card	banks=AU Small Finance Bank	मेरे पास एयू बैंक का एलएसओ कार्ड है
+bill	amount=2340;day=25	बिजली का बिल ₹2,340 है, 25 तारीख तक भरना है
+bill	amount=560;day=29	आपके खाते में गैस बिल 560 रुपये बाकी है, अंतिम तिथि 29 अक्टूबर
+bill	amount=599;day=21	मोबाइल बिल 599 रुपये, देय तिथि 21 नवंबर
+bill	day=15	पानी का बिल 15 तारीख को देना है
+bill	amount=12000;day=20	क्रेडिट कार्ड का बिल 12000 रुपये है, 20 तारीख को भरना है
+bill	amount=400;day=30	डीटीएच रिचार्ज 400 रुपये, 30 तारीख तक
+bill	amount=1100;day=6	बिजली बिल 1,100 रुपये, 6/11/2026 तक
+stop_delete	action=delete_all	मेरा सारा डेटा हटा दो
+stop_delete	action=delete_all	सारी जानकारी मिटा दो
+stop_delete	action=forget	वह मीटिंग भूल जाओ
+stop_delete	action=mute	रिमाइंडर बंद कर दो
+stop_delete	action=mute	दवाई के बारे में मत पूछो
+stop_delete	action=delete_all	सब कुछ मिटा दो
+stop_delete	action=mute	ये रिमाइंडर मत भेजो
+stop_delete	action=remove_card	ऐक्सिस मैग्नस कार्ड हटाओ
+stop_delete	action=delete_all	सब हटा दो
+stop_delete	action=mute	कुछ मत पूछो
+memory	action=remember	मेरे बारे में तुम्हें क्या क्या याद है
+memory	action=export	मेरा सारा डेटा डाउनलोड करो
+memory	action=export	सब कुछ एक्सपोर्ट करो
+memory	action=remember	तुम्हें मेरे बारे में क्या याद है
+menu	-	तुम क्या क्या कर सकती हो
+menu	-	आप क्या कर सकती हैं
+none	-	मौसम का हाल बताओ
+none	-	आपका नाम क्या है
+none	-	मैं ठीक हूँ
+none	-	ठीक है धन्यवाद
+none	-	मुझे पिज़्ज़ा खाना है
+none	-	वाह क्या बात है
+none	-	शाम को क्या बनाऊँ
+none	-	कितने बजे हैं
+none	-	ओके

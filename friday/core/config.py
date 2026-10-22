@@ -557,6 +557,14 @@ class Settings(BaseSettings):
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
     chatbot_disclosure_every_step: bool = False
+    # ------------------------------------------------------------------ voice notes + Devanagari
+    # docs/VOICE_NOTES_AND_DEVANAGARI.md. Both OFF: with them off the pipeline behaves as before.
+    voice_note_replies: bool = False  # FRIDAY_VOICE_NOTE_REPLIES: voice-note in -> voice-note out
+    voice_note_daily_cap: int = Field(default=10, ge=0)  # voice replies per user per IST day
+    voice_note_max_chars: int = Field(default=600, ge=1)  # longer replies go as text only
+    voice_note_cost_per_1k_chars_inr: float = Field(default=3.0, ge=0)  # ESTIMATE, for the cost log
+    voice_note_confirm_below: float = Field(default=0.6, ge=0, le=1)  # ask back below this
+    devanagari_input: bool = False  # Devanagari -> Roman Hinglish for the parsers
 
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
