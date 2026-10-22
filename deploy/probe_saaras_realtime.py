@@ -53,6 +53,8 @@ UTTS = [
 VARIANTS: dict[str, dict[str, str]] = {
     "v3rt fast sil300 (current)": {"model": "saaras:v3-realtime", "stream_type": "fast", "silence_duration_ms": "300"},
     "v3rt fast sil150": {"model": "saaras:v3-realtime", "stream_type": "fast", "silence_duration_ms": "150"},
+    "v3rt fast sil200": {"model": "saaras:v3-realtime", "stream_type": "fast", "silence_duration_ms": "200"},
+    "v3rt fast sil250": {"model": "saaras:v3-realtime", "stream_type": "fast", "silence_duration_ms": "250"},
     "v3rt fast sil500 (doc default)": {"model": "saaras:v3-realtime", "stream_type": "fast", "silence_duration_ms": "500"},
     "v3rt balanced sil300": {"model": "saaras:v3-realtime", "stream_type": "balanced", "silence_duration_ms": "300"},
     "v4 fast sil300": {"model": "saaras:v4", "stream_type": "fast", "silence_duration_ms": "300"},
@@ -285,7 +287,7 @@ async def main() -> int:
         if name == "rest":
             print(f"{name:34s} REST call {summary([r['rest_ms'] for r in ok])}  WER {sum(w) / max(1, len(w)):.2f}  errors {len(rows) - len(ok)}")
             continue
-        print(f"{name:34s} final-after-end {summary([r.get('final_ms') for r in ok])} | first-partial-after-speech-start {summary([r.get('first_partial_ms') for r in ok])} | stable-partial {summary([r.get('stable_partial_ms') for r in ok])} | WER {sum(w) / max(1, len(w)):.2f} errors {len(rows) - len(ok)}")
+        print(f"{name:34s} final-after-end {summary([r.get('final_ms') for r in ok])} | first-partial-after-speech-start {summary([r.get('first_partial_ms') for r in ok])} | stable-partial {summary([r.get('stable_partial_ms') for r in ok])} | WER {sum(w) / max(1, len(w)):.2f} cut-mid-sentence {sum(1 for r in ok if (r.get('final_ms') or 0) < 0)} errors {len(rows) - len(ok)}")
     return 0
 
 
