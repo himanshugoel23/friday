@@ -964,3 +964,6 @@ Dev A: friday/connectors/browser (policy, backend selector, fake), friday/connec
 
 ## Task (2026-10-23): chatbot persona to be built on the lines of the Instinct chatbot (founder will share reference replies)
 Founder will share examples of how the Instinct chatbot replies; we build Friday's chat style on similar lines (style, structure, tone, length; not copying their text verbatim). Next: read the references, write docs/CHATBOT_PERSONA.md (persona sheet + sample conversations in Hinglish/English), founder approves, then update friday/chatbot/copy.py wording and the reply composer. Wording stays PENDING until approved.
+
+## Task (2026-10-23): read the founder's Instinct WhatsApp chat export; write docs/CHATBOT_PERSONA.md
+Founder shared a zip of his chat with Instinct (482 lines, Oct 9-22, plus screenshots/voice notes; NOT committed: it contains his address, OTP codes and email subjects; unzipped only in the session scratchpad). Findings and the Friday persona sheet with sample conversations are in docs/CHATBOT_PERSONA.md (wording PENDING founder approval). More chats can be added by the founder.
