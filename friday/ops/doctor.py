@@ -436,6 +436,15 @@ def check_switches(settings: Settings) -> Section:
                 else "it is needed once FRIDAY_VOICE_NOTE_REPLIES is turned on"
             ),
         )
+    # human-like voice switches (docs/HUMAN_VOICE.md): every one reported ON or OFF, by name
+    from friday.human.profile import switch_report, vad_effective
+
+    s.add(OK, f"voice profile: {settings.voice_profile}")
+    for env, kind, on, note in switch_report(settings):
+        s.add(OK, f"{env}={'on' if on else 'off'} ({kind}){' - ' + note if note else ''}")
+    if settings.voice_vad_backend == "silero" and vad_effective(settings) != "silero":
+        s.add(WARN, "silero VAD requested but the 'vad' extra is not installed: running on the "
+                    "energy rule (automatic fallback). Install with: uv sync --extra vad")
     n = len(settings.pilot_allowed_numbers)
     s.add(OK, f"pilot allow-list: {n} number(s)")
     if settings.is_live and settings.consumer_calls_enabled and n == 0:

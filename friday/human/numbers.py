@@ -96,12 +96,13 @@ def time_words(hour: int, minute: int, mer: str | None = None) -> str:
 
 
 _RUPEE = r"(?:₹|rs\.?|inr)\s*"
-_RE_PRICE_PRE = re.compile(rf"{_RUPEE}(\d[\d,]*)", re.I)
-_RE_PRICE_POST = re.compile(r"\b(\d[\d,]*)\s*(?:rs\.?|rupees?|rupaye|rupaiye|₹)(?=\W|$)", re.I)
+_NUMTXT = r"\d{1,3}(?:,\d{2,3})+|\d+"
+_RE_PRICE_PRE = re.compile(rf"{_RUPEE}({_NUMTXT})", re.I)
+_RE_PRICE_POST = re.compile(rf"\b({_NUMTXT})\s*(?:rs\.?|rupees?|rupaye|rupaiye|₹)(?=\W|$)", re.I)
 _RE_TIME = re.compile(r"\b(\d{1,2})[:.](\d{2})(?:\s*(a\.?m\.?|p\.?m\.?))?(?!\d)", re.I)
 _RE_TIME_MER = re.compile(r"\b(\d{1,2})\s*(a\.?m\.?|p\.?m\.?)(?=\W|$)", re.I)
 _RE_PHONE = re.compile(r"(?<![\d])(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?![\d])")
-_RE_NUM = re.compile(r"(?<![\w.])(\d[\d,]*)(?![\w])")
+_RE_NUM = re.compile(rf"(?<![\w.])({_NUMTXT})(?![\w])")
 _SECRET = re.compile(r"\b(otp|pin|cvv|password)\b", re.I)
 
 

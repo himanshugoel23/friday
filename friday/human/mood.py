@@ -20,6 +20,9 @@ ANNOYED = re.compile(
 )
 
 
+_PLEASANT = re.compile(r"\b(namaste|namaskar|hello|hi|dhanyavaad|shukriya|thank you|thanks|please)\b", re.I)
+
+
 def detect(text: str) -> str:
     """'annoyed' | 'rushed' | 'neutral'."""
     if not text:
@@ -58,6 +61,9 @@ class MoodAdapter:
         if not self.active:
             return text
         parts = split_sentences(text)
+        if len(parts) > 1:  # pleasantries go first when time is short
+            core = [x for x in parts if not _PLEASANT.search(x)]
+            parts = core or parts
         kept: list[str] = []
         asked = False
         for s in parts:

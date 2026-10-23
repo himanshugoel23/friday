@@ -40,3 +40,30 @@ class BrowserSession(Protocol):
         ...
 
     async def close(self) -> None: ...
+
+
+class NetworkBlocked(BrowserError):
+    """A request or navigation went outside the connector's allow-list (default deny)."""
+
+
+class LimitExceeded(BrowserError):
+    """A resource limit (pages, downloads, time) was hit; the session is closed."""
+
+
+class LiveBrowserSession(BrowserSession, Protocol):
+    """What the runtime needs on top of ``BrowserSession``: storage state and raw input for the
+    takeover view. Connectors never use these; only ``friday.connectors.session`` does."""
+
+    async def storage_state(self) -> dict: ...
+
+    def viewport(self) -> tuple[int, int]: ...
+
+    def current_url(self) -> str: ...
+
+    async def pointer_click(self, x: int, y: int) -> None: ...
+
+    async def type_text(self, text: str) -> None: ...
+
+    async def press_key(self, key: str) -> None: ...
+
+    async def scroll(self, dy: int) -> None: ...

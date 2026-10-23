@@ -14,11 +14,11 @@ from typing import Any
 
 SILENT = (  # no new sound or word: latency / turn-taking / measurement
     "intent_classifier", "voice_speculative_understanding", "llm_stream_to_tts",
-    "voice_semantic_eot", "human_resume", "human_metrics", "human_noise_adapt",
+    "voice_semantic_eot", "human_resume", "human_metrics",
 )
 AUDIBLE = (  # new sound, pace, wording or silence: founder must hear them first
     "human_backchannels", "human_prosody", "human_numbers", "human_variants", "human_mirror",
-    "human_mood", "human_match_listener", "human_pauses",
+    "human_mood", "human_match_listener", "human_pauses", "human_noise_adapt",
 )
 INTERNAL_TEST_ON = SILENT + AUDIBLE
 

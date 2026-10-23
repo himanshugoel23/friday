@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import deque
 from dataclasses import dataclass
 
 CLASSES = ("clean", "moderate", "noisy", "very_noisy")
@@ -50,8 +51,21 @@ def classify_snr(snr_db: float | None) -> str:
     return "very_noisy"
 
 
+def classify_floor(rms: float) -> str:
+    """Absolute noise floor of the line (RMS of 16-bit samples). Thresholds are first guesses to be
+    tuned on real calls (UNVERIFIED)."""
+    if rms < 150:
+        return "clean"
+    if rms < 350:
+        return "moderate"
+    if rms < 800:
+        return "noisy"
+    return "very_noisy"
+
+
 class NoiseTracker:
     def __init__(self) -> None:
+        self.levels: deque[float] = deque(maxlen=250)  # last 5 s, whatever the detector decided
         self.noise = 0.0
         self.speech = 0.0
         self.n_noise = 0
@@ -61,12 +75,22 @@ class NoiseTracker:
     def feed(self, level: float, speech: bool, *, friday_talking: bool = False) -> None:
         if friday_talking:
             return
+        self.levels.append(level)
         if speech:
             self.speech = level if self.n_speech == 0 else 0.97 * self.speech + 0.03 * level
             self.n_speech += 1
         else:
             self.noise = level if self.n_noise == 0 else 0.98 * self.noise + 0.02 * level
             self.n_noise += 1
+
+    @property
+    def floor(self) -> float | None:
+        """Quiet-end estimate (10th percentile): works even if a loud line makes the detector
+        call every frame speech."""
+        if len(self.levels) < 100:
+            return None
+        v = sorted(self.levels)
+        return v[len(v) // 10]
 
     @property
     def snr_db(self) -> float | None:
@@ -76,13 +100,14 @@ class NoiseTracker:
 
     @property
     def klass(self) -> str:
-        """Noise alone (no speech yet) can still be loud: absolute level counts too."""
-        c = classify_snr(self.snr_db)
-        if self.n_noise >= 25 and self.noise > 1800:
-            c = "very_noisy"
-        elif self.n_noise >= 25 and self.noise > 1000 and c == "clean":
-            c = "noisy"
-        return c
+        """The worse of: the absolute floor of the line, and the speech-to-noise ratio."""
+        worst = classify_snr(self.snr_db)
+        fl = self.floor
+        if fl is not None:
+            fc = classify_floor(fl)
+            if CLASSES.index(fc) > CLASSES.index(worst):
+                worst = fc
+        return worst
 
     def sample(self) -> None:
         if self.snr_db is not None:
@@ -90,8 +115,9 @@ class NoiseTracker:
 
     def summary(self) -> dict[str, float | str | None]:
         snr = self.snr_db
+        fl = self.floor
         return {
-            "noise_rms": round(self.noise, 1), "speech_rms": round(self.speech, 1),
+            "noise_rms": round(fl if fl is not None else self.noise, 1), "speech_rms": round(self.speech, 1),
             "snr_db": None if snr is None else round(snr, 1), "noise_class": self.klass,
         }
 

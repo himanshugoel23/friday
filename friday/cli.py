@@ -423,6 +423,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.receptionist.cli import add_parser as _add_receptionist
 
     _add_receptionist(sub)  # `friday receptionist-sim`, `friday receptionist codes|lines|probe`
+    from friday.human.cli import add_parser as _add_voice
+
+    _add_voice(sub)  # `friday voice selftest | human-preview | listening-kit | pron-add | metrics`
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -557,6 +560,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if _receptionist_handles(args):  # offline: simulator, codes, lines, probe report
         return _run_receptionist(args)
+    from friday.human.cli import handles as _voice_handles
+    from friday.human.cli import run as _run_voice
+
+    if _voice_handles(args):  # selftest/metrics offline; previews use the TTS only if keys exist
+        return _run_voice(args)
     if args.cmd == "consumer":  # demo: offline; call-test: one allow-listed call
         from friday.integration.demo import run_command as run_consumer_command
 
