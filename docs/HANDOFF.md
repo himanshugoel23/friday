@@ -949,3 +949,6 @@ Founder/EM asked: single-job agents (planner, reader, locator, executor, verifie
 interfaces and fakes; Zomato food order extended + a second connector (chosen: BookMyShow movie tickets, see
 docs/PRIVATE_BROWSER_FLOWS.md); `friday/connectors/flow.py` user flow; `friday browser-sim`. Code in friday/connectors/sites/**,
 tests in tests/connectors_sites/**. Default OFF (FRIDAY_BROWSER_ENABLED=false). All user-facing lines PENDING approval.
+
+## State (2026-10-23): five builders were stopped by the session rate limit and are being resumed
+Receptionist (friday/receptionist), voice-human bundle (friday/human, docs/HUMAN_VOICE.md), browser Dev A (friday/connectors/browser + session), browser Dev B (friday/connectors/sites + flow.py), browser EM (.github, tests/integration_browser, friday/mcp, docs/PRIVATE_BROWSER.md). Their work so far is committed as WIP on claude/friday-phase-1. Rule for all builders sharing one working folder: add only your own files, `git pull --rebase --autostash` before push, never leave a rebase half-done. Full suite not re-run yet since the WIP commits.
