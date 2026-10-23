@@ -348,7 +348,8 @@ class SessionManager:
                     if t and t is not asyncio.current_task():
                         t.cancel()
                 sess._agent_turn.set()  # wake any waiting call so it sees "closed"
-                if persist and self.vault and sess.info.mode == "agent" and not sess._counter.tripped:
+                clean = sess.info.mode == "agent" and not sess._counter.tripped
+                if persist and self.vault and clean:
                     with contextlib.suppress(Exception):
                         state = await sess._raw.storage_state()
                         self.vault.save(info.user_id, info.site, state)  # type: ignore[union-attr]

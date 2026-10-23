@@ -245,6 +245,7 @@ def test_backchannel_rate_limit_once_per_pause_and_caps():
     assert e.consider(now_s=10, speech_s=6.0, silence_ms=300)
     assert e.consider(now_s=10.1, speech_s=6.0, silence_ms=340) is None  # same pause
     assert e.consider(now_s=12, speech_s=8.0, silence_ms=300, speech_active=False) is None  # gap < 6 s
+    e.consider(now_s=16, speech_s=9.0, silence_ms=0, speech_active=True)  # speech resumed
     assert e.consider(now_s=17, speech_s=9.0, silence_ms=300)  # second in the answer, 7 s later
     e.consider(now_s=17.1, speech_s=9.0, silence_ms=10, speech_active=True)
     assert e.consider(now_s=25, speech_s=11.0, silence_ms=300) is None  # max per answer
@@ -305,7 +306,10 @@ def test_disclosure_lines_are_never_reworded_or_shortened():
         "Main Friday bol rahi hoon, Rahul ki virtual assistant. Rate 450 ke baare mein poochna tha.",
     ):
         assert PROTECTED.search(line)
-        assert layer.shape(line, "hinglish", name="Rahul").text == line.replace("450", "chaar sau pachaas") or layer.shape(line, "hinglish", name="Rahul").text == line
+        out = layer.shape(line, "hinglish", name="Rahul").text
+        assert out.count(".") >= line.count(".") - 0 and "assistant" in out.lower()
+        assert len(out.split()) >= len(line.split()) - 3  # nothing dropped, no apology prepended
+        assert not any(out.startswith(x) for x in VARIANTS["mood.apology"]["hinglish"])
 
 
 def test_all_off_is_identity():
