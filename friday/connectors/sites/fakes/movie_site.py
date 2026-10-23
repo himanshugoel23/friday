@@ -60,8 +60,11 @@ class FakeMovieState:
             self.price = {k: v * (100 + self.price_bump_pct) // 100 for k, v in self.price.items()}
         self.taken |= self.taken_on_pick
         if any(x["id"] == seat_id and x["free"] for x in self.seats(show_id)):
+            if s["show"] != show_id:
+                s["picked"] = []
             s["show"] = show_id
-            s["picked"].append(seat_id)
+            if seat_id not in s["picked"]:
+                s["picked"].append(seat_id)
 
     def summary(self, sid: str) -> dict:
         s = self.sessions[sid]

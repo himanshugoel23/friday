@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Scenario harness: the real flow, planner, agents and connectors against the FAKE sites.
 
 Used by ``friday browser-sim`` and by the tests. A scripted "user" reacts to what Friday sends:
@@ -132,6 +133,7 @@ class SimResult:
     movie: FakeMovieState | None
     flow: BrowserFlow
     sessions: list[Any]
+    lang: str = "en"
 
     @property
     def last(self) -> str:
@@ -142,6 +144,8 @@ class SimResult:
 
     def ok(self) -> bool:
         phase_ok = self.task is not None and self.task.phase.value == self.scenario.expect_phase
+        if self.lang != "en":  # the expected phrases are English; check the phase only
+            return phase_ok
         return phase_ok and self.scenario.expect.lower() in " ".join(
             m.text for m in self.messages).lower()
 
@@ -199,9 +203,7 @@ async def run_scenario(sc: Scenario, lang: str = "en", *, flow_hook: Callable | 
             await flow.handle_button(USER, f"bf:{'yes' if yes else 'no'}:{st.task_id}")
         elif m.kind == "payment" and st and sc.pay:
             await flow.handle_button(USER, f"bf:paid:{st.task_id}")
-        elif m.kind == "login" and st and code and "code" not in m.text.lower():
-            break
-        elif m.kind == "login" and st and sc.code is None:
+        elif m.kind == "login" and st and code and "code" not in m.text.lower() or m.kind == "login" and st and sc.code is None:
             break
         else:
             if len(msgs) == seen and m.kind != "login":
@@ -210,4 +212,4 @@ async def run_scenario(sc: Scenario, lang: str = "en", *, flow_hook: Callable | 
     task = None
     for t in flow._store._d.values():  # noqa: SLF001
         task = t
-    return SimResult(sc, msgs, task, flow._reg, food, movie, flow, sessions)  # noqa: SLF001
+    return SimResult(sc, msgs, task, flow._reg, food, movie, flow, sessions, lang)  # noqa: SLF001

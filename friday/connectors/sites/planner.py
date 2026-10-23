@@ -30,6 +30,10 @@ _TIME = re.compile(r"(?i)\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje)\b")
 _TITLE = re.compile(r"(?i)(?:for|ke liye|movie|film)\s+([A-Za-z][A-Za-z0-9' :]{2,40}?)(?=\s+(?:at|tonight|today|tomorrow|for|in|on|\d)|[,.]|$)")
 
 
+GENERIC = frozenset({"pizza", "pizzas", "food", "khana", "khaana", "burger", "biryani", "dinner",
+                     "lunch", "something", "snacks", "meal"})  # a category is not an item
+
+
 class Plan(BaseModel):
     connector: str | None
     slots: dict[str, Any] = {}
@@ -46,11 +50,11 @@ def _food_slots(text: str) -> dict[str, Any]:
     items = []
     for m in _QTY_ITEM.finditer(text):
         name = m.group(2).strip()
-        if name.lower() not in {"seats", "seat", "tickets"}:
+        if name.lower() not in GENERIC | {"seats", "seat", "tickets"}:
             items.append({"query": name, "qty": int(m.group(1))})
     if not items:
         m = re.search(r"(?i)\b(?:order|mangao|mangwao)\s+(?:a |an |one |ek )?([a-z][a-z' ]{2,25}?)(?=\s+(?:from|se|to)\b|[,.]|$)", text)
-        if m and m.group(1).strip().lower() not in {"food", "khana", "something"}:
+        if m and m.group(1).strip().lower() not in GENERIC:
             items.append({"query": m.group(1).strip(), "qty": 1})
     if items:
         slots["items"] = items
@@ -66,7 +70,8 @@ def _movie_slots(text: str) -> dict[str, Any]:
         slots["seats"] = int(m.group(1))
     if m := _TIME.search(text):
         slots["time"] = f"{int(m.group(1))}:{m.group(2) or '00'} {m.group(3).lower()}"
-    if m := _TITLE.search(text):
+    if (m := _TITLE.search(text)) and m.group(1).strip().lower() not in {
+            "tickets", "ticket", "seats", "seat", "show", "movie", "film", "me", "us"}:
         slots["title"] = m.group(1).strip()
     return slots
 
