@@ -9,7 +9,6 @@ import sys
 import pytest
 
 from friday.core.config import Settings
-from friday.core.models import CallOutcome
 from friday.human import metrics as hm
 from friday.human import preview, pronlab
 from friday.human.layer import HumanLayer

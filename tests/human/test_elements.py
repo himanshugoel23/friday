@@ -14,7 +14,8 @@ from friday.human.listener import ListenerModel, is_repeat_request, shorten
 from friday.human.mood import MoodAdapter, detect
 from friday.human.numbers import number_words, phone_words, speak_numbers, time_words
 from friday.human.pauses import CEILING_MS, PausePlanner, other_side_waiting
-from friday.human.prosody import apply as prosody, classify
+from friday.human.prosody import apply as prosody
+from friday.human.prosody import classify
 from friday.human.resume import is_acknowledgement, unfinished, with_connector
 from friday.human.variants import VariantPicker, detect_style
 
