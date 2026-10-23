@@ -1164,8 +1164,9 @@ class _Session:
 
             async def speak(sentence: str) -> None:
                 clean = strip_fillers(sentence) or sentence
-                if self.human.on_numbers or self.human.on_prosody:
-                    clean = self.human.shape(clean, str(lang.value), name=self.name).text
+                h = getattr(self, "human", None)
+                if h is not None and (h.on_numbers or h.on_prosody):
+                    clean = h.shape(clean, str(lang.value), name=self.name).text
                 await leg.speak(clean, lang)
                 self.tts_chars += len(clean)
 

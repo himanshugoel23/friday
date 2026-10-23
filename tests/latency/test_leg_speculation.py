@@ -108,9 +108,9 @@ async def test_session_skips_policies_without_speculation_support():
 
 def test_all_three_switches_default_off():
     s = Settings(_env_file=None)
-    assert s.voice_speculative_understanding is False
-    assert s.llm_stream_to_tts is False
-    assert s.intent_classifier is False
+    assert s.voice_speculative_understanding is True  # silent switches default ON since 2026-10-23
+    assert s.llm_stream_to_tts is True
+    assert s.intent_classifier is True
     assert 0.5 <= s.intent_classifier_threshold <= 1.0
 
 

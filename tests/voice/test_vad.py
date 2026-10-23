@@ -128,7 +128,7 @@ def test_energy_rule_behind_the_interface_is_identical_to_the_old_segmenter(seed
 
 def test_energy_is_the_default_everywhere():
     assert UtteranceSegmenter().vad is None and UtteranceSegmenter().backend == "energy"
-    assert Settings(_env_file=None).voice_vad_backend == "energy"
+    assert Settings(_env_file=None).voice_vad_backend == "silero"  # auto fallback to energy
     assert build_vad("energy") is None and build_vad("anything-else") is None
 
 
