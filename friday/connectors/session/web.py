@@ -40,7 +40,8 @@ _NOT_FOUND = _resp(404, b"not found", "text/plain")
 _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Friday live view</title>
 <style>body{font-family:system-ui;margin:0;padding:16px;background:#111;color:#eee}
-img{max-width:100%;border:1px solid #444;touch-action:none}button{padding:10px 16px;margin:4px 8px 8px 0}
+img{max-width:100%;border:1px solid #444;touch-action:none}
+button{padding:10px 16px;margin:4px 8px 8px 0}
 #t{width:70%;padding:8px}</style></head><body>
 <p id="s">Watching. Friday is working.</p>
 <button id="take">Take over</button><button id="give" hidden>Give back to Friday</button>
@@ -59,7 +60,8 @@ const s=await (await fetch("/live/s/"+V)).json();mode=s.mode;
 document.getElementById("take").hidden=mode==="takeover"||!s.can_takeover;
 document.getElementById("give").hidden=mode!=="takeover";
 document.getElementById("kb").hidden=mode!=="takeover";
-document.getElementById("s").textContent=mode==="takeover"?"You are in control. Friday is paused.":"Watching. Friday is working.";
+document.getElementById("s").textContent=mode==="takeover"?
+"You are in control. Friday is paused.":"Watching. Friday is working.";
 }catch(e){}setTimeout(tick,1000);}
 document.getElementById("take").onclick=()=>post("takeover");
 document.getElementById("give").onclick=()=>post("giveback");
@@ -87,7 +89,8 @@ class LiveViewHttp:
                     return _NOT_FOUND
                 nonce = secrets.token_urlsafe(12)
                 html = _PAGE.replace("__V__", vh.view_id).replace("__N__", nonce)
-                csp = (f"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'unsafe-inline'; "
+                csp = (f"default-src 'none'; script-src 'nonce-{nonce}'; "
+                       "style-src 'unsafe-inline'; "
                        "img-src blob:; connect-src 'self'; base-uri 'none'; form-action 'none'")
                 return _resp(200, html.encode(), "text/html; charset=utf-8",
                              {"Content-Security-Policy": csp})

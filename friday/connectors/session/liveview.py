@@ -3,7 +3,7 @@
 Flow: ``create_link(task_id)`` -> token (24 random bytes, only its hash is kept). Opening the link
 CONSUMES the token and yields a view id (also random, own expiry, bound to the task). The view polls
 masked screenshots (rate limited). "Take over" pauses Friday and lets the user click / type into
-the page; "Give back" resumes Friday. Ending the task, the kill switch, or expiry revokes everything.
+the page; "Give back" resumes Friday. Ending the task, the kill switch, or expiry revokes all.
 
 What we do NOT capture: typed text and keys go straight to the page and are only counted; frames
 always paint over password / OTP / phone inputs; cookies are never read here (the vault stores
