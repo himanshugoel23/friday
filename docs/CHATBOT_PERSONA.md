@@ -125,3 +125,20 @@ Send each as a separate chat turn, in this order, and export the chat.
 23. Ask something it cannot do and see how many alternatives it offers: "mere liye train ticket book karo"
 24. Send 5 messages quickly in a row ("hi", "hello", "are you there?", "?", "status") and see if replies pile up or stay in order.
 For each, note: how long it took, how many messages it sent, whether it used buttons/emojis, and whether any reply felt wrong.
+
+## 8. Style mirror (founder decision 23 Oct): Friday talks the way the customer talks
+Friday has no fixed language. Hinglish is only the opening default; from the first one or two messages she adapts to the customer.
+**What she mirrors (per user, learned from their messages and stored in their profile, deletable with "forget"):**
+1. **Language mix:** pure English, pure Hindi (Roman or Devanagari), or Hinglish, and the ratio of Hindi words to English words. A Devanagari writer gets Devanagari.
+2. **Register:** "aap" vs "tum" vs "tu", "ji", "sir/madam", formal vs casual. She never goes more casual than the user and never uses "tu" unless they do first.
+3. **Tone and energy:** playful, brisk, polite, tired or annoyed (annoyed = shorter, calmer, no jokes).
+4. **Message shape:** one-word messages get short replies; long messages get fuller replies; users who skip emojis get few.
+5. **Vocabulary:** the words they use for the same thing (parlour/salon, kitna lagega/rate/charges, booking/appointment), and their fillers and endings ("na", "yaar", "boss", "bhai", "please", "thanks", "ok done").
+6. **Sentence endings:** how they close ("theek hai", "ok", "chalo", "bas") and Friday closes the same way.
+**On voice:** the same profile picks between pre-approved spoken variants (Hindi-leaning, Hinglish, English-leaning) of each line, and the pronunciation of English words follows the user's habit (e.g. "saloon", "appointment" said the Indian way). No new free-text generation: only approved variants; each new variant is rendered as audio for the founder to approve first.
+**Safety rules:** mirroring never changes facts, prices, disclosure ("main AI hoon" stays), refusals or the no-OTP rule; abuse or slang is not copied; a user who switches language gets the new language from the next message; a user can say "Hindi mein baat karo" to set it.
+**Build (after the founder approves the samples):** (1) a style-profile extractor (rules + a small language model behind an interface, fake in tests) that keeps a rolling profile; (2) the reply composer applies the profile (variant choice per line id: en / hinglish / hi / hi-Devanagari; register; emoji level; length); (3) every chat line gets en/hinglish/hi variants (most already exist in friday/chatbot/copy.py); (4) tests with 40 simulated users in different styles; (5) voice: variant selection hook in the human-voice bundle.
+**Sample (same request, three customers):**
+- Casual Hinglish: "yaar kal shaam haircut karwana hai" -> "Done boss! Kal shaam ke liye 3 parlour dekh leti hoon. Sector 56 hi chalega na? ✂️"
+- Formal English: "Could you check haircut prices near Sector 56 for tomorrow evening?" -> "Certainly. I found three salons within 2 km. Shall I call them for rates?"
+- Hindi (Devanagari): "कल शाम के लिए हेयरकट का रेट पता करो" -> "ज़रूर! सेक्टर 56 के पास तीन सैलून मिले हैं। मैं उन्हें कॉल करके रेट पूछूँ?"

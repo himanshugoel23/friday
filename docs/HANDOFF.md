@@ -973,3 +973,6 @@ Founder: (1) more playful; (2) emojis OK when relevant; (3) answer simple questi
 
 ## Task (2026-10-23): list of test prompts to send to Instinct (to learn reply behaviour)
 Founder offered to ask Instinct more questions. List of 24 prompts in docs/CHATBOT_PERSONA.md appendix A (test behaviour, not internals: it refuses to share how it is built). Founder to run them and share the export.
+
+## Decision (2026-10-23): Friday does NOT always speak one language; she MIRRORS the customer (language, tone, words, how they end sentences)
+Founder (Hindi/English dictation): no need for Friday to always speak English (or any fixed language). It depends on what the customer talks about, how, in which tone and with which closing words. Use the same kind of sentences, words, pronunciation and sentence endings as the user. Spec: docs/CHATBOT_PERSONA.md section 8 (style mirror: per-user style profile used by the chat reply composer; for voice it feeds the language-variant choice of the human-voice bundle; pronunciation/ending variants need founder AUDIO approval before they go live).
