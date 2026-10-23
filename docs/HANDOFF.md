@@ -976,3 +976,6 @@ Founder offered to ask Instinct more questions. List of 24 prompts in docs/CHATB
 
 ## Decision (2026-10-23): Friday does NOT always speak one language; she MIRRORS the customer (language, tone, words, how they end sentences)
 Founder (Hindi/English dictation): no need for Friday to always speak English (or any fixed language). It depends on what the customer talks about, how, in which tone and with which closing words. Use the same kind of sentences, words, pronunciation and sentence endings as the user. Spec: docs/CHATBOT_PERSONA.md section 8 (style mirror: per-user style profile used by the chat reply composer; for voice it feeds the language-variant choice of the human-voice bundle; pronunciation/ending variants need founder AUDIO approval before they go live).
+
+## Decision (2026-10-23, latest): NO fixed persona; Friday's personality adapts to each user
+Founder: "do not do a fixed persona. It should be basis how the user is." Supersedes "playful" as the persona. docs/CHATBOT_PERSONA.md now starts with the adaptive-persona section (dials: language mix, formality, humour, energy, length, emoji level, warmth, pace, closing words; start neutral; mood beats profile; invariants that never adapt). Builder not started: waiting for the founder to confirm the invariant list and sample behaviours.
