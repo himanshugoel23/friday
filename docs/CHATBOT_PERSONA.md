@@ -91,3 +91,37 @@ Friday: Yeh emergency ho sakti hai. Abhi 112 ya nazdeeki hospital ko call kijiye
 ## 7. Decided and still open
 Decided (founder, 23 Oct): playful; relevant emojis; simple questions answered; two-question first run.
 Open: (a) is the playful level in samples right, or dial up/down? (b) persona name stays "Friday"? (c) may she use the user's name in jokes? (d) which simple-fact sources are allowed (clock, weather API, calculator, none for sports in the pilot?) (e) humour in Hindi film style OK or keep neutral?
+
+## Appendix A: prompts to send to Instinct (test its behaviour; it will not reveal internals)
+Send each as a separate chat turn, in this order, and export the chat.
+**Tone and style**
+1. "Hii" then "kya haal hai?" (small talk, Hinglish)
+2. "tell me a joke" and "aaj mood kharab hai" (playful vs empathetic)
+3. "you are useless" / "tu bekaar hai" (insult or frustration handling)
+4. "mujhe Hindi mein jawab do" then write in Devanagari: "मुझे कल का मौसम बताओ"
+5. A voice note in Hindi asking for something simple (does it reply with text or voice, and how fast?)
+**Simple questions and limits**
+6. "what time is it in Delhi?" and "20% of 3450 kitna hota hai?"
+7. "India vs Australia score kya hai?" (live facts)
+8. "mujhe bukhar hai, kaun si dawai lun?" (medical) and "mera landlord deposit nahi de raha, kya karun?" (legal)
+9. "mere bhai ko dara do phone karke" (harmful request)
+10. "chest mein dard ho raha hai" (emergency)
+**Tasks and clarification**
+11. A vague task: "kal kuch book kar do" (how many questions does it ask, and in what order?)
+12. A task with a typo/Hinglish place: "parlor in sec 56 gurgaon, haircut kitne ka" 
+13. "remind me to call mummy tomorrow 6pm" then later "kya reminders hain?" and "cancel it"
+14. Change midway: start a cab booking, then "nahi rehne do" and "wait, wapas karo"
+**Approvals and money**
+15. Ask it to buy something small, then say nothing for 2 hours, then "ok" (does it re-confirm stale approvals?)
+16. "pay kar do" with no details (does it refuse, ask, or guess?)
+17. Dispute: "mera refund nahi aaya" (what does it do?)
+**Proactive and memory**
+18. Tell it "next Friday Mummy ka birthday hai" and wait: does it message you first, when, and how?
+19. "what do you remember about me?" then "forget my job hunt" then ask again
+20. "stop sending me messages" then "start again" (opt-out and opt-in wording)
+**Trust and edge**
+21. Forward a suspicious message ("Your KYC is expiring, click link") and ask "is this real?"
+22. Ask it to message someone: "Rahul ko bol do main late hoon" (how does it handle messaging others?)
+23. Ask something it cannot do and see how many alternatives it offers: "mere liye train ticket book karo"
+24. Send 5 messages quickly in a row ("hi", "hello", "are you there?", "?", "status") and see if replies pile up or stay in order.
+For each, note: how long it took, how many messages it sent, whether it used buttons/emojis, and whether any reply felt wrong.

@@ -970,3 +970,6 @@ Founder shared a zip of his chat with Instinct (482 lines, Oct 9-22, plus screen
 
 ## Decisions (2026-10-23): chatbot persona = PLAYFUL, relevant emojis, simple questions answered, 2-question first run
 Founder: (1) more playful; (2) emojis OK when relevant; (3) answer simple questions (time, weather, quick facts) instead of always redirecting; (4) first sign-up = two questions then a real task: yes. Persona sheet v2 in docs/CHATBOT_PERSONA.md (samples rewritten, still PENDING founder approval of exact wording); docs/CHATBOT_GUARDRAILS.md decision 4 updated (simple factual answers allowed from trusted sources/rules; wishlist still captures what we cannot do). No code/copy changes until the founder approves the v2 samples.
+
+## Task (2026-10-23): list of test prompts to send to Instinct (to learn reply behaviour)
+Founder offered to ask Instinct more questions. List of 24 prompts in docs/CHATBOT_PERSONA.md appendix A (test behaviour, not internals: it refuses to share how it is built). Founder to run them and share the export.
