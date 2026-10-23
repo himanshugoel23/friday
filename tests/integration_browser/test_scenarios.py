@@ -189,9 +189,3 @@ async def test_no_secret_in_audit_log_after_a_whole_run():
 async def test_full_order_through_the_whatsapp_like_handler():
     pytest.skip("write against friday.connectors.flow once its handler signature is public; see "
                 "docs/PRIVATE_BROWSER.md 'integration tests'")
-
-
-@needs("friday.connectors.session", "Developer A: per-user session manager")
-async def test_two_sessions_have_separate_profiles_and_takeover_is_logged():
-    pytest.skip("write against friday.connectors.session once its manager is public")
-

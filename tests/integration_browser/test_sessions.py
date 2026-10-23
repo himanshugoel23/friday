@@ -44,7 +44,8 @@ async def test_two_users_have_separate_browsers_and_logins():
     assert backend.sessions[0] is not backend.sessions[1]
     await mgr.close("ta")
     await mgr.close("tb")
-    assert vault.has("u1", "shop.test") and not vault.has("u2", "shop.test")
+    assert [c["name"] for c in vault.load("u1", "shop.test")["cookies"]] == ["sid"]
+    assert vault.load("u2", "shop.test")["cookies"] == []
     # next task of u2 starts logged out; u1 gets the saved login back
     await mgr.open("u2", "shop.test", "tb2", policy=POLICY)
     assert backend.sessions[2].cookies == []
