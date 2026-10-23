@@ -967,3 +967,6 @@ Founder will share examples of how the Instinct chatbot replies; we build Friday
 
 ## Task (2026-10-23): read the founder's Instinct WhatsApp chat export; write docs/CHATBOT_PERSONA.md
 Founder shared a zip of his chat with Instinct (482 lines, Oct 9-22, plus screenshots/voice notes; NOT committed: it contains his address, OTP codes and email subjects; unzipped only in the session scratchpad). Findings and the Friday persona sheet with sample conversations are in docs/CHATBOT_PERSONA.md (wording PENDING founder approval). More chats can be added by the founder.
+
+## Decisions (2026-10-23): chatbot persona = PLAYFUL, relevant emojis, simple questions answered, 2-question first run
+Founder: (1) more playful; (2) emojis OK when relevant; (3) answer simple questions (time, weather, quick facts) instead of always redirecting; (4) first sign-up = two questions then a real task: yes. Persona sheet v2 in docs/CHATBOT_PERSONA.md (samples rewritten, still PENDING founder approval of exact wording); docs/CHATBOT_GUARDRAILS.md decision 4 updated (simple factual answers allowed from trusted sources/rules; wishlist still captures what we cannot do). No code/copy changes until the founder approves the v2 samples.

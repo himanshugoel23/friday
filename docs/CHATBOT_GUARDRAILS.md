@@ -39,5 +39,5 @@ Principle: Friday is a personal assistant that acts for the user, not a generic 
 1. How much small talk is allowed (recommended: one warm line, then back to work).
 2. Minors: stop sensitive skills, or require parent consent?
 3. Safety-critical: which helplines to name (verified numbers needed) and should Friday alert a trusted contact the user chose?
-4. Out-of-scope: always redirect, or allow short answers to simple factual questions such as the time or weather? (Recommended: redirect, wishlist, and only answer from the user's own data.)
+4. Out-of-scope: DECIDED 2026-10-23 by the founder: allow short answers to simple factual questions (time, weather, simple maths, short definitions) from trusted tools or rules, in Friday's playful tone; redirect + wishlist for medical, legal, financial advice, politics, essays and homework.
 5. Strike policy for abusive users (mute length, ban rules) and who reviews.
