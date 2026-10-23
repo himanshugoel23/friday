@@ -16,7 +16,7 @@ from typing import Protocol
 from friday.connectors.sites.llm import LLM, untrusted
 
 MAX_REPAIRS_PER_TASK = 3
-_SAFE_SELECTOR = re.compile(r"^[\w\s\[\]=\-'\"#.>*:()^$|~,@]{1,200}$")
+_SAFE_SELECTOR = re.compile(r"^[\w\s\[\]=\-'\"#.>*:()^$|~,@{}]{1,200}$")
 
 
 @dataclass(frozen=True)
