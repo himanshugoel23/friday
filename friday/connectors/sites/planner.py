@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Planner: user request -> (connector, slots, steps) from a CLOSED set. One job, no side effects.
 
 ``RulePlanner`` understands English / Hinglish keywords. ``LlmPlanner`` asks a model for the same

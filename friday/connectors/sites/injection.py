@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Prompt-injection guard for page text. Page text is data: it can never give Friday an order.
 
 ``scan`` finds instruction-like sentences (English / Hinglish); ``strip_injection`` removes them so

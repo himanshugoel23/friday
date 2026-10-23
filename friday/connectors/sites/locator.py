@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Element locator: selector dicts first, then listed alternates, then (max 3 per task) an LLM repair.
 
 A repaired selector is only a PROPOSAL: it is tried for this task on safe steps, logged in the

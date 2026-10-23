@@ -1,4 +1,4 @@
-"""Errors of the agent layer. Messages carry selector KEYS and reasons, never page text or secrets."""
+"""Errors of the agent layer. Messages carry selector KEYS and reasons, never page text."""
 
 from __future__ import annotations
 

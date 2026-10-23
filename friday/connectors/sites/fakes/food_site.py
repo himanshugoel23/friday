@@ -58,13 +58,8 @@ class ScenarioFoodSession(SimBrowserSession):
             return []
         if key == "delivery_address":
             return [{"text": st.address}] if kind == "cart" and self._s.logged_in else []
-        if key == "menu_item_add" and kind == "restaurant":
-            pass
+        _ = arg
         return super()._present(key)
-
-    def _key(self, selector: str) -> tuple[str, str]:
-        key, arg = super()._key(selector)
-        return key, arg
 
 
 __all__ = ["ScenarioFoodSession", "ScenarioFoodState", "format_rupees", "EXTRA_SELECTORS"]

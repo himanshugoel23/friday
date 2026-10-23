@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Safety gate for the browser layer: code decides, the model never does.
 
 * Domain allow-list: the browser may only open hosts of the site (plus explicit test hosts).

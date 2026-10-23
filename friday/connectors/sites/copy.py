@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """ALL user-facing lines of the browser flows. PENDING founder approval (hear before change).
 
 Nothing here is approved wording: docs/PRIVATE_BROWSER_FLOWS.md lists every line (generated from

@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from friday.connectors.browser.port import BrowserSession, ElementNotFound
-from friday.connectors.sites.locator import ElementLocator
+from friday.connectors.sites.locator import ElementLocator, RepairLog
 from friday.connectors.sites.reader import PageReader
 from friday.connectors.sites.safety import SiteSafety
 from friday.connectors.sites.verifier import Verifier
@@ -128,3 +128,13 @@ class GuardedSession:
 
     async def close(self) -> None:
         await self.inner.close()
+
+
+@dataclass
+class AgentKit:
+    """The guarded session plus the pieces the flow reads afterwards."""
+
+    session: GuardedSession
+    safety: SiteSafety
+    locator: ElementLocator
+    repairs: RepairLog

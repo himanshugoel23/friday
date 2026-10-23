@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """LLM behind an interface. Real models plug in later; tests and the simulator use ``FakeLLM``.
 
 The model only ever PROPOSES (a plan, a selector). Code validates every answer against a closed
