@@ -49,6 +49,8 @@ Only checked if `FRIDAY_REDIS_URL` / `FRIDAY_OBJECT_STORE_URL` are set. `not rea
 ## 6. switches
 Shows, never changes: `FRIDAY_MODE`, the four feature switches (`FRIDAY_CONSUMER_CALLS_ENABLED`, `FRIDAY_SAVINGS_ENABLED`, `FRIDAY_LIFESTATE_ENABLED`, `FRIDAY_GOOGLE_ENABLED`; off by default), how MANY numbers are on the test allow-list (never the numbers) and whether the vendor-call redirect is set. WARN: consumer calls are on but the allow-list is empty.
 
+Also lists the human-like voice switches by name, ON or OFF (profile `FRIDAY_VOICE_PROFILE`, silent latency switches, audible `FRIDAY_HUMAN_*` elements, VAD backend with fallback note, streaming STT). WARN if silero is requested but the `vad` extra is missing (energy fallback). Details: docs/HUMAN_VOICE.md; `friday voice selftest` runs the offline checks.
+
 ## 7. off switch
 Shows whether Friday is paused right now (WARN if paused; resume with `uv run friday pause --resume`). Then it tests the mechanism on a throwaway copy with a fake phone line: calls allowed, switch on, call refused, switch off. FAIL means the off switch cannot be trusted; do not go live and tell an engineer. Your real switch is never touched.
 
