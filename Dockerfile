@@ -11,14 +11,16 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /src
+# the 'vad' extra (onnxruntime) is baked in so FRIDAY_VOICE_VAD_BACKEND=silero works; it falls back to
+# the energy rule automatically if it cannot load
 # 1) dependencies only (cached until pyproject/uv.lock change)
 COPY pyproject.toml uv.lock README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --no-install-project --extra vad
 # 2) the project itself, installed (not editable) into the venv
 COPY friday ./friday
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable --extra vad
 
 FROM ${PYTHON_IMAGE} AS runtime
 ARG GIT_SHA=unknown
