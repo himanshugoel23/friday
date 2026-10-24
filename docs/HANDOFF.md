@@ -991,4 +991,7 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   consumer features, launch/legal/security/infra, dated decision register, standing rules, 15 contradictions, open questions, doc map, branch notes). Also added rule 6 (reply in English) to
   CLAUDE.md. Found, NOT fixed (owner = whoever touches cli.py): `uv run friday --help` crashes (bare `%` in the `scout-report` help string, `friday/cli.py:524`, must be `%%`); CI never ran and
   ruff fails in `deploy/probe_*.py` and `core/config.py`. Read KNOWLEDGE_INDEX.md after this file.
+- 2026-10-24 founder ask (chat B): the repo is PUBLIC, so **remove the founder's phone number and the server address from the docs** (and avoid adding them again). Plan: replace with placeholders pointing to
+  the server `.env` (`FRIDAY_PILOT_ALLOWED_NUMBERS`) and the server's own `FRIDAY_PUBLIC_BASE_URL`; check scripts/tests/code too and keep behaviour unchanged. Note: git HISTORY still contains them; removing them
+  from history needs a history rewrite (destructive on a shared branch) and is a separate founder decision.
 
