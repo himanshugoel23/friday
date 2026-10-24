@@ -1003,4 +1003,13 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   **Still true:** the old values remain in git HISTORY (public repo). Removing them needs a history rewrite (force-push, breaks other chats/clones), or making the repo private, or accepting it; founder to decide.
   Other numbers still in the docs: Friday's own Vobiz number and older trial/test numbers (product numbers, not personal); say if those should go too.
 - 2026-10-24 founder ask (chat B): "what is the current scope of phase 1 as per the final date?" Answer being compiled from GO_LIVE_5_DAYS, FEATURES, BUILD_BOARD, HANDOFF 8.x (see the entry below once done).
+- 2026-10-24 ANSWER (chat B) to "current scope of phase 1 as per the final date": no calendar date is recorded anywhere; the governing definition is GO_LIVE_5_DAYS (2026-10-22) = a PRIVATE PILOT in 5 working days
+  from the day the founder clears Day 1 (installer + Meta app + doctor PASS), 5-10 named testers, one WhatsApp number. IN: WhatsApp chat (Hinglish/Hindi/English, voice notes in); "call someone for me" to allow-listed numbers
+  with approval + report; savings (which card, only founder-entered verified rules; bills from forwarded text; reminders); your day (capture, follow-ups, text morning brief, Google Calendar for named testers);
+  trust (consent, what do you remember / delete everything, off switch, doctor PASS). Later founder decisions (10-22): private browser IS in the pilot (supervised, default OFF per tester, fake sites, real-site runs founder-only);
+  receptionist and human-voice layer are built in parallel but OFF in the pilot default until audio is approved. Vendor calling (the original phase 1) in the pilot only to allow-listed numbers or via the test redirect;
+  real businesses stay blocked until the founder approves specific numbers and the LEGAL_MAP blocking rows are accepted/cleared. CUT until after go-live: live receptionist forwarding, hold-fighting, reminder calls to others,
+  voice-note replies/nudges, media understanding, wake word/desk mode, Gmail (beyond founder testing), card rules beyond a handful, regional languages. PUBLIC beta is a later gate set by a QUALITY BAR (HANDOFF 8.12/8.9):
+  waves 10 -> 30 -> 50, all 20 vendor categories, estimate (10-12, mine, not a promise): supervised internal beta ~Oct 26-30, invite-only public beta ~Nov 12-20. Reality on 2026-10-24: Slice 0 real-world steps are NOT done
+  (no installer run recorded, no Meta setup, no doctor PASS, no real call on the new stack), so the 5-day clock has not started. Confirm with the founder: (1) pilot = the first target; (2) vendor calling in the pilot or only after.
 
