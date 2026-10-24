@@ -1002,4 +1002,5 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   CSV or JSON list) or `FRIDAY_TEST_PHONE`, and stops with a clear message if neither is set (livecall still enforces the allow-list); tests use dummy numbers; tests/quotes 80 passed, ruff and secret scan clean.
   **Still true:** the old values remain in git HISTORY (public repo). Removing them needs a history rewrite (force-push, breaks other chats/clones), or making the repo private, or accepting it; founder to decide.
   Other numbers still in the docs: Friday's own Vobiz number and older trial/test numbers (product numbers, not personal); say if those should go too.
+- 2026-10-24 founder ask (chat B): "what is the current scope of phase 1 as per the final date?" Answer being compiled from GO_LIVE_5_DAYS, FEATURES, BUILD_BOARD, HANDOFF 8.x (see the entry below once done).
 
