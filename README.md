@@ -102,3 +102,5 @@ the container (`friday/core/container.py`); one codebase, several deployments.
 * `tests/contracts` runs the same contract against memory and SQL implementations; Postgres / Redis variants
   need `FRIDAY_TEST_PG_URL` / `FRIDAY_TEST_REDIS_URL`.
 * Known bugs are strict `xfail`s with a `BUG-n` reason; see `docs/QA_REPORT.md`.
+
+See `docs/KNOWLEDGE_INDEX.md` for a one-document digest of every doc (state, decisions, contradictions, open questions, doc map).

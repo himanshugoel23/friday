@@ -987,4 +987,8 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   HANDOFF restructure, preview tool, key registry). They are safe on `origin/backup/other-session-2026-10-10`; nothing from there was merged on purpose. Chat B moved its
   local branch onto the remote tip and pushed nothing. Action: read every doc via parallel readers and write a master digest `docs/KNOWLEDGE_INDEX.md`.
   Founder rule to keep: the assistant replies to the founder in English always (founder writes Hindi/Hinglish/English).
+- 2026-10-24 DONE (chat B): read all 84 docs with 7 parallel readers and wrote `docs/KNOWLEDGE_INDEX.md` (state, scope history, architecture, agents, voice/playbooks, WhatsApp,
+  consumer features, launch/legal/security/infra, dated decision register, standing rules, 15 contradictions, open questions, doc map, branch notes). Also added rule 6 (reply in English) to
+  CLAUDE.md. Found, NOT fixed (owner = whoever touches cli.py): `uv run friday --help` crashes (bare `%` in the `scout-report` help string, `friday/cli.py:524`, must be `%%`); CI never ran and
+  ruff fails in `deploy/probe_*.py` and `core/config.py`. Read KNOWLEDGE_INDEX.md after this file.
 
