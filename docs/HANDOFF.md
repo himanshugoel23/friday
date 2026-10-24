@@ -23,7 +23,10 @@ call Friday's number and talk to her (inbound "front door"). Voice: female, calm
 3. **The repository is PUBLIC (founder made it public on 2026-10-10) and must NEVER contain keys, tokens, passwords, private keys or .env content.** Secrets live only in the git-ignored `.env` / typed on the server. Names of keys may be mentioned, never values. Before any commit, make sure no secret is staged. (Phone numbers and the server IP already appear in docs; avoid adding more personal data.)
 3b. Never read or print `.env`; keys live only in the git-ignored `.env` (sandbox) or typed on the server; never in
    chat or git. Never commit `.env` or `var/`. Keys pasted in chat earlier must be rotated after testing.
-4. No real calls except to the allow-listed founder number (+918607549916) and only with the founder's approval.
+4. No real calls except to the allow-listed founder number (`<founder-number>`) and only with the founder's approval.
+   **Placeholders:** the repo is public, so the founder's number and the server address are NOT written here. `<founder-number>` = the number in
+   `FRIDAY_PILOT_ALLOWED_NUMBERS` in the server `.env`; `<server-ip>` = the droplet's IP in the DigitalOcean dashboard; the public URL is the server's own
+   `FRIDAY_PUBLIC_BASE_URL` (`https://<server-ip-with-dashes>.sslip.io`). Do not write the real values back into the repo, docs, tests or chat.
 5. Founder speaks Hindi/Hinglish/English mixed (often dictating); the founder's own wording of the script is the
    authority. Do not assume pronouns for people.
 6. Keep AI cost low; keep the user experience good.
@@ -94,13 +97,13 @@ without the user sharing it; a switched-off phone cannot receive anything until 
 - Tests: `uv run pytest -q` (about 1750+ pass), `uv run ruff check .`.
 
 ## 5. Infrastructure (no secrets here)
-- Server: DigitalOcean droplet, Bangalore, Ubuntu 24.04, 1 GB, IP **64.227.183.183**, HTTPS at
-  `https://64-227-183-183.sslip.io`, code in `/opt/friday`, systemd service `friday` (runs `friday listen`),
+- Server: DigitalOcean droplet, Bangalore, Ubuntu 24.04, 1 GB, IP **<server-ip>**, HTTPS at
+  `https://<server-ip-with-dashes>.sslip.io`, code in `/opt/friday`, systemd service `friday` (runs `friday listen`),
   installer `deploy/small-server.sh`, one-command salon test call `deploy/call-me.sh`.
 - Update the server: `git -C /opt/friday pull --ff-only` then `systemctl restart friday` (restart relinks the
   number in ~1 min). Test call: `bash /opt/friday/deploy/call-me.sh ...` (stops the service, calls, restarts it).
 - Numbers: Friday's Vobiz number **+91 80 6426 7861** (inbound + outbound). Allow-listed test number
-  +918607549916 (founder). Pilot profile: only allow-listed numbers; real businesses are blocked until the founder
+  <founder-number> (founder). Pilot profile: only allow-listed numbers; real businesses are blocked until the founder
   approves a specific number.
 - The AI sandbox cannot SSH to the server; the founder runs commands in the DigitalOcean Web Console (it
   disconnects on tab switch; use `tmux new -As friday`, or the Termius app).
@@ -181,7 +184,7 @@ Founder asked about Zepto/Blinkit/Zomato/Swiggy MCP. Findings: Swiggy has offici
 
 ## Decision note (2026-10-12): PHASE 1 = vendor calling only
 Founder: phase 1 is based on calling vendors only. Build it scalable, with proper experience for BOTH users and vendors. Out of phase 1: MCP/app integrations (Swiggy/Zomato), connected apps (Gmail/Calendar), proactive/safety features, vendor database, inbound random-request router. In: WhatsApp request -> classify -> project manager -> scout best-and-near vendors -> calls -> comparison/booking reply; vendor-side experience (respectful short calls, call-back/opt-out, calling hours, optional vendor info page); scale (queues, concurrency limits, retries, per-vendor rate limits, cost tracking, monitoring).
-- DONE 2026-10-12 (builder): WhatsApp quotes flow, `friday/quotes/` + `docs/WHATSAPP_QUOTES_FLOW.md` (state machine, every message in 3 languages, delivery/fallback rules, edge cases). Text request -> one question at a time -> Places shortlist of 3 -> Haan/Badlo -> calls one at a time (salon playbook quote_only; book mode only if the first message says book + exact time + budget) -> ONE comparison with Book buttons -> booking task limited to that vendor/time/quoted price. State in DB table `quote_conversations`; restart-safe (`QuotesFlow.tick`, 30 s loop in Runtime); result sent on WhatsApp, SMS summary if the send fails or no delivery receipt in 20 min (`FRIDAY_QUOTES_DELIVERY_RECEIPT_WAIT_MIN`), voice call-back only if `FRIDAY_QUOTES_VOICE_FALLBACK=true` (records the request; the call itself is NOT wired); `status` text returns the stored result. Calls only 09:00-19:00 IST, 3 requests/user/day, 8 Places calls/request, DNC, kill switch, allow-list. TEST REDIRECT: `FRIDAY_VENDOR_CALL_REDIRECT_TO=+918607549916` dials that number instead of the vendor (real vendor name in the script). Offline chat: `uv run friday whatsapp-sim`. `friday doctor` prints the webhook URL. NOT tested live: real WhatsApp Cloud delivery/receipts, real Places in this flow, a real redirect call, the out-of-window `task_update` template (must be approved by Meta), DLT SMS template text.
+- DONE 2026-10-12 (builder): WhatsApp quotes flow, `friday/quotes/` + `docs/WHATSAPP_QUOTES_FLOW.md` (state machine, every message in 3 languages, delivery/fallback rules, edge cases). Text request -> one question at a time -> Places shortlist of 3 -> Haan/Badlo -> calls one at a time (salon playbook quote_only; book mode only if the first message says book + exact time + budget) -> ONE comparison with Book buttons -> booking task limited to that vendor/time/quoted price. State in DB table `quote_conversations`; restart-safe (`QuotesFlow.tick`, 30 s loop in Runtime); result sent on WhatsApp, SMS summary if the send fails or no delivery receipt in 20 min (`FRIDAY_QUOTES_DELIVERY_RECEIPT_WAIT_MIN`), voice call-back only if `FRIDAY_QUOTES_VOICE_FALLBACK=true` (records the request; the call itself is NOT wired); `status` text returns the stored result. Calls only 09:00-19:00 IST, 3 requests/user/day, 8 Places calls/request, DNC, kill switch, allow-list. TEST REDIRECT: `FRIDAY_VENDOR_CALL_REDIRECT_TO=<founder-number>` dials that number instead of the vendor (real vendor name in the script). Offline chat: `uv run friday whatsapp-sim`. `friday doctor` prints the webhook URL. NOT tested live: real WhatsApp Cloud delivery/receipts, real Places in this flow, a real redirect call, the out-of-window `task_update` template (must be approved by Meta), DLT SMS template text.
 
 ## Decision note (2026-10-12): outcome-based messaging, no stage updates
 Founder: do NOT send the user a message at every stage. Friday is outcome-based: one acknowledgement when the request is understood, then silence until there is an outcome (quotes ready, booking needs approval, a real problem, or a question only the user can answer). Optional per-request "send me updates" switch, off by default. Applies to WhatsApp quotes flow and project manager (no progress pings; failures are handled by the PM and only surfaced if the user must decide).
@@ -225,7 +228,7 @@ If the builders are gone in the new chat: read each doc above and the git log, r
 Restrict/rotate the Google key pasted in chat (and set budget alerts), type the new one into the server .env; delete leftover GitHub deploy key/token; ask Vobiz to switch call queue OFF; rotate other keys pasted earlier (Sarvam, OpenAI, Anthropic, Vobiz); check Meta WhatsApp test number and a Supabase project (Mumbai) when the DB phase starts; check Sarvam/Vobiz terms on AI disclosure.
 
 ### 8.7 Standing rules (unchanged, obey)
-HEAR BEFORE CHANGE (audio first for any spoken line/voice/pace/pronunciation); update this file at the start of every task, commit, push; PUBLIC repo: no keys/tokens/passwords ever, never read or print .env, never commit .env or var/; no real calls except allow-listed founder number +918607549916 and only with approval; short chat replies, heavy work to builder agents; founder writes Hindi/Hinglish/English mixed, reply in English; do not assume pronouns.
+HEAR BEFORE CHANGE (audio first for any spoken line/voice/pace/pronunciation); update this file at the start of every task, commit, push; PUBLIC repo: no keys/tokens/passwords ever, never read or print .env, never commit .env or var/; no real calls except allow-listed founder number <founder-number> and only with approval; short chat replies, heavy work to builder agents; founder writes Hindi/Hinglish/English mixed, reply in English; do not assume pronouns.
 
 ### 8.8 Go-live estimate (2026-10-12, my estimate, not a promise)
 Original target (Oct 16) is NOT realistic after scope grew (agents, 20 categories). Estimate: internal + founder/friends supervised beta ~Oct 22-24; invite-only public beta (30-50 users, salon + 2-3 categories) ~Oct 30 - Nov 3. Gates: builders finished and integrated; full suite green; live test call confirmed; Meta WhatsApp Business verification and message templates approved (outside our control, can take days to weeks); legal/consent pages + grievance email; audio of all new lines approved; supervised real vendor calls; Sarvam/Vobiz AI-disclosure terms checked; Vobiz call queue off; keys rotated.
@@ -277,7 +280,7 @@ friday/pm/ built: classifier (104 labelled examples; offline baseline 104/104 is
 - 2026-10-12 DONE: category type lists fixed from real Google data (name_keywords fallback in scouting/categories.py + eligibility.py; measured 59-100% type match, docs/SCOUTING.md). CORRECTION: the earlier "table for" wording issue in table_or_venue was MY preview input (--services 'table for 4'), not a script bug; with service='dinner' the lines read correctly. Pending lines still need founder approval.
 - 2026-10-12 DONE: PM jobs resume at runtime start (Runtime._resume_pm); adaptive end-of-speech wait (650 ms for short answers, FRIDAY_VOICE_SHORT_END_SILENCE_MS, docs/LATENCY.md; not live-tested); product-manager agent defined in .claude/agents/product-manager.md and first competitor report requested into docs/COMPETITORS.md (background agent).
 - 2026-10-12 PM agent: first competitor report exists at docs/COMPETITORS.md (closest "Instinct" = US agent with Concierge calling; Puch AI, Google, Meta Muse covered; founder to confirm which Instinct).
-- 2026-10-12 founder ask: place a real test call to his allow-listed number (+918607549916). Approval given by the founder for this call.
+- 2026-10-12 founder ask: place a real test call to his allow-listed number (<founder-number>). Approval given by the founder for this call.
 - 2026-10-12 founder test call: first reply lag (had to repeat 'hello'); transcript showed one Hello, Friday's opening line, then callee 'haan ji bataiye' and hang-up. Timing logs go to the livecall terminal, not journalctl; call-me.sh now tees output to var/livecalls/last-run.log so the next run can be diagnosed. Candidate causes: slow STT of first utterance, first utterance lost, TTS first audio.
 - 2026-10-12 founder test call 2: after 'haan ji bataiye' the turn took 4.85 s: log shows llm purpose=call_turn gpt-5.4-mini latency 2160 ms (intent understanding by LLM), p95 turn latency 4852ms. Fix: deterministic fast path for common acknowledgements before the LLM (playbooks/understand.py).
 - 2026-10-12 DONE (call speed, general): relaxed call schema ON (model writes only filled keys; benchmark 824->672 ms p50, 0 repairs), LLM connection warm-up (core/warmup.py) at runtime start + livecall, confident rules for 'haan ji bataiye' family. Founder wants a GENERAL speed fix, not hard-coded replies: plan in docs/LATENCY.md (speculative understanding, streaming STT, small intent classifier, backchannel needs audio approval). Next: founder re-runs the test call; read var/livecalls/last-run.log.
@@ -673,7 +676,7 @@ friday/google (oauth with PKCE + signed single-use state, encrypted per-user tok
 read-only search behind FRIDAY_GOOGLE_GMAIL_ENABLED=false, router /google, migration 0006, DataPurger covers it). 105 tests; full suite 2673 passed.
 Unverified: real Google; Testing-mode tester limit and 7-day refresh-token expiry (testers hit needs_reconnect weekly); Gmail CASA before public launch;
 migration/RLS not applied to live Supabase. Founder to: create the Google Cloud project per docs/GOOGLE_CONNECTOR.md, approve friday/google/consent_copy.py,
-decide who calls the routes (admin bearer now), Gmail switch for testers, confirm redirect URI https://64-227-183-183.sslip.io/google/callback (assumed).
+decide who calls the routes (admin bearer now), Gmail switch for testers, confirm redirect URI https://<server-ip-with-dashes>.sslip.io/google/callback (assumed).
 Note: the server (droplet) may no longer exist ("I do not have any server right now"): the redirect URI and hosting need re-deciding.
 
 ## Decision (2026-10-19): proceed with Claude's priority-1 problems + the founder's own Musts
@@ -994,4 +997,9 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
 - 2026-10-24 founder ask (chat B): the repo is PUBLIC, so **remove the founder's phone number and the server address from the docs** (and avoid adding them again). Plan: replace with placeholders pointing to
   the server `.env` (`FRIDAY_PILOT_ALLOWED_NUMBERS`) and the server's own `FRIDAY_PUBLIC_BASE_URL`; check scripts/tests/code too and keep behaviour unchanged. Note: git HISTORY still contains them; removing them
   from history needs a history rewrite (destructive on a shared branch) and is a separate founder decision.
+- 2026-10-24 DONE (chat B): removed the founder's phone number and the server address from all tracked files (docs, tests, scripts); they are now placeholders (`<founder-number>`,
+  `<server-ip>`, `<server-ip-with-dashes>`, defined in section 2 rule 4). Behaviour kept: `deploy/call-me.sh` now takes the number from `FRIDAY_PILOT_ALLOWED_NUMBERS` in `/opt/friday/.env` (first number,
+  CSV or JSON list) or `FRIDAY_TEST_PHONE`, and stops with a clear message if neither is set (livecall still enforces the allow-list); tests use dummy numbers; tests/quotes 80 passed, ruff and secret scan clean.
+  **Still true:** the old values remain in git HISTORY (public repo). Removing them needs a history rewrite (force-push, breaks other chats/clones), or making the repo private, or accepting it; founder to decide.
+  Other numbers still in the docs: Friday's own Vobiz number and older trial/test numbers (product numbers, not personal); say if those should go too.
 

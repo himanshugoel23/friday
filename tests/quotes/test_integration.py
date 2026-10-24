@@ -12,7 +12,7 @@ from tests.e2e.harness import Friday
 from tests.quotes.conftest import make_user
 from tests.quotes.test_flow import conv_of
 
-FOUNDER = "+918607549916"
+FOUNDER = "+919999900001"
 GURGAON_VENDORS = {"+911245000001", "+911245000002", "+911245000004", "+911245000006"}
 
 
@@ -121,7 +121,7 @@ async def test_redirect_empty_by_default_and_normalised():
 
     assert Settings(_env_file=None).vendor_call_redirect_to is None
     assert Settings(_env_file=None, vendor_call_redirect_to="").vendor_call_redirect_to is None
-    s = Settings(_env_file=None, vendor_call_redirect_to="86075 49916")
+    s = Settings(_env_file=None, vendor_call_redirect_to="99999 00001")
     assert s.vendor_call_redirect_to == FOUNDER
     assert s.vendor_dial_number("+911245000001") == FOUNDER
     assert Settings(_env_file=None).vendor_dial_number("+911245000001") == "+911245000001"

@@ -374,7 +374,7 @@ async def test_kill_switch_is_respected(qf, rahul, tmp_path):
 
 async def test_test_mode_refuses_real_vendors(qf, rahul):
     s = qf.c.settings
-    s.pilot_block_business_calls, s.pilot_allowed_numbers = True, ["+918607549916"]
+    s.pilot_block_business_calls, s.pilot_allowed_numbers = True, ["+919999900001"]
     await to_shortlist(qf, rahul)
     out = await rahul.tap("Haan")
     assert out == ["Test mode mein asli jagah ko call nahi kar sakti. Kisi ko call nahi gaya."]
