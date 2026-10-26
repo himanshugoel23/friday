@@ -154,3 +154,33 @@ Friday has no fixed language. Hinglish is only the opening default; from the fir
 - Casual Hinglish: "yaar kal shaam haircut karwana hai" -> "Done boss! Kal shaam ke liye 3 parlour dekh leti hoon. Sector 56 hi chalega na? ✂️"
 - Formal English: "Could you check haircut prices near Sector 56 for tomorrow evening?" -> "Certainly. I found three salons within 2 km. Shall I call them for rates?"
 - Hindi (Devanagari): "कल शाम के लिए हेयरकट का रेट पता करो" -> "ज़रूर! सेक्टर 56 के पास तीन सैलून मिले हैं। मैं उन्हें कॉल करके रेट पूछूँ?"
+
+---
+
+# Appendix C: Instinct export 3 (synced 2026-10-26; covers 23-25 Oct, new lines only)
+
+Source: the founder's newer chat export (752 lines; the first 482 were already read for v1/v2). No personal data, codes, addresses, amounts or links from it are kept here. This is a test run of everyday asks, so it shows how Instinct behaves outside its main flows.
+
+## C1. What it did well (new evidence)
+1. **Language switch on request**: "reply in Hindi" -> switched to Devanagari at once and stayed there. Friday's adaptive persona must do the same (and honour a stated language over detection).
+2. **Hard stops with an alternative**: refused to make a fake fuel bill (even as a "sample"), said why in one line, and offered the real route (get a duplicate from the pump, send a photo, PDF made). Refused to call or text a third person, offered a draft message instead.
+3. **Safety escalation**: chest pain -> "go to hospital or call 112, do not wait", then symptom questions. Friday: same first line; no dosing advice.
+4. **Memory on demand**: "what do you remember about me?" -> a short bullet list of preferences, with "tell me if something is wrong or to forget it".
+5. **Honest about channel limits**: reminders only on WhatsApp, "if you do not look, you miss it"; cannot set a phone alarm, tells how to ask the phone assistant.
+6. **Cancel is clear**: "nothing was booked, no money moved, ignore the UPI request if it shows".
+7. **Opinionated shortlists** with one pick and a reason; sources named; "estimates from email, not live bank balance".
+8. **A secure vault link for passwords**: it sent a link to set an IRCTC password "straight into a secure vault, never visible in chat". Same pattern as Friday's new vault (docs/CREDENTIAL_VAULT.md); the difference is that Friday refuses IRCTC and other blocked sites.
+
+## C2. Where it went wrong (Friday should beat it)
+1. **Replies out of order and mixed up**: an answer for the previous question arrived after the next question ("time in Delhi" got a song hint first, a cricket answer landed under a fever question). The user typed "Are you there ??? Status??" within a minute. Friday: one in-flight answer per user, replies tied to the message they answer, an ETA line when a task takes more than a few seconds.
+2. **Slow, silent browsing**: 1-3 minutes of "page is loading" with no progress, while the user kept messaging.
+3. **Asked for personal data to create an account** (date of birth, full address) and an OTP in chat; created a login on the user's behalf; read saved UPI and addresses from the user's own accounts and used a saved address instead of the one typed (found by luck, flagged late). Friday: never creates accounts on a user's behalf without a takeover step, never uses a saved address silently, never touches a saved payment handle.
+4. **Medical dosing advice** in chat (a named medicine and dose). Friday: no dosing; symptom-safety line plus "see a doctor / call".
+5. **Mixed unrelated results** in one message (live scores unrelated to the asked match; a train answer inside a cake answer).
+6. **Reads email widely** (card bills with last digits and amounts); Friday only uses what the user shows or forwards.
+7. **Invitations and promo** messages inserted into the chat ("10 invites left"). Friday: no promo in the pilot.
+
+## C3. Parity check (honest, 2026-10-26)
+Not yet at par: Friday's reply copy is unapproved and the adaptive persona, the "what do you remember" list, language-on-request and the status/ETA line are designs or partial, not proven on a real WhatsApp number. Ahead by design: calls, secure password page with blocked sites, no OTP in chat, one in-flight reply per user. The test that settles it: run the same scenarios (the 24 prompts in appendix A plus the 12 below) through Friday and compare side by side.
+
+12 extra scenarios from this export: "reply in Hindi"; "time in Delhi" (a quick fact); "20% of 5000"; "live cricket score"; "fever, which medicine?"; "chest pain"; "landlord not returning my deposit"; "scare my brother by phone"; "book something tomorrow" (vague); "parlour sector 56 haircut 6 pm, cancel, plan changed"; "what do you remember about me?"; "can you make a fake bill?".
