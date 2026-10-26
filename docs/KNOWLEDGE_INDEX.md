@@ -44,11 +44,12 @@ comparison < 10 min median, no wrong-booking incident, audio of all scripts appr
 * **Not built:** guardrails module (`friday/guardrails`, designed), inbound-ID code (design only), adaptive persona engine, hold-fighting,
   reminder calls to others, media understanding, real savings rules (only EXAMPLE rows), proactive memory extractor/planner (agents 21-22),
   PM booking/buttons, WhatsApp number capture with read-back, busy-slot Yes/No flow, 30-minute reminder, Gmail/Calendar wiring into flows.
+* Verified in the tree on 2026-10-26: 11 migrations (latest `0011_receptionist`), `friday/guardrails` absent, no inbound-ID code, salon v6 live with `ai_disclosure: on_request`, 264 test files.
 * Tests: last full run 5925 passed / 13 failed, builder fixed 8; 5 known failures remain (1 sarvam-default LLM test, 2 connectors explore
   [no Chromium], 2 doctor [DB head], 1 stream-STT default). Counts quoted across docs (1102, 1209, 1328, 1758, 4846, 5925) are from
   different dates. Run `uv run pytest -q` and `uv run ruff check .` before trusting any number.
 * Known issues found while building this index (2026-10-24): **`uv run friday --help` crashes** (`ValueError: unsupported format character 'w'`,
-  bare `%` in the `scout-report` help string at `friday/cli.py:524`, needs `%%`); CI has never run on GitHub and lint currently fails on a few
+  bare `%` in the `scout-report` help string at `friday/cli.py:524`, needs `%%`); `.github/` exists (workflows/ci.yml, CODEOWNERS, PR template, scripts/secret_scan.sh) but CI has never run on GitHub and lint currently fails on a few
   ruff errors (deploy probe scripts, `core/config.py`); CODEOWNERS is a placeholder `@OWNER`; `CLAUDE.md` lacked the "reply in English" rule.
 
 ## 4. Architecture (docs/ARCHITECTURE.md is the source of truth for HOW)
@@ -58,7 +59,7 @@ simulated implementation (`FRIDAY_MODE=simulator` default runs with no keys); ca
 trust enforced in code (`friday.core.safety`, `CallBrief.can_commit`, voice runner guards); async + DI via `Container`; the brain is pure (no DB,
 no sending); UTC stored, IST shown. `friday/core/` is frozen/additive-only; changes are logged in `docs/CORE_CHANGES.md`.
 
-**Packages under `friday/` (29, ~140k lines, 11 migrations 0001-0011, ~80 settings in `core/config.py`, 109 `FRIDAY_*` names across code):**
+**Packages under `friday/` (32 directories on 2026-10-26; the EM audit counted 29 earlier; ~140k lines, 11 migrations 0001-0011, ~80 settings in `core/config.py`, 109 `FRIDAY_*` names across code):**
 `core` (config, models, interfaces, events, clock, safety, crypto, scale) · `api` (FastAPI, webhooks, runtime, inbound, callbacks, google) ·
 `channels` (WhatsApp Cloud, SMS-DLT, simulator, notifier) · `tasks` (engine, fan-out, retries, number pool, outbox) · `proactive` · `discovery`
 (Places, geocoder, official numbers, hotels) · `db` (tables, repositories, queue, migrations) · `brain` (LLM, prompts, extraction, front-door
@@ -119,7 +120,9 @@ trial, small balance, 3 concurrent calls, `call_queue` was ON (must be turned OF
 claims, booking claims outside the commit line, unreachable steps. Guards: `understand.ground` drops model-returned price/time/stylist not in the
 vendor's words; a line may repeat once; duplicate speech within 1.5 s dropped. CLI `friday playbook list|validate|dry-run|preview|types|draft|promote`.
 Live: **`salon_booking` v6** only. Pending (in `friday/playbooks/pending/`, NOT live until the founder hears audio; `promote` needs a
-`<id>.approved` marker the builder never creates): enquiry, home_service_visit, quote_and_slot, rental, stock_and_price, table_or_venue.
+`<id>.approved` marker the builder never creates; verified in the tree 2026-10-26): banquet_booking, cab_booking, enquiry, home_service_visit, hotel_booking, pg_rental,
+quote_and_slot, stock_and_price, table_booking (plus a pending copy of salon_booking), matching the script names in `SCRIPTS_SPEC.md`. The 6 archetype names in
+`CALL_SCRIPTS_EDIT_HERE.md` (rental, table_or_venue...) are an older grouping.
 Selection: a booking at a salon/parlour/barber/spa (or haircut/facial/waxing request) uses the playbook; otherwise an AI-driven call; a
 confirmation call-back is never scripted.
 
@@ -283,7 +286,7 @@ refactor before the pilot except CI + secret scan. · 10-23 persona: NO fixed pe
 7. PIN: 4-digit PIN for onboarding/delete (older) vs no PIN, delete by typing DELETE (chatbot pilot; open decision 25). Keypad PIN by voice is impossible on Vobiz.
 8. Latency docs: LATENCY.md 21-Oct sections say speculative/streamed/classifier/EOT default OFF and VAD energy; HUMAN_VOICE (10-23) says ON with silero. Check
    `friday voice switches` and `friday doctor`. STT path: realtime vs REST is described inconsistently (stream STT flag is OFF).
-9. Salon script: v6 is live; SCRIPTS_SPEC "v7" wording differs and is not live; script type names in SCRIPTS_SPEC (10) vs pending files (6); category count 20 vs 22.
+9. Salon script: v6 is live; SCRIPTS_SPEC "v7" wording differs and is not live. Pending script file names match SCRIPTS_SPEC (9 files + pending salon), so CALL_SCRIPTS_EDIT_HERE's 6-archetype list is the stale one; category count 20 vs 22.
 10. Voice/pace: Ritu decided; some live tests used Zara (ElevenLabs); pace 0.9 in docs vs env default 1.0.
 11. Stale docs: PRD/BRIEF/TASKS/SECURITY (Twilio+Anthropic), DEPLOY_AWS, PRODUCTION_CHECKLIST (AWS+Docker), BETA_PLAN (3-day plan, D12/D13), BETA_LAUNCH_PLAN (public salon-only beta),
     OPEN_QUESTIONS.md (is a design doc for off-topic answers, not a question list), QA_REPORT numbers, USE_CASES status labels, SECURITY_FIXES "open" tags.

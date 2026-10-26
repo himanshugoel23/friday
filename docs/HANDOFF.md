@@ -1012,4 +1012,8 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   voice-note replies/nudges, media understanding, wake word/desk mode, Gmail (beyond founder testing), card rules beyond a handful, regional languages. PUBLIC beta is a later gate set by a QUALITY BAR (HANDOFF 8.12/8.9):
   waves 10 -> 30 -> 50, all 20 vendor categories, estimate (10-12, mine, not a promise): supervised internal beta ~Oct 26-30, invite-only public beta ~Nov 12-20. Reality on 2026-10-24: Slice 0 real-world steps are NOT done
   (no installer run recorded, no Meta setup, no doctor PASS, no real call on the new stack), so the 5-day clock has not started. Confirm with the founder: (1) pilot = the first target; (2) vendor calling in the pilot or only after.
+- 2026-10-26 founder ask (chat B): "check the all updates document and see if you are updated by everything." Result: remote `claude/friday-phase-1` unchanged since 2026-10-24 11:14 (tip = chat B's own last commit); no pushes from
+  chat A since 2026-10-23 08:49 (its last snapshot commits); no other branches besides `origin/backup/other-session-2026-10-10`; working tree clean. Spot-checked KNOWLEDGE_INDEX against the code and corrected it (pending
+  playbooks are 9 named files + pending salon matching SCRIPTS_SPEC; 32 package dirs; `.github/ci.yml` exists but never ran). If the founder has newer work in another chat/account that was never pushed, it is NOT visible here:
+  ask chat A to commit and push, or tell chat B.
 
