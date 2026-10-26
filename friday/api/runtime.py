@@ -86,6 +86,9 @@ class Runtime:
         self.callbacks.subscribe()
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.subscribe()
+        from friday.memory.attach import attach_episodes
+
+        attach_episodes(self.c.bus, self.c.repos, self.c.clock)  # one line per finished task
         self._attach_consumer()
         self.callbacks.receptionist()  # build now: the Vobiz hook/probe must exist before calls
         if background:

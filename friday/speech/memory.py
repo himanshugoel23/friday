@@ -37,6 +37,7 @@ class MemoryView:
     recent: list[str] = field(default_factory=list)
     question: str | None = None  # what Friday just asked the user (a short answer follows)
     vocab: set[str] = field(default_factory=set)
+    aliases: dict[str, str] = field(default_factory=dict)  # learned spoken form -> saved name
 
     def payload(self) -> dict[str, Any]:
         """What the model sees (JSON-able, no empty keys)."""
@@ -54,6 +55,12 @@ class MemoryView:
         return {k: v for k, v in out.items() if v}
 
 
+def _sounds_like(alias: str, canonical: str) -> bool:
+    from friday.memory.service import sounds_like
+
+    return sounds_like(alias, canonical)
+
+
 def build_memory(ctx: ConversationContext | None, *, limit: int = 12) -> MemoryView:
     if ctx is None:
         return MemoryView()
@@ -67,10 +74,16 @@ def build_memory(ctx: ConversationContext | None, *, limit: int = 12) -> MemoryV
         if p.aliases:
             label += " aka " + ", ".join(p.aliases[:3])
         mv.people.append(label)
+        for a in p.aliases:
+            if _sounds_like(a, p.name):
+                mv.aliases[a.lower()] = p.name
         mv.vocab |= _tokens(p.name) | set().union(*[_tokens(a) for a in p.aliases[:3]] or [set()])
     for pl in ctx.places[:limit]:
         label = pl.label + (f" aka {', '.join(pl.aliases[:3])}" if pl.aliases else "")
         mv.places.append(label)
+        for a in pl.aliases:
+            if _sounds_like(a, pl.label):
+                mv.aliases[a.lower()] = pl.label
         mv.vocab |= _tokens(pl.label) | set().union(*[_tokens(a) for a in pl.aliases[:3]] or [set()])
     seen: set[str] = set()
     for b in ctx.known_businesses[:limit]:

@@ -31,7 +31,10 @@ def pipeline(und):
     async def context(_user):
         return None
 
-    return SimpleNamespace(_speech_und=lambda: und, context=context)
+    async def learn(user, res):
+        return None
+
+    return SimpleNamespace(_speech_und=lambda: und, context=context, _learn_aliases=learn)
 
 
 def msg(kind, text="umm kal salon jana hai"):

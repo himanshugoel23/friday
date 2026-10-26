@@ -48,6 +48,7 @@ LIMITS: dict[str, tuple[int, int]] = {
     "intro": (7, 600),  # first contact and the consent details
     "disclosure": (4, 360),  # closes onboarding: must restate the "never" list
     "proactive": (4, 400),  # a message Friday starts: reason + how to stop
+    "list": (14, 1100),  # "what do you remember": one line per item, a list not a sentence
     "internal": (5, 600),  # to the founder's support inbox (not shown to the user)
 }
 # kinds that must state plainly: assistant, never payments/OTP/PIN/cards, own data, delete anytime

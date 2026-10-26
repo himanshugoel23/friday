@@ -373,6 +373,9 @@ class ChatbotService:
         ctx = _Ctx(user.phone, lang, user, sess)
         if self.settings.chatbot_guards and await self._guards(ctx, text):
             return True
+        if (reply := await self._memory_chat(ctx, text)) is not None:
+            await self._send(ctx, reply, kind="list")
+            return True
         if cmd.MENU.match(t):
             return await self._menu(ctx)
         if (m := cmd.HUMAN.match(t)) is not None:
@@ -410,6 +413,17 @@ class ChatbotService:
             await self._send(ctx, copy.line("lang_set", code, language=copy.LANGUAGE_NAMES[code]))
             return True
         return False
+
+    async def _memory_chat(self, ctx: _Ctx, text: str) -> str | None:
+        """"What do you remember about me" and "forget <item>" (friday/memory/chat.py)."""
+        if ctx.user is None:
+            return None
+        from friday.memory import chat as memory_chat
+
+        try:
+            return await memory_chat.handle(self.p.repos, self.p.clock, ctx.user.id, text, ctx.lang)
+        except Exception:  # noqa: BLE001 - never block a message on the memory list
+            return None
 
     async def _quotes_busy(self, user: User) -> bool:
         try:

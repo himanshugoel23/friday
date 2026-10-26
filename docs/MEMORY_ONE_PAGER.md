@@ -1,4 +1,4 @@
-# Friday memory: one page (design, 2026-10-26; no code changed yet)
+# Friday memory: one page (design 2026-10-26; steps 1-5 BUILT the same day, see section 8)
 
 **Why it matters.** A memory that gets better the longer someone uses Friday is the one thing a copycat cannot ship on day one. It also makes everything else better: the Speech Understander fixes a misheard "Shriya" because Shreya Salon is in memory; calls know which salon, which card, which address.
 
@@ -34,3 +34,7 @@ Purpose-limited (only to help the user), consented at onboarding, minimal contex
 
 ## 7. Open questions for the founder
 Should inferred preferences be on by default or opt-in? How long should episodes live (suggest 12 months, then summarised)? Is "last time you used X" welcome in chat, or only when asked?
+
+## 8. Status (built 2026-10-26; all offline-tested, not yet run on real users)
+Code: `friday/memory/` (`service.py`, `rank.py`, `attach.py`, `chat.py`, `copy.py`). 1. **Aliases:** `MemoryService.note_misheard` (two sightings or one confirm; must sound like the saved name; cannot take another entry's name; max 6; undo with `forget_alias`); the Speech Understander feeds it from its mis-hearing fixes (`InboundPipeline._learn_aliases`) and uses saved aliases even when the model is off (`speech/understander.py::_apply_aliases`). 2. **Episodes:** one line per finished MAIN task via the event bus (`attach_episodes`, wired in `Runtime.start`), 365-day purge, secrets redacted; stored as facts, no migration. 3. **The list:** "what do you remember about me" shows every item with its source (you told me / done together / my guess) and date; "forget <item>" removes one alias, fact or episode; delete-everything already wipes the facts. 4. **Relevance:** `build_context(query=...)` keeps the 15 best facts (word match x recency x confidence, due dates boosted), alias candidates are never shown to the model, the ranking trace is logged at debug. 5. **Tests:** `tests/memory` (11), `tests/speech/test_aliases.py`, `tests/chatbot/test_memory_chat.py`: isolation between users, cannot forget another user's item, alias poisoning, cap, expiry, secrets, child calls do not create episodes.
+NOT done: "last time you used X" lines in chat and call briefs (episodes are stored and reach the brain as facts, but no reply wording uses them yet); preferences (budget, usual slot, tone dials); staleness prompts ("is this still true?"); vector search. The list wording in `friday/memory/copy.py` is PENDING founder approval.

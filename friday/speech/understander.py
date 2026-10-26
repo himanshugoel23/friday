@@ -145,6 +145,8 @@ class SpeechUnderstander:
         # the floor: filler/stutter/plain self-correction only
         self.fallbacks += 1
         cleaned, repairs = rules.clean_basic(original)
+        cleaned, alias_repairs = _apply_aliases(cleaned, mv.aliases)
+        repairs = [*repairs, *alias_repairs]
         if cleaned != original:
             res.corrected_text, res.repairs, res.source = cleaned, repairs, "rules"
         return done(res)
@@ -169,6 +171,18 @@ class SpeechUnderstander:
             json_schema=wire_schema(),
         )
         return parse_reply(resp.text)
+
+
+def _apply_aliases(text: str, aliases: dict[str, str]) -> tuple[str, list[Repair]]:
+    """Replace a learned spoken form by the saved name (whole words, longest alias first). Only
+    aliases the user's own memory holds are used, so nothing new can be invented."""
+    repairs: list[Repair] = []
+    for alias in sorted(aliases, key=len, reverse=True):
+        pattern = re.compile(rf"(?<!\w){re.escape(alias)}(?!\w)", re.IGNORECASE)
+        if pattern.search(text):
+            text = pattern.sub(aliases[alias], text)
+            repairs.append(Repair(old=alias, new=aliases[alias], kind="mishearing"))
+    return text, repairs
 
 
 def parse_reply(raw: str) -> tuple[str, list[Repair], bool] | None:

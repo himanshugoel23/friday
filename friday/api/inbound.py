@@ -249,8 +249,8 @@ class InboundPipeline:
             log.exception("consumer integration failed to build; continuing without it")
             return None
 
-    async def context(self, user: User) -> ConversationContext:
-        ctx = await build_context(self.repos, self.clock, user)
+    async def context(self, user: User, query: str | None = None) -> ConversationContext:
+        ctx = await build_context(self.repos, self.clock, user, query=query)
         consumer = self.consumer()
         if consumer is not None:
             summary = await consumer.context_summary(user.id)
@@ -671,9 +671,23 @@ class InboundPipeline:
             return msg
         if not res.apply or not res.changed:
             return msg
+        await self._learn_aliases(user, res)
         raw = {**msg.raw, "speech": res.audit()}
         raw.setdefault("original_text", res.original_text)
         return msg.model_copy(update={"text": res.text, "raw": raw})
+
+    async def _learn_aliases(self, user: User, res: Any) -> None:
+        """A mis-hearing fixed from memory is a sighting: after two the alias is saved, so the same
+        slip is fixed even without the model (docs/MEMORY_ONE_PAGER.md). Never raises."""
+        try:
+            from friday.memory import MemoryService
+
+            svc = MemoryService(self.repos, self.clock)
+            for r in res.repairs:
+                if r.kind == "mishearing" and r.old and r.new:
+                    await svc.note_misheard(user.id, r.old, r.new)
+        except Exception:  # noqa: BLE001
+            log.exception("memory: alias learning failed")
 
     # ------------------------------------------------------------------ active users
     async def _active(self, user: User, msg: InboundMessage) -> None:
@@ -716,7 +730,7 @@ class InboundPipeline:
         if brain is None:
             await self.reply(user, self.NO_BRAIN)
             return
-        ctx = await self.context(user)
+        ctx = await self.context(user, query=msg.text)
         interp: Interpretation = await brain.interpret(ctx, msg)
         if (
             interp.answer is None
