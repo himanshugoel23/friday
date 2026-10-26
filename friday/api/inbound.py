@@ -625,6 +625,42 @@ class InboundPipeline:
             out = normalise_inbound(out)
         return out
 
+    # ------------------------------------------------------------------ speech understanding
+    def _speech_und(self) -> Any:
+        """The Speech Understander (docs/SPEECH_UNDERSTANDING.md) or None when it cannot run."""
+        if not hasattr(self, "_speech_obj"):
+            self._speech_obj = None
+            if self.settings.speech_understanding != "off":
+                try:
+                    from friday.speech import SpeechUnderstander
+
+                    self._speech_obj = SpeechUnderstander(self.c.get("llm"), self.settings)
+                except Exception:  # noqa: BLE001 - no LLM component: the layer is simply off
+                    log.info("speech understanding unavailable (no llm component)")
+        return self._speech_obj
+
+    async def _speech_understand(self, user: User, msg: InboundMessage) -> InboundMessage:
+        """The user's own voice note (or text, if switched on) is cleaned silently: fillers out,
+        self-corrections resolved, mis-heard names fixed from memory. Never raises; the original
+        words stay in ``raw['original_text']``. Business messages never come through here."""
+        if not msg.text:
+            return msg
+        channel = {MessageKind.VOICE_NOTE: "voice_note", MessageKind.TEXT: "text"}.get(msg.kind)
+        und = self._speech_und() if channel else None
+        if und is None or not und.wants(channel):
+            return msg
+        try:
+            ctx = await self.context(user)
+            res = await und.understand(msg.text, ctx, channel=channel)
+        except Exception:  # noqa: BLE001
+            log.exception("speech understanding failed; using the words as heard")
+            return msg
+        if not res.apply or not res.changed:
+            return msg
+        raw = {**msg.raw, "speech": res.audit()}
+        raw.setdefault("original_text", res.original_text)
+        return msg.model_copy(update={"text": res.text, "raw": raw})
+
     # ------------------------------------------------------------------ active users
     async def _active(self, user: User, msg: InboundMessage) -> None:
         # HOOK: remember voice/script for the reply, ask back on a low-confidence transcript,
@@ -634,6 +670,8 @@ class InboundPipeline:
             if routed is None:
                 return
             msg = routed
+        # HOOK: clean what the user SPOKE (voice note)
+        msg = await self._speech_understand(user, msg)
         pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None and await self._continue_pending(user, msg, pending):
             return

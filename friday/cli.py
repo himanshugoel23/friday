@@ -511,6 +511,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.connectors.demo import register as register_connectors
 
     register_connectors(sub)  # `friday connectors list|demo-pizza --fake` (docs/CONNECTORS.md)
+    from friday.speech.cli import register as register_speech
+
+    register_speech(sub)  # `friday speech try|eval` (docs/SPEECH_UNDERSTANDING.md)
     sc = sub.add_parser("scout", help="find best vendors (live Google if key, else fixtures)")
     sc.add_argument("--category", required=True)
     sc.add_argument("--area", required=True)
@@ -550,6 +553,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.playbooks.cli import run_command as run_playbook_command
 
         return run_playbook_command(args)
+    if args.cmd == "speech":  # offline unless --live; never reads .env itself
+        from friday.speech.cli import run_command as run_speech_command
+
+        return run_speech_command(args)
     from friday.lang_dev.cli import handles as _devanagari_eval
     from friday.lang_dev.cli import run as _run_devanagari_eval
 

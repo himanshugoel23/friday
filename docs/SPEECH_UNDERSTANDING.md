@@ -1,3 +1,33 @@
+# Speech Understander (BUILT 2026-10-26, live from pilot day 1)
+
+**Status: built and tested offline; real-model quality NOT yet measured (no API key in the build sandbox).**
+Founder decisions (2026-10-26, in HANDOFF): WhatsApp voice notes, calls and messages are all phase 1;
+obvious fixes are applied silently; names and amounts are NOT confirmed; a small LLM does the work.
+
+What exists (`friday/speech/`): `understander.py` (one small LLM call, strict JSON schema, hard deadline),
+`ground.py` (code-enforced rules: no invented number, day, part of day or name; memory names only when they
+sound like a removed word; script never changed), `rules.py` (no-model floor: fillers, stutters, plain
+self-corrections), `memory.py` (names/places/shops only; no phones or addresses), `schema.py`, `cli.py`.
+Fallback order: model -> floor -> raw words. It never raises and never blocks past the deadline
+(voice notes 3 s, calls 0.9 s). The original is always kept (`raw['original_text']`).
+
+Hooks: `InboundPipeline._active` (the user's voice notes; typed text is OFF by default) and
+`FrontDoorSession.hear` (the user's own turns on a call with Friday). NEVER applied to a vendor's speech on
+outbound calls: a silent fix could change a quoted price.
+
+Switches: `FRIDAY_SPEECH_UNDERSTANDING=off|shadow|on` (default on; `shadow` logs, changes nothing),
+`FRIDAY_SPEECH_UNDERSTANDING_VOICE_NOTES|_CALLS|_TEXT`, `_MODEL` (blank = default light model),
+`_TIMEOUT_S`, `_CALL_TIMEOUT_S`, `_MIN_WORDS`. Only active with a real LLM key.
+
+Check it: `friday speech try "umm kal nahi parso haircut chahiye" --place "Shreya Salon"`;
+`friday speech eval` (offline floor cases); `friday speech eval --live` (all cases, real model, small cost).
+RUN THE LIVE EVAL ON THE SERVER BEFORE THE FIRST TESTER; do not rely on the offline pass.
+
+Superseded by the founder decisions below: the design's "high-stakes fields always confirm" and
+"rules-first" choices. Original design follows for reference.
+
+---
+
 # Speech understanding layer: a small model between speech-to-text and the big LLMs (DESIGN, 2026-10-26)
 
 Founder ask (2026-10-26): when the user SPEAKS, a small "Whisper-like" model should (1) correct what the transcript says the user meant, (2) use

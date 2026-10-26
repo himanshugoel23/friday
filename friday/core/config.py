@@ -602,6 +602,20 @@ class Settings(BaseSettings):
     voice_note_confirm_below: float = Field(default=0.6, ge=0, le=1)  # ask back below this
     devanagari_input: bool = False  # Devanagari -> Roman Hinglish for the parsers
 
+    # ------------------------------------------------------------------ speech understanding
+    # docs/SPEECH_UNDERSTANDING.md: a small LLM cleans what the user SPOKE (fillers,
+    # self-corrections, mis-heard names fixed from memory) before the rest reads it.
+    # Founder: live from pilot day 1, fixes are silent.
+    # off | shadow (compute + log, change nothing) | on. Needs a real LLM.
+    speech_understanding: Literal["off", "shadow", "on"] = "on"  # FRIDAY_SPEECH_UNDERSTANDING
+    speech_understanding_voice_notes: bool = True  # the user's WhatsApp voice notes
+    speech_understanding_calls: bool = True  # user's turns on a call (never a vendor)
+    speech_understanding_text: bool = False  # typed WhatsApp text (off: the user's own words)
+    speech_understanding_model: str | None = None  # None: model_for("speech_understand")
+    speech_understanding_timeout_s: float = Field(default=3.0, ge=0.2, le=10.0)  # voice notes
+    speech_understanding_call_timeout_s: float = Field(default=0.9, ge=0.2, le=3.0)  # live calls
+    speech_understanding_min_words: int = Field(default=3, ge=1, le=10)  # shorter: left as spoken
+
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
     proactive_tick_s: int = 60
