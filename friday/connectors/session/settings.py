@@ -28,6 +28,12 @@ class BrowserSettings(BaseSettings):
     max_global: int = 3
     vault_ttl_days: int = 30
     vault_dir: str = "var/browser_vault"
+    # website PASSWORD vault (docs/CREDENTIAL_VAULT.md): off unless the user is named
+    credentials_enabled: bool = False
+    credentials_enabled_users: str = ""  # comma user ids, or * (empty enables nobody)
+    credentials_ttl_days: int = 90
+    credentials_dir: str = "var/browser_credentials"
+    credentials_link_ttl_seconds: float = 600.0
     live_link_ttl_seconds: float = 900.0  # a watch link must be opened within this time
     live_view_ttl_seconds: float = 900.0  # after opening, the view lasts this long
     frame_min_interval_ms: int = 400
@@ -37,4 +43,10 @@ class BrowserSettings(BaseSettings):
         if not self.enabled:
             return False
         names = {n.strip() for n in self.enabled_users.split(",") if n.strip()}
+        return "*" in names or user_id in names
+
+    def credentials_allowed(self, user_id: str) -> bool:
+        if not (self.enabled and self.credentials_enabled):
+            return False
+        names = {n.strip() for n in self.credentials_enabled_users.split(",") if n.strip()}
         return "*" in names or user_id in names
