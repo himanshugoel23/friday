@@ -1024,4 +1024,10 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   structured `UnderstoodUtterance` handed to the big LLMs. STT gives one transcript only (no n-best), so Whisper is proposed only as an optional second opinion on low-confidence utterances, to be measured first. Safety: grounded repairs
   only, high-stakes fields always confirm, memory read-only, shadow mode first, switch `FRIDAY_SPEECH_UNDERSTANDING` default OFF. No code, no spoken lines changed. WAITING on founder decisions (section 9): scope (voice notes vs calls), second-opinion STT,
   auto-correct vs confirm, model route, shadow logging consent, priority vs the pilot.
+- 2026-10-26 FOUNDER DECISIONS (chat B) on the Speech Understander (docs/SPEECH_UNDERSTANDING.md section 9 answered): (1) WhatsApp voice notes, calls and messages are ALL phase 1: build for all three channels.
+  (2) Model the product on **Wispr Flow** (the voice-to-clean-text company), NOT OpenAI Whisper: dictation that removes fillers, resolves self-corrections ("kal nahi, parso"), fixes obvious mis-hearings, uses the user's own
+  vocabulary (personal dictionary = memory), keeps the user's Hinglish. (3) **Apply obvious fixes SILENTLY. Do NOT ask the user to confirm names or amounts** (supersedes the "high-stakes fields always confirm" rule in the design;
+  the existing approval cards for calls/bookings still show the final name/time/amount, that is not a new confirmation). (4) The small model is an **LLM** (small, fast, strict JSON schema), LLM-first (supersedes "rules first").
+  (5) **Must be built by the pilot and live from Day 1** (switch ON in the pilot profile, not shadow-only). Guards kept regardless (code, not model): grounding (no invented names/amounts/times/numbers), original text always
+  kept, OTP/PIN/card never touched, fallback to the raw text on timeout/failure, kill switch. No new spoken or written wording is introduced (no confirm lines), so hear-before-change is not triggered.
 
