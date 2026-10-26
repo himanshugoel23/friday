@@ -1019,4 +1019,9 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
 - 2026-10-26 founder ask (chat B): add a "Whisper AI-like" workflow: when the user speaks, a SMALL model sits between speech-to-text and the rest: it corrects what the transcript says the user meant, uses memory
   (names, places, recent chat, past requests), identifies the meaning/intent, then passes a clean structured result to the other (bigger) LLMs for the next step. Plan: map what already exists (STT, voice notes, classifier, interpret,
   memory) to avoid duplicating; write docs/SPEECH_UNDERSTANDING.md (design, no spoken lines, no code until the founder picks scope); then ask the founder the few decisions needed.
+- 2026-10-26 DONE (chat B, design only): wrote `docs/SPEECH_UNDERSTANDING.md`: a "Speech Understander" between STT and the existing understanding chain (rules -> trained classifier -> LLM). Finding: most pieces already exist
+  (Sarvam STT, `lang_dev` script normaliser, `chatbot_media` voice-note confirm, `brain.interpret`/`resolve_references`, `pm/classifier`, speculative understanding, quality loop); the gap is a memory-grounded REPAIR step and one
+  structured `UnderstoodUtterance` handed to the big LLMs. STT gives one transcript only (no n-best), so Whisper is proposed only as an optional second opinion on low-confidence utterances, to be measured first. Safety: grounded repairs
+  only, high-stakes fields always confirm, memory read-only, shadow mode first, switch `FRIDAY_SPEECH_UNDERSTANDING` default OFF. No code, no spoken lines changed. WAITING on founder decisions (section 9): scope (voice notes vs calls), second-opinion STT,
+  auto-correct vs confirm, model route, shadow logging consent, priority vs the pilot.
 
