@@ -1016,4 +1016,7 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
   chat A since 2026-10-23 08:49 (its last snapshot commits); no other branches besides `origin/backup/other-session-2026-10-10`; working tree clean. Spot-checked KNOWLEDGE_INDEX against the code and corrected it (pending
   playbooks are 9 named files + pending salon matching SCRIPTS_SPEC; 32 package dirs; `.github/ci.yml` exists but never ran). If the founder has newer work in another chat/account that was never pushed, it is NOT visible here:
   ask chat A to commit and push, or tell chat B.
+- 2026-10-26 founder ask (chat B): add a "Whisper AI-like" workflow: when the user speaks, a SMALL model sits between speech-to-text and the rest: it corrects what the transcript says the user meant, uses memory
+  (names, places, recent chat, past requests), identifies the meaning/intent, then passes a clean structured result to the other (bigger) LLMs for the next step. Plan: map what already exists (STT, voice notes, classifier, interpret,
+  memory) to avoid duplicating; write docs/SPEECH_UNDERSTANDING.md (design, no spoken lines, no code until the founder picks scope); then ask the founder the few decisions needed.
 
