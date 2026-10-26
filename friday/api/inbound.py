@@ -17,6 +17,7 @@ Owner: Backend Engineer A.
 
 from __future__ import annotations
 
+import asyncio
 import re
 import secrets
 from datetime import datetime, timedelta
@@ -381,6 +382,19 @@ class InboundPipeline:
 
     # ------------------------------------------------------------------ main entry
     async def handle(self, msg: InboundMessage) -> None:
+        """One message at a time per sender, in arrival order, so a slow answer is never overtaken
+        or mixed up with the next one (Instinct review, docs/CHATBOT_PERSONA.md appendix C)."""
+        locks = self.__dict__.setdefault("_sender_locks", {})
+        key = msg.from_phone
+        lock = locks.setdefault(key, asyncio.Lock())
+        try:
+            async with lock:
+                await self._handle(msg)
+        finally:
+            if not lock.locked() and not getattr(lock, "_waiters", None):
+                locks.pop(key, None)
+
+    async def _handle(self, msg: InboundMessage) -> None:
         try:
             msg.from_phone = normalize_phone(msg.from_phone, self.settings.default_country_code)
         except ValueError:

@@ -315,6 +315,42 @@ LINES: dict[str, dict[str, str]] = {
         "hi": "मैं आपके काम के लिए हूँ: कॉल, बचत और आपका दिन। यह सवाल अलग है, पर मैंने नोट कर लिया है। 'menu' लिखें।",
         "en": "I'm here for your tasks: calls, savings and your day. This one is outside that, but I've noted it. Write 'menu'.",
     },
+    # ------------------------------------------------------------------ Instinct review (appendix C): safety, language, quick answers
+    "safety_emergency": {
+        "hinglish": "Yeh serious ho sakta hai. Abhi 112 par call kijiye ya paas ke hospital jaiye, intezaar mat kijiye. Main doctor nahi hoon, par aapke saath hoon.",
+        "hi": "यह गंभीर हो सकता है। अभी 112 पर कॉल कीजिए या पास के अस्पताल जाइए, इंतज़ार मत कीजिए। मैं डॉक्टर नहीं हूँ, पर आपके साथ हूँ।",
+        "en": "This could be serious. Please call 112 or go to the nearest hospital now, do not wait. I'm not a doctor, but I'm with you.",
+    },
+    "safety_medicine": {
+        "hinglish": "Main dawai ya dose nahi bata sakti, yeh doctor ya pharmacist hi sahi bata sakte hain. Chahein toh main clinic ka pata karke appointment ke liye call kar sakti hoon.",
+        "hi": "मैं दवाई या डोज़ नहीं बता सकती, यह डॉक्टर या फ़ार्मासिस्ट ही सही बता सकते हैं। चाहें तो मैं क्लिनिक का पता करके अपॉइंटमेंट के लिए कॉल कर सकती हूँ।",
+        "en": "I can't advise on medicines or doses, a doctor or pharmacist should. If you like, I can find a clinic and call for an appointment.",
+    },
+    "refuse_forgery": {
+        "hinglish": "Nakli bill ya receipt main nahi bana sakti, yeh dhokha hota hai aur aap par bhaari pad sakta hai. Asli kharcha hua ho toh duplicate bill maangiye, uski photo bhejiye, main saaf PDF bana dungi.",
+        "hi": "नकली बिल या रसीद मैं नहीं बना सकती, यह धोखा होता है और आप पर भारी पड़ सकता है। असली खर्चा हुआ हो तो डुप्लिकेट बिल माँगिए, उसकी फ़ोटो भेजिए, मैं साफ़ PDF बना दूँगी।",
+        "en": "I can't make a fake bill or receipt, it is fraud and could cost you. If the expense was real, ask for a duplicate bill, send me its photo and I'll make a clean PDF.",
+    },
+    "lang_set": {
+        "hinglish": "Theek hai, ab se {language} mein jawab dungi.",
+        "hi": "ठीक है, अब से {language} में जवाब दूँगी।",
+        "en": "Okay, I'll reply in {language} from now on.",
+    },
+    "quick_calc": {
+        "hinglish": "Jawab: {expr} = {result}",
+        "hi": "जवाब: {expr} = {result}",
+        "en": "Answer: {expr} = {result}",
+    },
+    "quick_time": {
+        "hinglish": "Abhi India mein {time} (IST) hue hain.",
+        "hi": "अभी भारत में {time} (IST) हुए हैं।",
+        "en": "It is {time} IST in India right now.",
+    },
+    "quick_date": {
+        "hinglish": "Aaj {date} hai.",
+        "hi": "आज {date} है।",
+        "en": "Today is {date}.",
+    },
     # ------------------------------------------------------------------ proactive: the why-clause
     "why_generic": {
         "hinglish": "Yeh isliye aaya ki aapne Friday se yeh madad maangi thi. Band karne ke liye 'stop' likhiye.",

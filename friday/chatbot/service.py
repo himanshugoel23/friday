@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from friday.chatbot import commands as cmd
-from friday.chatbot import copy, templates
+from friday.chatbot import copy, guards, templates
 from friday.chatbot.composer import Composed, Composer, buttons_for, mirror_language
 from friday.chatbot.scope import is_out_of_scope, mask_numbers
 from friday.core.logging import get_logger, mask_phone
@@ -371,6 +371,8 @@ class ChatbotService:
         t = cmd.norm(text)
         lang = await self._lang_of(user, sess)
         ctx = _Ctx(user.phone, lang, user, sess)
+        if self.settings.chatbot_guards and await self._guards(ctx, text):
+            return True
         if cmd.MENU.match(t):
             return await self._menu(ctx)
         if (m := cmd.HUMAN.match(t)) is not None:
@@ -386,6 +388,27 @@ class ChatbotService:
             return True
         if sess is not None and sess.step in ("name", "language", "city", "win"):
             return await self._step_answer(ctx, msg)
+        return False
+
+    async def _guards(self, ctx: _Ctx, text: str) -> bool:
+        """Fixed lines for an emergency, a medicine ask or a fake-bill ask, and "reply in Hindi"
+        (docs/CHATBOT_PERSONA.md appendix C). Runs before any flow so a real emergency is never
+        swallowed by a pending question."""
+        kind = guards.safety_kind(text)
+        if kind is not None:
+            await self._send(ctx, copy.line(
+                {"emergency": "safety_emergency", "medicine": "safety_medicine",
+                 "forgery": "refuse_forgery"}[kind], ctx.lang))
+            return True
+        code = guards.language_request(text)
+        if code is not None and ctx.user is not None:
+            await self.p.apply_profile_updates(ctx.user, {"language": _LANG_ENUM[code]})
+            sess = ctx.sess or await self._session(ctx.user, code)
+            sess.lang = ctx.lang = code
+            ctx.sess = sess
+            await self._save(ctx)
+            await self._send(ctx, copy.line("lang_set", code, language=copy.LANGUAGE_NAMES[code]))
+            return True
         return False
 
     async def _quotes_busy(self, user: User) -> bool:
@@ -965,6 +988,11 @@ class ChatbotService:
         ctx = _Ctx(user.phone, lang, user, sess)
         if (parts := cmd.split_phone(text)) is not None:
             return await self._typed_number(ctx, *parts)
+        if self.settings.chatbot_quick_answers and (
+            quick := guards.quick_answer(text, self._now())
+        ) is not None:
+            await self._send(ctx, copy.line(quick[0], lang, **quick[1]))
+            return True
         mode = self.settings.chatbot_offtopic
         if mode != "off" and is_out_of_scope(text):
             last = await self.repo.last_inbox_text("wishlist", user.id)

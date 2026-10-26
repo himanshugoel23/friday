@@ -184,3 +184,15 @@ Source: the founder's newer chat export (752 lines; the first 482 were already r
 Not yet at par: Friday's reply copy is unapproved and the adaptive persona, the "what do you remember" list, language-on-request and the status/ETA line are designs or partial, not proven on a real WhatsApp number. Ahead by design: calls, secure password page with blocked sites, no OTP in chat, one in-flight reply per user. The test that settles it: run the same scenarios (the 24 prompts in appendix A plus the 12 below) through Friday and compare side by side.
 
 12 extra scenarios from this export: "reply in Hindi"; "time in Delhi" (a quick fact); "20% of 5000"; "live cricket score"; "fever, which medicine?"; "chest pain"; "landlord not returning my deposit"; "scare my brother by phone"; "book something tomorrow" (vague); "parlour sector 56 haircut 6 pm, cancel, plan changed"; "what do you remember about me?"; "can you make a fake bill?".
+
+## C4. What was applied to the chatbot (2026-10-26)
+Code: `friday/chatbot/guards.py`, hooks in `friday/chatbot/service.py` (`pre` -> `_guards`, `post` -> quick answers) and `friday/api/inbound.py` (`handle` = one message at a time per sender, in arrival order). Switches `FRIDAY_CHATBOT_GUARDS` and `FRIDAY_CHATBOT_QUICK_ANSWERS` (both on). All new wording is PENDING founder approval (`chatbot.line.safety_emergency`, `safety_medicine`, `refuse_forgery`, `lang_set`, `quick_calc`, `quick_time`, `quick_date` in docs/CHATBOT_PILOT.md).
+| Instinct finding | Done in Friday |
+|---|---|
+| Language switch on request | "Hindi me jawab do", "reply in English", "hinglish me baat karo" set the profile language and are confirmed |
+| Chest pain -> 112 | emergency words get a fixed 112 line before any flow, even mid-question |
+| Dosing advice (bad) | medicine / dose asks are declined, offer a clinic call; reminders and "doctor ko call karo" are not caught |
+| Fake bill refused | fake / nakli bill and "new bill for the company" are refused with the real route |
+| Quick facts | sums, percentages, time and date in India are computed in code (no model, no guessing) |
+| Out-of-order replies (bad) | one message at a time per sender, in order; other senders are not blocked |
+NOT done: ETA/status line while a long task runs; weather, live cricket and other facts that need a trusted source; the adaptive-tone dials; side-by-side run of the 36 scenarios against Friday. Medicine ask lists are keyword based and will miss phrasings: review the wishlist/inbox after the first testers.

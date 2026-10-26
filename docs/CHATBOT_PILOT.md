@@ -103,6 +103,8 @@ In tests (`env=test`) a broken rule raises; in production it is logged by rule n
 | `FRIDAY_ADMIN_PHONES` | empty | always allowed |
 | `FRIDAY_SUPPORT_INBOX` | empty | WhatsApp number (E.164) that receives `human` requests; never in the code |
 | `FRIDAY_CHATBOT_OFFTOPIC` | redirect | redirect / wishlist_only / off |
+| `FRIDAY_CHATBOT_GUARDS` | true | fixed safety lines (emergency, medicine, fake bill) and "reply in Hindi" |
+| `FRIDAY_CHATBOT_QUICK_ANSWERS` | true | sums, percentages, time and date computed in code |
 | `FRIDAY_CHATBOT_FIRST_WINS` | card,day,call | order of the first-win buttons (only those whose feature switch is on are offered) |
 | `FRIDAY_CHATBOT_DISCLOSURE_EVERY_STEP` | false | true: every onboarding step ends with a one-line "AI assistant, never payment/OTP/PIN" footer |
 | `FRIDAY_SAVINGS_ENABLED`, `FRIDAY_LIFESTATE_ENABLED`, `FRIDAY_CONSUMER_CALLS_ENABLED` | false | the features the first wins and the menu point to (`docs/CONSUMER_INTEGRATION.md`) |
@@ -117,7 +119,7 @@ Six drafts (morning brief, follow-up nudge, bill reminder, call outcome, re-enga
 
 ## PENDING FOUNDER APPROVAL: every copy id
 
-All wording is in `friday/chatbot/copy.py` (marked `PENDING_FOUNDER_APPROVAL`), in Roman Hinglish with `hi` (Devanagari) and `en` variants of every id. The table shows the Hinglish; read the other two in the file. 78 ids (55 lines, 15 buttons, 8 menu rows), plus the 18 template bodies in `docs/WHATSAPP_TEMPLATES.md`. Tests check structure, never the words, so edit freely. After you approve a changed `intro` or `details`, bump `copy.WORDING_VERSION`.
+All wording is in `friday/chatbot/copy.py` (marked `PENDING_FOUNDER_APPROVAL`), in Roman Hinglish with `hi` (Devanagari) and `en` variants of every id. The table shows the Hinglish; read the other two in the file. 85 ids (62 lines, 15 buttons, 8 menu rows), plus the 18 template bodies in `docs/WHATSAPP_TEMPLATES.md`. Tests check structure, never the words, so edit freely. After you approve a changed `intro` or `details`, bump `copy.WORDING_VERSION`.
 
 | id | kind | Hinglish |
 |---|---|---|
@@ -175,6 +177,13 @@ All wording is in `friday/chatbot/copy.py` (marked `PENDING_FOUNDER_APPROVAL`), 
 | `chatbot.line.place_saved` | default | {label} save ho gaya. Yeh sirf aapke vendor search mein kaam aayega, kisi ko share nahi hoga. |
 | `chatbot.line.place_skipped` | default | Theek hai, jagah save nahi ki. |
 | `chatbot.line.offtopic` | default | Main aapke kaam ke liye hoon: calls, bachat aur aapka din. Yeh sawaal alag hai, par maine note kar liya hai. 'menu' likhiye. |
+| `chatbot.line.safety_emergency` | default | Yeh serious ho sakta hai. Abhi 112 par call kijiye ya paas ke hospital jaiye, intezaar mat kijiye. Main doctor nahi hoon, par aapke saath hoon. |
+| `chatbot.line.safety_medicine` | default | Main dawai ya dose nahi bata sakti, yeh doctor ya pharmacist hi sahi bata sakte hain. Chahein toh main clinic ka pata karke appointment ke liye call kar sakti hoon. |
+| `chatbot.line.refuse_forgery` | default | Nakli bill ya receipt main nahi bana sakti, yeh dhokha hota hai aur aap par bhaari pad sakta hai. Asli kharcha hua ho toh duplicate bill maangiye, uski photo bhejiye, main saaf PDF bana dungi. |
+| `chatbot.line.lang_set` | default | Theek hai, ab se {language} mein jawab dungi. |
+| `chatbot.line.quick_calc` | default | Jawab: {expr} = {result} |
+| `chatbot.line.quick_time` | default | Abhi India mein {time} (IST) hue hain. |
+| `chatbot.line.quick_date` | default | Aaj {date} hai. |
 | `chatbot.line.why_generic` | default | Yeh isliye aaya ki aapne Friday se yeh madad maangi thi. Band karne ke liye 'stop' likhiye. |
 | `chatbot.button.consent_yes` | button | Haan, theek hai |
 | `chatbot.button.consent_details` | button | Details |

@@ -13,7 +13,8 @@ from friday.chatbot.composer import Composer, has_full_statement, has_statement
 SAMPLE = {
     "name": "Rahul", "language": "Hinglish", "current": "Hinglish", "city": "Pune",
     "who": "Mummy", "masked": "+91 98765 432XX", "label": "Home", "phone": "+91******3210",
-    "text": "kuch bhi likha hua sawaal",
+    "text": "kuch bhi likha hua sawaal", "expr": "2 + 2", "result": "4", "time": "2:11 PM",
+    "date": "Friday, 23 October 2026",
 }  # fmt: skip
 EMOJI = re.compile("[☀-➿\U0001f000-\U0001faff\U00002600-\U000027bf]")
 C = Composer()

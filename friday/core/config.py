@@ -589,6 +589,9 @@ class Settings(BaseSettings):
     # off-topic questions: "redirect" (polite line + wishlist, recommended), "wishlist_only"
     # (store it, let the brain answer) or "off" (do nothing special)
     chatbot_offtopic: Literal["redirect", "wishlist_only", "off"] = "redirect"
+    # Instinct review: fixed safety lines, language on request, sums/time/date computed in code
+    chatbot_guards: bool = True  # FRIDAY_CHATBOT_GUARDS
+    chatbot_quick_answers: bool = True  # FRIDAY_CHATBOT_QUICK_ANSWERS
     # the order of the first-win buttons (any of card, day, call; at most 3 are shown)
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
