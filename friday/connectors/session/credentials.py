@@ -8,7 +8,7 @@ Rules, each enforced in code and covered by a test:
   and only with explicit consent. Never through WhatsApp chat, a tool argument or the model.
 * ``release`` hands the password to the browser worker only when the page is on a host the user
   saved the login for. The ``Credential`` object cannot be printed, pickled or serialised.
-* Banks, UPI / payments, IRCTC and government-ID sites are refused (``is_blocked``): OTP, card,
+* Banks, UPI / payments and government-ID sites are refused (``is_blocked``): OTP, card,
   UPI PIN and bank logins are never stored.
 * Entries expire (default 90 days); ``delete`` / ``delete_user`` remove them for good.
 * Plaintext exists only inside ``save``, ``release`` and the browser fill; it is never logged,
@@ -30,7 +30,7 @@ from friday.core.crypto import DecryptionError, FieldCipher
 # Refused outright. Matched against the site key AND every host it is saved for.
 _BLOCKED_WORDS = (
     "bank", "upi", "paytm", "phonepe", "gpay", "bhim", "npci", "razorpay", "payu", "billdesk",
-    "cashfree", "irctc", "uidai", "aadhaar", "digilocker", "incometax", "epfo", "sebi",
+    "cashfree", "uidai", "aadhaar", "digilocker", "incometax", "epfo", "sebi",
     "zerodha", "groww", "upstox", "hdfc", "icici", "sbi", "axis", "kotak", "yesbank", "idfc",
     "bobibanking", "pnb", "canarabank", "visa", "mastercard", "americanexpress", "amex",
     "netbanking", "creditcard", "wallet",

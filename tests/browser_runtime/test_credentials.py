@@ -65,7 +65,7 @@ def test_ciphertext_cannot_be_moved_to_another_user(cvault):
 def test_consent_required_and_blocked_sites_refused(cvault):
     with pytest.raises(CredentialError):
         cvault.save("u", "fake", "a", PW, hosts=HOSTS, consent=False)
-    for site, host in [("hdfc", "netbanking.hdfcbank.com"), ("irctc", "www.irctc.co.in"),
+    for site, host in [("hdfc", "netbanking.hdfcbank.com"), ("gov", "uidai.gov.in"),
                        ("paytm", "paytm.com"), ("upi", "upi.example"),
                        ("shop", "online.sbi")]:
         with pytest.raises(CredentialError):

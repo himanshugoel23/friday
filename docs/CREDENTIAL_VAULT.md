@@ -10,7 +10,7 @@ Founder decision (2026-10-26): Friday may store a user's login for a website tha
 5. "forget my logins" -> `CredentialService.forget(user[, site])` deletes slots and revokes open links. Entries also expire after 90 days.
 
 ## Refused always
-Banks, UPI / payments, cards, IRCTC, government-ID sites (word list in `credentials.py::_BLOCKED_WORDS`, checked on the site key and every host). Edit the list with a test.
+Banks, UPI / payments, cards, government-ID sites (word list in `credentials.py::_BLOCKED_WORDS`, checked on the site key and every host). Edit the list with a test.
 
 ## Switches (`FRIDAY_BROWSER_*`, default off)
 `CREDENTIALS_ENABLED=false`, `CREDENTIALS_ENABLED_USERS=` (ids or `*`; empty enables nobody; also needs `FRIDAY_BROWSER_ENABLED=true`), `CREDENTIALS_TTL_DAYS=90`, `CREDENTIALS_DIR=var/browser_credentials` (keep `var/` out of git), `CREDENTIALS_LINK_TTL_SECONDS=600`.

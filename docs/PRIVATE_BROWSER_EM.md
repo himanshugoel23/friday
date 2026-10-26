@@ -33,6 +33,7 @@ Design only. Builds on `friday/connectors` (BrowserSession port, ActionGate, OTP
 - **Approval:** Grant with exact items, merchant, cap, expiry, one use, as WhatsApp buttons.
 
 ## 4. Sites that block or forbid automation
+> Founder decision 2026-10-26 supersedes the IRCTC line below: IRCTC is treated like any other site (docs/BROWSER_SITE_COVERAGE.md). The legal question stays open.
 Order: (1) official API/MCP/PAP; (2) partner deal; (3) scripted browser with user in the loop, only after legal clears that site; (4) never.
 - Swiggy: invite-led Builders Club with MCP and APIs ([coverage](https://www.fonearena.com/blog/481152/swiggy-builders-club-features.html); terms unverified). Zomato built an MCP ordering system, not shipped (MediaNama, secondary). PAP spec unpublished.
 - IRCTC: automated booking tools are called illegal under IRCTC rules and the Railways Act; Akamai anti-bot ([ETV Bharat](https://www.etvbharat.com/en/!bharat/railways-curbs-unauthorised-automated-bookings-by-unscrupulous-agents-enn25060501221), secondary). **No IRCTC automation; deep link.**

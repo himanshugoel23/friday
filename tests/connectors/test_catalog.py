@@ -35,10 +35,12 @@ def test_cleared_scripted_site_runs_only_with_enable_and_supervision(monkeypatch
     assert C.effective_mode("zomato", set(), supervised=True) == "deeplink"
 
 
-def test_irctc_and_amazon_are_never_automated_and_never_get_a_stored_password():
-    for key in ("irctc", "amazon"):
-        assert C.effective_mode(key, {key}, supervised=True) == "blocked"
-    assert is_blocked("irctc", C.policy_hosts("irctc"))
+def test_amazon_is_blocked_and_irctc_follows_the_normal_gate():
+    assert C.effective_mode("amazon", {"amazon"}, supervised=True) == "blocked"
+    assert C.site("irctc").mode != "blocked"
+    assert C.effective_mode("irctc") == "deeplink"  # link today, like every uncleared site
+    assert not is_blocked("irctc", C.policy_hosts("irctc"))  # its login can be saved
+    assert is_blocked("hdfc", ["netbanking.hdfcbank.com"])  # banks still never
 
 
 def test_hosts_resolve_back_to_sites():

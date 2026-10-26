@@ -82,9 +82,9 @@ SITES: tuple[SiteSpec, ...] = (
     _s("cleartrip", "Cleartrip", "flight", "www.cleartrip.com,*.cleartrip.com", "https://www.cleartrip.com",
        irreversible="confirm booking", use_cases=("flight", "hotel")),
     # ---- trains
-    _s("irctc", "IRCTC", "train", "www.irctc.co.in,*.irctc.co.in", "https://www.irctc.co.in", mode="blocked",
-       legal=LEGAL_BLOCKED, login="password", irreversible="book ticket",
-       use_cases=("train",), note="automated booking tools are reported as barred by IRCTC and Railways rules; NEVER automate, never store its password; Friday reads availability elsewhere and hands over a link"),
+    _s("irctc", "IRCTC", "train", "www.irctc.co.in,*.irctc.co.in", "https://www.irctc.co.in", login="password",
+       irreversible="book ticket", use_cases=("train",),
+       note="link hand-over today; no scripted adapter yet; whether the site's terms allow automated booking is unverified (check before enabling)"),
     _s("erail", "eRail (info only)", "train", "erail.in,*.erail.in", "https://erail.in", login="none",
        irreversible="none", use_cases=("train_info",), note="read-only seat and timetable information; no booking"),
     _s("ixigo", "ixigo", "train", "www.ixigo.com,*.ixigo.com", "https://www.ixigo.com", irreversible="confirm booking",
