@@ -128,6 +128,10 @@ COPY: dict[str, dict[str, str]] = {
         "en": "Done: ride requested, {lines} via {merchant}. Fare {amount}, paid by you.{notes}",
         "hi": "Ho gaya: ride request ho gayi, {lines}, {merchant}. Fare {amount}, aapne pay kiya.{notes}",
     },
+    "not_supported": {
+        "en": "I can't do that on {site}: {what}.", "hi": "{site} par yeh main nahi kar sakti: {what}."},
+    "need_phrase": {
+        "en": "To go ahead, reply exactly: {phrase}", "hi": "Aage badhne ke liye bilkul yeh likhiye: {phrase}"},
     "handover": {
         "en": ("I can't do this on {site} for you directly yet, so here is the link. You can finish it "
                "there yourself: {link}"),

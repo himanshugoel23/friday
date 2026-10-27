@@ -6,7 +6,9 @@ from friday.connectors.sites.sim_cli import main
 def test_all_scenarios_pass(capsys):
     assert main(["--quiet"]) == 0
     out = capsys.readouterr().out
-    assert "20/20" in out and "FAIL" not in out
+    assert "scenarios as expected" in out and "FAIL" not in out
+    done, total = out.split("scenarios as expected")[0].split()[-1].split("/")
+    assert done == total and int(total) >= 20
 
 
 def test_list_copy_and_unknown(capsys):

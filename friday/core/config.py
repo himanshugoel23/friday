@@ -600,7 +600,7 @@ class Settings(BaseSettings):
     # docs/PRIVATE_BROWSER_RUNTIME.md. ALL OFF: nothing browser-driven runs unless the master switch
     # AND a tester id are set. ``FRIDAY_BROWSER_SITES_ENABLED`` (catalog keys), ``_LEGAL_CLEARED``
     # (sites the founder cleared) and ``_SUPERVISED`` decide, per site, whether a real site may be
-    # automated at all (friday/connectors/catalog.py ``effective_mode``); otherwise a link is handed over.
+    # automated at all (friday/connectors/catalog.py ``effective_mode``); else a link.
     browser_enabled: bool = False
     browser_enabled_users: CsvList = Field(default_factory=list)  # ids, or "*" (never in the pilot)
     browser_backend: str = "local"  # local | cloud | fake

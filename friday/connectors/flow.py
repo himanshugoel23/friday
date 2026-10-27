@@ -219,6 +219,34 @@ def _quick(text: str) -> str | None:
     return f"{site}.{use_case}"
 
 
+_GENDER = re.compile(r"(?i)\b(male|female|m|f|other|transgender)\b")
+_BERTH = re.compile(r"(?i)\b(side\s+lower|side\s+upper|lower|middle|upper|no\s+preference|none)\b")
+
+
+def _parse_train_passengers(text: str) -> list[dict[str, Any]]:
+    """"Asha Rao 34 female lower; Ravi Rao 40 male upper" -> one dict per passenger. A part that
+    lacks age / gender / berth keeps only what was said: the adapter asks for the rest, nothing is
+    guessed here."""
+    out = []
+    for part in re.split(r"[;\n]|\s+(?:and|aur)\s+(?=[A-Za-z]+\s+[A-Za-z]*\s*\d)", text):
+        part = part.strip(" ,.")
+        if not part:
+            continue
+        d: dict[str, Any] = {}
+        if m := re.search(r"\b(\d{1,3})\b", part):
+            d["age"] = int(m.group(1))
+        if m := _GENDER.search(part):
+            d["gender"] = m.group(1).lower()
+        if m := _BERTH.search(part):
+            d["berth"] = " ".join(m.group(1).lower().split())
+        name = _BERTH.sub(" ", _GENDER.sub(" ", re.sub(r"\b\d{1,3}\b", " ", part)))
+        name = " ".join(re.findall(r"[A-Za-z][A-Za-z.'-]*", name))
+        if name:
+            d["name"] = name
+        out.append(d)
+    return out[:9]
+
+
 # ------------------------------------------------------------------ the flow
 class BrowserFlow:
     def __init__(
@@ -392,11 +420,9 @@ class BrowserFlow:
                 and st.slots.get("nights"):
             from datetime import date as _d
 
-            try:
+            with contextlib.suppress(ValueError):
                 st.slots["checkout"] = (_d.fromisoformat(str(st.slots["checkin"]))
                                         + timedelta(days=int(st.slots["nights"]))).isoformat()
-            except ValueError:
-                pass
 
     def _missing(self, st: TaskState) -> str | None:
         prof = self._profile(st.user_id)
@@ -404,6 +430,17 @@ class BrowserFlow:
         use_case = st.connector.split(".", 1)[1]
         have = {"address": prof.address, "area": prof.area, "pickup": prof.address}
         self._canon(st, ad)
+        probe = ad.__new__(ad) if callable(getattr(ad, "missing", None)) else None
+        if probe is not None:  # the adapter's own "what is still needed" (no browser opened yet)
+            from types import SimpleNamespace
+
+            probe.ctx = SimpleNamespace(now=self._now, profile=prof)
+            slot = probe.missing(st.slots)
+            if slot and have.get(slot):
+                st.slots[slot] = have[slot]
+                slot = probe.missing(st.slots)
+            if slot:
+                return slot
         for slot in ad.required:
             if slot not in st.slots:
                 if have.get(slot):  # the profile answers it: do not ask
@@ -440,7 +477,7 @@ class BrowserFlow:
                           options=render("grocery_options", st.lang, options=opts) if opts else "")
             return await self._out(st, "question", text)
         key = self._question_key(st, slot)
-        text = render(key, st.lang) if key else render("q_generic", st.lang, slot=slot)
+        text = render(key, st.lang, loose=True) if key else render("q_generic", st.lang, slot=slot)
         await self._out(st, "question", text)
 
     def _take_answer(self, st: TaskState, text: str) -> bool:
@@ -461,6 +498,11 @@ class BrowserFlow:
             if not items:
                 return False
             st.slots["items"] = items
+        elif slot == "passengers" and st.connector.endswith(".train"):
+            pax = _parse_train_passengers(t)
+            if not pax:
+                return False
+            st.slots["passengers"] = pax
         elif slot == "passengers":
             names = [n.strip() for n in re.split(r"(?i)\s*(?:,|\band\b|\baur\b|;)\s*", t) if n.strip()]
             if not names:
@@ -503,9 +545,12 @@ class BrowserFlow:
         idx = next((i for i, it in enumerate(items) if norm(what) in norm(it.get("query", ""))
                     or norm(it.get("query", "")) in norm(what)), None)
         low = t.lower()
-        pick = next((o for o in opts if norm(o) and norm(o) in norm(t)), None)
+        pick = next((o for o in opts if len(norm(t)) >= 3 and (norm(t) in norm(o) or norm(o) in norm(t))),
+                    None)
         if pick and idx is not None:
-            items[idx] = {**items[idx], "query": pick}
+            # the option reads "<brand> <name> <size>": ask the site for brand + name, any size
+            query = re.sub(r"(?i)\s+\d+(?:\.\d+)?\s*(?:g|kg|ml|l|ltr|pcs?|pack)$", "", pick).strip()
+            items[idx] = {"query": query, "qty": items[idx].get("qty", 1)}
         elif re.search(r"(?i)\b(skip|chhod|chod|nahi|no|rehne|hata)\b", low) and idx is not None:
             items.pop(idx)
         else:
@@ -532,7 +577,12 @@ class BrowserFlow:
         if t in NO:
             await self._cancel(st)
         elif st.phase == Phase.await_approval:
-            if t in YES:
+            if st.notes.get("await_phrase"):
+                if text.strip().upper() == self.PHRASE:  # only the exact phrase counts
+                    await self._give_phrase(st)
+                else:
+                    await self._ask_phrase(st)
+            elif t in YES:
                 await self._approve(st)
             else:
                 await self._show_approval(st)
@@ -542,6 +592,7 @@ class BrowserFlow:
 
     # ---- prepare (read-only) and approval
     async def _open(self, st: TaskState) -> Any:
+        st0 = st
         if st.task_id in self._rt:
             return self._rt[st.task_id]
         adapter_cls = self._adapters[st.connector]
@@ -549,6 +600,7 @@ class BrowserFlow:
         session = await self._sessions.open(st.user_id, st.task_id, site)
 
         async def on_wait() -> None:
+            st = self._store.active(st0.user_id) or st0  # the task moved on since this was built
             self._save(st, Phase.await_login)
             await self._out(st, "login", render("login_needed", st.lang,
                                                 site=adapter_cls.site_name,
@@ -583,6 +635,9 @@ class BrowserFlow:
         if prep.problem:
             return await self._problem(st, ad, prep.problem)
         st.proposal = prep.proposal
+        if st.proposal is not None and st.proposal.details.get("read_only"):
+            self._save(st, Phase.running)  # nothing to approve: track order, eRail information
+            return await self._run(st)
         self._save(st, Phase.await_approval)
         await self._show_approval(st)
 
@@ -610,6 +665,21 @@ class BrowserFlow:
             return await self._ask_login(st, ad)
         mod = self._pkg_copy(ad)
         fn = getattr(mod, "problem_text", None)
+        pend = getattr(ad, "pending", None)
+        if kind in {"need_choice", "need_detail"} and pend:
+            slot = str(pend.get("slot", ""))
+            st.pending_slot = slot
+            self._save(st, Phase.clarify)
+            options = "\n".join(f"{i}. {o}" for i, o in enumerate(pend.get("options", []), 1))
+            key = pend.get("text_key", "")
+            text = (render(key, st.lang, loose=True, options=options, what=what)
+                    if key in COPY else render("q_generic", st.lang, slot=slot))
+            return await self._out(st, "question", text)
+        if kind in {"over_budget", "not_allowed"} and kind in COPY:
+            return await self._finish(st, Phase.failed, "outcome", render(kind, st.lang, what=what))
+        if kind == "not_supported":
+            return await self._finish(st, Phase.failed, "outcome", render(
+                "not_supported", st.lang, what=what, site=ad.site_name))
         if kind == "foreign_currency":  # hand over: the site prices in another currency
             text = (fn(prob, st.lang, ad.site_name) if fn else "") or render(
                 "foreign_currency", st.lang, site=ad.site_name,
@@ -682,6 +752,8 @@ class BrowserFlow:
         if use_case == "movie":
             return render("approve_movie", st.lang, movie=p.movie, when=p.when, **common)
         key = "approve_food" if use_case == "food" else f"approve_{use_case}"
+        if p.details.get("mode") == "cancel" and "approve_cancel_order" in COPY:
+            key = "approve_cancel_order"
         key = key if key in COPY else "approve_shopping"
         return render(key, st.lang, loose=True, when=p.when, movie=p.movie, **common)
 
@@ -697,6 +769,32 @@ class BrowserFlow:
                 return  # double tap / stale
             if st.proposal.expires_at <= self._now():
                 return await self._finish(st, Phase.cancelled, "outcome", render("expired", st.lang))
+            d = st.proposal.details
+            if d.get("extra_approval") and not d.get("extra_approval_given"):
+                return await self._ask_phrase(st)  # a waitlisted / RAC ticket needs the exact phrase
+            self._save(st, Phase.running)
+        self._spawn(self._run(st))
+
+    PHRASE = "WAITLIST OK"
+
+    async def _ask_phrase(self, st: TaskState) -> None:
+        assert st.proposal is not None
+        st.notes = {**st.notes, "await_phrase": True}
+        self._save(st)
+        status = str(st.proposal.details.get("extra_approval") or "waitlisted")
+        await self._out(st, "approval", render("approve_train_waitlist", st.lang, status=status,
+                                               phrase=self.PHRASE) if "approve_train_waitlist" in COPY
+                        else render("need_phrase", st.lang, phrase=self.PHRASE),
+                        [(f"bf:no:{st.task_id}", render("btn_no", st.lang))])
+
+    async def _give_phrase(self, st: TaskState) -> None:
+        async with self._lock(st.task_id):
+            st = self._store.active(st.user_id) or st
+            if st.proposal is None or st.phase != Phase.await_approval:
+                return
+            st.proposal = st.proposal.model_copy(update={
+                "details": {**st.proposal.details, "extra_approval_given": True}})
+            st.notes = {**st.notes, "await_phrase": False}
             self._save(st, Phase.running)
         self._spawn(self._run(st))
 
@@ -742,6 +840,9 @@ class BrowserFlow:
         use = st.connector.split(".", 1)[1]
         if res.status == "ride_requested":
             return await self._ride_done(st, res)
+        if res.status in {"info", "done"}:  # read-only answer (track order, eRail) / cancelled order
+            text = scrub_text(res.reason or "") or render("cancelled", st.lang)
+            return await self._finish(st, Phase.done, "outcome", text)
         if res.status == "out_of_stock":
             if use == "ride":
                 key = "ride_no_driver" if str(res.names).startswith("a driver") else "ride_unavailable"
@@ -834,6 +935,15 @@ class BrowserFlow:
             return await self._finish(st, Phase.failed, "outcome", text)
         if isinstance(e, SessionRefused):  # switch off / cap / kill latch: not the site's fault
             return await self._degraded(st, "degraded")
+        reason = getattr(e, "reason", "") if isinstance(e, SiteBlocked) else ""
+        if reason in {"captcha", "booking_window"}:  # train HandOver: stop, give the link, no retry
+            key = "handover_captcha" if reason == "captcha" else "handover_window"
+            if key in COPY:
+                if reason == "captcha":
+                    self._mark(site, use_case)
+                link = self._reg.fallback_url(site, use_case) or self._home(st)
+                return await self._finish(st, Phase.failed, "outcome", render(
+                    key, st.lang, site=self._site(st), link=link))
         if isinstance(e, SiteBlocked):
             self._mark(site, use_case)
             return await self._degraded(st, "blocked")

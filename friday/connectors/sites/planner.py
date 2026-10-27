@@ -181,7 +181,7 @@ def _date_slot(text: str, today: date) -> tuple[str | None, str]:
 
 
 def _words(text: str) -> list[str]:
-    return [w for w in re.findall(r"[A-Za-z][A-Za-z'.-]*", text) if w.lower() not in _FILLER]
+    return [w for w in re.findall(r"[A-Za-z0-9][A-Za-z0-9'.-]*", text) if w.lower() not in _FILLER]
 
 
 def _place(text: str) -> str:
@@ -276,6 +276,15 @@ def _ride_slots(text: str) -> dict[str, Any]:
 
 def _shopping_slots(text: str) -> dict[str, Any]:
     rest = _strip_sites(text)
+    intent = None
+    if re.search(r"(?i)\b(cancel)\b.*\border\b|\border\b.*\bcancel\b", rest):
+        intent = "cancel"
+    elif re.search(r"(?i)\b(track|where\s+is|kahan\s+hai|order\s+status|delivery\s+status)\b", rest):
+        intent = "track"
+    if intent:
+        rest = re.sub(r"(?i)\b(cancel|track|where\s+is|kahan\s+hai|order|status|delivery|my|mera|meri|karo|kar do|do|the|of)\b", " ", rest)
+        q = re.sub(r"\s{2,}", " ", rest).strip(" .,")
+        return {"intent": intent, **({"query": q[:80]} if q else {})}
     rest = re.sub(r"(?i)\b(?:buy|kharid\w*|purchase|order|mangao|mangwao|karo|kar do|chahiye|please|plz|se|from|on|mujhe|mere liye|ek|a|an|the|for me)\b", " ", rest)
     q = re.sub(r"\s{2,}", " ", rest).strip(" .,")
     return {"query": q[:80]} if q else {}
@@ -333,7 +342,8 @@ def _use_case_of(t: str, named: str | None) -> str | None:
     if _RIDE.search(t) or (spec is not None and spec.category == "ride") or (
             _RIDE_WEAK.search(t) and _ACTION.search(t)):
         return "ride"
-    if _SHOP.search(t) or named in {"amazon", "flipkart"}:
+    if _SHOP.search(t) or named in {"amazon", "flipkart"} or re.search(
+            r"(?i)\b(track|cancel)\b.*\border\b", t):
         return "shopping"
     if _MOVIE.search(t) and not _FOOD.search(t):
         return "movie"
@@ -387,7 +397,7 @@ _ALLOWED_SLOTS = {
     "ride": {"pickup", "drop", "vehicle"}, "hotel": {"city", "checkin", "nights", "guests"},
     "flight": {"origin", "dest", "date", "passenger_count"}, "bus": {"origin", "dest", "date", "passenger_count"},
     "train": {"origin", "dest", "date", "passenger_count"}, "train_info": {"origin", "dest", "date"},
-    "shopping": {"query"},
+    "shopping": {"query", "intent", "pick", "variant"},
 }
 
 

@@ -204,3 +204,18 @@ async def test_killed_site_is_a_link():
     f._reg.kill("zomato", "food")  # noqa: SLF001
     await f.handle_text("u", "order 2 margherita from Domino's")
     assert [m.kind for m in msgs] == ["outcome"] and "zomato.com" in msgs[0].text
+
+
+@pytest.mark.parametrize("text,connector,slots", [
+    ("track my amazon order buds", "amazon.shopping", {"intent": "track", "query": "buds"}),
+    ("cancel my flipkart order shoes", "flipkart.shopping", {"intent": "cancel", "query": "shoes"}),
+    ("irctc pnr status", "erail.train_info", {}),
+    ("Swiggy se order 2 chicken biryani from Behrouz", "swiggy.food",
+     {"items": [{"query": "chicken biryani", "qty": 2}], "restaurant": "Behrouz"}),
+    ("ola auto Sector 12 se City Station", "ola.ride", {"vehicle": "auto", "pickup": "Sector 12", "drop": "City Station"}),
+])
+async def test_more_intents(text, connector, slots):
+    p = await plan(text)
+    assert p.connector == connector
+    for k, v in slots.items():
+        assert p.slots.get(k) == v, (k, p.slots)

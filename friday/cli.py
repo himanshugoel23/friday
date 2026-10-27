@@ -513,7 +513,7 @@ def main(argv: list[str] | None = None) -> int:
     register_connectors(sub)  # `friday connectors list|demo-pizza --fake` (docs/CONNECTORS.md)
     from friday.connectors.sites.sim_cli import register as register_browser_sim
 
-    register_browser_sim(sub)  # `friday browser-sim [--list]` (FAKE sites only, docs/PRIVATE_BROWSER_FLOWS.md)
+    register_browser_sim(sub)  # `friday browser-sim [--list]` (FAKE sites only)
     from friday.speech.cli import register as register_speech
 
     register_speech(sub)  # `friday speech try|eval` (docs/SPEECH_UNDERSTANDING.md)

@@ -153,7 +153,7 @@ async def _run(registry, gate, task_id, area, wanted, approve, query, site, use_
         verdict, reason = gate.explain("build_cart", args, [grant])
         if verdict != Verdict.allow:
             return FlowResult(status="denied", restaurant=chosen, items=items, message=reason)
-        if registry.select(site, use_case, fulfils=True) is None:  # EM review B4: killed while asking
+        if registry.select(site, use_case, fulfils=True) is None:  # EM review B4
             return in_app("this connector was switched off while you were deciding")
 
         cart = await conn.build_cart(chosen.restaurant_id, items)

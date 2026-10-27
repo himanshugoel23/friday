@@ -77,7 +77,9 @@ class Proposal(BaseModel):
 
 @dataclass
 class Problem:
-    kind: Literal["no_match", "out_of_stock"]
+    kind: Literal["no_match", "out_of_stock", "needs_login", "closed", "below_minimum", "no_slot",
+                  "foreign_currency", "need_info", "need_choice", "need_detail", "over_budget",
+                  "not_allowed", "not_supported"]
     what: str
 
 
@@ -89,7 +91,8 @@ class Prepared:
 
 @dataclass
 class ExecResult:
-    status: Literal["payment_ready", "reapprove", "out_of_stock", "no_match"]
+    status: Literal["payment_ready", "reapprove", "out_of_stock", "no_match", "ride_requested",
+                    "info", "done"]
     handoff: PaymentHandoff | None = None
     proposal: Proposal | None = None  # for reapprove
     reason: str = ""
