@@ -387,3 +387,49 @@ def test_copy_is_pending_and_bilingual():
     for k, v in COPY.items():
         assert v["en"] and v["hi"], k
     assert all(v in COPY or v == "q_address" for v in QUESTION_KEYS.values())
+
+
+async def test_browser_flow_can_drive_a_purchase_to_the_payment_handoff():
+    """The unchanged BrowserFlow gets approval -> login code -> QR hand-off -> paid summary (wording
+    of the approval card is generic until the shared copy is wired: docs/BROWSER_TRAIN_SHOP.md)."""
+    import asyncio
+
+    from friday.connectors.flow import BrowserFlow, MemoryTaskStore, Outgoing, TaskState
+    from friday.connectors.registry import BackendKind, ConnectorRegistry, Registration, Status
+
+    kit = FAKE_SITES["amazon.shopping"]()
+    otp, msgs, ref = OneTimeOtpChannel(), [], {}
+
+    class Provider:
+        async def open(self, user_id, task_id, site):
+            return kit.new_session()
+
+        async def close(self, task_id):
+            return None
+
+    async def send(m: Outgoing):
+        msgs.append(m)
+        if m.kind == "login":
+            otp.submit(ref["id"], OTP)
+
+    async def noop(_):
+        await asyncio.sleep(0)
+
+    reg = ConnectorRegistry()
+    reg.register(Registration("amazon", "shopping", BackendKind.scripted_browser, Status.live, "sim"))
+    reg.register(Registration("amazon", "shopping", BackendKind.deep_link, Status.live, "sim", fallback_url="https://www.amazon.in"))
+    store = MemoryTaskStore()
+    flow = BrowserFlow(send=send, registry=reg, sessions=Provider(), otp=otp,
+                       profile=lambda _u: Profile(phone="9000000001", address=ADDRESS),
+                       login_link=lambda t: f"https://friday.invalid/otp/{t}", base_urls={"amazon.shopping": "http://fake.invalid"},
+                       adapters=ADAPTERS, store=store, enabled=lambda: True, otp_wait_s=0.05, poll_s=0.0, sleep=noop)
+    st = TaskState(task_id="bf-2", user_id="u-1", connector="amazon.shopping", slots=slots())
+    ref["id"] = st.task_id
+    store.save(st)
+    await flow._next(st)  # noqa: SLF001
+    assert msgs[-1].kind == "approval"
+    await flow.handle_button("u-1", "bf:yes:bf-2")
+    await flow.idle()
+    assert msgs[-1].kind == "payment" and msgs[-1].image_png
+    await flow.handle_button("u-1", "bf:paid:bf-2")
+    assert msgs[-1].kind == "outcome" and OTP not in "\n".join(m.text for m in msgs)

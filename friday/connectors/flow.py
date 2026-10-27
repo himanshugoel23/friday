@@ -461,6 +461,11 @@ class BrowserFlow:
             if not items:
                 return False
             st.slots["items"] = items
+        elif slot == "passengers":
+            names = [n.strip() for n in re.split(r"(?i)\s*(?:,|\band\b|\baur\b|;)\s*", t) if n.strip()]
+            if not names:
+                return False
+            st.slots["passengers"] = names[:9]
         elif slot in INT_SLOTS:
             m = re.search(r"\d+", t)
             lo, hi = INT_SLOTS[slot]
@@ -581,6 +586,19 @@ class BrowserFlow:
         self._save(st, Phase.await_approval)
         await self._show_approval(st)
 
+    @staticmethod
+    def _pkg_copy(ad: Any) -> Any:
+        """The category package's own ``copy`` module (``approval_text`` / ``problem_text``), or None."""
+        import importlib
+
+        parts = getattr(ad, "__module__", "").split(".")
+        if "sites" not in parts or len(parts) < parts.index("sites") + 3:
+            return None
+        try:
+            return importlib.import_module(".".join(parts[:parts.index("sites") + 2]) + ".copy")
+        except ImportError:
+            return None
+
     async def _problem(self, st: TaskState, ad: Any, prob: Any) -> None:
         """Map a ``Problem`` (kinds: no_match, out_of_stock, needs_login, closed, below_minimum,
         no_slot) to wording. A login problem sends the takeover link and waits; a sold-out item with
@@ -590,6 +608,22 @@ class BrowserFlow:
         opts = tuple(getattr(prob, "options", ()) or ())
         if kind == "needs_login":
             return await self._ask_login(st, ad)
+        mod = self._pkg_copy(ad)
+        fn = getattr(mod, "problem_text", None)
+        if kind == "foreign_currency":  # hand over: the site prices in another currency
+            text = (fn(prob, st.lang, ad.site_name) if fn else "") or render(
+                "foreign_currency", st.lang, site=ad.site_name,
+                link=getattr(prob, "link", "") or self._home(st))
+            return await self._finish(st, Phase.failed, "outcome", text)
+        if kind == "need_info":  # ask for the missing detail (bus boarding point, guest name ...)
+            slot = str(getattr(prob, "slot", "") or "")
+            if slot:
+                text = fn(prob, st.lang, ad.site_name) if fn else ""
+                st.pending_slot = slot
+                self._save(st, Phase.clarify)
+                if text:
+                    return await self._out(st, "question", text)
+                return await self._ask(st, slot)
         if kind == "out_of_stock" and opts and use == "grocery":
             st.slots["_sub"] = {"what": what, "options": list(opts)[:5]}
             st.pending_slot = "substitute"
@@ -609,6 +643,10 @@ class BrowserFlow:
         key = "out_of_stock" if kind == "out_of_stock" else "no_match"
         return render(key, st.lang, names=what, what=what, site=site)
 
+    def _home(self, st: TaskState) -> str:
+        spec = catalog.site(st.connector.split(".", 1)[0])
+        return spec.home if spec else ""
+
     async def _ask_login(self, st: TaskState, ad: Any) -> None:
         """The site logged the user out: hand over the takeover link (the user logs in on the site's
         own page); Friday never sees the password or code. The session stays open to continue."""
@@ -627,6 +665,12 @@ class BrowserFlow:
         if reask_reason:
             return render("reapprove", st.lang, reason=reask_reason, total=format_rupees(
                 p.max_total_paise), old_max=format_rupees(old_max), lines="\n".join(p.lines))
+        fn = getattr(self._pkg_copy(self._adapters[st.connector]), "approval_text", None)
+        if fn is not None:  # the category's own card (cancellation terms, boarding point, ...)
+            try:
+                return str(fn(p, st.lang))
+            except (KeyError, TypeError, ValueError):
+                pass  # a card the package cannot build: the generic one below
         terms = str(p.details.get("terms") or "")
         extra = {k: v for k, v in p.details.items() if isinstance(v, str | int | float)}
         common = dict(
@@ -785,6 +829,9 @@ class BrowserFlow:
         site, use_case = st.connector.split(".")
         from friday.connectors.session.manager import SessionRefused
 
+        if type(e).__name__ == "ForeignCurrency":  # a price in another currency appeared mid-run
+            text = render("foreign_currency", st.lang, site=self._site(st), link=self._home(st))
+            return await self._finish(st, Phase.failed, "outcome", text)
         if isinstance(e, SessionRefused):  # switch off / cap / kill latch: not the site's fault
             return await self._degraded(st, "degraded")
         if isinstance(e, SiteBlocked):
