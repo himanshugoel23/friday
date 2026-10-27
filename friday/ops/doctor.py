@@ -48,8 +48,9 @@ TITLES = {
     "browser": "10. private browser",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
-# -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence must be in the code
-EXPECTED_HEAD_CHAIN = "0013_evidence"
+# -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
+# must be in the code
+EXPECTED_HEAD_CHAIN = "0014_documents"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -423,6 +424,7 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_LIFESTATE_ENABLED", settings.lifestate_enabled),
         ("FRIDAY_GOOGLE_ENABLED", settings.google_enabled),
         ("FRIDAY_PROOF_ENABLED", settings.proof_enabled),
+        ("FRIDAY_DOCS_ENABLED", settings.docs_enabled),
         ("FRIDAY_VOICE_NOTE_REPLIES", settings.voice_note_replies),
         ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):

@@ -39,6 +39,7 @@ from friday.db.repositories.consumer_calls import (
     ConsumerCallsRepo,
     ConsumerContactsRepo,
 )
+from friday.db.repositories.documents import DocumentRepo
 from friday.db.repositories.evidence import EvidenceRepo
 from friday.db.repositories.google import GoogleRepo
 from friday.db.repositories.lifestate import LifeRepo
@@ -80,6 +81,7 @@ __all__ = [
     "ConsumerCallsRepo",
     "ConsumerContactsRepo",
     "DataPurger",
+    "DocumentRepo",
     "EvidenceRepo",
     "FactRepo",
     "GoogleRepo",
@@ -136,6 +138,7 @@ class Repositories:
     call_dnc: CallDncRepo  # global do-not-call registry, keyed hash only (friday/calls)
     purger: DataPurger
     evidence: EvidenceRepo | None = None  # proof items + done claims (friday/evidence)
+    documents: DocumentRepo | None = None  # understood photos/documents (friday/docunderstand)
     chatbot: ChatbotRepo | None = None  # first-run state, waitlist, wishlist (friday/chatbot)
     retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
@@ -181,6 +184,7 @@ def make_repositories(
         purger=DataPurger(db, clock),
         chatbot=ChatbotRepo(db, clock),
         evidence=EvidenceRepo(db, clock),
+        documents=DocumentRepo(db, clock),
     )
     from friday.db.retention import RetentionService
 

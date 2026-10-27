@@ -84,3 +84,75 @@ def build_inbound(c: Container, pipeline: Any) -> VoiceInbound:
         confirm_below=s.voice_note_confirm_below,
         voice_enabled=s.voice_note_replies,
     )
+
+
+def build_docs(c: Container, pipeline: Any, *, vision: Any = None) -> Any:
+    """Photos and documents (FRIDAY_DOCS_ENABLED). ``vision`` is for tests; production uses the
+    provider named by FRIDAY_DOCS_VISION_PROVIDER (default ``none``: "cannot read files now")."""
+    from friday.chatbot_media.docs import DocsInbound
+    from friday.docunderstand.pipeline import DocLimits, DocumentPipeline
+    from friday.docunderstand.ports import build_vision
+    from friday.docunderstand.service import DocumentService
+    from friday.docunderstand.store import MemoryDocStore
+
+    s = c.settings
+    repos = c.repos
+    store = getattr(repos, "documents", None) or MemoryDocStore()
+    cache: Cache = _opt(c, "cache") or MemoryCache(c.clock)
+    limits = DocLimits(
+        max_bytes=s.docs_max_bytes, max_pages=s.docs_max_pages, daily_cap=s.docs_daily_cap,
+        confirm_below=s.docs_confirm_below, pending_days=s.docs_pending_days,
+    )  # fmt: skip
+    service = DocumentService(
+        DocumentPipeline(vision or build_vision(s.docs_vision_provider), c.clock, cache, limits),
+        store,
+        c.clock,
+        retention_days=s.docs_retention_days,
+        bill_sink=_bill_sink(c) if s.savings_enabled else None,
+    )
+    allowed = {x.strip() for x in s.docs_enabled_users if x.strip()}
+    messaging = _opt(c, "messaging")
+
+    async def language_of(user: Any) -> str:
+        profile = await repos.profiles.get_or_default(user.id)
+        return profile.language.value
+
+    return DocsInbound(
+        service=service,
+        fetch_media=messaging.fetch_media if messaging is not None else None,
+        reply=lambda user, text, buttons: pipeline.reply(user, text, buttons),
+        enabled_for=lambda user: not allowed or user.id in allowed or user.phone in allowed,
+        language_of=language_of,
+    )
+
+
+def _bill_sink(c: Container) -> Any:
+    """A confirmed bill document becomes a tracked bill (savings engine; reminders come from it).
+    The existing parser already read the text; this only maps the confirmed fields."""
+    from datetime import date
+
+    from friday.savings.bills import BillKind, BillParse, BillSource, bill_from_parse
+    from friday.savings.store import SavingsRepos
+
+    bills = SavingsRepos(c.repos.db, c.clock).bills
+
+    async def sink(user_id: str, v: dict[str, str]) -> bool:
+        if not v.get("due_date") or not v.get("biller"):
+            return False
+        try:
+            kind = BillKind(v.get("kind", "other"))
+        except ValueError:
+            kind = BillKind.OTHER
+        parse = BillParse(
+            kind=kind,
+            biller=v["biller"],
+            amount_paise=int(v["amount_paise"]) if v.get("amount_paise") else None,
+            min_due_paise=int(v["min_due_paise"]) if v.get("min_due_paise") else None,
+            due_date=date.fromisoformat(v["due_date"]),
+        )
+        bill = bill_from_parse(user_id, parse, BillSource.FORWARDED)
+        bill.confirmed = True  # the user just said "sahi hai"
+        await bills.save(bill)
+        return True
+
+    return sink

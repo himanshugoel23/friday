@@ -568,6 +568,20 @@ class Settings(BaseSettings):
     )
     proof_retention_days: int = 90  # founder decision 6: evidence follows the task record
 
+    # ------------------------------------------------ photos and documents (docunderstand/)
+    # docs/DOCUMENT_UNDERSTANDING.md. OFF: images/PDFs are handled exactly as before. Wording is
+    # PENDING_FOUNDER_APPROVAL (friday/docunderstand/copy.py). The vision provider is the
+    # founder's choice: "none" answers "cannot read files now"; real adapters are stubs.
+    docs_enabled: bool = False  # FRIDAY_DOCS_ENABLED
+    docs_enabled_users: CsvList = Field(default_factory=list)  # user ids or phones; empty = all
+    docs_vision_provider: str = "none"
+    docs_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)  # per file (WhatsApp: 16 MB)
+    docs_max_pages: int = Field(default=5, ge=1)
+    docs_daily_cap: int = Field(default=10, ge=0)  # files read per user per IST day
+    docs_confirm_below: float = Field(default=0.75, ge=0, le=1)  # field confidence needing a look
+    docs_pending_days: int = Field(default=7, ge=1)  # unanswered "is this right?" is deleted
+    docs_retention_days: int = Field(default=180, ge=1)  # confirmed fields kept this long
+
     # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
     # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.
