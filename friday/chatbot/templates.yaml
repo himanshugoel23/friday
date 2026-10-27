@@ -260,3 +260,45 @@ templates:
         - {title: "Yes, okay", payload: "cb:consent:yes", action: consent_yes}
         - {title: "No", payload: "cb:consent:no", action: consent_no}
         - {title: "Details", payload: "cb:tpl:details", action: details}
+
+  # Slice 7 item 4 (docs/INSTINCT_PARITY.md). Re-opens the 24-hour window with a calm, honest note.
+  # No "urgent" / "time-sensitive" / countdown wording: Meta policy and the founder's trust rule
+  # forbid false urgency. Category MARKETING because it asks the user to reply, not because of a sale.
+  - key: chatbot_window_reopen
+    name: friday_window_reopen_v1
+    category: MARKETING
+    purpose: Friday has an update on a task the user asked about; one reply re-opens the 24-hour window. No urgency claim.
+    params: ["user's first name", "the task, in a few words"]
+    examples: ["Rahul", "salon ka rate"]
+    fallback: nudge
+    why:
+      hinglish: "Yeh isliye aaya ki aapne is kaam ke baare mein poocha tha."
+      hi: "यह इसलिए आया कि आपने इस काम के बारे में पूछा था।"
+      en: "You're getting this because you asked me about this task."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant) ke paas aapke is kaam ka update hai: {{2}}
+          Yeh isliye aaya ki aapne is kaam ke baare mein poocha tha. Jab time ho, bas ek jawab bhej dijiye. Band karne ke liye 'stop' likhiye.
+          Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Update dikhao", payload: "cb:tpl:ok", action: ok}
+          - {title: "Mat bhejo", payload: "cb:tpl:stop", action: stop}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट) के पास आपके इस काम का अपडेट है: {{2}}
+          यह इसलिए आया कि आपने इस काम के बारे में पूछा था। जब समय हो, बस एक जवाब भेज दीजिए। बंद करने के लिए 'stop' लिखें।
+          मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "अपडेट दिखाओ", payload: "cb:tpl:ok", action: ok}
+          - {title: "मत भेजो", payload: "cb:tpl:stop", action: stop}
+    english:
+      key: chatbot_window_reopen_en
+      name: friday_window_reopen_en_v1
+      body: |-
+        Hello {{1}}, Friday (AI assistant) has an update on this task: {{2}}
+        You're getting this because you asked me about this task. Reply whenever you have a moment. Write 'stop' to stop these.
+        I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Show the update", payload: "cb:tpl:ok", action: ok}
+        - {title: "Stop these", payload: "cb:tpl:stop", action: stop}

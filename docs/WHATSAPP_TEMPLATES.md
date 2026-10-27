@@ -27,6 +27,7 @@ How to register (Meta WhatsApp Manager, Message templates):
 | `chatbot_call_outcome` | `friday_call_outcome_v1` (+ `friday_call_outcome_en_v1`) | UTILITY | 3 | `task_update` |
 | `chatbot_reengage` | `friday_reengage_hello_v1` (+ `friday_reengage_hello_en_v1`) | MARKETING | 2 | `reengage` |
 | `chatbot_consent` | `friday_consent_again_v1` (+ `friday_consent_again_en_v1`) | UTILITY | 1 | `reengage` |
+| `chatbot_window_reopen` | `friday_window_reopen_v1` (+ `friday_window_reopen_en_v1`) | MARKETING | 2 | `nudge` |
 
 ## `friday_morning_brief_v1` (UTILITY)
 
@@ -267,6 +268,46 @@ I never ask for payment, OTP or PIN; only your own data, and you can delete it a
 ```
 
 Buttons: "Yes, okay" (payload `cb:consent:yes`, action consent_yes), "No" (payload `cb:consent:no`, action consent_no), "Details" (payload `cb:tpl:details`, action details)
+
+## `friday_window_reopen_v1` (MARKETING)
+
+Friday has an update on a task the user asked about; one reply re-opens the 24-hour window. No urgency claim.
+
+Variables: {{1}} = user's first name; {{2}} = the task, in a few words
+
+Examples: {{1}} = 'Rahul'; {{2}} = 'salon ka rate'
+
+Why sentence (must be in every body): Yeh isliye aaya ki aapne is kaam ke baare mein poocha tha.
+
+### Roman Hinglish: name `friday_window_reopen_v1`, language `en`, key `chatbot_window_reopen`
+
+```text
+Namaste {{1}}, Friday (AI assistant) ke paas aapke is kaam ka update hai: {{2}}
+Yeh isliye aaya ki aapne is kaam ke baare mein poocha tha. Jab time ho, bas ek jawab bhej dijiye. Band karne ke liye 'stop' likhiye.
+Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+```
+
+Buttons: "Update dikhao" (payload `cb:tpl:ok`, action ok), "Mat bhejo" (payload `cb:tpl:stop`, action stop)
+
+### Hindi: name `friday_window_reopen_v1`, language `hi`, key `chatbot_window_reopen`
+
+```text
+नमस्ते {{1}}, Friday (AI असिस्टेंट) के पास आपके इस काम का अपडेट है: {{2}}
+यह इसलिए आया कि आपने इस काम के बारे में पूछा था। जब समय हो, बस एक जवाब भेज दीजिए। बंद करने के लिए 'stop' लिखें।
+मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+```
+
+Buttons: "अपडेट दिखाओ" (payload `cb:tpl:ok`, action ok), "मत भेजो" (payload `cb:tpl:stop`, action stop)
+
+### English: name `friday_window_reopen_en_v1`, language `en`, key `chatbot_window_reopen_en`
+
+```text
+Hello {{1}}, Friday (AI assistant) has an update on this task: {{2}}
+You're getting this because you asked me about this task. Reply whenever you have a moment. Write 'stop' to stop these.
+I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+```
+
+Buttons: "Show the update" (payload `cb:tpl:ok`, action ok), "Stop these" (payload `cb:tpl:stop`, action stop)
 
 ## Notes and open points
 
