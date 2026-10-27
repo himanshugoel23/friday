@@ -1544,5 +1544,51 @@ CREATE INDEX ix_document_fields_user ON document_fields (user_id);
 
 UPDATE alembic_version SET version_num='0014_documents' WHERE alembic_version.version_num = '0013_evidence';
 
+-- Running upgrade 0014_documents -> 0015_urgent_escalation
+
+CREATE TABLE urgent_escalation_configs (
+    user_id VARCHAR(32) NOT NULL, 
+    opted_in BOOLEAN NOT NULL, 
+    config TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_urgent_escalation_configs PRIMARY KEY (id), 
+    CONSTRAINT fk_urgent_escalation_configs_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_urgent_escalation_configs_user_id UNIQUE (user_id)
+);
+
+CREATE TABLE urgent_escalations (
+    user_id VARCHAR(32) NOT NULL, 
+    message_id VARCHAR(32) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    emergency BOOLEAN NOT NULL, 
+    alert_ok BOOLEAN NOT NULL, 
+    alert_sent_at TIMESTAMP WITH TIME ZONE, 
+    wait_s INTEGER NOT NULL, 
+    max_calls INTEGER NOT NULL, 
+    spacing_s INTEGER NOT NULL, 
+    next_action_at TIMESTAMP WITH TIME ZONE, 
+    calls_made INTEGER NOT NULL, 
+    in_flight BOOLEAN NOT NULL, 
+    last_call_at TIMESTAMP WITH TIME ZONE, 
+    last_call_result VARCHAR(16), 
+    ack_at TIMESTAMP WITH TIME ZONE, 
+    stop_reason VARCHAR(32), 
+    finished_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_urgent_escalations PRIMARY KEY (id), 
+    CONSTRAINT fk_urgent_escalations_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_urgent_escalations_user_message UNIQUE (user_id, message_id)
+);
+
+CREATE INDEX ix_urgent_escalations_user_id ON urgent_escalations (user_id);
+
+CREATE INDEX ix_urgent_escalations_due ON urgent_escalations (status, next_action_at);
+
+UPDATE alembic_version SET version_num='0015_urgent_escalation' WHERE alembic_version.version_num = '0014_documents';
+
 COMMIT;
 

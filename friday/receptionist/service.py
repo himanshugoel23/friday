@@ -16,7 +16,7 @@ import contextlib
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 
 from friday.core.clock import Clock, to_ist
 from friday.core.logging import get_logger, mask_phone
@@ -86,6 +86,7 @@ class ReceptionistService:
         mono: Callable[[], float] = time.monotonic,
         listen_s: float = 7.0,
         spam_shared_threshold: int = 5,
+        escalation: Any = None,
     ) -> None:
         self.store, self.classifier, self.send, self.clock = store, classifier, send, clock
         self.resolver, self.paused = resolver, paused
@@ -93,6 +94,7 @@ class ReceptionistService:
         self.max_call_s, self.snippet_days = max_call_s, snippet_days
         self.calendar, self.mono, self.listen_s = calendar, mono, listen_s
         self.spam_shared_threshold = spam_shared_threshold
+        self.escalation = escalation  # friday.urgent.service.UrgentEscalation | None (switch off)
 
     # ================================================================== a forwarded call
     async def claims(
@@ -248,7 +250,7 @@ class ReceptionistService:
         )
         notified = False
         if cls.urgency == Urgency.URGENT:
-            notified = await self._push(res.user_id, msg, cfg)
+            notified = await self._push(res.user_id, msg, cfg, cls)
         return CallReport(cap, cls, msg, res.route, spoken, notified)
 
     # ================================================================== notifications
@@ -289,15 +291,44 @@ class ReceptionistService:
             for a in ("callback", "ignore", "block")
         ]
 
-    async def _push(self, user_id: str, m: StoredMessage, cfg: ReceptionistConfig) -> bool:
-        lang = "en" if cfg.language == "en" else "hinglish"
+    async def _open_escalation(self, user_id: str, m: StoredMessage, cls: Classification | None) -> Any:
+        """Urgent-call escalation (friday/urgent): None unless the switch is on and the user opted in.
+        Never allowed to break the alert itself."""
+        if self.escalation is None or cls is None or cls.urgency != Urgency.URGENT:
+            return None
         try:
-            await self.send(user_id, self.summary_text(m, lang), self.buttons(m, lang))
+            opened = await self.escalation.open(user_id, m.id, cls.reasons, cls.source)
+        except Exception as e:  # noqa: BLE001
+            log.warning("receptionist: escalation open failed (%s)", type(e).__name__)
+            return None
+        return opened if opened is not None and opened.created else None
+
+    async def _push(
+        self, user_id: str, m: StoredMessage, cfg: ReceptionistConfig, cls: Classification | None = None
+    ) -> bool:
+        lang = "en" if cfg.language == "en" else "hinglish"
+        text, buttons = self.summary_text(m, lang), self.buttons(m, lang)
+        opened = await self._open_escalation(user_id, m, cls)
+        if opened is not None:  # Acknowledge replaces Block on this alert (WhatsApp allows three buttons)
+            hint, ack = self.escalation.alert_additions(opened.state, lang)
+            text, buttons = f"{text}\n{hint}", [*ack, *buttons[:2]]
+        try:
+            await self.send(user_id, text, buttons)
         except Exception as e:  # noqa: BLE001 - a failed send is retried by the digest, never lost
             log.warning("receptionist: summary send failed (%s)", type(e).__name__)
+            if opened is not None:
+                await self._confirm_alert(opened, False)
             return False
+        if opened is not None:
+            await self._confirm_alert(opened, True)
         await self.store.set_status(user_id, m.id, MessageStatus.NOTIFIED, notified_at=self.clock.now())
         return True
+
+    async def _confirm_alert(self, opened: Any, ok: bool) -> None:
+        try:
+            await self.escalation.confirm_alert(opened.state, ok)
+        except Exception as e:  # noqa: BLE001
+            log.warning("receptionist: escalation timer not set (%s)", type(e).__name__)
 
     async def digest_text(self, user_id: str, lang: str, msgs: Sequence[StoredMessage]) -> str | None:
         shown = [m for m in msgs if m.urgency != Urgency.SPAM and m.outcome != CallOutcomeKind.BLOCKED]
@@ -365,6 +396,9 @@ class ReceptionistService:
         m = await self.store.get_message(user_id, mid)
         if m is None or action not in {"callback", "ignore", "block"}:
             return copy.t("reply.stale", lang), []
+        if self.escalation is not None:  # any of these means the user has seen the alert
+            with contextlib.suppress(Exception):
+                await self.escalation.user_acted(user_id, mid, action)
         number = m.callback_number or m.caller_number
         if action == "callback":
             await self.store.set_status(user_id, mid, MessageStatus.CALLED_BACK)

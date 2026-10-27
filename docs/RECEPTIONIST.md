@@ -34,6 +34,11 @@ caller rings the user's phone
         "what did I miss?" -> text on WhatsApp, short spoken version when the user calls Friday
 ```
 
+**Urgent-call escalation (added 2026-10-27, switch `FRIDAY_URGENT_ESCALATION_ENABLED`, default off).** For a user who opted in, an
+URGENT alert also carries an Acknowledge button (replacing Block) and, if it is not acknowledged within N minutes (default 5),
+Friday rings the user's own number (max 2 calls, quiet hours only for true emergencies, spoken line PENDING approval). Everything
+about it, including its pending lines (`urg.*`, `urgw.*`), is in docs/URGENT_ESCALATION.md.
+
 ## 2. Setup (per user)
 
 Config (`ReceptionistConfig`, stored encrypted, table `receptionist_configs`):

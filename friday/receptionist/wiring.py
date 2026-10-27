@@ -57,8 +57,11 @@ class LifeCalendar:
 
 
 class Receptionist:
-    def __init__(self, c: Any, service: ReceptionistService, *, only_number: str | None = None) -> None:
+    def __init__(
+        self, c: Any, service: ReceptionistService, *, only_number: str | None = None, urgent: Any = None
+    ) -> None:
         self.c, self.service = c, service
+        self.urgent = urgent  # friday.urgent.service.UrgentEscalation | None (switch off)
         self.enabled = True
         self.only_number = only_number  # set: that shared number serves ONLY the receptionist
 
@@ -113,6 +116,14 @@ class Receptionist:
     async def handle(self, user: User, msg: Any) -> bool:
         """WhatsApp: our buttons and "what did I miss?". False -> not ours."""
         bid = getattr(msg, "button_id", None) or ""
+        if self.urgent is not None:  # Acknowledge button, "urgent call on|off|N min"
+            if bid.startswith("urg:"):
+                out = await self.urgent.on_button(user.id, bid)
+                if out is not None:
+                    await self.service.send(user.id, out[0], list(out[1]))
+                    return True
+            elif await self.urgent.handle_text(user, getattr(msg, "text", None) or ""):
+                return True
         if bid.startswith(BUTTON_PREFIX + ":"):
             out = await self.service.on_button(user.id, bid)
             if out is not None:
@@ -121,6 +132,12 @@ class Receptionist:
                 return True
         text = getattr(msg, "text", None) or ""
         return bool(text) and await self.service.handle_text(user.id, text)
+
+    async def note_inbound_call(self, from_phone: str | None) -> None:
+        """A call reached a Friday number: if it is a user with a running urgent escalation they are
+        calling back, so the escalation stops."""
+        if self.urgent is not None:
+            await self.urgent.note_inbound_call(from_phone)
 
     async def loop(self) -> None:  # pragma: no cover - runtime plumbing
         await self.service.loop()
@@ -162,4 +179,10 @@ def build_receptionist(c: Any) -> Receptionist | None:
         calendar=LifeCalendar(life) if life is not None else None,
     )  # fmt: skip
     only = s.receptionist_inbound_number if s.receptionist_only_number else None
-    return Receptionist(c, svc, only_number=only)
+    urgent = None
+    try:
+        urgent = c.get("urgent_escalation")  # None while FRIDAY_URGENT_ESCALATION_ENABLED is off
+    except Exception:  # noqa: BLE001 - a broken escalation never stops the receptionist
+        log.exception("urgent escalation failed to build; continuing without it")
+    svc.escalation = urgent
+    return Receptionist(c, svc, only_number=only, urgent=urgent)

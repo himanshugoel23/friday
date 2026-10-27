@@ -115,6 +115,12 @@ class CallbackService:
         if not from_phone:
             return
         ref = getattr(event, "provider_call_id", None)
+        rcp0 = self.receptionist()
+        if rcp0 is not None and callable(getattr(rcp0, "note_inbound_call", None)):
+            try:  # the user ringing Friday back stops a running urgent escalation
+                await rcp0.note_inbound_call(from_phone)
+            except Exception:  # noqa: BLE001 - never lose the call to this
+                log.exception("urgent escalation could not note the inbound call")
         if answered:  # a FORWARDED call (user did not pick up): the receptionist, if switched on
             rcp = self.receptionist()
             if rcp is not None:

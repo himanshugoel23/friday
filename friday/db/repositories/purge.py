@@ -46,6 +46,7 @@ from friday.quality.models import QualityCallRow
 from friday.quotes.dbmodel import QuoteConversationRow
 from friday.receptionist.dbmodel import purge_user_receptionist
 from friday.savings.dbmodel import BillRow, SavingsLedgerRow, WalletCardRow
+from friday.urgent.dbmodel import purge_user_urgent
 
 
 def tombstone_phone(user_id: str) -> str:
@@ -116,6 +117,7 @@ class DataPurger(Repo):
             counts.update(await purge_user_receptionist(s, user_id))  # messages, block list, setup
             counts.update(await purge_user_evidence(s, user_id))  # proof items + claims
             counts.update(await purge_user_documents(s, user_id))  # understood documents
+            counts.update(await purge_user_urgent(s, user_id))  # urgent-call escalation state
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(LifeFollowupRow, LifeFollowupRow.user_id == user_id)  # life state

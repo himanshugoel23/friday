@@ -582,6 +582,19 @@ class Settings(BaseSettings):
     docs_pending_days: int = Field(default=7, ge=1)  # unanswered "is this right?" is deleted
     docs_retention_days: int = Field(default=180, ge=1)  # confirmed fields kept this long
 
+    # ------------------------------------------------ urgent-call escalation (urgent/)
+    # docs/URGENT_ESCALATION.md. An URGENT receptionist call -> WhatsApp alert with an Acknowledge
+    # button; no ack within N minutes -> Friday rings the user's OWN opted-in number only.
+    # OFF. The spoken line is PENDING_FOUNDER_APPROVAL: the real dial refuses until it is approved.
+    urgent_escalation_enabled: bool = False  # FRIDAY_URGENT_ESCALATION_ENABLED
+    urgent_escalation_minutes: int = Field(default=5, ge=1, le=120)  # default wait
+    urgent_escalation_max_calls: int = Field(default=2, ge=1, le=3)  # calls per escalation
+    urgent_escalation_spacing_minutes: int = Field(default=5, ge=1, le=60)  # between those calls
+    urgent_escalation_daily_cap: int = Field(default=3, ge=0)  # escalations that may call, per day
+    urgent_escalation_stale_minutes: int = Field(default=30, ge=1)  # never ring about a stale alert
+    urgent_escalation_retention_days: int = Field(default=30, ge=1)  # finished rows are deleted
+    urgent_escalation_tick_s: int = Field(default=20, ge=1)  # scheduler poll
+
     # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
     # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.

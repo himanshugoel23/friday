@@ -98,6 +98,8 @@ FACTORIES: dict[str, dict[str, str]] = {
     "consumer": {"*": "friday.integration.wiring:build_consumer"},
     # --- voicemail receptionist (friday/receptionist): None unless FRIDAY_RECEPTIONIST_ENABLED
     "receptionist": {"*": "friday.receptionist.wiring:build_receptionist"},
+    # --- urgent-call escalation (friday/urgent): None unless FRIDAY_URGENT_ESCALATION_ENABLED
+    "urgent_escalation": {"*": "friday.urgent.wiring:build_urgent"},
     # --- caller-ID reputation & rotation (Backend B)
     "number_pool": {"*": "friday.tasks.number_pool:build_number_pool"},
     # --- scale-out (core memory impls; durable impls by Backend A in friday/db/)

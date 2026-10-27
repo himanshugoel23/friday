@@ -138,6 +138,10 @@ class Runtime:
             rcp = self.callbacks.receptionist()
             if rcp is not None:  # morning digest of missed calls + purge of old snippets
                 self._tasks.append(asyncio.create_task(rcp.loop(), name="friday-receptionist"))
+                urgent = getattr(rcp, "urgent", None)
+                if urgent is not None:  # urgent-call escalation scheduler (switch off: None)
+                    task = asyncio.create_task(urgent.loop(), name="friday-urgent-escalation")
+                    self._tasks.append(task)
         if voice_worker is not None:
             await voice_worker.start()
             self._started.append(voice_worker)

@@ -49,8 +49,8 @@ TITLES = {
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
-# must be in the code
-EXPECTED_HEAD_CHAIN = "0014_documents"
+# -> 0015_urgent_escalation must be in the code
+EXPECTED_HEAD_CHAIN = "0015_urgent_escalation"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -425,6 +425,7 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_GOOGLE_ENABLED", settings.google_enabled),
         ("FRIDAY_PROOF_ENABLED", settings.proof_enabled),
         ("FRIDAY_DOCS_ENABLED", settings.docs_enabled),
+        ("FRIDAY_URGENT_ESCALATION_ENABLED", settings.urgent_escalation_enabled),
         ("FRIDAY_VOICE_NOTE_REPLIES", settings.voice_note_replies),
         ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):
