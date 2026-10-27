@@ -651,7 +651,6 @@ def main(argv: list[str] | None = None) -> int:
         _c = _C()
         _c.settings = settings
         if args.provider == "elevenlabs":
-            from friday.core.container import Container
             from friday.voice.tts.elevenlabs import build_elevenlabs_tts
 
             tts = build_elevenlabs_tts(Container(settings))
