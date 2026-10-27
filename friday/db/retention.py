@@ -146,6 +146,19 @@ async def expire_family_drive(
     return await repos.family_drive.expire(now, stale_link_days=stale_link_days)
 
 
+TRIPS_RETENTION_DAYS = 30  # a finished trip is deleted this long after its last day
+
+
+async def expire_trips(
+    repos: Repositories, now: datetime, *, days: int = TRIPS_RETENTION_DAYS
+) -> dict[str, int]:
+    """Trips whose last day is more than ``days`` ago are deleted with their legs, tasks, watches
+    and nudge log. Nothing in the user's Drive is touched."""
+    if repos.trips is None:
+        return {"trips": 0}
+    return {"trips": await repos.trips.expire(now.date(), days)}
+
+
 async def purge_preconsent_users(
     repos: Repositories, now: datetime, *, days: int = PRECONSENT_RETENTION_DAYS
 ) -> int:
@@ -201,6 +214,7 @@ async def run_retention(
     out.update(await expire_evidence(repos, now, store=store))
     out.update(await expire_documents(repos, now))
     out.update(await expire_family_drive(repos, now))
+    out.update(await expire_trips(repos, now))
     out["pending_deletions"] = await process_pending_deletions(
         repos, store=store, telephony=telephony
     )

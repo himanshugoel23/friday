@@ -49,9 +49,9 @@ TITLES = {
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
-# -> 0015_urgent_escalation -> 0016_family_drive
+# -> 0015_urgent_escalation -> 0016_family_drive -> 0017_trips
 # must be in the code
-EXPECTED_HEAD_CHAIN = "0016_family_drive"
+EXPECTED_HEAD_CHAIN = "0017_trips"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -428,10 +428,30 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_DOCS_ENABLED", settings.docs_enabled),
         ("FRIDAY_URGENT_ESCALATION_ENABLED", settings.urgent_escalation_enabled),
         ("FRIDAY_FAMILY_DRIVE_ENABLED", settings.family_drive_enabled),
+        ("FRIDAY_TRIPS_ENABLED", settings.trips_enabled),
         ("FRIDAY_VOICE_NOTE_REPLIES", settings.voice_note_replies),
         ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):
         s.add(OK, f"{name}={'on' if on else 'off'}")
+    if settings.trips_enabled:
+        s.add(
+            WARN,
+            "FRIDAY_TRIPS_ENABLED is on: trip nudges can reach users. Every line in "
+            "friday/trips/copy.py (including the hotel-call questions) is PENDING founder "
+            "approval, and the buffers/caps in docs/TRIP_TIMELINE.md are proposals",
+        )
+        if settings.trip_flight_watch_enabled:
+            s.add(
+                WARN,
+                "FRIDAY_TRIP_FLIGHT_WATCH_ENABLED is on but no flight-status provider is chosen "
+                "or implemented: the watch only works with a fake",
+            )
+        if settings.trip_lounge_enabled:
+            s.add(
+                WARN,
+                "FRIDAY_TRIP_LOUNGE_ENABLED is on: lounge hints appear only for card_perks rows "
+                "a named person verified (the repo ships EXAMPLE rows only)",
+            )
     if settings.family_drive_enabled:
         s.add(
             WARN,

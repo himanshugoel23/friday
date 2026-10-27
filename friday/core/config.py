@@ -605,6 +605,23 @@ class Settings(BaseSettings):
     family_drive_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)  # one upload
     family_drive_share_ttl_days: int = Field(default=7, ge=1)  # unanswered share approval expires
 
+    # ------------------------------------------------ trip timeline (trips/)
+    # docs/TRIP_TIMELINE.md. OFF: no trip is built and no trip nudge is sent. Buffers and caps are
+    # PROPOSALS the founder approves; wording is PENDING_FOUNDER_APPROVAL (trips/copy.py).
+    trips_enabled: bool = False  # FRIDAY_TRIPS_ENABLED
+    trips_enabled_users: CsvList = Field(default_factory=list)  # user ids; empty = all
+    trip_flight_watch_enabled: bool = False  # FRIDAY_TRIP_FLIGHT_WATCH_ENABLED (needs a provider)
+    trip_lounge_enabled: bool = False  # FRIDAY_TRIP_LOUNGE_ENABLED (needs person-verified perks)
+    trip_domestic_buffer_minutes: int = Field(default=120, ge=0)  # at the airport before departure
+    trip_international_buffer_minutes: int = Field(default=180, ge=0)
+    trip_train_buffer_minutes: int = Field(default=45, ge=0)  # at the station before departure
+    trip_default_travel_minutes: int = Field(default=60, ge=0)  # assumed home -> airport/station
+    trip_hotel_call_hour: int = Field(default=10, ge=0, le=23)  # local hour, day before check-in
+    trip_cab_propose_hours_before: int = Field(default=12, ge=1)  # before the leave-by time
+    trip_daily_cap: int = Field(default=5, ge=0)  # trip nudges per IST day (founder decision 8)
+    trip_critical_bypasses_quiet_hours: bool = True  # the "leave now" nudge may wake the user
+    trips_retention_days: int = Field(default=30, ge=1)  # finished trip deleted after
+
     # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
     # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.

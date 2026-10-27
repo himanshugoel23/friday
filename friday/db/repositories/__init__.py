@@ -51,6 +51,7 @@ from friday.db.repositories.numbers import DncEntry, NumberAssignment, NumberRep
 from friday.db.repositories.people import PersonRepo, PlaceRepo, SuppressionRepo
 from friday.db.repositories.purge import DataPurger
 from friday.db.repositories.tasks import TaskRepo
+from friday.db.repositories.trips import PerkRepo, TripRepo
 from friday.db.repositories.users import (
     AutonomyRepo,
     ConsentRepo,
@@ -89,6 +90,8 @@ __all__ = [
     "GoogleRepo",
     "IdentifierRepo",
     "LifeRepo",
+    "PerkRepo",
+    "TripRepo",
     "InviteRepo",
     "MessageRepo",
     "NudgeRepo",
@@ -142,6 +145,8 @@ class Repositories:
     evidence: EvidenceRepo | None = None  # proof items + done claims (friday/evidence)
     documents: DocumentRepo | None = None  # understood photos/documents (friday/docunderstand)
     family_drive: FamilyDriveRepo | None = None  # Drive links, folders, shares (friday/familydrive)
+    trips: TripRepo | None = None  # trips, legs, tasks, nudges (friday/trips)
+    card_perks: PerkRepo | None = None  # shared verified lounge perks (friday/trips/perks)
     chatbot: ChatbotRepo | None = None  # first-run state, waitlist, wishlist (friday/chatbot)
     retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
@@ -189,6 +194,8 @@ def make_repositories(
         evidence=EvidenceRepo(db, clock),
         documents=DocumentRepo(db, clock),
         family_drive=FamilyDriveRepo(db, clock),
+        trips=TripRepo(db, clock),
+        card_perks=PerkRepo(db, clock),
     )
     from friday.db.retention import RetentionService
 

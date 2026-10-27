@@ -1638,5 +1638,154 @@ CREATE INDEX ix_drive_shares_user_status ON drive_shares (user_id, status);
 
 UPDATE alembic_version SET version_num='0016_family_drive' WHERE alembic_version.version_num = '0015_urgent_escalation';
 
+-- Running upgrade 0016_family_drive -> 0017_trips
+
+CREATE TABLE trips (
+    user_id VARCHAR(32) NOT NULL, 
+    title TEXT NOT NULL, 
+    start_date DATE NOT NULL, 
+    end_date DATE NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    created_from VARCHAR(8) NOT NULL, 
+    travel_minutes INTEGER, 
+    pickup_address TEXT, 
+    muted BOOLEAN NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_trips PRIMARY KEY (id), 
+    CONSTRAINT fk_trips_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_trips_user_status ON trips (user_id, status);
+
+CREATE TABLE trip_legs (
+    user_id VARCHAR(32) NOT NULL, 
+    trip_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(8) NOT NULL, 
+    starts_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    ends_at TIMESTAMP WITH TIME ZONE, 
+    tz VARCHAR(40) NOT NULL, 
+    end_tz VARCHAR(40), 
+    origin TEXT, 
+    dest TEXT, 
+    ref TEXT, 
+    data TEXT NOT NULL, 
+    international BOOLEAN NOT NULL, 
+    time_known BOOLEAN NOT NULL, 
+    document_id VARCHAR(32), 
+    pointer_kind VARCHAR(16), 
+    dedupe_hmac VARCHAR(64) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_trip_legs PRIMARY KEY (id), 
+    CONSTRAINT fk_trip_legs_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_trip_legs_trip_id_trips FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_trip_legs_user_dedupe UNIQUE (user_id, dedupe_hmac)
+);
+
+CREATE INDEX ix_trip_legs_user_id ON trip_legs (user_id);
+
+CREATE INDEX ix_trip_legs_trip ON trip_legs (trip_id);
+
+CREATE TABLE trip_tasks (
+    user_id VARCHAR(32) NOT NULL, 
+    trip_id VARCHAR(32) NOT NULL, 
+    leg_id VARCHAR(32), 
+    kind VARCHAR(14) NOT NULL, 
+    due_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    state VARCHAR(14) NOT NULL, 
+    task_id VARCHAR(32), 
+    evidence_ids JSON NOT NULL, 
+    dedupe_key VARCHAR(120) NOT NULL, 
+    locked BOOLEAN NOT NULL, 
+    params TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_trip_tasks PRIMARY KEY (id), 
+    CONSTRAINT fk_trip_tasks_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_trip_tasks_trip_id_trips FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_trip_tasks_user_dedupe UNIQUE (user_id, dedupe_key)
+);
+
+CREATE INDEX ix_trip_tasks_user_id ON trip_tasks (user_id);
+
+CREATE INDEX ix_trip_tasks_trip ON trip_tasks (trip_id);
+
+CREATE INDEX ix_trip_tasks_due ON trip_tasks (due_at);
+
+CREATE TABLE flight_watch (
+    user_id VARCHAR(32) NOT NULL, 
+    trip_id VARCHAR(32) NOT NULL, 
+    leg_id VARCHAR(32) NOT NULL, 
+    last_status VARCHAR(14), 
+    last_checked_at TIMESTAMP WITH TIME ZONE, 
+    next_check_at TIMESTAMP WITH TIME ZONE, 
+    delay_minutes INTEGER NOT NULL, 
+    changed_notified BOOLEAN NOT NULL, 
+    failures INTEGER NOT NULL, 
+    info TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_flight_watch PRIMARY KEY (id), 
+    CONSTRAINT fk_flight_watch_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_flight_watch_trip_id_trips FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_flight_watch_leg UNIQUE (leg_id)
+);
+
+CREATE INDEX ix_flight_watch_user_id ON flight_watch (user_id);
+
+CREATE INDEX ix_flight_watch_next ON flight_watch (next_check_at);
+
+CREATE TABLE trip_nudges (
+    user_id VARCHAR(32) NOT NULL, 
+    trip_id VARCHAR(32) NOT NULL, 
+    key VARCHAR(140) NOT NULL, 
+    topic VARCHAR(16) NOT NULL, 
+    status VARCHAR(10) NOT NULL, 
+    text TEXT, 
+    sent_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_trip_nudges PRIMARY KEY (id), 
+    CONSTRAINT fk_trip_nudges_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_trip_nudges_trip_id_trips FOREIGN KEY(trip_id) REFERENCES trips (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_trip_nudges_user_key UNIQUE (user_id, key)
+);
+
+CREATE INDEX ix_trip_nudges_user_id ON trip_nudges (user_id);
+
+CREATE INDEX ix_trip_nudges_user_sent ON trip_nudges (user_id, sent_at);
+
+CREATE TABLE card_perks (
+    card_key VARCHAR(160) NOT NULL, 
+    perk VARCHAR(20) NOT NULL, 
+    bank VARCHAR(80) NOT NULL, 
+    card_name VARCHAR(80) NOT NULL, 
+    visits_per_period INTEGER, 
+    period VARCHAR(12) NOT NULL, 
+    conditions_text TEXT NOT NULL, 
+    min_spend_paise INTEGER NOT NULL, 
+    valid_from DATE, 
+    valid_to DATE, 
+    source_url TEXT NOT NULL, 
+    checked_on DATE, 
+    verified_by VARCHAR(100), 
+    status VARCHAR(8) NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_card_perks PRIMARY KEY (id), 
+    CONSTRAINT uq_card_perks_card_perk UNIQUE (card_key, perk)
+);
+
+CREATE INDEX ix_card_perks_card_key ON card_perks (card_key);
+
+UPDATE alembic_version SET version_num='0017_trips' WHERE alembic_version.version_num = '0016_family_drive';
+
 COMMIT;
 
