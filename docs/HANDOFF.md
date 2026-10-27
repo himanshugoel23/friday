@@ -1062,3 +1062,6 @@ Founder: update/do everything from docs/INSTINCT_CHAT_3.md. His wording on the r
 
 ## Check (2026-10-27): HANDOFF audit vs this chat's work (chat A resumed)
 Found that chat B already built, on this branch: friday/receptionist (0011), chatbot guards (emergency/medicine/fake-bill/language), ordered per-sender handling, memory recap/forget, password vault, speech understander, browser catalog. Duplicates stopped: receptionist builder told to stop and report diffs only; slice 7 builder told to skip items 2, 7, 10, 12. docs/INSTINCT_CHAT_3.md overlaps CHATBOT_PERSONA.md Appendix C (keep; it adds the "beat it" list). Still NOT done in HANDOFF (from chat B): ETA/status line, trusted-source facts (weather/cricket), adaptive tone, password page mounting + WhatsApp "my logins", BBPS decision, receptionist wording/probe, Chat Lab (not on branch yet).
+
+## Task (2026-10-27): slice 7 Instinct parity (items 1-12) in friday/chatbot/parity/
+Founder asked: build everything in docs/BUILD_BOARD.md "Slice 7" behind NEW switches, default OFF (FRIDAY_PARITY_*), fakes only, no real sends/calls, spoken lines unchanged, all new copy in one module (pending approval). Details: docs/INSTINCT_PARITY.md. Decisions still with the founder: invite loop yes/no, ride deep links include yes/no, nudge template wording.
