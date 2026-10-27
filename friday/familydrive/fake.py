@@ -78,7 +78,7 @@ class FakeDrive:
         self.objects.pop(file_id, None)
 
     def user_trashes(self, file_id: str) -> None:
-        """Trash a file or folder; like Drive, everything below a trashed folder reads as trashed."""
+        """Trash a file or folder; like Drive, everything below it reads as trashed too."""
         self.objects[file_id].trashed = True
         for o in self.objects.values():
             if o.parent_id == file_id:

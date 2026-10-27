@@ -28,7 +28,8 @@ def test_the_only_drive_scope_is_drive_file():
     drive_scopes = {s for s in sc.ALLOWED_SCOPES if "drive" in s}
     assert drive_scopes == {sc.DRIVE_FILE} == {"https://www.googleapis.com/auth/drive.file"}
     assert "https://www.googleapis.com/auth/drive" not in sc.ALLOWED_SCOPES
-    assert not any(s.endswith(("/drive", "drive.readonly")) for s in sc.requested_scopes(True, True))
+    asked = sc.requested_scopes(True, True)
+    assert not any(s.endswith(("/drive", "drive.readonly")) for s in asked)
 
 
 def test_drive_file_is_requested_only_with_its_switch():

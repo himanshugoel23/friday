@@ -126,7 +126,8 @@ class FakeGoogle:
         fake = self
 
         async def log(request: Request) -> dict[str, Any]:
-            body = (await request.body()).decode() if request.method in ("POST", "PUT", "PATCH") else ""
+            has_body = request.method in ("POST", "PUT", "PATCH")
+            body = (await request.body()).decode() if has_body else ""
             rec = {
                 "method": request.method,
                 "path": request.url.path,

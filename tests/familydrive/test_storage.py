@@ -27,7 +27,7 @@ def test_migration_0016_up_down_and_chain(tmp_path):
     migrate.upgrade(url)
     eng = create_engine(f"sqlite:///{tmp_path}/m.db")
     insp = inspect(eng)
-    assert TABLES <= set(insp.get_table_names())
+    assert set(insp.get_table_names()) >= TABLES
     cols = set()
     for t in TABLES:
         cols |= {c["name"] for c in insp.get_columns(t)}
