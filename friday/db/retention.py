@@ -7,6 +7,7 @@
   (task summaries/results are kept);
 * pre-consent users (never agreed to the DPDP notice) older than ``preconsent_days``
   (7): purged like "delete everything";
+* proof (``evidence_items``) past ``expires_at`` (90 days): rows + masked screenshots deleted;
 * ephemeral "current location" places older than 24 h: deleted;
 * ``pending_deletions`` (erasures that failed earlier): retried, given up after 20.
 """
@@ -111,6 +112,18 @@ async def expire_recordings(
     return {"recordings": deleted, "call_turns": turns}
 
 
+async def expire_evidence(
+    repos: Repositories, now: datetime, *, store: ObjectStore
+) -> dict[str, int]:
+    """Proof items past their ``expires_at`` (90 days by default): rows deleted, masked
+    screenshots erased from the object store (failures retried via ``pending_deletions``)."""
+    if repos.evidence is None:
+        return {"evidence_items": 0}
+    count, keys = await repos.evidence.expire(now)
+    await erase_recordings(repos, keys, store=store)
+    return {"evidence_items": count}
+
+
 async def purge_preconsent_users(
     repos: Repositories, now: datetime, *, days: int = PRECONSENT_RETENTION_DAYS
 ) -> int:
@@ -163,6 +176,7 @@ async def run_retention(
     out = await expire_recordings(repos, now, store=store, telephony=telephony, days=recording_days)
     out["preconsent_users"] = await purge_preconsent_users(repos, now, days=preconsent_days)
     out["ephemeral_places"] = await delete_ephemeral_places(repos, now)
+    out.update(await expire_evidence(repos, now, store=store))
     out["pending_deletions"] = await process_pending_deletions(
         repos, store=store, telephony=telephony
     )

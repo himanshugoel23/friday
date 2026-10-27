@@ -555,6 +555,19 @@ class Settings(BaseSettings):
     lifestate_enabled: bool = False  # the user's day: friday/lifestate
     google_enabled: bool = False  # connect/disconnect/status intents and the calendar sync job
 
+    # ------------------------------------------------------------ proof on "done" (evidence/)
+    # docs/PROOF.md. OFF: completion messages are exactly as before. Wording is
+    # PENDING_FOUNDER_APPROVAL (friday/evidence/copy.py).
+    proof_enabled: bool = False
+    proof_strict: bool = True  # master: False makes every claim soft (message kept, note added)
+    # claim types that may NOT say "done" without full proof (info_found is soft by default)
+    proof_strict_claims: CsvList = Field(
+        default_factory=lambda: [
+            "booked", "ordered", "cancelled", "rescheduled", "refund_requested",
+        ]
+    )
+    proof_retention_days: int = 90  # founder decision 6: evidence follows the task record
+
     # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
     # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.
@@ -759,6 +772,7 @@ class Settings(BaseSettings):
         "roles",
         "sarvam_verified_capabilities",
         "pilot_allowed_numbers",
+        "proof_strict_claims",
         "chatbot_testers",
         "chatbot_first_wins",
         "browser_enabled_users",

@@ -33,7 +33,10 @@ log = get_logger(__name__)
 
 DEFAULT_REGION = "ap-south-1"
 SIGNED_URL_TTL_S = 24 * 3600
-RECORDING_SUFFIXES = frozenset({".wav", ".mp3", ".ogg", ".opus", ".m4a", ".webm", ".txt", ".json"})
+# ".png": masked proof screenshots (friday/evidence)
+RECORDING_SUFFIXES = frozenset(
+    {".wav", ".mp3", ".ogg", ".opus", ".m4a", ".webm", ".txt", ".json", ".png"}
+)
 
 
 @runtime_checkable

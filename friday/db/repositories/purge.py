@@ -33,6 +33,7 @@ from friday.db.tables import (
     UserRow,
     VendorInteractionRow,
 )
+from friday.evidence.dbmodel import EvidenceItemRow, purge_user_evidence
 from friday.google.dbmodel import GoogleConnectionRow, GoogleOAuthStateRow
 from friday.lifestate.dbmodel import (
     LifeCommitmentRow,
@@ -69,7 +70,14 @@ class DataPurger(Repo):
                     )
                 )
             ).scalars()
-            return urls + [u for u in consumer if u]
+            proof = (  # masked screenshots kept as proof (friday/evidence)
+                await s.execute(
+                    select(EvidenceItemRow.object_key).where(
+                        EvidenceItemRow.user_id == user_id, EvidenceItemRow.object_key.is_not(None)
+                    )
+                )
+            ).scalars()
+            return urls + [u for u in consumer if u] + [k for k in proof if k]
 
     async def _minimise_consents(self, s, user_id: str) -> int:  # noqa: ANN001
         """SECURITY-33: keep DPDP receipts (kind, granted, policy_version, recorded_at)
@@ -105,6 +113,7 @@ class DataPurger(Repo):
             counts.update(await purge_user_chatbot(s, user_id))  # first-run state, wishlist
             counts.update(await purge_user_calls(s, user_id))  # consumer calls (not the global DNC)
             counts.update(await purge_user_receptionist(s, user_id))  # messages, block list, setup
+            counts.update(await purge_user_evidence(s, user_id))  # proof items + claims
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(LifeFollowupRow, LifeFollowupRow.user_id == user_id)  # life state
