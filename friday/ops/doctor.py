@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import re
 import secrets
 import shutil
@@ -32,7 +33,7 @@ OK, WARN, FAIL, SKIP = "OK", "WARN", "FAIL", "SKIPPED"
 TAGS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
 SECTIONS = (
     "settings", "database", "services", "public_url", "providers", "switches", "off_switch",
-    "systemd",
+    "systemd", "browser",
 )
 TITLES = {
     "settings": "1. settings",
@@ -43,6 +44,7 @@ TITLES = {
     "switches": "6. switches",
     "off_switch": "7. off switch (kill switch)",
     "systemd": "8. service (systemd)",
+    "browser": "9. private browser",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # must be in the code
@@ -563,6 +565,14 @@ def check_systemd(probes: Probes, unit: str = "friday") -> Section:
     return s
 
 
+def _check_browser(settings: Settings) -> Section:
+    """Private browser (friday/connectors/doctor_checks.py): read-only, names and ok/warn only."""
+    from friday.connectors.doctor_checks import check_browser, env_from_settings
+
+    env = {**os.environ, **env_from_settings(settings)}
+    return check_browser(env)
+
+
 # ----------------------------------------------------------------------------- driver
 async def run_sections(
     settings: Settings, *, offline: bool = False, only: str | None = None,
@@ -578,6 +588,7 @@ async def run_sections(
         "switches": lambda: check_switches(settings),
         "off_switch": lambda: check_off_switch(settings),
         "systemd": lambda: check_systemd(probes),
+        "browser": lambda: _check_browser(settings),
     }
     out: list[Section] = []
     for name in [only] if only else SECTIONS:

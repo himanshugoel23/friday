@@ -20,6 +20,7 @@ from friday.connectors.contract import (
     CartMismatch,
     Charge,
     LayoutChanged,
+    LoginRequired,
     PaymentHandoff,
     TotalsMismatch,
     rupees_to_paise,
@@ -137,8 +138,6 @@ class ShopConnector(ScriptedConnector):
         return "logged_in"
 
     async def _no_login_form(self) -> None:
-        from friday.connectors.contract import LoginRequired
-
         if await self._present("phone_input"):
             raise LoginRequired("the site logged the session out")
 
@@ -159,10 +158,7 @@ class ShopConnector(ScriptedConnector):
 
     async def product(self, product_id: str) -> ProductPage:
         await self._goto("product", product_id=safe_id(product_id, "product id"))
-        try:
-            title, price = clean(await self._text("product_title"), 80), await self._money("product_price")
-        except LayoutChanged:
-            raise
+        title, price = clean(await self._text("product_title"), 80), await self._money("product_price")
         stock = (await self._text("product_stock")).strip().lower() if await self._present("product_stock") else "in stock"
         variants = []
         for r in await self._rows("variant_option"):
@@ -180,8 +176,25 @@ class ShopConnector(ScriptedConnector):
             delivery_estimate=clean(await self._text("delivery_estimate"), 40) if await self._present("delivery_estimate") else "")
 
     # ---- cart and checkout (after approval)
+    async def cart_items(self) -> list[tuple[str, str, int]]:
+        await self._goto("cart")
+        out = []
+        for r in await self._rows("line"):
+            try:
+                out.append((safe_id(r["product_id"], "product id"), r.get("variant_id", ""), int(r["qty"])))
+            except (KeyError, ValueError):
+                raise LayoutChanged("a cart line could not be read") from None
+        return out
+
     async def add_to_cart(self, product_id: str, variant_id: str, qty: int) -> None:
+        """Put exactly the approved item in an otherwise EMPTY cart. The same item already there (a
+        re-run after a re-ask) is reused, never added twice; anything else stops the run."""
         await self.ensure_logged_in()
+        have = await self.cart_items()
+        if have == [(product_id, variant_id, qty)]:
+            return
+        if have:
+            raise CartMismatch("the cart holds something other than the approved item")
         await self._goto("product", product_id=safe_id(product_id, "product id"))
         if variant_id:
             await self._s.click(self.S["variant_pick"].format(variant_id=safe_id(variant_id, "variant id")))

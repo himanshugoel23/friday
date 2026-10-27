@@ -10,7 +10,7 @@ from friday.connectors.sites.copy import render
 
 @dataclass
 class Facts:
-    use_case: str  # "food" | "movie"
+    use_case: str  # food | movie | grocery | ride | hotel | flight | bus | train | shopping
     merchant: str = ""
     lines: str = ""
     address: str = ""
@@ -32,4 +32,8 @@ def summarise(f: Facts, lang: str) -> str:
                   notes=notes)
     if f.use_case == "movie":
         return render("summary_movie", lang, movie=f.movie, when=f.when, **common)
-    return render("summary_food", lang, address=f.address, **common)
+    if f.use_case == "food" or f.use_case in {"grocery", "shopping"}:
+        return render("summary_food", lang, address=f.address, **common)
+    if f.use_case == "ride":
+        return render("summary_ride", lang, **common)
+    return render("summary_generic", lang, **common)

@@ -1,10 +1,10 @@
 """`friday doctor` section for the private browser. Read-only: no browser launched, no site contacted,
 nothing spent. Reports names and ok/warn/fail, never values.
 
-Register (5 lines, in friday/ops/doctor.py): add "browser" to SECTIONS, TITLES["browser"] = "9. private
-browser", and in run_sections:
-    "browser": lambda: __import__("friday.connectors.doctor_checks", fromlist=["x"]).check_browser(
-        os.environ),
+Registered in friday/ops/doctor.py as section "browser" (9. private browser). Lines: switch and kill
+list, playwright / chromium / Xvfb, saved-logins switch, the per-site gate (enabled / cleared /
+supervised), catalog coverage (sites with a fake-tested adapter, cleared sites), the category packages
+that have not landed, .env and var/ not tracked, the tool-layer self test.
 """
 
 from __future__ import annotations
@@ -20,6 +20,21 @@ from typing import Any
 SWITCH = "FRIDAY_BROWSER_ENABLED"
 KILL = "FRIDAY_CONNECTORS_KILL"
 TRUE = {"1", "true", "yes", "on"}
+
+
+def env_from_settings(settings: Any) -> dict[str, str]:
+    """The FRIDAY_BROWSER_* view of ``friday.core.config.Settings`` (so .env values count too)."""
+    out: dict[str, str] = {}
+    for name in type(settings).model_fields:
+        if name.startswith("browser_"):
+            v = getattr(settings, name)
+            out[f"FRIDAY_{name.upper()}"] = ",".join(v) if isinstance(v, list) else (
+                "" if v is None else str(v))
+    return out
+
+
+def _csv(raw: str) -> set[str]:
+    return {p.strip().lower() for p in (raw or "").split(",") if p.strip()}
 
 
 def _chromium_present() -> bool:
@@ -101,6 +116,7 @@ def check_browser(env: Mapping[str, str], *, offline: bool = True) -> Any:
     else:
         s.add(WARN if not on else FAIL, "Xvfb not found (apt install xvfb) - needed for headed Chromium")
 
+    _gate_and_coverage(s, env, on)
     bad = _tracked((".env", "var"))
     s.add(FAIL if bad else OK, "the .env file or var/ is tracked by git" if bad
           else ".env and var/ are not tracked by git")
@@ -114,3 +130,47 @@ def check_browser(env: Mapping[str, str], *, offline: bool = True) -> Any:
         else:
             s.add(OK, "tool layer self test: default off, approval before commit, kill switch (on fakes)")
     return s
+
+
+def _gate_and_coverage(s: Any, env: Mapping[str, str], on: bool) -> None:
+    from friday.connectors import catalog
+    from friday.connectors.sites import categories
+    from friday.ops.doctor import OK, WARN
+
+    enabled, cleared = _csv(env.get("FRIDAY_BROWSER_SITES_ENABLED", "")), _csv(
+        env.get("FRIDAY_BROWSER_LEGAL_CLEARED", ""))
+    supervised = env.get("FRIDAY_BROWSER_SUPERVISED", "").strip().lower() in TRUE
+    known = {x.key for x in catalog.SITES}
+    unknown = (enabled | cleared) - known
+    if unknown:
+        s.add(WARN, f"{len(unknown)} name(s) in SITES_ENABLED / LEGAL_CLEARED are not catalog sites "
+                    "(typo? they are ignored)")
+    live = [k for k in sorted(known) if catalog.effective_mode(
+        k, enabled, supervised=supervised, cleared=cleared) in {"scripted", "official"}]
+    if live:
+        s.add(WARN, f"{len(live)} site(s) may run on the REAL site: {', '.join(live)} (cleared + "
+                    "enabled + supervised). Founder watches every run.")
+    else:
+        s.add(OK, "no site may run on the real site (nothing cleared + enabled + supervised): "
+                  "every request gets the link hand-over")
+    adapters = categories.all_adapters()
+    with_adapter = {k.split(".", 1)[0] for k in adapters}
+    s.add(OK, f"catalog: {len(known)} sites in {len(catalog.coverage())} categories; "
+              f"{len(with_adapter & known)} have a fake-tested adapter; {len(cleared & known)} cleared; "
+              f"{len(enabled & known)} enabled")
+    missing = categories.missing_packages()
+    if missing:
+        s.add(WARN, "category package(s) not landed: " + ", ".join(missing))
+    broken = categories.failed_packages()
+    if broken:
+        s.add(WARN, "category package(s) failed to import: " + ", ".join(sorted(broken)))
+    creds_on = env.get("FRIDAY_BROWSER_CREDENTIALS_ENABLED", "").strip().lower() in TRUE
+    if creds_on and not on:
+        s.add(WARN, "saved logins are ON but the browser master switch is off (they do nothing)")
+    elif creds_on:
+        users = _csv(env.get("FRIDAY_BROWSER_CREDENTIALS_ENABLED_USERS", ""))
+        s.add(WARN, "saved website logins are ON for "
+                    + ("EVERYONE (*)" if "*" in users else f"{len(users)} user(s)")
+                    + "; passwords stay encrypted in the vault, never shown")
+    else:
+        s.add(OK, "saved website logins are off (default)")

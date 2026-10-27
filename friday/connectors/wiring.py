@@ -158,11 +158,18 @@ class BrowserStack:
         self.watcher = PauseWatcher(self.manager, pause_probe(core))
         self.manager.on_close(self.otp_tokens.revoke_task)
         self._profiles: dict[str, Profile] = {}
+        try:  # the ride-start code page lives on this server
+            from friday.connectors.sites.ride import base as _ride
+
+            _ride.LINK_BASE = f"{self.base_url}/ride/code"
+        except ImportError:
+            pass
         self.flow = BrowserFlow(
             send=self._send, registry=self.registry, sessions=ManagerSessionProvider(self.manager),
             otp=self.otp, profile=lambda uid: self._profiles.get(uid) or Profile(),
             login_link=self._login_link, base_urls={}, store=JsonTaskStore(_task_file(s)),
-            enabled=lambda: s.enabled, mode_of=s.site_mode, credentials=self.credentials)
+            enabled=lambda: s.enabled, mode_of=s.site_mode, credentials=self.credentials,
+            takeover_link=self._takeover_link)
 
     # ---- lifecycle
     def register(self) -> None:
@@ -180,6 +187,13 @@ class BrowserStack:
     # ---- pieces the flow needs
     def _login_link(self, task_id: str) -> str:
         return f"{self.base_url}/connectors/otp/{self.otp_tokens.create(task_id)}"
+
+    def _takeover_link(self, task_id: str) -> str:
+        """Live view + takeover link for this task (the user logs in on the site's own page)."""
+        try:
+            return f"{self.base_url}/live/{self.live.create_link(task_id)}"
+        except Exception:  # noqa: BLE001 - no live session: fall back to the one-time code page
+            return self._login_link(task_id)
 
     async def _send(self, out: Outgoing) -> None:
         text = out.text

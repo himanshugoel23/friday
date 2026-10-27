@@ -95,9 +95,6 @@ async def test_other_users_otp_cannot_log_in(caplog):
 
 
 # ------------------------------------------------------------------ kill switch
-@pytest.mark.xfail(strict=True, reason="FINDING: run_pizza_flow keeps using the connector it chose "
-                   "at the start; the kill switch is not re-checked before build_cart / handoff "
-                   "(docs/PRIVATE_BROWSER.md review findings). Remove this mark when fixed.")
 async def test_kill_switch_mid_task_stops_everything_and_falls_back_to_link():
     state, conn, reg, ch = make_user("ta", OTP_A, "9000000001")
 

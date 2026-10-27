@@ -4,9 +4,12 @@ dropped, secret-looking text is redacted) and strings are length-capped."""
 
 from __future__ import annotations
 
+import json
+import os
 import time
 from collections import deque
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from friday.connectors.scrub import scrub
@@ -41,3 +44,21 @@ class AuditLog:
         gone = len(self._entries) - len(keep)
         self._entries = deque(keep, maxlen=self._entries.maxlen)
         return gone
+
+
+class JsonlAuditSink:
+    """Durable sink for ``AuditLog(sink=...)`` (EM review A4): one scrubbed JSON object per line in
+    a 0600 file (keep ``var/`` out of git). Entries are already scrubbed; a write error never breaks
+    a task (it is swallowed, the in-memory log still has the entry)."""
+
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+    def __call__(self, entry: dict[str, Any]) -> None:
+        try:
+            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, default=str, ensure_ascii=False) + "\n")
+        except OSError:
+            pass

@@ -68,9 +68,6 @@ async def test_per_user_cap_and_kill_all():
     assert [e["event"] for e in mgr.audit.entries(event="kill_all")] == ["kill_all"]
 
 
-@pytest.mark.xfail(strict=True, reason="FINDING: kill_all closes sessions but does not latch; a new "
-                   "open() right after succeeds unless the caller wires `paused`. Remove the mark when "
-                   "kill_all latches until revive (docs/PRIVATE_BROWSER.md review findings).")
 async def test_kill_all_is_latched():
     mgr, *_ = make()
     await mgr.kill_all()

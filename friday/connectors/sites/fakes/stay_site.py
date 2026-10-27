@@ -12,7 +12,8 @@ Knobs (``make_session(key, **knobs)``): ``sold_out`` (variant ids sold out from 
 made), ``price_bump_pct`` + ``bump_at`` ("select" | "pay"), ``currency`` ("USD": prices in a foreign
 currency), ``preselect_addons`` (the site pre-ticks baggage and meal), ``name_injection`` (text
 appended to the first hotel / airline name), ``banner`` (page text), ``block`` ("captcha") with
-``block_at`` ("any" | "review"), ``renamed`` (logical key -> selector, a layout change), ``free_days``.
+``block_at`` ("any" | "review"), ``renamed`` (logical key -> selector, a layout change), ``free_days`` (days before check-in / departure the free cancellation ends), ``free_days_on_pick``
+(the same, changed once the user has approved: worse terms).
 """
 
 from __future__ import annotations
@@ -136,11 +137,12 @@ class FakeStayState:
                  sold_on_pick: set[str] | None = None, price_bump_pct: int = 0, bump_at: str = "select",
                  currency: str = "INR", preselect_addons: bool = False, name_injection: str = "",
                  banner: str = "", block: str | None = None, block_at: str = "any",
-                 free_days: int = 2) -> None:
+                 free_days: int = 2, free_days_on_pick: int | None = None) -> None:
         self.site, self.otp, self.banner, self.block, self.block_at = site, otp, banner, block, block_at
         self.sold_out, self.sold_on_pick = set(sold_out or ()), set(sold_on_pick or ())
         self.price_bump_pct, self.bump_at, self.currency = price_bump_pct, bump_at, currency
         self.preselect_addons, self.name_injection, self.free_days = preselect_addons, name_injection, free_days
+        self.free_days_on_pick = free_days_on_pick
         self.bumped = False
         self.sessions: dict[str, dict] = {}
         self.orders: dict[str, dict] = {}
@@ -155,9 +157,9 @@ class FakeStayState:
     def items(self, kind: str) -> list[tuple[str, str, int, str]]:
         rows = HOTELS if kind == "hotel" else FLIGHTS
         out = []
-        for i, (iid, name, price, rating) in enumerate(rows):
-            if i == 0 and self.name_injection:
-                name = f"{name} {self.name_injection}"
+        for iid, name, price, rating in rows:
+            if self.name_injection:
+                name = f"{name}. {self.name_injection}"
             out.append((iid, name, price, rating))
         return out
 
@@ -171,7 +173,7 @@ class FakeStayState:
         else:
             mult = ctx_int(ctx, "adults", 1) * (2 if ctx.get("trip") == "return" else 1)
             names = (("sv", "Saver fare", 100), ("fx", "Flexi fare", 118))
-            free = f"{(_d(ctx.get('depart')) - timedelta(days=1)).isoformat()}T09:00:00"
+            free = f"{(_d(ctx.get('depart')) - timedelta(days=self.free_days)).isoformat()}T09:00:00"
         out = []
         for tag, vname, pct in names:
             base = unit * mult * pct // 100
@@ -283,6 +285,8 @@ class StaySimSession:
             if st.price_bump_pct and st.bump_at == "select" and not st.bumped:
                 st.bumped = True
             st.sold_out |= st.sold_on_pick
+            if st.free_days_on_pick is not None:
+                st.free_days = st.free_days_on_pick  # the site's terms change after approval
             if arg not in st.sold_out:
                 s["variant"], s["item"], s["ctx"] = arg, self.page[1], dict(self.ctx)
                 s["addons"] = {a for a, _, _ in ADDONS} if (st.preselect_addons and self.kind == "flight") else set()

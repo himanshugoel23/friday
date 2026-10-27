@@ -23,5 +23,16 @@ def build_default_registry() -> ConnectorRegistry:
             reg.register(Registration(
                 spec.key, use_case, BackendKind.deep_link, Status.live, "0.1",
                 fallback_url=spec.home, note="link only: user finishes in the app"))
+    # every (site, use case) that has a fake-tested adapter: a scripted backend, OFF by default.
+    # Whether it may run on the real site is the catalog gate (effective_mode), not this status.
+    from friday.connectors.sites import categories
+
+    for key in sorted(categories.all_adapters()):
+        site_key, use_case = key.split(".", 1)
+        if site_key in {"zomato"} and use_case == "food":
+            continue  # registered above
+        reg.register(Registration(
+            site_key, use_case, BackendKind.scripted_browser, Status.off, "0.1",
+            note="selectors tuned on a FAKE site only; real pages unverified"))
     reg.seed_kill_from_env()
     return reg

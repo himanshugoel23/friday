@@ -153,6 +153,8 @@ async def _run(registry, gate, task_id, area, wanted, approve, query, site, use_
         verdict, reason = gate.explain("build_cart", args, [grant])
         if verdict != Verdict.allow:
             return FlowResult(status="denied", restaurant=chosen, items=items, message=reason)
+        if registry.select(site, use_case, fulfils=True) is None:  # EM review B4: killed while asking
+            return in_app("this connector was switched off while you were deciding")
 
         cart = await conn.build_cart(chosen.restaurant_id, items)
         grant.mark_used("build_cart")
@@ -163,6 +165,8 @@ async def _run(registry, gate, task_id, area, wanted, approve, query, site, use_
         if verdict != Verdict.allow:
             return FlowResult(status="denied", restaurant=chosen, items=items, cart=cart,
                               message=reason)
+        if registry.select(site, use_case, fulfils=True) is None:  # killed while the cart was built
+            return in_app("this connector was switched off before payment")
         handoff = await conn.get_payment_handoff(cart)
         grant.mark_used("get_payment_handoff")
         return FlowResult(status="payment_ready", restaurant=chosen, items=items, cart=cart,

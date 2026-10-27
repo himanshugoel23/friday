@@ -112,6 +112,7 @@ class RunCtx:
     otp_wait_s: float = 120.0
     poll_s: float = 0.5
     sleep: Callable[[float], Awaitable[None]] | None = None
+    credentials: Any = None  # CredentialService (password sites such as IRCTC) or None
 
 
 def _grant(ctx: RunCtx, conn: str, group: str, items: list[ItemQty], max_total: int) -> Grant:

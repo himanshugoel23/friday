@@ -511,6 +511,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.connectors.demo import register as register_connectors
 
     register_connectors(sub)  # `friday connectors list|demo-pizza --fake` (docs/CONNECTORS.md)
+    from friday.connectors.sites.sim_cli import register as register_browser_sim
+
+    register_browser_sim(sub)  # `friday browser-sim [--list]` (FAKE sites only, docs/PRIVATE_BROWSER_FLOWS.md)
     from friday.speech.cli import register as register_speech
 
     register_speech(sub)  # `friday speech try|eval` (docs/SPEECH_UNDERSTANDING.md)
@@ -549,6 +552,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.connectors.demo import run_command as run_connectors_command
 
         return run_connectors_command(args)
+    if args.cmd == "browser-sim":  # offline: fake sites only, never reads .env, no network
+        from friday.connectors.sites.sim_cli import run_command as run_browser_sim
+
+        return run_browser_sim(args)
     if args.cmd == "playbook":  # offline: never reads .env, never touches the network
         from friday.playbooks.cli import run_command as run_playbook_command
 

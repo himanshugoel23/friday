@@ -1,4 +1,4 @@
-"""SHOPPING use-case contract (Amazon India, Flipkart). Money is integer paise; ``Quote`` checks totals."""
+"""SHOPPING use-case contract (Amazon India, Flipkart). Money is integer paise."""
 
 from __future__ import annotations
 

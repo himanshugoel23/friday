@@ -43,6 +43,12 @@ def _load() -> None:
             _failed[name] = type(e).__name__
             continue
         _present.append(name)
+        try:  # the package's own user-facing lines (PENDING approval), merged into sites/copy.COPY
+            from friday.connectors.sites.copy import register_copy
+
+            register_copy(importlib.import_module(f"{_BASE}.{name}.copy").COPY)
+        except (ImportError, AttributeError):
+            pass
         for key, cls in dict(getattr(mod, "ADAPTERS", {}) or {}).items():
             _adapters.setdefault(key, cls)
         for key, fake in dict(getattr(mod, "FAKE_SITES", {}) or {}).items():

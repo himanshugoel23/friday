@@ -38,6 +38,37 @@ class BrowserSettings(BaseSettings):
     live_view_ttl_seconds: float = 900.0  # after opening, the view lasts this long
     frame_min_interval_ms: int = 400
     takeover_max_seconds: float = 300.0
+    audit_file: str = "var/browser_audit.jsonl"  # durable audit sink (scrubbed JSON lines, 0600)
+    # per-site gate (friday/connectors/catalog.py effective_mode): all OFF / empty by default
+    sites_enabled: str = ""  # CSV of catalog keys the founder switched on
+    legal_cleared: str = ""  # CSV of site keys the founder cleared (legal)
+    supervised: bool = False  # real-site runs only while the founder watches
+
+    @staticmethod
+    def _csv(raw: str) -> frozenset[str]:
+        return frozenset(p.strip().lower() for p in raw.split(",") if p.strip())
+
+    def sites_enabled_set(self) -> frozenset[str]:
+        return self._csv(self.sites_enabled)
+
+    def legal_cleared_set(self) -> frozenset[str]:
+        return self._csv(self.legal_cleared)
+
+    def site_mode(self, site_key: str) -> str:
+        """What Friday may do on this site now: scripted | official | deeplink | blocked."""
+        from friday.connectors.catalog import effective_mode
+
+        return effective_mode(site_key, self.sites_enabled_set(), supervised=self.supervised,
+                              cleared=self.legal_cleared_set())
+
+    @classmethod
+    def from_core(cls, core: object) -> BrowserSettings:
+        """Build from ``friday.core.config.Settings`` (the ``browser_*`` fields, read from .env)."""
+        def val(name: str) -> object:
+            v = getattr(core, f"browser_{name}")
+            return ",".join(v) if isinstance(v, list) else ("" if v is None else v)
+
+        return cls.model_validate({n: val(n) for n in cls.model_fields})
 
     def user_allowed(self, user_id: str) -> bool:
         if not self.enabled:

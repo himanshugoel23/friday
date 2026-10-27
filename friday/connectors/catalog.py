@@ -17,6 +17,7 @@ HOST NAMES AND URLS ARE FROM GENERAL KNOWLEDGE AND UNVERIFIED: check each before
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 CATEGORIES = ("food", "grocery", "ride", "stay", "train", "bus", "flight", "movies", "shopping")
@@ -126,16 +127,31 @@ def find_for_host(host: str) -> SiteSpec | None:
     return None
 
 
-def effective_mode(key: str, enabled: set[str] | frozenset[str] = frozenset(),
-                   *, supervised: bool = False) -> str:
+def _has_adapter(s: SiteSpec) -> bool:
+    """True when a scripted adapter (fake-tested) exists for any use case of this site."""
+    try:
+        from friday.connectors.sites import categories
+
+        return any(categories.has_adapter(s.key, u) for u in (s.use_cases or (s.category,)))
+    except Exception:  # noqa: BLE001 - the loader must never break the catalog
+        return False
+
+
+def effective_mode(key: str, enabled: Collection[str] = frozenset(), *, supervised: bool = False,
+                   cleared: Collection[str] | None = None,
+                   adapter: bool | None = None) -> str:
     """What Friday may actually do on this site right now: ``official`` | ``scripted`` |
-    ``deeplink`` | ``blocked``. A site is automated only when its mode is scripted/official, its
-    legal status is ``cleared``, it is named in ``enabled`` AND the session is founder-supervised."""
+    ``deeplink`` | ``blocked``. A site is automated only when a scripted/official backend exists
+    (``mode`` or a loaded adapter), its legal status is ``cleared`` (the constant on the entry OR
+    the founder's ``cleared`` set, FRIDAY_BROWSER_LEGAL_CLEARED), it is named in ``enabled`` AND the
+    session is founder-supervised. ``adapter`` overrides the adapter lookup (tests)."""
     s = site(key)
     if s is None or s.mode == "blocked" or s.legal == LEGAL_BLOCKED:
         return "blocked"
-    if s.mode in ("scripted", "official") and s.legal == LEGAL_CLEARED and s.key in enabled and supervised:
-        return s.mode
+    is_cleared = s.legal == LEGAL_CLEARED or s.key in {c.strip().lower() for c in (cleared or ())}
+    backend = s.mode in ("scripted", "official") or (_has_adapter(s) if adapter is None else adapter)
+    if backend and is_cleared and s.key in {e.strip().lower() for e in enabled} and supervised:
+        return s.mode if s.mode in ("scripted", "official") else "scripted"
     return "deeplink"
 
 
