@@ -12,6 +12,16 @@ REPO="${FRIDAY_REPO:-https://github.com/himanshugoel23/friday}"
 APP=/opt/friday
 export DEBIAN_FRONTEND=noninteractive
 
+echo "== 0/6 swap (small servers run out of memory without it)"
+if [ "$(swapon --show --noheadings | wc -l)" = 0 ]; then
+  fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+  chmod 600 /swapfile; mkswap /swapfile >/dev/null; swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  echo "swap added (2 GB)"
+else
+  echo "swap already present"
+fi
+
 echo "== 1/6 packages"
 rm -f /etc/apt/sources.list.d/caddy-stable.list   # a leftover third-party Caddy repo returned 402; use Ubuntu's own package
 apt-get update -y
