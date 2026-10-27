@@ -240,6 +240,8 @@ class Runtime:
         ttl = self.c.settings.webhook_idempotency_ttl_h * 3600
         if key and idem is not None and not await idem.first_seen(key, ttl_s=ttl):
             return False
+        if await self.pipeline.try_chat_secret(msg):
+            return True  # a login code typed in chat: handled now, never written to the queue
         queue = self._component("job_queue")
         if queue is None:  # no queue available: process in-line (degraded)
             await self.handle(msg)

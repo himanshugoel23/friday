@@ -7,18 +7,23 @@ model, or kept anywhere else.
 Same hardening as the OTP page: the token is the only credential (unknown / expired / used -> 404);
 GET has no side effects; a cross-site ``Origin`` is refused; 5 attempts per token; ``no-store``,
 noindex, no referrer, strict CSP; the body is size-capped and parsed by hand; explicit consent
-box required. Banks, UPI, cards and IRCTC are refused by the vault.
+box required; a per-link CSRF field is checked on POST; a per-client rate limit answers 429 (a
+stricter one for unknown tokens); the link is bound to ONE user (who asked) and expires. Banks,
+UPI, cards and IRCTC are refused by the vault. Built for a phone or an iPad (16px+ inputs, no
+zoom). Caddy route note: docs/CREDENTIAL_VAULT.md.
 Wording on this page is PENDING founder approval (docs/CREDENTIAL_VAULT.md).
 """
 
 from __future__ import annotations
 
+import hmac
 from html import escape
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from friday.api.page_security import PageLimiter, client_key, same_site
 from friday.connectors.session.credential_tokens import CredentialTokenRegistry
 from friday.connectors.session.credentials import CredentialError, CredentialVault
 
@@ -28,12 +33,17 @@ _HEADERS = {
     "X-Robots-Tag": "noindex",
     "Referrer-Policy": "no-referrer",
     "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
     "Content-Security-Policy": (
         "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
         "frame-ancestors 'none'; base-uri 'none'"
     ),
 }
 _MAX_BODY = 2048
+CSRF_FIELD = "t"
 _CSS = (
     "body{font:17px system-ui;margin:0;padding:20px;max-width:440px;margin:auto;line-height:1.45}"
     "input[type=text],input[type=password]{font-size:20px;width:100%;box-sizing:border-box;"
@@ -52,7 +62,7 @@ def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
     return HTMLResponse(html, status_code=status, headers=_HEADERS)
 
 
-def _form(site: str, error: str = "") -> str:
+def _form(site: str, csrf: str, error: str = "") -> str:
     err = f'<p class="err">{escape(error)}</p>' if error else ""
     return (
         f"<h2>Save your {escape(site)} login</h2>"
@@ -61,8 +71,10 @@ def _form(site: str, error: str = "") -> str:
         "time by telling Friday \"forget my logins\".</p>"
         f"{err}"
         "<form method='post' autocomplete='off'>"
+        f"<input type='hidden' name='{CSRF_FIELD}' value='{escape(csrf)}'>"
         "<label>Username or phone<input name='u' type='text' maxlength='256' "
-        "autocomplete='off' required></label>"
+        "autocomplete='off' autocapitalize='off' autocorrect='off' spellcheck='false' "
+        "required></label>"
         "<label>Password<input name='p' type='password' maxlength='256' "
         "autocomplete='new-password' required></label>"
         "<label><input name='c' type='checkbox' value='1' required> I agree Friday may save and "
@@ -72,23 +84,34 @@ def _form(site: str, error: str = "") -> str:
     )
 
 
-def credentials_router(tokens: CredentialTokenRegistry, vault: CredentialVault) -> APIRouter:
+def credentials_router(tokens: CredentialTokenRegistry, vault: CredentialVault,
+                       limiter: PageLimiter | None = None) -> APIRouter:
     router = APIRouter(tags=["connectors"])
+    limiter = limiter or PageLimiter()
+
+    def gate(request: Request) -> str:
+        key = client_key(request)
+        if not limiter.allow(key):
+            raise HTTPException(status_code=429, headers={"Retry-After": "600", **_HEADERS})
+        return key
 
     @router.get("/credentials/{token}")
-    async def show(token: str) -> HTMLResponse:
+    async def show(token: str, request: Request) -> HTMLResponse:
+        key = gate(request)
         link = tokens.get(token)
         if link is None:
+            limiter.miss(key)
             raise HTTPException(status_code=404)
-        return _page("Save login", _form(link.site))
+        return _page("Save login", _form(link.site, link.csrf))
 
     @router.post("/credentials/{token}")
     async def submit(token: str, request: Request) -> HTMLResponse:
+        key = gate(request)
         link = tokens.get(token)
         if link is None:
+            limiter.miss(key)
             raise HTTPException(status_code=404)
-        origin = request.headers.get("origin")
-        if origin and urlsplit(origin).netloc != request.headers.get("host", ""):
+        if not same_site(request.headers):
             raise HTTPException(status_code=403)  # cross-site form post
         link.attempts += 1
         raw = b""
@@ -100,7 +123,13 @@ def credentials_router(tokens: CredentialTokenRegistry, vault: CredentialVault) 
         u = (form.get("u") or [""])[0]
         p = (form.get("p") or [""])[0]
         consent = (form.get("c") or [""])[0] == "1"
+        sent_csrf = (form.get(CSRF_FIELD) or [""])[0]
         del form, raw
+        if not hmac.compare_digest(sent_csrf.encode(), link.csrf.encode()):
+            u = p = ""
+            if link.attempts >= tokens.max_attempts:
+                tokens.revoke(token)
+            raise HTTPException(status_code=403)  # missing / wrong page token (CSRF)
         try:
             vault.save(link.user_id, link.site, u, p, hosts=link.hosts, consent=consent)
         except CredentialError as e:
@@ -109,7 +138,7 @@ def credentials_router(tokens: CredentialTokenRegistry, vault: CredentialVault) 
                 tokens.revoke(token)
                 return _page("Too many tries", "<h2>Too many tries</h2><p>This link is now "
                              "closed. Ask Friday for a new one.</p>", 429)
-            return _page("Save login", _form(link.site, str(e).capitalize() + "."), 400)
+            return _page("Save login", _form(link.site, link.csrf, str(e).capitalize() + "."), 400)
         u = p = ""
         link.used = True
         tokens.revoke(token)

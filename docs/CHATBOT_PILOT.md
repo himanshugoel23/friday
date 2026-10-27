@@ -209,6 +209,11 @@ All wording is in `friday/chatbot/copy.py` (marked `PENDING_FOUNDER_APPROVAL`), 
 | `chatbot.row.human` | list row | Insaan se baat - Team ka koi insaan reply karega |
 | `chatbot.row.delete` | list row | Sab delete karo - Aapka sara data mita dungi |
 
+### Saved logins and login code in chat (PENDING FOUNDER APPROVAL)
+
+Wording lives in `friday/connectors/login_copy.py` (`PENDING_FOUNDER_APPROVAL = True`), `en` and Roman Hinglish (`hi`) for every id. Tests check structure, never the words. Ids `login.line.<key>`:
+`none`, `list`, `off`, `link`, `refused`, `unknown_site` (my logins / save a login), `confirm_all`, `confirm_site`, `forgotten`, `forgotten_site`, `forget_none`, `forget_cancelled`, `btn_forget_yes`, `btn_forget_no` (forget, with a yes / no question), `chat_hint` (added to the login message: you may reply here with the code), `code_taken` (says the WhatsApp copy cannot be deleted by us), `refused_payment`, `refused_upi_pin`, `refused_card`, `refused_aadhaar`, `refused_password` (each points to the secure page or the user's own app). The secure-page text is in `friday/api/connectors_credentials.py` (also pending).
+
 ## What is NOT verified
 
 - Real WhatsApp rendering: reply buttons and the list message have only been checked as Graph API payloads and in the simulator; how they look on a phone, the button and list limits in practice, Devanagari and long titles are untested.

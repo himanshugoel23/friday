@@ -30,6 +30,7 @@ def env_from_settings(settings: Any) -> dict[str, str]:
             v = getattr(settings, name)
             out[f"FRIDAY_{name.upper()}"] = ",".join(v) if isinstance(v, list) else (
                 "" if v is None else str(v))
+    out["FRIDAY_PUBLIC_BASE_URL"] = str(getattr(settings, "public_base_url", "") or "")
     return out
 
 
@@ -135,7 +136,7 @@ def check_browser(env: Mapping[str, str], *, offline: bool = True) -> Any:
 def _gate_and_coverage(s: Any, env: Mapping[str, str], on: bool) -> None:
     from friday.connectors import catalog
     from friday.connectors.sites import categories
-    from friday.ops.doctor import OK, WARN
+    from friday.ops.doctor import FAIL, OK, WARN
 
     enabled, cleared = _csv(env.get("FRIDAY_BROWSER_SITES_ENABLED", "")), _csv(
         env.get("FRIDAY_BROWSER_LEGAL_CLEARED", ""))
@@ -172,5 +173,20 @@ def _gate_and_coverage(s: Any, env: Mapping[str, str], on: bool) -> None:
         s.add(WARN, "saved website logins are ON for "
                     + ("EVERYONE (*)" if "*" in users else f"{len(users)} user(s)")
                     + "; passwords stay encrypted in the vault, never shown")
+        base = env.get("FRIDAY_PUBLIC_BASE_URL", "").strip().lower()
+        if base and not base.startswith("https://"):
+            s.add(FAIL, "saved logins are ON but FRIDAY_PUBLIC_BASE_URL is not https: the secure "
+                        "password page link would travel unencrypted")
+        elif base:
+            s.add(OK, "secure password page link is https (route /connectors/credentials/* must be "
+                      "proxied: docs/CREDENTIAL_VAULT.md, Caddy note)")
     else:
         s.add(OK, "saved website logins are off (default)")
+    if env.get("FRIDAY_BROWSER_LOGIN_OTP_IN_CHAT", "").strip().lower() in TRUE:
+        s.add(WARN if on else OK,
+              "login codes may be typed in WhatsApp chat (single use, ~5 min, only right after "
+              "Friday starts a login, stored redacted); passwords and bank / payment / UPI PIN / "
+              "card / Aadhaar codes are always refused. Consent wording must be approved"
+              if on else "login-code-in-chat is set but the browser master switch is off (no effect)")
+    else:
+        s.add(OK, "login codes in chat are off (default); the secure code page is the only way")

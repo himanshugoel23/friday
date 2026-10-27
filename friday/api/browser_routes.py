@@ -20,6 +20,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 
 from friday.api.connectors_credentials import credentials_router
 from friday.api.connectors_otp import otp_router
+from friday.api.page_security import PageLimiter
 
 
 def browser_router(stack: Any) -> APIRouter:
@@ -87,7 +88,9 @@ def mount_browser(app: FastAPI, stack: Any) -> None:
     """Mount every browser route on ``app`` (the live view at ``/live``, the pages under
     ``/connectors``)."""
     app.include_router(browser_router(stack))
-    app.include_router(otp_router(stack.otp_tokens, stack.otp), prefix="/connectors")
+    limiter = PageLimiter()  # one request budget per client across both one-time pages
+    app.include_router(otp_router(stack.otp_tokens, stack.otp, limiter), prefix="/connectors")
     if stack.credentials is not None:
         app.include_router(
-            credentials_router(stack.cred_tokens, stack.credentials.vault), prefix="/connectors")
+            credentials_router(stack.cred_tokens, stack.credentials.vault, limiter),
+            prefix="/connectors")

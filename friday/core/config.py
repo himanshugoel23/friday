@@ -683,6 +683,8 @@ class Settings(BaseSettings):
     browser_credentials_ttl_days: int = 90
     browser_credentials_dir: str = "var/browser_credentials"
     browser_credentials_link_ttl_seconds: float = 600.0
+    browser_login_otp_in_chat: bool = False  # FRIDAY_BROWSER_LOGIN_OTP_IN_CHAT (login codes only)
+    browser_login_otp_chat_ttl_seconds: float = 300.0
     browser_live_link_ttl_seconds: float = 900.0
     browser_live_view_ttl_seconds: float = 900.0
     browser_frame_min_interval_ms: int = 400

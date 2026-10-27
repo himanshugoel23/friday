@@ -192,6 +192,8 @@ class InboundPipeline:
                 from friday.connectors.wiring import build_browser_stack
 
                 self.browser = build_browser_stack(c)
+                if self.browser is not None:  # a login code typed in chat is stored redacted
+                    self.browser.log_redacted = lambda u, m: self._log_inbound(u, m, redact=True)
             except Exception:  # noqa: BLE001 - the browser must never stop the app from booting
                 log.exception("private browser failed to build; continuing without it")
         cache = self._opt("cache")
@@ -436,6 +438,8 @@ class InboundPipeline:
             if (msg.text or "").lower() in FREEZE_SIGNALS:
                 await self.freeze_sensitive_actions(user, reason=(msg.text or "").lower())
             return
+        if await self._chat_secret(user, msg):
+            return  # a login code / a refused secret typed in chat: stored redacted, never the LLM
         sender = phone_index(msg.from_phone)
         if not await self.throttle.allow(sender, self.clock.now()):
             # SECURITY-21: logged (redacted), answered at most once, never sent to the LLM.
@@ -462,6 +466,36 @@ class InboundPipeline:
             await self.onboarding.handle(user, msg)
             return
         await self._active(user, msg)
+
+    async def _chat_secret(self, user: User, msg: InboundMessage) -> bool:
+        """Private browser, login code in chat (FRIDAY_BROWSER_LOGIN_OTP_IN_CHAT, default OFF):
+        True when the message was consumed. A failure drops the message rather than let a code
+        reach the LLM or the log."""
+        if self.browser is None or not msg.text:
+            return False
+        try:
+            if await self._looks_sensitive(user, msg):
+                return False  # a PIN prompt is open: that digit string is not for the browser
+            return await self.browser.intercept_chat_secret(user, msg)
+        except Exception as e:  # noqa: BLE001 - never echo the text
+            log.warning("chat secret handling failed: %s", type(e).__name__)
+            msg.text = None
+            return True
+
+    async def try_chat_secret(self, msg: InboundMessage) -> bool:
+        """Webhook path, BEFORE the message is queued (the queue would store the raw text): True
+        when it was a login code / refused secret and has been dealt with."""
+        if self.browser is None or not self.browser.chat_secret_candidate(msg.text):
+            return False
+        try:
+            phone = normalize_phone(msg.from_phone, self.settings.default_country_code)
+        except ValueError:
+            return False
+        user = await self.repos.users.get_by_phone(phone)
+        if user is None or user.status in (UserStatus.SUSPENDED, UserStatus.DELETED):
+            return False
+        msg.from_phone, msg.user_id = phone, user.id
+        return await self._chat_secret(user, msg)
 
     async def _transcribe(self, msg: InboundMessage) -> str | None:
         if not msg.media_url:
