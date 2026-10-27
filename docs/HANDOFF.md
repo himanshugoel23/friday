@@ -1089,3 +1089,6 @@ Reason: avoid document-storage burden. Supersedes the earlier "no Drive" rule an
 Added as an addendum to docs/CONCIERGE_REFERENCE.md (no names). Confirms Drive + WhatsApp group model; new asks: flight web check-in, arrival forms, negotiated hotel rates. EM agent told.
 
 - 2026-10-27 DONE (EM): docs/TRIP_CONCIERGE_DESIGN.md written (spend cap, proof, refunds, document understanding, family vault in the family's OWN Google Drive per founder decision with drive.file, trip timeline). Design only, repo-only (no CONCIERGE_REFERENCE.md yet). Nothing built.
+
+## FOUNDER DECISION (2026-10-27): NO spending cap per user (A dropped); build B, C, D, E, F, G
+Reason: Friday never pays itself and every approval is manual, so a cap adds nothing. Build order now: B (proof/DoneGate) -> D (photo/document understanding) -> E (family Google Drive vault) -> F (trip timeline) -> C (refund tracking) -> G (check-in/arrival forms, trip thread; negotiated hotel rates NOT pursued). One builder at a time, merged and pushed after each; migration numbers follow the chain (next free after 0012_receptionist_spam; design's 0013 spend is dropped). Design: docs/TRIP_CONCIERGE_DESIGN.md. Defaults still apply: everything behind switches default OFF, wording pending approval, Drive via drive.file, owner-only Drive actor for the pilot unless the founder says otherwise.
