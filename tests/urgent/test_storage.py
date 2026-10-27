@@ -190,7 +190,7 @@ async def test_data_purger_covers_the_escalation_tables(sw):
 def test_migration_0015_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0017_trips"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0018_refunds"
     assert "0014_documents" in doctor.known_revisions()
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
     migrate.upgrade(url)

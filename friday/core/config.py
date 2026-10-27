@@ -622,6 +622,17 @@ class Settings(BaseSettings):
     trip_critical_bypasses_quiet_hours: bool = True  # the "leave now" nudge may wake the user
     trips_retention_days: int = Field(default=30, ge=1)  # finished trip deleted after
 
+    # ------------------------------------------------ refund tracking (refunds/)
+    # docs/REFUNDS.md. OFF: no case is opened or chased and no refund nudge is sent. Numbers are
+    # PROPOSALS the founder approves; wording is PENDING_FOUNDER_APPROVAL (refunds/copy.py).
+    refunds_enabled: bool = False  # FRIDAY_REFUNDS_ENABLED
+    refunds_enabled_users: CsvList = Field(default_factory=list)  # user ids; empty = all
+    refund_chase_calls: bool = False  # FRIDAY_REFUND_CHASE_CALLS: propose vendor follow-up calls
+    refund_weekly_cap: int = Field(default=3, ge=0)  # refund nudges per user per rolling 7 days
+    refund_max_chase_calls: int = Field(default=2, ge=0)  # approved vendor follow-ups per case
+    refund_amount_tolerance_paise: int = Field(default=100, ge=0)  # received vs expected: exact
+    refunds_retention_days: int = Field(default=180, ge=1)  # closed case deleted after
+
     # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
     # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.

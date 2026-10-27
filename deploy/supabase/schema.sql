@@ -1787,5 +1787,101 @@ CREATE INDEX ix_card_perks_card_key ON card_perks (card_key);
 
 UPDATE alembic_version SET version_num='0017_trips' WHERE alembic_version.version_num = '0016_family_drive';
 
+-- Running upgrade 0017_trips -> 0018_refunds
+
+CREATE TABLE refund_cases (
+    user_id VARCHAR(32) NOT NULL, 
+    state VARCHAR(20) NOT NULL, 
+    origin VARCHAR(14) NOT NULL, 
+    origin_ref VARCHAR(64), 
+    vendor_name TEXT NOT NULL, 
+    amount_expected_paise INTEGER, 
+    amount_received_paise INTEGER, 
+    promised_date DATE, 
+    promised_amount_paise INTEGER, 
+    paid_with_bank TEXT, 
+    user_number TEXT, 
+    task_id VARCHAR(32), 
+    state_epoch INTEGER NOT NULL, 
+    state_changed_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    closed_reason VARCHAR(20), 
+    closed_basis VARCHAR(8), 
+    proposal TEXT, 
+    chase_count INTEGER NOT NULL, 
+    muted BOOLEAN NOT NULL, 
+    note TEXT, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_refund_cases PRIMARY KEY (id), 
+    CONSTRAINT fk_refund_cases_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_refund_cases_user_id ON refund_cases (user_id);
+
+CREATE INDEX ix_refund_cases_user_state ON refund_cases (user_id, state);
+
+CREATE INDEX ix_refund_cases_origin ON refund_cases (user_id, origin, origin_ref);
+
+CREATE TABLE refund_events (
+    user_id VARCHAR(32) NOT NULL, 
+    case_id VARCHAR(32) NOT NULL, 
+    from_state VARCHAR(20), 
+    to_state VARCHAR(20) NOT NULL, 
+    source VARCHAR(8) NOT NULL, 
+    note TEXT, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_refund_events PRIMARY KEY (id), 
+    CONSTRAINT fk_refund_events_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_refund_events_case_id_refund_cases FOREIGN KEY(case_id) REFERENCES refund_cases (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_refund_events_user_id ON refund_events (user_id);
+
+CREATE INDEX ix_refund_events_case ON refund_events (case_id);
+
+CREATE TABLE refund_evidence (
+    user_id VARCHAR(32) NOT NULL, 
+    case_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(24) NOT NULL, 
+    level VARCHAR(16) NOT NULL, 
+    summary TEXT, 
+    payload TEXT, 
+    amount_paise INTEGER, 
+    sha256 VARCHAR(64), 
+    proof_item_id VARCHAR(32), 
+    captured_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_refund_evidence PRIMARY KEY (id), 
+    CONSTRAINT fk_refund_evidence_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_refund_evidence_case_id_refund_cases FOREIGN KEY(case_id) REFERENCES refund_cases (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_refund_evidence_user_id ON refund_evidence (user_id);
+
+CREATE INDEX ix_refund_evidence_case ON refund_evidence (case_id);
+
+CREATE TABLE refund_nudges (
+    user_id VARCHAR(32) NOT NULL, 
+    case_id VARCHAR(32) NOT NULL, 
+    key VARCHAR(100) NOT NULL, 
+    stage VARCHAR(16) NOT NULL, 
+    status VARCHAR(8) NOT NULL, 
+    text TEXT, 
+    sent_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_refund_nudges PRIMARY KEY (id), 
+    CONSTRAINT fk_refund_nudges_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_refund_nudges_case_id_refund_cases FOREIGN KEY(case_id) REFERENCES refund_cases (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_refund_nudges_user_key UNIQUE (user_id, key)
+);
+
+CREATE INDEX ix_refund_nudges_user_id ON refund_nudges (user_id);
+
+CREATE INDEX ix_refund_nudges_user_sent ON refund_nudges (user_id, sent_at);
+
+UPDATE alembic_version SET version_num='0018_refunds' WHERE alembic_version.version_num = '0017_trips';
+
 COMMIT;
 

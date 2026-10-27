@@ -806,6 +806,7 @@ import friday.lifestate.dbmodel  # noqa: E402,F401  (registers life_events, life
 import friday.quality.models  # noqa: E402,F401  (registers quality_calls)
 import friday.quotes.dbmodel  # noqa: E402,F401  (registers quote_conversations)
 import friday.receptionist.dbmodel  # noqa: E402,F401  (registers receptionist_configs, _messages, _blocks)
+import friday.refunds.dbmodel  # noqa: E402,F401  (registers refund_cases, refund_events, refund_evidence, refund_nudges)
 import friday.savings.dbmodel  # noqa: E402,F401  (registers wallet_cards, card_rules, bills, savings_ledger)
 import friday.trips.dbmodel  # noqa: E402,F401  (registers trips, trip_legs, trip_tasks, flight_watch, trip_nudges, card_perks)
 import friday.urgent.dbmodel  # noqa: E402,F401  (registers urgent_escalation_configs, urgent_escalations)

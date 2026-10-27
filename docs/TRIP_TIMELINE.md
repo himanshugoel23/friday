@@ -27,6 +27,6 @@ Hotel call: the user taps Yes, then `TripTaskPort.create_task` is called with a 
 ## Not done / needs the founder
 - **Not wired into the live chat router or the scheduler loop**: `TripCommands` and `TripService.tick()` are complete and tested; the production `TripSender` (WhatsApp text + buttons, template for out-of-window sends) is not written. Out-of-window nudges need an approved WhatsApp template (same open item as LIFE_STATE).
 - Flight-status provider (decision 8), real card perk rows (a person enters them from public bank pages), approval of every line and the hotel-call questions, and the numbers above are all pending.
-- Cancellation does not open a refund case yet (item C is not built); the message only offers help.
+- A flight/train cancellation seen by the status watch now asks the refund tracker to PROPOSE a refund case (`TripService(refunds=...)`, docs/REFUNDS.md); the user confirms, nothing is requested from anyone.
 - Passport-validity and name-mismatch doc checks from the design are not built. Forward-to-family (G2) is not built.
 - Quiet hours and the cap day are IST-based for the cap and leg-zone-based for quiet hours; a user who lives abroad is not modelled.
