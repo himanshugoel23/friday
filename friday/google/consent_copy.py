@@ -22,9 +22,16 @@ GMAIL_LINES = (
     "example a due date or a booking time) so it can remind you. It cannot send, delete or "
     "change any email, and it does not keep the text of your emails.",
 )
+DRIVE_LINES = (
+    "Your Google Drive, only the files and folders Friday itself creates: Friday makes a "
+    '"Friday" folder and keeps the documents you ask it to file (tickets, hotel bookings, '
+    "passports) there, so they stay in YOUR Drive and not on Friday's servers. Friday cannot "
+    "see your other Drive files. If you disconnect, Friday forgets where they are; the files "
+    "stay yours.",
+)
 ALWAYS_LINES = (
     "Friday asks for your email address only to show which account is connected.",
-    "You can disconnect any time: tell Friday \"disconnect Google\". Friday then deletes the "
+    'You can disconnect any time: tell Friday "disconnect Google". Friday then deletes the '
     "connection from its servers and asks Google to cancel the access.",
     "Your Google data is used only for you. It is never used for ads, never shared with other "
     "users, and never used to train models.",
@@ -44,15 +51,17 @@ CALENDAR_REQUIRED_BODY = (
 )
 
 
-def consent_lines(gmail_enabled: bool) -> list[str]:
+def consent_lines(gmail_enabled: bool, drive_enabled: bool = False) -> list[str]:
     lines = list(CALENDAR_LINES)
     if gmail_enabled:
         lines += GMAIL_LINES
+    if drive_enabled:
+        lines += DRIVE_LINES
     return lines + list(ALWAYS_LINES)
 
 
-def consent_body_html(google_url: str, *, gmail_enabled: bool) -> str:
-    items = "".join(f"<li>{escape(x)}</li>" for x in consent_lines(gmail_enabled))
+def consent_body_html(google_url: str, *, gmail_enabled: bool, drive_enabled: bool = False) -> str:
+    items = "".join(f"<li>{escape(x)}</li>" for x in consent_lines(gmail_enabled, drive_enabled))
     return (
         f"<h2>{escape(TITLE)}</h2><p>What Friday will do, and why:</p><ul>{items}</ul>"
         f'<p><a class="btn" href="{escape(google_url, quote=True)}" rel="noreferrer">'

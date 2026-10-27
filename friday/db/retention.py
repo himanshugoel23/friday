@@ -133,6 +133,19 @@ async def expire_documents(repos: Repositories, now: datetime) -> dict[str, int]
     return {"documents": await repos.documents.expire(now)}
 
 
+DRIVE_STALE_LINK_DAYS = 180  # a Drive link stuck in needs_reconnect this long is dropped
+
+
+async def expire_family_drive(
+    repos: Repositories, now: datetime, *, stale_link_days: int = DRIVE_STALE_LINK_DAYS
+) -> dict[str, int]:
+    """Family Drive: unanswered share requests expire, finished ones are deleted after 30 days, a
+    link stuck in needs_reconnect is dropped with its pointers. Files in the user's Drive stay."""
+    if repos.family_drive is None:
+        return {"drive_shares_expired": 0, "drive_shares_deleted": 0, "drive_links_dropped": 0}
+    return await repos.family_drive.expire(now, stale_link_days=stale_link_days)
+
+
 async def purge_preconsent_users(
     repos: Repositories, now: datetime, *, days: int = PRECONSENT_RETENTION_DAYS
 ) -> int:
@@ -187,6 +200,7 @@ async def run_retention(
     out["ephemeral_places"] = await delete_ephemeral_places(repos, now)
     out.update(await expire_evidence(repos, now, store=store))
     out.update(await expire_documents(repos, now))
+    out.update(await expire_family_drive(repos, now))
     out["pending_deletions"] = await process_pending_deletions(
         repos, store=store, telephony=telephony
     )

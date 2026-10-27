@@ -800,6 +800,7 @@ import friday.calls.dbmodel  # noqa: E402,F401  (registers consumer_contacts, ca
 import friday.chatbot.dbmodel  # noqa: E402,F401  (registers chatbot_sessions, chatbot_waitlist, chatbot_inbox)
 import friday.docunderstand.dbmodel  # noqa: E402,F401  (registers documents, document_fields)
 import friday.evidence.dbmodel  # noqa: E402,F401  (registers evidence_items, done_claims)
+import friday.familydrive.dbmodel  # noqa: E402,F401  (registers drive_links, drive_folders, drive_shares)
 import friday.google.dbmodel  # noqa: E402,F401  (registers google_connections, google_oauth_states)
 import friday.lifestate.dbmodel  # noqa: E402,F401  (registers life_events, life_commitments, ...)
 import friday.quality.models  # noqa: E402,F401  (registers quality_calls)

@@ -41,6 +41,7 @@ from friday.db.repositories.consumer_calls import (
 )
 from friday.db.repositories.documents import DocumentRepo
 from friday.db.repositories.evidence import EvidenceRepo
+from friday.db.repositories.family_drive import FamilyDriveRepo
 from friday.db.repositories.google import GoogleRepo
 from friday.db.repositories.lifestate import LifeRepo
 from friday.db.repositories.memory import AuditRepo, CostRepo, FactRepo, IdentifierRepo
@@ -84,6 +85,7 @@ __all__ = [
     "DocumentRepo",
     "EvidenceRepo",
     "FactRepo",
+    "FamilyDriveRepo",
     "GoogleRepo",
     "IdentifierRepo",
     "LifeRepo",
@@ -139,6 +141,7 @@ class Repositories:
     purger: DataPurger
     evidence: EvidenceRepo | None = None  # proof items + done claims (friday/evidence)
     documents: DocumentRepo | None = None  # understood photos/documents (friday/docunderstand)
+    family_drive: FamilyDriveRepo | None = None  # Drive links, folders, shares (friday/familydrive)
     chatbot: ChatbotRepo | None = None  # first-run state, waitlist, wishlist (friday/chatbot)
     retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
@@ -185,6 +188,7 @@ def make_repositories(
         chatbot=ChatbotRepo(db, clock),
         evidence=EvidenceRepo(db, clock),
         documents=DocumentRepo(db, clock),
+        family_drive=FamilyDriveRepo(db, clock),
     )
     from friday.db.retention import RetentionService
 

@@ -1590,5 +1590,53 @@ CREATE INDEX ix_urgent_escalations_due ON urgent_escalations (status, next_actio
 
 UPDATE alembic_version SET version_num='0015_urgent_escalation' WHERE alembic_version.version_num = '0014_documents';
 
+-- Running upgrade 0015_urgent_escalation -> 0016_family_drive
+
+CREATE TABLE drive_links (
+    user_id VARCHAR(32) NOT NULL, 
+    status VARCHAR(20) NOT NULL, 
+    root_folder_id TEXT, 
+    connected_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_drive_links PRIMARY KEY (id), 
+    CONSTRAINT fk_drive_links_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_drive_links_user_id UNIQUE (user_id)
+);
+
+CREATE TABLE drive_folders (
+    user_id VARCHAR(32) NOT NULL, 
+    path_key VARCHAR(160) NOT NULL, 
+    folder_id TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_drive_folders PRIMARY KEY (id), 
+    CONSTRAINT fk_drive_folders_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_drive_folders_user_key UNIQUE (user_id, path_key)
+);
+
+CREATE INDEX ix_drive_folders_user_id ON drive_folders (user_id);
+
+CREATE TABLE drive_shares (
+    user_id VARCHAR(32) NOT NULL, 
+    email TEXT NOT NULL, 
+    role VARCHAR(8) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    permission_id TEXT, 
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    decided_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_drive_shares PRIMARY KEY (id), 
+    CONSTRAINT fk_drive_shares_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_drive_shares_user_status ON drive_shares (user_id, status);
+
+UPDATE alembic_version SET version_num='0016_family_drive' WHERE alembic_version.version_num = '0015_urgent_escalation';
+
 COMMIT;
 

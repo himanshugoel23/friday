@@ -35,6 +35,7 @@ from friday.db.tables import (
 )
 from friday.docunderstand.dbmodel import purge_user_documents
 from friday.evidence.dbmodel import EvidenceItemRow, purge_user_evidence
+from friday.familydrive.dbmodel import purge_user_family_drive
 from friday.google.dbmodel import GoogleConnectionRow, GoogleOAuthStateRow
 from friday.lifestate.dbmodel import (
     LifeCommitmentRow,
@@ -118,6 +119,7 @@ class DataPurger(Repo):
             counts.update(await purge_user_evidence(s, user_id))  # proof items + claims
             counts.update(await purge_user_documents(s, user_id))  # understood documents
             counts.update(await purge_user_urgent(s, user_id))  # urgent-call escalation state
+            counts.update(await purge_user_family_drive(s, user_id))  # Drive links, folders, shares
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(LifeFollowupRow, LifeFollowupRow.user_id == user_id)  # life state

@@ -498,6 +498,8 @@ class Settings(BaseSettings):
     google_revoke_url: str = "https://oauth2.googleapis.com/revoke"
     google_calendar_base_url: str = "https://www.googleapis.com/calendar/v3"
     google_gmail_base_url: str = "https://gmail.googleapis.com/gmail/v1"
+    google_drive_base_url: str = "https://www.googleapis.com/drive/v3"
+    google_drive_upload_url: str = "https://www.googleapis.com/upload/drive/v3"
     google_state_ttl_s: int = 600  # consent link / OAuth state lifetime (10 minutes)
     google_token_expiry_margin_s: int = 120  # refresh the access token this early
     geocoder_provider: GeocoderProviderName = "auto"
@@ -594,6 +596,14 @@ class Settings(BaseSettings):
     urgent_escalation_stale_minutes: int = Field(default=30, ge=1)  # never ring about a stale alert
     urgent_escalation_retention_days: int = Field(default=30, ge=1)  # finished rows are deleted
     urgent_escalation_tick_s: int = Field(default=20, ge=1)  # scheduler poll
+    # ------------------------------------------------ family Google Drive (familydrive/)
+    # docs/FAMILY_DRIVE.md. OFF: no Drive scope is requested and nothing is filed. Family documents
+    # live ONLY in the family's own Drive (scope drive.file); we keep a file-id pointer and minimal
+    # fields. All wording is PENDING_FOUNDER_APPROVAL (friday/familydrive/copy.py).
+    family_drive_enabled: bool = False  # FRIDAY_FAMILY_DRIVE_ENABLED
+    family_drive_sharing_enabled: bool = False  # FRIDAY_FAMILY_DRIVE_SHARING_ENABLED
+    family_drive_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)  # one upload
+    family_drive_share_ttl_days: int = Field(default=7, ge=1)  # unanswered share approval expires
 
     # ---------------------------------------------------------------- receptionist (receptionist/)
     # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier

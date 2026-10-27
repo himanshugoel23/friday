@@ -151,3 +151,37 @@ class DocumentRepo(Repo):
                 )
                 await s.execute(delete(DocumentRow).where(DocumentRow.id.in_(ids)))
             return len(ids)
+
+    # ------------------------------------------------------------------ Drive pointers (item E)
+    async def set_pointer(self, user_id: str, doc_id: str, kind: str, ref: str) -> bool:
+        """Record where the filed document lives (a Drive file id, encrypted). False if the
+        document is not this user's."""
+        async with self.db.session() as s:
+            r = await s.get(DocumentRow, doc_id)
+            if r is None or r.user_id != user_id:
+                return False
+            r.pointer_kind, r.pointer_ref, r.updated_at = kind, ref, self.now()
+            return True
+
+    async def clear_pointer(self, user_id: str, doc_id: str) -> bool:
+        async with self.db.session() as s:
+            r = await s.get(DocumentRow, doc_id)
+            if r is None or r.user_id != user_id:
+                return False
+            r.pointer_kind, r.pointer_ref, r.updated_at = None, None, self.now()
+            return True
+
+    async def list_with_pointer(self, user_id: str, kind: str) -> list[Document]:
+        async with self.db.session() as s:
+            rows = (
+                await s.execute(
+                    select(DocumentRow)
+                    .where(
+                        DocumentRow.user_id == user_id,
+                        DocumentRow.status == DocStatus.CONFIRMED.value,
+                        DocumentRow.pointer_kind == kind,
+                    )
+                    .order_by(DocumentRow.created_at.desc())
+                )
+            ).scalars().all()
+            return await self._load(s, list(rows))
