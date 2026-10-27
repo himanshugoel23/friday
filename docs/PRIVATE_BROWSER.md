@@ -62,7 +62,7 @@ Rules: you watch the whole time; use YOUR OWN account on one site; cap the order
 Reviewed `friday/connectors/session`, `browser`, `sites` as pushed. Good: no logging in these packages; values never recorded; request-level route guard; vault AAD; slots reserved before await; takeover input validated and counted only. Requests:
 
 **Developer A**
-1. [high] `SessionManager.kill_all()` closes sessions but does not latch. A new `open()` right after succeeds unless the caller wires `paused`. Make `kill_all` set a flag that `open` checks until `revive()`. Test: `tests/integration_browser/test_sessions.py::test_kill_all_is_latched` (xfail strict; remove the mark when fixed).
+1. [high] `SessionManager.kill_all()` closes sessions but does not latch. A new `open()` right after succeeds unless the caller wires `paused`. Make `kill_all` set a flag that `open` checks until `revive()`. FIXED (latch in `SessionManager`, `PauseWatcher` lifts only its own latch). Test: `tests/integration_browser/test_sessions.py::test_kill_all_is_latched` (was xfail strict; remove the mark when fixed).
 2. [med] `TaskSession.fill` forwards any value to any selector. Selector keys are known only to Dev B's layer, so keep it there, but add a defence in depth: refuse `fill` when the target is `input[type=password]` (query the element type) unless the caller passes an explicit `allow_secret_field=False`-style flag that only the OTP path sets.
 3. [low] `FileVaultStore.get` returns None on any parse error, silently hiding corruption; audit a `vault_unreadable` event (no content).
 4. [low] `AuditLog` is in memory only (deque of 5000). The `sink` hook exists: wire a durable sink before the pilot or takeovers are lost on restart.

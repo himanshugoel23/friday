@@ -13,11 +13,12 @@ is read with a small size cap and parsed by hand (no form library, nothing logge
 from __future__ import annotations
 
 from html import escape
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from friday.api.page_security import PageLimiter, client_key, same_site
 from friday.connectors.otp import OneTimeOtpChannel
 from friday.connectors.otp_tokens import OtpTokenRegistry
 
@@ -67,23 +68,34 @@ def _form(hint: str, error: str = "") -> str:
     )
 
 
-def otp_router(tokens: OtpTokenRegistry, channel: OneTimeOtpChannel) -> APIRouter:
+def otp_router(tokens: OtpTokenRegistry, channel: OneTimeOtpChannel,
+               limiter: PageLimiter | None = None) -> APIRouter:
     router = APIRouter(tags=["connectors"])
+    limiter = limiter or PageLimiter()
+
+    def gate(request: Request) -> str:
+        key = client_key(request)
+        if not limiter.allow(key):
+            raise HTTPException(status_code=429, headers={"Retry-After": "600", **_HEADERS})
+        return key
 
     @router.get("/otp/{token}")
-    async def show(token: str) -> HTMLResponse:
+    async def show(token: str, request: Request) -> HTMLResponse:
+        key = gate(request)
         entry = tokens.get(token)
         if entry is None:
+            limiter.miss(key)
             raise HTTPException(status_code=404)
         return _page("Login code", _form(entry.phone_hint))
 
     @router.post("/otp/{token}")
     async def submit(token: str, request: Request) -> HTMLResponse:
+        key = gate(request)
         entry = tokens.get(token)
         if entry is None:
+            limiter.miss(key)
             raise HTTPException(status_code=404)
-        origin = request.headers.get("origin")
-        if origin and urlsplit(origin).netloc != request.headers.get("host", ""):
+        if not same_site(request.headers):
             raise HTTPException(status_code=403)  # cross-site form post
         entry.attempts += 1
         raw = b""

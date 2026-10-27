@@ -268,6 +268,7 @@ class BrowserFlow:
         mode_of: Callable[[str], str] | None = None,
         credentials: Any = None,
         takeover_link: LinkFactory | None = None,
+        pending_logins: Any = None,
         otp_wait_s: float = 120.0,
         poll_s: float = 0.5,
         sleep: Callable[[float], Awaitable[None]] | None = None,
@@ -280,6 +281,7 @@ class BrowserFlow:
         self._mode_of = mode_of or _default_mode_of
         self._credentials = credentials
         self._takeover = takeover_link
+        self._pending = pending_logins  # PendingLoginRegistry: login code may be typed in chat
         self._otp_wait_s, self._poll_s, self._sleep = otp_wait_s, poll_s, sleep
         self._rt: dict[str, Any] = {}  # task_id -> adapter (live browser objects, not persisted)
         self._bg: set[asyncio.Task] = set()
@@ -602,9 +604,14 @@ class BrowserFlow:
         async def on_wait() -> None:
             st = self._store.active(st0.user_id) or st0  # the task moved on since this was built
             self._save(st, Phase.await_login)
-            await self._out(st, "login", render("login_needed", st.lang,
-                                                site=adapter_cls.site_name,
-                                                link=self._link(st.task_id)))
+            text = render("login_needed", st.lang, site=adapter_cls.site_name,
+                          link=self._link(st.task_id))
+            if self._pending is not None:  # the user may also reply with the code in chat
+                from friday.connectors import login_copy
+
+                self._pending.expect(st.user_id, st.connector.split(".")[0], st.task_id)
+                text += "\n" + login_copy.line("chat_hint", st.lang)
+            await self._out(st, "login", text)
 
         ctx = RunCtx(task_id=st.task_id, user_id=st.user_id, session=session,
                      profile=self._profile(st.user_id), otp=self._otp, on_code_wait=on_wait,
@@ -911,6 +918,8 @@ class BrowserFlow:
         self._save(st, phase)
         self._rt.pop(st.task_id, None)
         self._otp.wipe(st.task_id)
+        if self._pending is not None:
+            self._pending.clear_task(st.task_id)
         if not keep_reveal:  # a booked ride keeps its start-code link (15 min, one use) for pickup
             with contextlib.suppress(Exception):
                 from friday.connectors.sites.ride import DEFAULT_REVEAL

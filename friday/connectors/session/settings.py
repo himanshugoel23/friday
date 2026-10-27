@@ -34,6 +34,10 @@ class BrowserSettings(BaseSettings):
     credentials_ttl_days: int = 90
     credentials_dir: str = "var/browser_credentials"
     credentials_link_ttl_seconds: float = 600.0
+    # a LOGIN code typed in the WhatsApp chat (never passwords/payment codes), only while Friday
+    # just started that login; docs/CREDENTIAL_VAULT.md. OFF by default.
+    login_otp_in_chat: bool = False
+    login_otp_chat_ttl_seconds: float = 300.0
     live_link_ttl_seconds: float = 900.0  # a watch link must be opened within this time
     live_view_ttl_seconds: float = 900.0  # after opening, the view lasts this long
     frame_min_interval_ms: int = 400

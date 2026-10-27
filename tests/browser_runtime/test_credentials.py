@@ -137,7 +137,7 @@ def test_secure_page_saves_once_and_never_echoes(svc, cvault):
     tok = token_of(svc.request_link("u", "fake", HOSTS))
     r = c.get(f"/connectors/credentials/{tok}")
     assert r.status_code == 200 and "no-store" in r.headers["cache-control"]
-    body = urlencode({"u": "ravi", "p": PW, "c": "1"})
+    body = urlencode({"u": "ravi", "p": PW, "c": "1", "t": svc.tokens.get(tok).csrf})
     r = c.post(f"/connectors/credentials/{tok}", content=body,
                headers={"content-type": "application/x-www-form-urlencoded"})
     assert r.status_code == 200 and PW not in r.text and "ravi" not in r.text
@@ -149,7 +149,8 @@ def test_page_requires_consent_and_burns_after_attempts(svc, cvault):
     c = page(svc, cvault)
     tok = token_of(svc.request_link("u", "fake", HOSTS))
     for i in range(5):
-        r = c.post(f"/connectors/credentials/{tok}", content=urlencode({"u": "a", "p": PW}))
+        form = {"u": "a", "p": PW, "t": svc.tokens.get(tok).csrf}
+        r = c.post(f"/connectors/credentials/{tok}", content=urlencode(form))
         assert r.status_code == (400 if i < 4 else 429)
         assert PW not in r.text
     assert c.get(f"/connectors/credentials/{tok}").status_code == 404

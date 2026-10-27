@@ -7,7 +7,7 @@ from __future__ import annotations
 import secrets
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 CRED_LINK_TTL_SECONDS = 600.0
 CRED_MAX_ATTEMPTS = 5
@@ -21,6 +21,7 @@ class CredentialLink:
     expires_at: float
     attempts: int = 0
     used: bool = False
+    csrf: str = field(default_factory=lambda: secrets.token_urlsafe(16), repr=False)
 
 
 class CredentialTokenRegistry:

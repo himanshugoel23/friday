@@ -110,7 +110,10 @@ async def test_login_commands_list_and_forget_without_showing_passwords(tmp_path
         stack.credentials.vault.save(user.id, "blinkit", "asha@example.test", "Hunter2-Test!", hosts=["blinkit.com"], consent=True)
         shown = " ".join(m.text or "" for m in await w.say("my logins"))
         assert "blinkit" in shown and "Hunter2" not in shown and "asha@example.test" not in shown
-        done = " ".join(m.text or "" for m in await w.say("forget my logins"))
+        ask = await w.say("forget my logins")  # asks first, deletes nothing yet
+        assert "1 saved login" in ask[0].text and [b.id for b in ask[0].buttons] == ["lg:yes", "lg:no"]
+        assert len(stack.credentials.saved(user.id)) == 1
+        done = " ".join(m.text or "" for m in await w.say("yes"))
         assert "1 saved login" in done
         assert stack.credentials.saved(user.id) == []
     finally:

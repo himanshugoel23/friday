@@ -21,12 +21,19 @@ import secrets
 import time
 from typing import TYPE_CHECKING, Any
 
-from friday.connectors import catalog
+from friday.connectors import catalog, login_copy
 from friday.connectors.browser.backend import select_backend
 from friday.connectors.browser.policy import NetworkPolicy
 from friday.connectors.defaults import build_default_registry
 from friday.connectors.flow import BrowserFlow, JsonTaskStore, Outgoing, register_browser_handler
-from friday.connectors.otp import OneTimeOtpChannel
+from friday.connectors.otp import (
+    CHAT_OTP_TTL_SECONDS,
+    LOGIN_OTP,
+    REFUSALS,
+    OneTimeOtpChannel,
+    PendingLoginRegistry,
+    classify_chat_secret,
+)
 from friday.connectors.otp_tokens import OtpTokenRegistry
 from friday.connectors.session import (
     AuditLog,
@@ -61,28 +68,23 @@ MY_LOGINS = re.compile(
     r"mere\s+logins?(?:\s+dikhao)?|saved\s+logins?\s+dikhao)$", re.IGNORECASE)
 SAVE_LOGIN = re.compile(r"^(?:save|add|store)\s+(?:my\s+)?(?P<site>[a-z0-9.]+)\s+login$", re.IGNORECASE)
 FORGET_LOGINS = re.compile(
-    r"^(?:forget\s+(?:all\s+)?my\s+logins?|delete\s+(?:all\s+)?my\s+logins?|forget\s+logins?|"
+    r"^(?:forget\s+(?:all\s+)?my\s+logins?|delete\s+(?:all\s+)?my\s+logins?|forget\s+(?:all\s+)?logins?|"
     r"mere\s+logins?\s+(?:bhool\s+jao|delete\s+karo|mita\s+do)|logins?\s+(?:bhool\s+jao|delete\s+karo))$",
     re.IGNORECASE)
-
-# PENDING founder approval (hear before change): every new user-facing line of this module
-LOGIN_LINES = {
-    "none": {"en": "I have no saved logins for you.",
-             "hi": "Aapke koi saved login mere paas nahi hain."},
-    "list": {"en": "Saved logins (passwords are never shown): {sites}. Say \"forget my logins\" to delete them all.",
-             "hi": "Saved logins (password kabhi nahi dikhate): {sites}. Sab hatane ke liye \"forget my logins\" likhiye."},
-    "forgotten": {"en": "Done. I deleted {n} saved login(s) and your saved browser sessions.",
-                  "hi": "Ho gaya. Maine {n} saved login aur aapke saved browser sessions hata diye."},
-    "off": {"en": "Saved logins are not switched on.", "hi": "Saved logins abhi chalu nahi hain."},
-    "link": {"en": "Open this private page to save your {site} login. Never type it in chat: {link}",
-             "hi": "Apna {site} login save karne ke liye yeh private page kholiye. Chat mein kabhi mat likhiye: {link}"},
-    "refused": {"en": "I can't save that kind of login.", "hi": "Is tarah ka login main save nahi kar sakti."},
-    "unknown_site": {"en": "I don't know that site.", "hi": "Yeh site main nahi jaanti."},
-}
+# "forget zomato", "forget my zomato login", "zomato login bhool jao"
+FORGET_SITE = re.compile(
+    r"^(?:(?:forget|delete|remove)\s+(?:my\s+)?(?P<a>[a-z0-9.]+?)(?:\s+login)?|"
+    r"(?:mera\s+)?(?P<b>[a-z0-9.]+)\s+login\s+(?:bhool\s+jao|delete\s+karo|mita\s+do))$",
+    re.IGNORECASE)
+YES = re.compile(r"^(?:y|yes|yep|yeah|ok|okay|confirm|haan|han|ha|haa|ji\s*haan|theek\s*hai|kar\s*do|delete)$",
+                 re.IGNORECASE)
+NO = re.compile(r"^(?:n|no|nope|cancel|nahi|nahin|na|mat|rehne\s*do|stop|keep)$", re.IGNORECASE)
+FORGET_CONFIRM_TTL_SECONDS = 120.0
+BTN_YES, BTN_NO = "lg:yes", "lg:no"
 
 
 def _line(key: str, lang: str, **kw: object) -> str:
-    return LOGIN_LINES[key].get(lang, LOGIN_LINES[key]["en"]).format(**kw)
+    return login_copy.line(key, lang, **kw)
 
 
 class QrStore:
@@ -146,17 +148,28 @@ class BrowserStack:
         self.otp = OneTimeOtpChannel()
         self.otp_tokens = OtpTokenRegistry()
         self.cred_tokens = CredentialTokenRegistry(ttl_seconds=s.credentials_link_ttl_seconds)
+        # the vault object always exists so "forget" / "delete everything" can remove logins that
+        # were saved while the switch was on; the SERVICE (links, autofill) only when it is on
+        self.cred_vault = CredentialVault(FileVaultStore(s.credentials_dir), cipher,
+                                          ttl_days=s.credentials_ttl_days)
         self.credentials: CredentialService | None = None
         if s.credentials_enabled:
             self.credentials = CredentialService(
-                CredentialVault(FileVaultStore(s.credentials_dir), cipher,
-                                ttl_days=s.credentials_ttl_days),
-                self.cred_tokens, s, self.audit, self.base_url)
+                self.cred_vault, self.cred_tokens, s, self.audit, self.base_url)
+        # a login code typed in chat: only while Friday itself started that login (default OFF)
+        self.pending_logins: PendingLoginRegistry | None = (
+            PendingLoginRegistry(ttl_seconds=s.login_otp_chat_ttl_seconds or CHAT_OTP_TTL_SECONDS)
+            if s.login_otp_in_chat else None)
+        self.log_redacted: Any = None  # async (user, msg): the pipeline stores the redacted row
+        self._forget_asks: dict[str, tuple[str | None, float]] = {}  # user -> (site|None, expires)
+        self._clock = time.monotonic
         self.live = LiveViewService(self.manager)
         self.live_http = LiveViewHttp(self.live)
         self.qr = QrStore()
         self.watcher = PauseWatcher(self.manager, pause_probe(core))
         self.manager.on_close(self.otp_tokens.revoke_task)
+        if self.pending_logins is not None:
+            self.manager.on_close(self.pending_logins.clear_task)
         self._profiles: dict[str, Profile] = {}
         try:  # the ride-start code page lives on this server
             from friday.connectors.sites.ride import base as _ride
@@ -169,7 +182,7 @@ class BrowserStack:
             otp=self.otp, profile=lambda uid: self._profiles.get(uid) or Profile(),
             login_link=self._login_link, base_urls={}, store=JsonTaskStore(_task_file(s)),
             enabled=lambda: s.enabled, mode_of=s.site_mode, credentials=self.credentials,
-            takeover_link=self._takeover_link)
+            takeover_link=self._takeover_link, pending_logins=self.pending_logins)
 
     # ---- lifecycle
     def register(self) -> None:
@@ -238,26 +251,140 @@ class BrowserStack:
         """True when the browser flow (or a login command) consumed the message."""
         if not self.settings.enabled or not self.user_allowed(user):
             return False
-        if msg.kind == MessageKind.BUTTON_REPLY and (msg.button_id or "").startswith("bf:"):
-            return await self.flow.handle_button(user.id, msg.button_id or "")
+        if msg.kind == MessageKind.BUTTON_REPLY:
+            bid = msg.button_id or ""
+            if bid.startswith("bf:"):
+                return await self.flow.handle_button(user.id, bid)
+            if bid in (BTN_YES, BTN_NO):
+                return await self._forget_answer(user, bid == BTN_YES, await self._lang(user))
         if msg.kind not in (MessageKind.TEXT, MessageKind.VOICE_NOTE):
             return False
         text = (msg.text or "").strip()
         if not text:
             return False
         lang = await self._lang(user)
+        if self._forget_open(user.id):  # a "delete them?" question is waiting for yes / no
+            if YES.match(text):
+                return await self._forget_answer(user, True, lang)
+            if NO.match(text):
+                return await self._forget_answer(user, False, lang)
+            self._forget_asks.pop(user.id, None)  # anything else drops the question
         if MY_LOGINS.match(text) or FORGET_LOGINS.match(text) or SAVE_LOGIN.match(text):
             return await self._logins(user, text, lang)
+        if await self._maybe_forget_site(user, text, lang):
+            return True
         if not self.flow.matches(text) and not self.flow.has_active_task(user.id):
             return False
         await self.remember_profile(user)
         return await self.flow.handle_text(user.id, text, lang)
 
-    async def _logins(self, user: User, text: str, lang: str) -> bool:
-        if self.credentials is None or not self.settings.credentials_allowed(user.id):
-            await self.notifier.notify_user(user.id, _line("off", lang))
+    # ---- a login code typed in the chat (founder decision 2026-10-27; default OFF)
+    def chat_secret_candidate(self, text: str | None) -> bool:
+        """Cheap check for the pipeline (no user needed): could this message be a login code or a
+        secret we must refuse? Used to skip the user lookup for ordinary messages."""
+        s = self.settings
+        if not (s.enabled and s.login_otp_in_chat and text):
+            return False
+        return classify_chat_secret(text, login_site="").kind != "none"
+
+    async def intercept_chat_secret(self, user: User, msg: InboundMessage) -> bool:
+        """True when the message was a login code or a refused secret: it never goes on to the
+        LLM or any other handler, the stored chat text is redacted at once, nothing is logged."""
+        s = self.settings
+        if (self.pending_logins is None or not (s.enabled and s.login_otp_in_chat)
+                or not self.user_allowed(user)
+                or msg.kind not in (MessageKind.TEXT, MessageKind.VOICE_NOTE) or not msg.text):
+            return False
+        pend = self.pending_logins.peek(user.id)
+        verdict = classify_chat_secret(msg.text, login_site=pend.site if pend else None)
+        if verdict.kind == "none":
+            return False  # an unsolicited number is just a message
+        lang = await self._lang(user)
+        if self.log_redacted is not None:
+            await self.log_redacted(user, msg)  # the row keeps "[redacted]", never the text
+        msg.text = None
+        if verdict.kind == LOGIN_OTP and pend is not None:
+            self.pending_logins.consume(user.id)  # single use
+            try:
+                self.otp.submit(pend.task_id, verdict.code)  # straight to the browser worker
+            except ValueError:
+                return True
+            self.audit.record("login_code_chat", user_id=user.id, site=pend.site)
+            await self.notifier.notify_user(user.id, _line("code_taken", lang))
             return True
+        if verdict.kind in REFUSALS:
+            self.audit.record("chat_secret_refused", user_id=user.id, kind=verdict.kind)
+            await self.notifier.notify_user(
+                user.id, _line(login_copy.REFUSAL_LINE[verdict.kind], lang))
+        return True
+
+    # ---- login commands
+    def _forget_open(self, user_id: str) -> bool:
+        ask = self._forget_asks.get(user_id)
+        if ask is None:
+            return False
+        if self._clock() >= ask[1]:
+            self._forget_asks.pop(user_id, None)
+            return False
+        return True
+
+    def _ask_forget(self, user_id: str, site: str | None) -> None:
+        self._forget_asks[user_id] = (site, self._clock() + FORGET_CONFIRM_TTL_SECONDS)
+
+    async def _confirm(self, user: User, text: str, lang: str) -> None:
+        await self.notifier.notify_user(
+            user.id, text, buttons=[ReplyButton(id=BTN_YES, title=_line("btn_forget_yes", lang)[:20]),
+                                    ReplyButton(id=BTN_NO, title=_line("btn_forget_no", lang)[:20])])
+
+    async def _forget_answer(self, user: User, yes: bool, lang: str) -> bool:
+        ask = self._forget_asks.pop(user.id, None)
+        if ask is None or self._clock() >= ask[1]:
+            return True  # a stale button: swallowed, nothing deleted
+        site = ask[0]
+        if not yes:
+            await self.notifier.notify_user(user.id, _line("forget_cancelled", lang))
+        elif site:
+            self.cred_tokens.revoke_user(user.id)
+            self.cred_vault.delete(user.id, site)
+            self.vault.disconnect(user.id, site)
+            self.audit.record("credential_deleted", user_id=user.id, site=site, count=1)
+            await self.notifier.notify_user(user.id, _line("forgotten_site", lang, site=site))
+        else:
+            n = await self.forget_user(user.id)
+            await self.notifier.notify_user(user.id, _line("forgotten", lang, n=n))
+        return True
+
+    _NOT_SITES = frozenset({"everything", "all", "logins", "login", "my", "it", "this", "that", "me",
+                            "password", "passwords", "history", "chat", "chats", "data", "number",
+                            "contacts", "reminders", "memory", "memories"})
+
+    async def _maybe_forget_site(self, user: User, text: str, lang: str) -> bool:
+        m = FORGET_SITE.match(text)
+        if m is None or not self.settings.credentials_allowed(user.id):
+            return False
+        name = (m.group("a") or m.group("b") or "").lower()
+        if not name or name in self._NOT_SITES:
+            return False
+        spec = catalog.site(name)
+        key = spec.key if spec is not None else name
+        saved = {x.site for x in self.cred_vault.saved_logins(user.id)}
+        if key not in saved and name not in saved:
+            if spec is None:
+                return False  # "forget it": not for us
+            await self.notifier.notify_user(user.id, _line("forget_none", lang, site=spec.name))
+            return True
+        site = key if key in saved else name
+        self._ask_forget(user.id, site)
+        await self._confirm(user, _line("confirm_site", lang, site=site), lang)
+        return True
+
+    async def _logins(self, user: User, text: str, lang: str) -> bool:
+        allowed = self.credentials is not None and self.settings.credentials_allowed(user.id)
+        saved = self.cred_vault.saved_logins(user.id)
         if m := SAVE_LOGIN.match(text):
+            if not allowed:
+                await self.notifier.notify_user(user.id, _line("off", lang))
+                return True
             spec = catalog.site(m.group("site"))
             if spec is None:
                 await self.notifier.notify_user(user.id, _line("unknown_site", lang))
@@ -269,11 +396,17 @@ class BrowserStack:
                 return True
             await self.notifier.notify_user(user.id, _line("link", lang, site=spec.name, link=link))
             return True
-        if FORGET_LOGINS.match(text):
-            n = await self.forget_user(user.id)
-            await self.notifier.notify_user(user.id, _line("forgotten", lang, n=n))
+        if not allowed and not saved:
+            await self.notifier.notify_user(user.id, _line("off", lang))
             return True
-        saved = self.credentials.saved(user.id)
+        if FORGET_LOGINS.match(text):  # with a yes / no question first
+            if not saved:
+                await self.forget_user(user.id)  # saved browser sessions only: nothing to ask
+                await self.notifier.notify_user(user.id, _line("none", lang))
+                return True
+            self._ask_forget(user.id, None)
+            await self._confirm(user, _line("confirm_all", lang, n=len(saved)), lang)
+            return True
         if not saved:
             await self.notifier.notify_user(user.id, _line("none", lang))
         else:
@@ -283,9 +416,17 @@ class BrowserStack:
 
     # ---- "delete everything" and "forget my logins"
     async def forget_user(self, user_id: str) -> int:
-        """Delete saved logins, the saved browser sessions and any live session of this user."""
-        n = self.credentials.forget(user_id) if self.credentials is not None else 0
+        """Delete saved logins (even when the switch was turned off since), the saved browser
+        sessions, open links, a pending login code and any live session of this user."""
+        self.cred_tokens.revoke_user(user_id)
+        n = self.credentials.forget(user_id) if self.credentials is not None \
+            else self.cred_vault.delete_user(user_id)
         self.vault.disconnect_user(user_id)
+        if self.pending_logins is not None:
+            task = self.pending_logins.consume(user_id)
+            if task is not None:
+                self.otp.wipe(task.task_id)
+        self._forget_asks.pop(user_id, None)
         await self.manager.kill_user(user_id, "forget")
         self._profiles.pop(user_id, None)
         return n
