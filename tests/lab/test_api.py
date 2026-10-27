@@ -38,6 +38,10 @@ def test_every_page_and_api_needs_the_token(lab):
 
 
 def test_the_token_is_unguessable_and_not_in_any_log_line(lab, caplog):
+    import logging
+
+    # the TEST client's own httpx request log (INFO, set by earlier CLI tests) prints the URL
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     assert len(lab.token) >= 32
     lab.get("/config")
     assert lab.token not in caplog.text
