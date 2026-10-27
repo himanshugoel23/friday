@@ -33,6 +33,7 @@ from friday.db.tables import (
     UserRow,
     VendorInteractionRow,
 )
+from friday.docunderstand.dbmodel import purge_user_documents
 from friday.evidence.dbmodel import EvidenceItemRow, purge_user_evidence
 from friday.google.dbmodel import GoogleConnectionRow, GoogleOAuthStateRow
 from friday.lifestate.dbmodel import (
@@ -114,6 +115,7 @@ class DataPurger(Repo):
             counts.update(await purge_user_calls(s, user_id))  # consumer calls (not the global DNC)
             counts.update(await purge_user_receptionist(s, user_id))  # messages, block list, setup
             counts.update(await purge_user_evidence(s, user_id))  # proof items + claims
+            counts.update(await purge_user_documents(s, user_id))  # understood documents
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(LifeFollowupRow, LifeFollowupRow.user_id == user_id)  # life state

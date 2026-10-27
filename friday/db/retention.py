@@ -8,6 +8,7 @@
 * pre-consent users (never agreed to the DPDP notice) older than ``preconsent_days``
   (7): purged like "delete everything";
 * proof (``evidence_items``) past ``expires_at`` (90 days): rows + masked screenshots deleted;
+* documents past ``expires_at`` (unconfirmed 7 days, confirmed 180): rows and fields;
 * ephemeral "current location" places older than 24 h: deleted;
 * ``pending_deletions`` (erasures that failed earlier): retried, given up after 20.
 """
@@ -124,6 +125,14 @@ async def expire_evidence(
     return {"evidence_items": count}
 
 
+async def expire_documents(repos: Repositories, now: datetime) -> dict[str, int]:
+    """Understood documents past ``expires_at``: rows and fields deleted (no file is stored; a
+    Drive pointer goes with its row, the user's Drive file stays)."""
+    if repos.documents is None:
+        return {"documents": 0}
+    return {"documents": await repos.documents.expire(now)}
+
+
 async def purge_preconsent_users(
     repos: Repositories, now: datetime, *, days: int = PRECONSENT_RETENTION_DAYS
 ) -> int:
@@ -177,6 +186,7 @@ async def run_retention(
     out["preconsent_users"] = await purge_preconsent_users(repos, now, days=preconsent_days)
     out["ephemeral_places"] = await delete_ephemeral_places(repos, now)
     out.update(await expire_evidence(repos, now, store=store))
+    out.update(await expire_documents(repos, now))
     out["pending_deletions"] = await process_pending_deletions(
         repos, store=store, telephony=telephony
     )

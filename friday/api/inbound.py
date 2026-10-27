@@ -648,6 +648,18 @@ class InboundPipeline:
             out = normalise_inbound(out)
         return out
 
+    # ------------------------------------------------------------------ photos and documents
+    def _docs_hook(self) -> Any:
+        """HOOK (docs/DOCUMENT_UNDERSTANDING.md): images/PDFs, ``doc:`` buttons and fix replies,
+        or None while FRIDAY_DOCS_ENABLED is off."""
+        if not self.settings.docs_enabled:
+            return None
+        if not hasattr(self, "_docs_in"):
+            from friday.chatbot_media.wiring import build_docs
+
+            self._docs_in = build_docs(self.c, self)
+        return self._docs_in
+
     # ------------------------------------------------------------------ speech understanding
     def _speech_und(self) -> Any:
         """The Speech Understander (docs/SPEECH_UNDERSTANDING.md) or None when it cannot run."""
@@ -704,6 +716,12 @@ class InboundPipeline:
         # normalise Devanagari to Roman for the parsers (the log above kept the original text)
         if self._media_hook() is not None:
             routed = await self._media_inbound(user, msg)
+            if routed is None:
+                return
+            msg = routed
+        # HOOK: a photo/PDF is read and confirmed with the user (never sent to the brain)
+        if (docs := self._docs_hook()) is not None:
+            routed = await docs.on_inbound(user, msg)
             if routed is None:
                 return
             msg = routed

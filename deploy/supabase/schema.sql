@@ -1493,5 +1493,56 @@ CREATE UNIQUE INDEX ix_done_claims_task ON done_claims (task_id);
 
 UPDATE alembic_version SET version_num='0013_evidence' WHERE alembic_version.version_num = '0012_receptionist_spam';
 
+-- Running upgrade 0013_evidence -> 0014_documents
+
+CREATE TABLE documents (
+    user_id VARCHAR(32) NOT NULL, 
+    doc_type VARCHAR(24) NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    mime VARCHAR(32) NOT NULL, 
+    size_bytes INTEGER NOT NULL, 
+    sha256 VARCHAR(64), 
+    language VARCHAR(10) NOT NULL, 
+    confidence FLOAT NOT NULL, 
+    injection_flag BOOLEAN NOT NULL, 
+    pointer_kind VARCHAR(16), 
+    pointer_ref TEXT, 
+    expires_at TIMESTAMP WITH TIME ZONE, 
+    confirmed_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_documents PRIMARY KEY (id), 
+    CONSTRAINT fk_documents_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_documents_user_status ON documents (user_id, status);
+
+CREATE INDEX ix_documents_expires ON documents (expires_at);
+
+CREATE TABLE document_fields (
+    document_id VARCHAR(32) NOT NULL, 
+    user_id VARCHAR(32) NOT NULL, 
+    name VARCHAR(32) NOT NULL, 
+    value TEXT NOT NULL, 
+    confidence FLOAT NOT NULL, 
+    needs_confirm BOOLEAN NOT NULL, 
+    confirmed BOOLEAN NOT NULL, 
+    source VARCHAR(8) NOT NULL, 
+    masked BOOLEAN NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_document_fields PRIMARY KEY (id), 
+    CONSTRAINT fk_document_fields_document_id_documents FOREIGN KEY(document_id) REFERENCES documents (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_document_fields_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_document_fields_doc ON document_fields (document_id);
+
+CREATE INDEX ix_document_fields_user ON document_fields (user_id);
+
+UPDATE alembic_version SET version_num='0014_documents' WHERE alembic_version.version_num = '0013_evidence';
+
 COMMIT;
 
