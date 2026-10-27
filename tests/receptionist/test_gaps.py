@@ -96,7 +96,7 @@ async def test_raw_value_still_wins_over_call_fields():
 def test_doctor_chain_and_sql_files_contain_the_receptionist_tables():
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0014_documents"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0016_family_drive"
     assert doctor.EXPECTED_HEAD_CHAIN in doctor.known_revisions()
     assert "0011_receptionist" in doctor.known_revisions()
     schema = (ROOT / "deploy" / "supabase" / "schema.sql").read_text()

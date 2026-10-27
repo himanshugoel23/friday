@@ -74,9 +74,7 @@ class UserIn(BaseModel):
     user_id: str = Field(min_length=1, max_length=32)
 
 
-def google_router(
-    c: Container, require_internal: Callable[..., Any]
-) -> APIRouter:
+def google_router(c: Container, require_internal: Callable[..., Any]) -> APIRouter:
     router = APIRouter(tags=["google"])
 
     def oauth(request: Request) -> GoogleOAuth:
@@ -108,7 +106,11 @@ def google_router(
             return _message(copy.EXPIRED_TITLE, copy.EXPIRED_BODY, 404)
         return _page(
             copy.TITLE,
-            copy.consent_body_html(url, gmail_enabled=c.settings.google_gmail_enabled),
+            copy.consent_body_html(
+                url,
+                gmail_enabled=c.settings.google_gmail_enabled,
+                drive_enabled=c.settings.family_drive_enabled,
+            ),
         )
 
     @router.get("/callback")
@@ -140,6 +142,8 @@ def google_router(
     @router.post("/disconnect", dependencies=[Depends(require_internal)])
     async def disconnect(body: UserIn, request: Request) -> dict[str, bool]:
         res = await oauth(request).disconnect(body.user_id)
+        if c.repos.family_drive is not None:  # the Google token is gone: so are our Drive pointers
+            await c.repos.family_drive.delete_all(body.user_id)
         return {"disconnected": res.deleted, "revoked": res.revoked}
 
     @router.get("/status", dependencies=[Depends(require_internal)])
@@ -151,6 +155,7 @@ def google_router(
             "scopes": st.scopes,
             "email_masked": st.email_masked,
             "gmail": st.gmail,
+            "drive": st.drive,
         }
 
     return router

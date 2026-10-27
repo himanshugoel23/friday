@@ -1,4 +1,4 @@
-"""A FAKE Google for tests: OAuth (token, userinfo, revoke), Calendar events, Gmail messages.
+"""A FAKE Google for tests: OAuth (token, userinfo, revoke), Calendar events, Gmail messages, Drive.
 
 A FastAPI app driven through ``httpx.ASGITransport``: no socket, no network at all. It enforces
 what the real thing enforces that matters to us: PKCE S256 on the code exchange, a one-time
@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
+import re
 import secrets
 from datetime import datetime
 from typing import Any
@@ -47,6 +49,10 @@ class FakeGoogle:
         self.revoked: list[str] = []
         self.gmail_queries: list[str] = []
         self.gmail_formats: list[str] = []
+        self.drive: dict[str, dict[str, dict[str, Any]]] = {}  # sub -> id -> object
+        self.drive_queries: list[str] = []
+        self.uploads: list[dict[str, Any]] = []
+        self.upload_status = 200  # switch: Drive answers the upload with this status
         # switches
         self.fail_refresh = False  # refresh grant answers invalid_grant
         self.revoke_status = 200
@@ -120,7 +126,7 @@ class FakeGoogle:
         fake = self
 
         async def log(request: Request) -> dict[str, Any]:
-            body = (await request.body()).decode() if request.method in ("POST", "PUT") else ""
+            body = (await request.body()).decode() if request.method in ("POST", "PUT", "PATCH") else ""
             rec = {
                 "method": request.method,
                 "path": request.url.path,
@@ -316,6 +322,150 @@ class FakeGoogle:
                 out["payload"]["body"] = {"data": b64(m["body"].encode())}
             return JSONResponse(out)
 
+        # -------------------------------------------------------------- drive (v3, drive.file)
+        def drive_ok(tok: dict[str, Any] | None) -> Response | None:
+            if tok is None:
+                return err("unauthenticated", 401)
+            if "drive.file" not in tok["scope"]:
+                return err("forbidden", 403)
+            return None
+
+        def drv(tok: dict[str, Any]) -> dict[str, dict[str, Any]]:
+            return fake.drive.setdefault(tok["sub"], {})
+
+        def drive_json(o: dict[str, Any]) -> dict[str, Any]:
+            out = {
+                "id": o["id"], "name": o["name"], "mimeType": o["mime"],
+                "trashed": o["trashed"], "parents": [o["parent"]] if o["parent"] else [],
+                "webViewLink": f"https://drive.google.com/file/d/{o['id']}/view",
+            }
+            if o["mime"] != "application/vnd.google-apps.folder":
+                out["size"] = str(len(o["data"]))
+            return out
+
+        def new_drive_obj(tok, name, mime, parent, key, data=b"") -> dict[str, Any]:
+            o = {
+                "id": f"gd{len(drv(tok)) + 1:05d}{secrets.token_hex(3)}", "name": name,
+                "mime": mime, "parent": parent, "key": key, "data": data, "trashed": False,
+                "perms": {},
+            }
+            drv(tok)[o["id"]] = o
+            return o
+
+        @app.get("/drive/files")
+        async def drive_list(request: Request) -> Response:
+            tok = who(await log(request))
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            q = request.query_params.get("q", "")
+            fake.drive_queries.append(q)
+            m = re.search(r"value='([^']*)'", q)
+            par = re.search(r"'([^']*)' in parents", q)
+            hits = [
+                o for o in drv(tok).values()
+                if (not m or o["key"] == m.group(1)) and (not par or o["parent"] == par.group(1))
+                and not (o["trashed"] and "trashed=false" in q)
+            ]
+            return JSONResponse({"files": [drive_json(o) for o in hits]})
+
+        @app.post("/drive/files")
+        async def drive_create(request: Request) -> Response:
+            rec = await log(request)
+            tok = who(rec)
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            body = json.loads(rec["body"])
+            if body.get("parents") and body["parents"][0] not in drv(tok):
+                return err("notFound", 404)
+            o = new_drive_obj(
+                tok, body["name"], body["mimeType"],
+                (body.get("parents") or [None])[0],
+                (body.get("appProperties") or {}).get("friday_key"),
+            )
+            return JSONResponse(drive_json(o))
+
+        @app.post("/upload/files")
+        async def drive_upload(request: Request) -> Response:
+            raw = await request.body()
+            fake.requests.append({
+                "method": "POST", "path": request.url.path, "query": dict(request.query_params),
+                "body": "<binary>", "auth": request.headers.get("authorization"),
+            })
+            tok = who(fake.requests[-1])
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            if fake.upload_status != 200:
+                return JSONResponse({"error": "boom"}, status_code=fake.upload_status)
+            ctype = request.headers["content-type"]
+            fake.uploads.append({
+                "content_length": request.headers.get("content-length"),
+                "size": len(raw), "ctype": ctype,
+            })
+            boundary = ctype.split("boundary=")[1].encode()
+            parts = [p for p in raw.split(b"--" + boundary) if p.strip(b"-\r\n")]
+            meta_part, media_part = parts[0], parts[1]
+            meta = json.loads(meta_part.split(b"\r\n\r\n", 1)[1].strip())
+            head, media = media_part.split(b"\r\n\r\n", 1)
+            media = media[:-2] if media.endswith(b"\r\n") else media
+            mime = head.split(b"Content-Type: ")[1].split(b"\r\n")[0].decode()
+            parent = (meta.get("parents") or [None])[0]
+            if parent and parent not in drv(tok):
+                return err("notFound", 404)
+            o = new_drive_obj(
+                tok, meta["name"], mime, parent,
+                (meta.get("appProperties") or {}).get("friday_key"), media,
+            )
+            return JSONResponse(drive_json(o))
+
+        @app.get("/drive/files/{fid}")
+        async def drive_get(fid: str, request: Request) -> Response:
+            tok = who(await log(request))
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            o = drv(tok).get(fid)
+            if o is None:
+                return err("notFound", 404)
+            if request.query_params.get("alt") == "media":
+                return Response(o["data"], media_type=o["mime"])
+            return JSONResponse(drive_json(o))
+
+        @app.patch("/drive/files/{fid}")
+        async def drive_patch(fid: str, request: Request) -> Response:
+            rec = await log(request)
+            tok = who(rec)
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            o = drv(tok).get(fid)
+            if o is None:
+                return err("notFound", 404)
+            o["trashed"] = bool(json.loads(rec["body"]).get("trashed", o["trashed"]))
+            return JSONResponse(drive_json(o))
+
+        @app.post("/drive/files/{fid}/permissions")
+        async def drive_perm(fid: str, request: Request) -> Response:
+            rec = await log(request)
+            tok = who(rec)
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            o = drv(tok).get(fid)
+            if o is None:
+                return err("notFound", 404)
+            body = json.loads(rec["body"])
+            pid = "perm" + secrets.token_hex(4)
+            o["perms"][pid] = (body["emailAddress"], body["role"])
+            return JSONResponse({"id": pid})
+
+        @app.delete("/drive/files/{fid}/permissions/{pid}")
+        async def drive_perm_delete(fid: str, pid: str, request: Request) -> Response:
+            tok = who(await log(request))
+            if (bad := drive_ok(tok)) is not None:
+                return bad
+            o = drv(tok).get(fid)
+            if o is None or pid not in o["perms"]:
+                return err("notFound", 404)
+            del o["perms"][pid]
+            return Response(status_code=204)
+
         return app
 
 
@@ -331,6 +481,8 @@ def settings_overrides() -> dict[str, Any]:
         "google_revoke_url": f"{BASE}/revoke",
         "google_calendar_base_url": f"{BASE}/calendar",
         "google_gmail_base_url": f"{BASE}/gmail",
+        "google_drive_base_url": f"{BASE}/drive",
+        "google_drive_upload_url": f"{BASE}/upload",
     }
 
 

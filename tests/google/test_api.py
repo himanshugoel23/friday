@@ -50,7 +50,8 @@ async def test_full_flow_over_http(api, fake, alice):
     assert body["connected"] is True and body["status"] == "connected"
     assert body["email_masked"] == "a***@gmail.com" and body["gmail"] is True
     assert "https://www.googleapis.com/auth/calendar.events" in body["scopes"]
-    assert set(body) == {"connected", "status", "scopes", "email_masked", "gmail"}
+    assert body["drive"] is False  # FRIDAY_FAMILY_DRIVE_ENABLED is off: drive.file never asked
+    assert set(body) == {"connected", "status", "scopes", "email_masked", "gmail", "drive"}
 
     # replaying the same callback fails
     again = await api.get("/google/callback", params={"code": code, "state": state})

@@ -49,8 +49,9 @@ TITLES = {
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
+# -> (0015_urgent_escalation, built in parallel; not in this branch) -> 0016_family_drive
 # must be in the code
-EXPECTED_HEAD_CHAIN = "0014_documents"
+EXPECTED_HEAD_CHAIN = "0016_family_drive"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -425,10 +426,28 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_GOOGLE_ENABLED", settings.google_enabled),
         ("FRIDAY_PROOF_ENABLED", settings.proof_enabled),
         ("FRIDAY_DOCS_ENABLED", settings.docs_enabled),
+        ("FRIDAY_FAMILY_DRIVE_ENABLED", settings.family_drive_enabled),
         ("FRIDAY_VOICE_NOTE_REPLIES", settings.voice_note_replies),
         ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):
         s.add(OK, f"{name}={'on' if on else 'off'}")
+    if settings.family_drive_enabled:
+        s.add(
+            WARN,
+            "FRIDAY_FAMILY_DRIVE_ENABLED is on: it adds the Google drive.file scope to new "
+            "consents. The Drive consent paragraph and every line in friday/familydrive/copy.py "
+            "(including the folder names created in the user's Drive) are PENDING founder "
+            "approval, and the Drive facts are UNVERIFIED until the real-account spike in "
+            "docs/FAMILY_DRIVE.md",
+        )
+        if settings.family_drive_sharing_enabled:
+            s.add(
+                WARN,
+                "FRIDAY_FAMILY_DRIVE_SHARING_ENABLED is on: sharing the folder needs the "
+                "owner's approval each time",
+            )
+        if not settings.google_oauth_client_id:
+            s.add(WARN, "family Drive is on but GOOGLE_OAUTH_CLIENT_ID is not set")
     # ffmpeg makes the spoken reply WhatsApp-ready (Ogg/Opus) and decodes incoming voice notes
     if shutil.which("ffmpeg"):
         s.add(OK, "ffmpeg is installed (voice notes in and out)")

@@ -104,6 +104,7 @@ class ConnectionStatus:
     scopes: list[str]
     email_masked: str | None
     gmail: bool
+    drive: bool = False
 
 
 def mask_email(email: str | None) -> str | None:
@@ -159,7 +160,7 @@ class GoogleOAuth:
 
     @property
     def requested_scopes(self) -> list[str]:
-        return sc.requested_scopes(self.s.google_gmail_enabled)
+        return sc.requested_scopes(self.s.google_gmail_enabled, self.s.family_drive_enabled)
 
     @property
     def public_base(self) -> str:
@@ -359,13 +360,14 @@ class GoogleOAuth:
     async def status(self, user_id: str) -> ConnectionStatus:
         conn = await self.repo.get(user_id)
         if conn is None:
-            return ConnectionStatus(False, "not_connected", [], None, False)
+            return ConnectionStatus(False, "not_connected", [], None, False, False)
         return ConnectionStatus(
             connected=conn.status == CONNECTED,
             status=conn.status,
             scopes=list(conn.scopes),
             email_masked=mask_email(conn.email),
             gmail=sc.GMAIL_READONLY in conn.scopes,
+            drive=sc.DRIVE_FILE in conn.scopes,
         )
 
     # ------------------------------------------------------------------ HTTP to Google
@@ -381,8 +383,9 @@ class GoogleOAuth:
             async with self._http() as client:
                 r = await client.post(self.s.google_token_url, data=body)
         except httpx.HTTPError as e:
-            raise GoogleError(f"token endpoint unreachable ({type(e).__name__})",
-                              code="unreachable") from None
+            raise GoogleError(
+                f"token endpoint unreachable ({type(e).__name__})", code="unreachable"
+            ) from None
         payload = _json(r)
         if r.status_code != 200:
             err = str(payload.get("error") or f"http_{r.status_code}")
@@ -397,8 +400,9 @@ class GoogleOAuth:
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
         except httpx.HTTPError as e:
-            raise GoogleError(f"userinfo unreachable ({type(e).__name__})",
-                              code="unreachable") from None
+            raise GoogleError(
+                f"userinfo unreachable ({type(e).__name__})", code="unreachable"
+            ) from None
         if r.status_code != 200:
             raise GoogleError("userinfo refused", code="bad_userinfo")
         return _json(r)

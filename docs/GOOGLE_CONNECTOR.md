@@ -89,8 +89,9 @@ then GET) and never a duplicate; a deleted event with the same key is restored. 
 | `openid`, `email` | identify the Google account, show it masked | non-sensitive |
 | `https://www.googleapis.com/auth/calendar.events` | read events (busy check, morning brief) and create/delete the appointments Friday books | sensitive |
 | `https://www.googleapis.com/auth/gmail.readonly` (only with the switch) | find bills, tickets, appointments | RESTRICTED |
+| `https://www.googleapis.com/auth/drive.file` (only with `FRIDAY_FAMILY_DRIVE_ENABLED`; consent text PENDING approval) | keep the family's documents in a `Friday` folder in THEIR OWN Drive; sees only files Friday creates | per Google non-sensitive (UNVERIFIED), see docs/FAMILY_DRIVE.md |
 
-Never requested: Drive, Contacts, `gmail.send`, `gmail.compose`, `gmail.modify`, `mail.google.com`, full `calendar`.
+Never requested: full `drive`, `drive.readonly`, Contacts, `gmail.send`, `gmail.compose`, `gmail.modify`, `mail.google.com`, full `calendar`.
 `tests/google/test_scopes.py` fails if the list grows.
 
 ## What is NOT verified
