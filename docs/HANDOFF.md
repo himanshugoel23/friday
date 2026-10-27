@@ -1084,3 +1084,6 @@ Founder (Hindi, translated): research what Crew-type concierge services do and h
 
 ## FOUNDER DECISION (2026-10-27): family documents live in the family's own Google Drive, NOT on Friday's servers
 Reason: avoid document-storage burden. Supersedes the earlier "no Drive" rule and the PM's "own encrypted vault" recommendation (docs/CONCIERGE_REFERENCE.md). Design rules: Drive connector with per-user consent, narrowest scope (prefer drive.file), Friday creates a structured folder tree per family, we keep only pointers + minimal extracted fields, document bytes processed in memory and discarded, disconnect deletes our pointers. EM design (docs/TRIP_CONCIERGE_DESIGN.md) updated accordingly.
+
+## Task (2026-10-27): founder shared a screenshot of a CREW user's LinkedIn post
+Added as an addendum to docs/CONCIERGE_REFERENCE.md (no names). Confirms Drive + WhatsApp group model; new asks: flight web check-in, arrival forms, negotiated hotel rates. EM agent told.

@@ -78,3 +78,10 @@ Avoid: promising lowest price or automatic rebooking (Crew has no guarantee; sup
 - NPCI's UPI Circle circular was not read; limits come from secondary sites.
 - Reddit, X and app-store reviews were not searched in this pass.
 - No India-specific consumer competitor with a WhatsApp document vault was found in one search; not proof that none exists.
+
+## Addendum (2026-10-27): founder-shared LinkedIn testimonial of a CREW user (screenshot, one person, claimed)
+No names recorded here. The post describes, for a family holiday:
+1. **~30% discount** on the hotel stay vs online marketplace rates ("exclusive", not available elsewhere): suggests negotiated/direct rates, not just booking.
+2. **"Trip Assist" = a WhatsApp group between the CREW concierge team and the family** (humans in the loop, WhatsApp is the main channel).
+3. They **checked the family in for flights**, **filled arrival cards and Air Suvidha-type travel forms**, **created a Google Drive with all travel documents**, **planned a day-wise itinerary with bookings and reservations**, **sent reminders at the right time**, and were available for basic help.
+Takeaways for Friday: (a) confirms the founder's recollection: a shared Drive folder + WhatsApp group is the product; (b) new items beyond our list: flight web check-in, arrival/health/customs form filling (browser connector, user approval, supervised), negotiated hotel rates (needs supply deals; not buildable by software alone); (c) still unverified: how much is human vs AI, price, scale.
