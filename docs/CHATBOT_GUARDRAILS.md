@@ -1,5 +1,7 @@
 # Chatbot guardrails: what Friday does when a user can say anything (22 Oct 2026, proposal for the founder)
 
+Status (2026-10-27): BUILT as rules (no trained classifier yet), new categories OFF by default: see `docs/GUARDRAILS_MODULE.md`.
+
 Principle: Friday is a personal assistant that acts for the user, not a generic chatbot. Policy is decided by CODE (rules plus a small trained classifier), never improvised by a language model. Every guardrail reply is fixed wording (pending the founder's approval, like all copy), in the user's language and script.
 
 ## Layers (a message passes top to bottom)

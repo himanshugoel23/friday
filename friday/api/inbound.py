@@ -71,6 +71,8 @@ from friday.core.models import (
 )
 from friday.db.repositories import MatchStatus
 from friday.db.repositories._base import phone_index
+from friday.guardrails import Context as GuardContext
+from friday.guardrails import Guardrails, GuardrailsConfig
 
 if TYPE_CHECKING:
     from friday.core.container import Container
@@ -179,6 +181,9 @@ class InboundPipeline:
         from friday.pm.gateway import PMGateway
 
         self.pm_gateway = PMGateway(c)  # non-salon categories (off unless FRIDAY_PM_ENABLED)
+        # guardrails (docs/GUARDRAILS_MODULE.md): code decides by category; shared by the chatbot
+        # (check, before any model) and the brain reply path (check_reply)
+        self.guardrails = Guardrails(GuardrailsConfig.from_settings(self.settings))
         # the WhatsApp chatbot pilot (docs/CHATBOT_PILOT.md): None unless FRIDAY_CHATBOT_ONBOARDING
         self.chatbot: Any = None
         if self.settings.chatbot_onboarding:
@@ -499,6 +504,8 @@ class InboundPipeline:
     async def _looks_sensitive(self, user: User, msg: InboundMessage) -> bool:
         if self.onboarding.awaiting_pin(user):
             return True
+        if self.guardrails.redact_stored(msg.text, user.id, self.clock.now()):
+            return True  # OTP, PIN, CVV, card, password in chat
         pending = await self.state.get_pending(user.id, self.clock.now())
         return pending is not None and pending.kind == "pin"
 
@@ -1031,7 +1038,18 @@ class InboundPipeline:
         elif intent == Intent.INVITE:
             reply, buttons = await self._invites(user), []
 
+        if reply and self.settings.guardrails_output_filter:
+            gctx = GuardContext(user_id=user.id, lang=await self._reply_lang(user))
+            reply = self.guardrails.check_reply(reply, gctx).text
         await self.reply(user, reply, buttons)
+
+    async def _reply_lang(self, user: User) -> str:
+        try:
+            profile = await self.repos.profiles.get_or_default(user.id)
+            code = getattr(profile.language, "value", str(profile.language))
+        except Exception:  # noqa: BLE001
+            return "hinglish"
+        return code if code in ("hinglish", "hi", "en") else "hinglish"
 
     async def _sensitive_read(self, user: User, interp: Interpretation) -> bool:
         """SECURITY-23 step-up (enforced by intent, not only the brain's flag):
