@@ -156,7 +156,7 @@ async def test_resumable_task_state(tmp_path):
             otp=sim.OneTimeOtpChannel(), profile=lambda u: sc.profile,
             login_link=lambda t: "https://friday.invalid/otp/x",
             base_urls={"zomato.food": "http://fake.invalid"}, store=JsonTaskStore(path),
-            enabled=lambda: True)
+            enabled=lambda: True, mode_of=lambda _s: "scripted")
 
     f1 = build()
     await f1.handle_text("u1", "Order 2 margherita from Domino's")

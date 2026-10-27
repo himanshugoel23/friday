@@ -179,7 +179,7 @@ async def run_scenario(sc: Scenario, lang: str = "en", *, flow_hook: Callable | 
         profile=lambda _u: sc.profile, login_link=lambda t: f"https://friday.invalid/otp/{t}",
         base_urls={"zomato.food": "http://fake.invalid", "bookmyshow.movie": "http://fake.invalid"},
         repairer=FakeRepairer(sc.repairs) if sc.repairs is not None else None,
-        enabled=lambda: True, otp_wait_s=0.05, poll_s=0.0, sleep=noop)
+        enabled=lambda: True, mode_of=lambda _s: "scripted", otp_wait_s=0.05, poll_s=0.0, sleep=noop)
     if flow_hook:
         flow_hook(flow)
     await flow.handle_text(USER, sc.request, lang)

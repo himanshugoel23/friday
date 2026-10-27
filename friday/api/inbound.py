@@ -185,6 +185,15 @@ class InboundPipeline:
             from friday.chatbot.service import ChatbotService
 
             self.chatbot = ChatbotService(self)
+        # the private browser (docs/PRIVATE_BROWSER.md): None unless FRIDAY_BROWSER_ENABLED
+        self.browser: Any = None
+        if self.settings.browser_enabled:
+            try:
+                from friday.connectors.wiring import build_browser_stack
+
+                self.browser = build_browser_stack(c)
+            except Exception:  # noqa: BLE001 - the browser must never stop the app from booting
+                log.exception("private browser failed to build; continuing without it")
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -707,6 +716,9 @@ class InboundPipeline:
         if self.chatbot is not None and await self.chatbot.pre(user, msg):
             return  # chatbot pilot: menu/help/stop/human/delete, captures, onboarding answers
 
+        if self.browser is not None and await self.browser.handle(user, msg):
+            return  # private browser: "bf:" buttons, "my logins", an order / booking request
+
         rcp = self.callbacks.receptionist()  # buttons, "what did I miss?" (None: switch off)
         if rcp is not None and await rcp.handle(user, msg):
             return
@@ -1196,6 +1208,11 @@ class InboundPipeline:
         for task in await self.repos.tasks.list_for_user(user.id, open_only=True):
             await self._engine_call(("cancel",), task.id)
         phone = user.phone
+        if self.browser is not None:  # saved logins, saved browser sessions, live sessions
+            try:
+                await self.browser.forget_user(user.id)
+            except Exception:  # noqa: BLE001 - never block the purge
+                log.exception("browser forget failed during delete everything")
         recordings = await self.repos.purger.recording_urls(user.id)
         counts = await self.repos.purger.purge_user(user.id)
         # SECURITY-14: recordings live outside the DB (object store / provider).

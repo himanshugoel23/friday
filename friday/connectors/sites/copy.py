@@ -46,6 +46,98 @@ COPY: dict[str, dict[str, str]] = {
                "usse kam ho tabhi aage badhungi.\nPayment main kabhi nahi karti: aap apne UPI app "
                "se denge. Aage badhun?"),
     },
+    "q_grocery_items": {"en": "What should I order? (for example 2 milk, 1 bread)",
+                        "hi": "Kya mangwana hai? (jaise 2 doodh, 1 bread)"},
+    "q_pickup": {"en": "Where should the ride pick you up?", "hi": "Gaadi aapko kahan se leni hai?"},
+    "q_drop": {"en": "Where do you want to go?", "hi": "Kahan jaana hai?"},
+    "q_origin": {"en": "From which city or place?", "hi": "Kahan se?"},
+    "q_dest": {"en": "To which city or place?", "hi": "Kahan tak?"},
+    "q_date": {"en": "On which date? (for example tomorrow, or 5 Nov)", "hi": "Kis tareekh ko? (jaise kal, ya 5 Nov)"},
+    "q_city": {"en": "In which city?", "hi": "Kaunse shehar mein?"},
+    "q_checkin": {"en": "Check-in date? (for example tomorrow, or 5 Nov)", "hi": "Check-in kab? (jaise kal, ya 5 Nov)"},
+    "q_nights": {"en": "How many nights?", "hi": "Kitni raat?"},
+    "q_guests": {"en": "How many guests?", "hi": "Kitne log?"},
+    "q_passengers": {"en": "How many passengers?", "hi": "Kitne yatri?"},
+    "q_query": {"en": "What would you like to buy?", "hi": "Kya kharidna hai?"},
+    "q_generic": {"en": "One more detail please: {slot}", "hi": "Ek detail aur chahiye: {slot}"},
+    "approve_grocery": {
+        "en": ("Please check:\n{lines}\nFrom: {merchant}\nDeliver to: {address}\n"
+               "Items: {subtotal}. Delivery and handling fees get added. No substitutions. I will go "
+               "ahead only if the final bill is {max_total} or less.\nI never pay: you pay in your own "
+               "UPI app. Go ahead?"),
+        "hi": ("Ek baar dekh lijiye:\n{lines}\nKahan se: {merchant}\nKahan bhejna hai: {address}\n"
+               "Items: {subtotal}. Delivery aur handling fee judti hai. Koi substitute nahi. Final bill "
+               "{max_total} ya usse kam ho tabhi aage badhungi.\nPayment main kabhi nahi karti: aap apne "
+               "UPI app se denge. Aage badhun?"),
+    },
+    "approve_ride": {
+        "en": ("Please check the ride:\n{lines}\nVia: {merchant}\nPickup: {address}\n{when}"
+               "Fare estimate {subtotal}. Fares can change; I will go ahead only if it stays at "
+               "{max_total} or less. A cancellation fee may apply.{extra}\nI never pay: you pay the "
+               "driver or in your own UPI app. Go ahead?"),
+        "hi": ("Ride ek baar dekh lijiye:\n{lines}\nKiske through: {merchant}\nPickup: {address}\n{when}"
+               "Fare ka andaza {subtotal}. Fare badal sakta hai; {max_total} ya usse kam rahe tabhi aage "
+               "badhungi. Cancel karne par fee lag sakti hai.{extra}\nPayment main kabhi nahi karti: aap "
+               "driver ko ya apne UPI app se denge. Aage badhun?"),
+    },
+    "approve_hotel": {
+        "en": ("Please check the stay:\n{lines}\nHotel: {merchant}\n{when}\nPrice: {subtotal}. Taxes get "
+               "added. I will go ahead only if the final amount is {max_total} or less.{extra}\nI never "
+               "pay: you pay in your own UPI app. Go ahead?"),
+        "hi": ("Stay ek baar dekh lijiye:\n{lines}\nHotel: {merchant}\n{when}\nPrice: {subtotal}. Tax judta "
+               "hai. Final amount {max_total} ya usse kam ho tabhi aage badhungi.{extra}\nPayment main "
+               "kabhi nahi karti: aap apne UPI app se denge. Aage badhun?"),
+    },
+    "approve_flight": {
+        "en": ("Please check the flight:\n{lines}\nVia: {merchant}\n{when}\nFare: {subtotal}. Taxes and fees "
+               "get added. I will go ahead only if the final amount is {max_total} or less.{extra}\nI never "
+               "pay: you pay in your own UPI app. Go ahead?"),
+        "hi": ("Flight ek baar dekh lijiye:\n{lines}\nKiske through: {merchant}\n{when}\nFare: {subtotal}. "
+               "Tax aur fee judti hai. Final amount {max_total} ya usse kam ho tabhi aage badhungi.{extra}\n"
+               "Payment main kabhi nahi karti: aap apne UPI app se denge. Aage badhun?"),
+    },
+    "approve_bus": {
+        "en": ("Please check the bus:\n{lines}\nOperator and site: {merchant}\n{when}\nFare: {subtotal}. "
+               "Fees get added. I will go ahead only if the final amount is {max_total} or less.{extra}\n"
+               "I never pay: you pay in your own UPI app. Go ahead?"),
+        "hi": ("Bus ek baar dekh lijiye:\n{lines}\nOperator aur site: {merchant}\n{when}\nFare: {subtotal}. "
+               "Fee judti hai. Final amount {max_total} ya usse kam ho tabhi aage badhungi.{extra}\n"
+               "Payment main kabhi nahi karti: aap apne UPI app se denge. Aage badhun?"),
+    },
+    "approve_train": {
+        "en": ("Please check the train ticket:\n{lines}\nVia: {merchant}\n{when}\nFare: {subtotal}. Fees get "
+               "added. I will go ahead only if the final amount is {max_total} or less.{extra}\nI never "
+               "pay: you pay in your own UPI app. Go ahead?"),
+        "hi": ("Train ticket ek baar dekh lijiye:\n{lines}\nKiske through: {merchant}\n{when}\nFare: {subtotal}. "
+               "Fee judti hai. Final amount {max_total} ya usse kam ho tabhi aage badhungi.{extra}\n"
+               "Payment main kabhi nahi karti: aap apne UPI app se denge. Aage badhun?"),
+    },
+    "approve_shopping": {
+        "en": ("Please check:\n{lines}\nFrom: {merchant}\nDeliver to: {address}\nItems: {subtotal}. Delivery "
+               "and taxes get added. I will go ahead only if the final amount is {max_total} or less.\n"
+               "I never pay: you pay in your own UPI app. Go ahead?"),
+        "hi": ("Ek baar dekh lijiye:\n{lines}\nKahan se: {merchant}\nKahan bhejna hai: {address}\nItems: "
+               "{subtotal}. Delivery aur tax judte hain. Final amount {max_total} ya usse kam ho tabhi "
+               "aage badhungi.\nPayment main kabhi nahi karti: aap apne UPI app se denge. Aage badhun?"),
+    },
+    "summary_generic": {
+        "en": "Done: {lines} via {merchant}. Total {amount}, paid by you through UPI.{notes}",
+        "hi": "Ho gaya: {lines}, {merchant} par. Total {amount}, UPI se aapne pay kiya.{notes}",
+    },
+    "summary_ride": {
+        "en": "Done: ride requested, {lines} via {merchant}. Fare {amount}, paid by you.{notes}",
+        "hi": "Ho gaya: ride request ho gayi, {lines}, {merchant}. Fare {amount}, aapne pay kiya.{notes}",
+    },
+    "not_supported": {
+        "en": "I can't do that on {site}: {what}.", "hi": "{site} par yeh main nahi kar sakti: {what}."},
+    "need_phrase": {
+        "en": "To go ahead, reply exactly: {phrase}", "hi": "Aage badhne ke liye bilkul yeh likhiye: {phrase}"},
+    "handover": {
+        "en": ("I can't do this on {site} for you directly yet, so here is the link. You can finish it "
+               "there yourself: {link}"),
+        "hi": ("Abhi main {site} par yeh seedha nahi kar sakti, isliye link bhej rahi hoon. Aap wahan khud "
+               "poora kar sakte hain: {link}"),
+    },
     "reapprove": {
         "en": ("Something changed: {reason}\nNew total: {total} (you approved up to {old_max}).\n"
                "{lines}\nDo you still want it?"),
@@ -134,7 +226,20 @@ COPY: dict[str, dict[str, str]] = {
 }
 
 
-def render(key: str, lang: str, **kw: object) -> str:
+class _Loose(dict):  # type: ignore[type-arg]
+    def __missing__(self, key: str) -> str:
+        return ""
+
+
+def render(key: str, lang: str, *, loose: bool = False, **kw: object) -> str:
+    """``loose=True``: a placeholder the caller did not supply renders empty (approval cards, where
+    each category's adapter supplies its own extra fields in ``Proposal.details``)."""
     table = COPY[key]
     text = table.get(lang) or table["en"]
-    return scrub_text(text.format(**kw))
+    return scrub_text(text.format_map(_Loose(kw)) if loose else text.format(**kw))
+
+
+def register_copy(table: dict[str, dict[str, str]]) -> None:
+    """Merge a category package's own lines (its ``copy.COPY``). Later packages win on a clash."""
+    for key, langs in table.items():
+        COPY[key] = dict(langs)

@@ -8,6 +8,7 @@ only holds a QR image and/or a credential-free UPI intent link.
 
 from __future__ import annotations
 
+import re
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Annotated, Literal, Protocol
 from urllib.parse import parse_qs, urlsplit
@@ -56,6 +57,7 @@ class TotalsMismatch(ConnectorError):
 
 def rupees_to_paise(text: str) -> int:
     """'₹1,234.50' / 'Rs. 99' / '-₹20.00' -> paise (absolute value). Raises ValueError on junk."""
+    text = re.sub(r"(?i)(₹|\brs\b\.?|\binr\b)", " ", text)  # 'Rs. 4,200': the dot is not a decimal
     cleaned = "".join(ch for ch in text if ch.isdigit() or ch == ".")
     if not cleaned or cleaned.count(".") > 1 or cleaned in {"."}:
         raise ValueError("not a money amount")

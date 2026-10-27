@@ -21,6 +21,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from friday.connectors.gate import ActionGate, Grant, Verdict
+from friday.connectors.scrub import scrub_text
 from friday.connectors.sites.errors import DomainNotAllowed, UnsafeAction
 
 _PAY_CLICK = re.compile(
@@ -73,7 +74,9 @@ class SiteSafety:
         digits = re.sub(r"[ -]", "", value)
         name = key or "unknown"
         why = None
-        if _SECRET_KEY.search(name):
+        if key is None:  # EM review B3: a field Friday has no name for never gets typed into
+            why = "unknown field"
+        elif _SECRET_KEY.search(name):
             why = "secret field"
         elif digits.isdigit() and 13 <= len(digits) <= 19 and luhn_ok(digits):
             why = "card-like number"
@@ -111,6 +114,7 @@ class SiteSafety:
     # ---- injection
     def note_injection(self, sentences: Iterable[str]) -> None:
         for s in sentences:
+            s = scrub_text(s)[:160]  # the attacker's sentence is scrubbed before it is kept anywhere
             if not any(e.kind == "injection" and e.detail == s for e in self.events):
                 self.events.append(SafetyEvent("injection", s))
 

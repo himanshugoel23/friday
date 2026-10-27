@@ -600,6 +600,39 @@ class Settings(BaseSettings):
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
     chatbot_disclosure_every_step: bool = False
+    # ------------------------------------------------------------------ private browser
+    # docs/PRIVATE_BROWSER_RUNTIME.md. ALL OFF: nothing browser-driven runs unless the master switch
+    # AND a tester id are set. ``FRIDAY_BROWSER_SITES_ENABLED`` (catalog keys), ``_LEGAL_CLEARED``
+    # (sites the founder cleared) and ``_SUPERVISED`` decide, per site, whether a real site may be
+    # automated at all (friday/connectors/catalog.py ``effective_mode``); else a link.
+    browser_enabled: bool = False
+    browser_enabled_users: CsvList = Field(default_factory=list)  # ids, or "*" (never in the pilot)
+    browser_backend: str = "local"  # local | cloud | fake
+    browser_cloud_provider: str | None = None
+    browser_headed: bool = False
+    browser_display: str = ":99"
+    browser_resolve_dns: bool = True
+    browser_timeout_ms: int = 8000
+    browser_task_max_seconds: float = 600.0
+    browser_max_pages: int = 3
+    browser_max_downloads: int = 0
+    browser_max_per_user: int = 1
+    browser_max_global: int = 3
+    browser_vault_ttl_days: int = 30
+    browser_vault_dir: str = "var/browser_vault"
+    browser_credentials_enabled: bool = False
+    browser_credentials_enabled_users: CsvList = Field(default_factory=list)
+    browser_credentials_ttl_days: int = 90
+    browser_credentials_dir: str = "var/browser_credentials"
+    browser_credentials_link_ttl_seconds: float = 600.0
+    browser_live_link_ttl_seconds: float = 900.0
+    browser_live_view_ttl_seconds: float = 900.0
+    browser_frame_min_interval_ms: int = 400
+    browser_takeover_max_seconds: float = 300.0
+    browser_audit_file: str = "var/browser_audit.jsonl"
+    browser_sites_enabled: CsvList = Field(default_factory=list)  # catalog keys, e.g. blinkit,uber
+    browser_legal_cleared: CsvList = Field(default_factory=list)  # site keys the founder cleared
+    browser_supervised: bool = False  # real-site runs only while the founder watches
     # ------------------------------------------------------------------ voice notes + Devanagari
     # docs/VOICE_NOTES_AND_DEVANAGARI.md. Both OFF: with them off the pipeline behaves as before.
     voice_note_replies: bool = False  # FRIDAY_VOICE_NOTE_REPLIES: voice-note in -> voice-note out
@@ -728,6 +761,10 @@ class Settings(BaseSettings):
         "pilot_allowed_numbers",
         "chatbot_testers",
         "chatbot_first_wins",
+        "browser_enabled_users",
+        "browser_credentials_enabled_users",
+        "browser_sites_enabled",
+        "browser_legal_cleared",
         "receptionist_redirect_fields",
         mode="before",
     )

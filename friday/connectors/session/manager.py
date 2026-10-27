@@ -107,10 +107,24 @@ class TaskSession:
                                site=self.info.site, action="goto", host=_host(url))
         await self._front.goto(url)
 
-    async def fill(self, selector: str, value: str) -> None:
+    async def fill(self, selector: str, value: str, *, allow_secret_field: bool = False) -> None:
+        """Type into a field. EM review A2: a password-type field is refused unless the caller is
+        the credential path (``allow_secret_field=True``); the value is never logged."""
         await self._gate("fill")
+        if not allow_secret_field and await self._is_password_field(selector):
+            self._mgr.audit.record("fill_refused", task_id=self.info.task_id,
+                                   user_id=self.info.user_id, site=self.info.site,
+                                   selector=selector, reason="password field")
+            raise BrowserError("refused to type into a password field")
         self._step("fill", selector)  # the value is never logged
         await self._front.fill(selector, value)
+
+    async def _is_password_field(self, selector: str) -> bool:
+        try:
+            rows = await self._raw.query_all(selector, {"t": "@type"})
+        except Exception:  # noqa: BLE001 - cannot tell: the secret-key rules upstream still apply
+            return False
+        return any(str(r.get("t", "")).strip().lower() == "password" for r in rows)
 
     async def click(self, selector: str) -> None:
         await self._gate("click")
@@ -253,6 +267,7 @@ class SessionManager:
         self._clock = clock
         self._entries: dict[str, _Entry] = {}
         self._close_listeners: list[Callable[[str], None]] = []
+        self._latched: str | None = None  # set by kill_all; open() refuses until revive()
 
     # ---- queries
     def get(self, task_id: str) -> TaskSession | None:
@@ -284,6 +299,8 @@ class SessionManager:
         s = self.settings
         if not s.user_allowed(user_id):
             raise refuse("browser is off for this user")
+        if self._latched is not None:
+            raise refuse(f"kill switch is latched ({self._latched}); revive() first")
         if self._paused():
             raise refuse("paused by the kill switch")
         if task_id in self._entries:
@@ -374,12 +391,25 @@ class SessionManager:
         await asyncio.gather(*(self.kill_task(t, reason) for t in ids))
         return len(ids)
 
+    @property
+    def latched(self) -> str | None:
+        """The reason ``kill_all`` latched new sessions off, or None."""
+        return self._latched
+
+    def revive(self) -> bool:
+        """Lift the ``kill_all`` latch (the operator's decision). True if it was latched."""
+        was, self._latched = self._latched, None
+        if was is not None:
+            self.audit.record("revive", reason=was)
+        return was is not None
+
     async def kill_all(self, reason: str = "kill_switch") -> int:
-        """Kill switch: close every session now, no vault writes, tokens revoked via listeners."""
+        """Kill switch: close every session now, no vault writes, tokens revoked via listeners.
+        LATCHES: ``open`` refuses until ``revive()`` (EM review A1)."""
+        self._latched = reason
         ids = list(self._entries)
         await asyncio.gather(*(self.kill_task(t, reason) for t in ids))
-        if ids:
-            self.audit.record("kill_all", reason=reason, count=len(ids))
+        self.audit.record("kill_all", reason=reason, count=len(ids))
         return len(ids)
 
     @contextlib.asynccontextmanager

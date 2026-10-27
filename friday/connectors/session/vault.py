@@ -56,6 +56,7 @@ class FileVaultStore:
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.on_corrupt: Callable[[str], None] | None = None  # slot id only, never content
 
     def _p(self, slot: str) -> Path:
         if not slot.isalnum():
@@ -65,7 +66,11 @@ class FileVaultStore:
     def get(self, slot: str) -> dict[str, Any] | None:
         try:
             return json.loads(self._p(slot).read_text())
+        except FileNotFoundError:
+            return None
         except (OSError, ValueError):
+            if self.on_corrupt:
+                self.on_corrupt(slot)  # EM review A3: corruption is audited, not silent
             return None
 
     def put(self, slot: str, record: dict[str, Any]) -> None:
@@ -90,8 +95,11 @@ class FileVaultStore:
 
 class StorageVault:
     def __init__(self, store: VaultStore, cipher: FieldCipher, *, ttl_days: int = 30,
-                 clock: Callable[[], float] = time.time) -> None:
+                 clock: Callable[[], float] = time.time, audit: Any = None) -> None:
         self._store, self._cipher = store, cipher
+        self._audit = audit  # AuditLog or None: gets "vault_unreadable" (no content, no user)
+        if audit is not None and hasattr(store, "on_corrupt"):
+            store.on_corrupt = lambda slot: audit.record("vault_unreadable", reason="corrupt file")
         self._ttl = ttl_days * 86400.0
         self._clock = clock
 
@@ -122,6 +130,8 @@ class StorageVault:
         try:
             return json.loads(self._cipher.decrypt(rec["ct"], aad=self._aad(user_id, site)))
         except (DecryptionError, KeyError, ValueError):
+            if self._audit is not None:
+                self._audit.record("vault_unreadable", reason="cannot decrypt")
             return None  # tampered / wrong slot: act as logged out, never raise secrets
 
     def has(self, user_id: str, site: str) -> bool:

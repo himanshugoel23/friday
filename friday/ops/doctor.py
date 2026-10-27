@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import re
 import secrets
 import shutil
@@ -32,7 +33,7 @@ OK, WARN, FAIL, SKIP = "OK", "WARN", "FAIL", "SKIPPED"
 TAGS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
 SECTIONS = (
     "settings", "database", "services", "public_url", "providers", "switches", "off_switch",
-    "systemd", "receptionist",
+    "systemd", "receptionist", "browser",
 )
 TITLES = {
     "settings": "1. settings",
@@ -44,6 +45,7 @@ TITLES = {
     "off_switch": "7. off switch (kill switch)",
     "systemd": "8. service (systemd)",
     "receptionist": "9. receptionist (missed-call forwarding)",
+    "browser": "10. private browser",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam must be in the code
@@ -612,6 +614,12 @@ async def check_receptionist(settings: Settings) -> Section:
         s.add(WARN if on else OK, "forwarding probe: " + text + " (docs/RECEPTIONIST.md 3: set "
               "FRIDAY_RECEPTIONIST_PROBE=true and forward your own phone)")
     return s
+def _check_browser(settings: Settings) -> Section:
+    """Private browser (friday/connectors/doctor_checks.py): read-only, names and ok/warn only."""
+    from friday.connectors.doctor_checks import check_browser, env_from_settings
+
+    env = {**os.environ, **env_from_settings(settings)}
+    return check_browser(env)
 
 
 # ----------------------------------------------------------------------------- driver
@@ -630,6 +638,7 @@ async def run_sections(
         "off_switch": lambda: check_off_switch(settings),
         "systemd": lambda: check_systemd(probes),
         "receptionist": lambda: check_receptionist(settings),
+        "browser": lambda: _check_browser(settings),
     }
     out: list[Section] = []
     for name in [only] if only else SECTIONS:
