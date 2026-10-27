@@ -1115,3 +1115,6 @@ Open from B: no "See proof" button, proof only on single-call success path, from
 
 ## FOUNDER IDEA (2026-10-27): urgent-call escalation with acknowledge button (receptionist)
 When Friday takes a call for the user and classifies it URGENT/emergency: (1) WhatsApp alert immediately with an "Acknowledge" button (CTA); (2) if not acknowledged within 10 minutes (configurable, default 10), Friday CALLS the user's own number so they know it is urgent; (3) stops on acknowledgement or on the user calling back. Build on friday/receptionist (urgent classifier, alerts) and friday/chatbot/parity escalation decision function (item 11); CallGate allows calls only to the user's own opted-in number (allow-list in pilot); max retries (e.g. 2 calls 5 min apart), quiet-hours override only for true emergencies, no false urgency, kill switch, switch FRIDAY_URGENT_ESCALATION_ENABLED default OFF. Spoken escalation line is PENDING (hear-before-change). Queued after D merges (migration number conflicts); no code yet.
+
+## FOUNDER DECISION (2026-10-27): urgent escalation default = 5 minutes, configurable
+Supersedes "10 minutes" in the urgent-escalation idea above. Setting e.g. FRIDAY_URGENT_ESCALATION_MINUTES default 5 (per-user override allowed). Rest unchanged.
