@@ -3,7 +3,7 @@
 # Run as root, after the first-boot script finished:   bash small-server.sh
 # Gives: Caddy (free HTTPS at https://<ip-with-dashes>.sslip.io), service user 'friday', code in /opt/friday,
 # secrets in /opt/friday/.env (chmod 600, typed here with hidden input, never in chat or git),
-# systemd service 'friday' running `friday listen` (answers calls to the Vobiz number, calls out on request).
+# systemd service 'friday' running `friday serve` (web app: WhatsApp webhook, background loops). For a real call test stop it first and run `friday listen` by hand.
 # Re-runnable: asks before overwriting keys. Logs: journalctl -u friday -f
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "Run as root (sudo bash small-server.sh)"; exit 1; }
@@ -96,14 +96,14 @@ systemctl enable --now caddy; systemctl reload caddy || systemctl restart caddy
 echo "== 6/6 Friday service"
 cat > /etc/systemd/system/friday.service <<UNIT
 [Unit]
-Description=Friday (front door + calling)
+Description=Friday (web app: WhatsApp webhook + background loops)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 User=friday
 WorkingDirectory=$APP
-ExecStart=/home/friday/.local/bin/uv run friday listen
+ExecStart=/home/friday/.local/bin/uv run friday serve
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
