@@ -600,6 +600,14 @@ class Settings(BaseSettings):
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
     chatbot_disclosure_every_step: bool = False
+    # slice 7 Instinct parity (docs/INSTINCT_PARITY.md). ALL OFF; wording PENDING approval.
+    parity_digest: bool = False  # FRIDAY_PARITY_DIGEST: inbox/calendar digest after Gmail connect
+    parity_invites: bool = False  # FRIDAY_PARITY_INVITES: invite counter + share link
+    parity_ride_links: bool = False  # FRIDAY_PARITY_RIDE_LINKS: Uber deep link
+    parity_nudges: bool = False  # FRIDAY_PARITY_NUDGES: window-reopen nudge and calendar heads-up
+    parity_status: bool = False  # FRIDAY_PARITY_STATUS: status reply with ETA after 60 s
+    parity_inr_only: bool = False  # FRIDAY_PARITY_INR_ONLY: refuse USD / US-card-only routes
+    parity_escalation: bool = False  # FRIDAY_PARITY_ESCALATION: missed reminder -> own-number call
     # ------------------------------------------------------------------ private browser
     # docs/PRIVATE_BROWSER_RUNTIME.md. ALL OFF: nothing browser-driven runs unless the master switch
     # AND a tester id are set. ``FRIDAY_BROWSER_SITES_ENABLED`` (catalog keys), ``_LEGAL_CLEARED``
