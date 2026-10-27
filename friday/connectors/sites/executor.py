@@ -58,6 +58,8 @@ class GuardedSession:
         cands = self.locator.candidates(selector)
         last: ElementNotFound | None = None
         for i, cand in enumerate(cands):
+            if op == "click":  # EM review B1: EVERY candidate is checked, not only the original
+                self.safety.check_click(key, cand)
             try:
                 res = await self._call(op, cand, value)
             except ElementNotFound as e:
@@ -65,10 +67,14 @@ class GuardedSession:
                 continue
             self._rec(op, key, True, "" if i == 0 else "alternate")
             return res
-        if repairable:
+        # EM review B1/B2: never repair a fill (it could land in a password field) and never repair
+        # a click whose key is unknown; a repaired click is checked like any other click.
+        if repairable and op != "fill" and not (op == "click" and key is None):
             outline = await self._outline()
             new = await self.locator.repair(selector, outline)
             if new:
+                if op == "click":
+                    self.safety.check_click(key, new)
                 try:
                     res = await self._call(op, new, value)
                 except ElementNotFound as e:

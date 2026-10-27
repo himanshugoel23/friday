@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Float, ForeignKey, Index, String, UniqueConstraint, delete
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, UniqueConstraint, delete
 from sqlalchemy.orm import Mapped, mapped_column
 
 from friday.core.crypto import EncryptedJSON, EncryptedText
@@ -68,6 +68,18 @@ class ReceptionistBlockRow(IdMixin, TimestampMixin, Base):
     )
     number_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     number: Mapped[str] = mapped_column(EncryptedText("receptionist_blocks.number"), nullable=False)
+
+
+class ReceptionistSpamRow(IdMixin, TimestampMixin, Base):
+    """SHARED across users and ANONYMISED (migration 0012): a keyed hash of the caller number and a
+    count. No user id, no number, no text: nothing here can be erased per user, because nothing in it
+    belongs to one user. ``updated_at`` is the last report."""
+
+    __tablename__ = "receptionist_spam"
+    __table_args__ = (UniqueConstraint("number_hash", name="uq_receptionist_spam_number_hash"),)
+
+    number_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    reports: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
 async def purge_user_receptionist(s, user_id: str) -> dict[str, int]:  # noqa: ANN001

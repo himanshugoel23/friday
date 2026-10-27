@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import re
 import secrets
 import shutil
@@ -32,7 +33,7 @@ OK, WARN, FAIL, SKIP = "OK", "WARN", "FAIL", "SKIPPED"
 TAGS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
 SECTIONS = (
     "settings", "database", "services", "public_url", "providers", "switches", "off_switch",
-    "systemd",
+    "systemd", "receptionist", "browser",
 )
 TITLES = {
     "settings": "1. settings",
@@ -43,10 +44,12 @@ TITLES = {
     "switches": "6. switches",
     "off_switch": "7. off switch (kill switch)",
     "systemd": "8. service (systemd)",
+    "receptionist": "9. receptionist (missed-call forwarding)",
+    "browser": "10. private browser",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
-# must be in the code
-EXPECTED_HEAD_CHAIN = "0010_chatbot"
+# -> 0011_receptionist -> 0012_receptionist_spam must be in the code
+EXPECTED_HEAD_CHAIN = "0012_receptionist_spam"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -563,6 +566,62 @@ def check_systemd(probes: Probes, unit: str = "friday") -> Section:
     return s
 
 
+# ----------------------------------------------------------------------------- 9 receptionist
+async def check_receptionist(settings: Settings) -> Section:
+    """Read-only: the switch, how many users opted in, and what the forwarding probe found."""
+    from friday.receptionist import probe as probe_mod
+
+    s = Section("receptionist")
+    on = bool(settings.receptionist_enabled)
+    s.add(OK, f"FRIDAY_RECEPTIONIST_ENABLED={'on' if on else 'off (default)'}")
+    if settings.receptionist_only_number:
+        s.add(
+            OK if settings.receptionist_inbound_number else WARN,
+            "receptionist-only shared number: on"
+            + ("" if settings.receptionist_inbound_number else
+               " but FRIDAY_RECEPTIONIST_INBOUND_NUMBER is not set (the setting does nothing)"),
+        )
+    if on and not (settings.receptionist_inbound_number or settings.friday_numbers):
+        s.add(WARN, "no inbound number: set FRIDAY_RECEPTIONIST_INBOUND_NUMBER (or FRIDAY_NUMBERS)")
+    # opted-in users (a count only; no number, name or message is read)
+    opted: int | None = None
+    from friday.db.session import Database
+    from friday.receptionist.store import SqlReceptionistStore
+
+    db = Database(settings.database_url)
+    try:
+        opted = len(await SqlReceptionistStore(db).enabled_user_ids())
+    except Exception:  # noqa: BLE001 - table absent / database unreachable
+        opted = None
+    finally:
+        await db.dispose()
+    if opted is None:
+        s.add(WARN if on else SKIP, "opted-in users: not counted (database unreachable or "
+              "migration 0011_receptionist not applied)")
+    else:
+        s.add(OK, f"opted-in users: {opted}")
+        if on and opted == 0:
+            s.add(WARN, "the switch is on but no user has opted in")
+    # the forwarding probe: does the provider's webhook carry the redirecting number?
+    path = Path(settings.receptionist_store_dir) / probe_mod.PROBE_FILE
+    state, text = probe_mod.verdict(probe_mod.load(path))
+    if state == "delivered":
+        s.add(OK, "forwarding probe: " + text)
+    elif state == "not_delivered":
+        s.add(WARN if on else OK, "forwarding probe: " + text +
+              "; forwarded calls take the generic message-taker path (docs/RECEPTIONIST.md 3)")
+    else:
+        s.add(WARN if on else OK, "forwarding probe: " + text + " (docs/RECEPTIONIST.md 3: set "
+              "FRIDAY_RECEPTIONIST_PROBE=true and forward your own phone)")
+    return s
+def _check_browser(settings: Settings) -> Section:
+    """Private browser (friday/connectors/doctor_checks.py): read-only, names and ok/warn only."""
+    from friday.connectors.doctor_checks import check_browser, env_from_settings
+
+    env = {**os.environ, **env_from_settings(settings)}
+    return check_browser(env)
+
+
 # ----------------------------------------------------------------------------- driver
 async def run_sections(
     settings: Settings, *, offline: bool = False, only: str | None = None,
@@ -578,6 +637,8 @@ async def run_sections(
         "switches": lambda: check_switches(settings),
         "off_switch": lambda: check_off_switch(settings),
         "systemd": lambda: check_systemd(probes),
+        "receptionist": lambda: check_receptionist(settings),
+        "browser": lambda: _check_browser(settings),
     }
     out: list[Section] = []
     for name in [only] if only else SECTIONS:

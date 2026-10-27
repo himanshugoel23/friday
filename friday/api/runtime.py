@@ -97,6 +97,8 @@ class Runtime:
             self._warm = asyncio.create_task(warm_llm(self.c))  # first call turn stays warm
             await self._start_roles()
             await self._resume_pm()
+            if self.pipeline.browser is not None:
+                self.pipeline.browser.start()  # registers the flow, starts the PauseWatcher
         self.running = True
 
     def _attach_consumer(self) -> None:
@@ -199,6 +201,8 @@ class Runtime:
             self._tasks.append(asyncio.create_task(_maybe_await(comp.run()), name=f"friday-{name}"))
 
     async def stop(self) -> None:
+        if self.pipeline.browser is not None:
+            await self.pipeline.browser.stop()
         self.callbacks.unsubscribe()
         self.c.bus.unsubscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.unsubscribe()

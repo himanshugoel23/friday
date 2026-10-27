@@ -29,7 +29,13 @@ class PauseWatcher:
         self._task: asyncio.Task[None] | None = None
 
     async def check_once(self) -> int:
-        return await self.mgr.kill_all("paused") if self._paused() else 0
+        """Paused: kill and latch. No longer paused: lift only the latch THIS watcher set (a latch
+        from a manual ``kill_all`` stays until an operator calls ``revive``)."""
+        if self._paused():
+            return await self.mgr.kill_all("paused")
+        if self.mgr.latched == "paused":
+            self.mgr.revive()
+        return 0
 
     async def _run(self) -> None:
         while True:

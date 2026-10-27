@@ -188,7 +188,7 @@ async def test_llm_planner_is_closed_set():
     ok = FakeLLM({"connector": "bookmyshow.movie", "slots": {"title": "X", "evil": "1"}})
     p = await LlmPlanner(ok).plan("tickets")
     assert p.connector == "bookmyshow.movie" and "evil" not in p.slots
-    bad = FakeLLM({"connector": "irctc.train", "slots": {}})
+    bad = FakeLLM({"connector": "evil.shell", "slots": {}})
     assert (await LlmPlanner(bad).plan("order 2 margherita from dominos")).connector == "zomato.food"
     boom = FakeLLM(lambda s, u: (_ for _ in ()).throw(RuntimeError("x")))
     assert (await LlmPlanner(boom).plan("hello")).connector is None

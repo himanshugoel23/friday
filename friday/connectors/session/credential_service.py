@@ -74,7 +74,7 @@ class CredentialService:
                               user_id=user_id, site=site, host=host_of(session.current_host()))
             return False
         await session.fill(username_selector, cred.username)
-        await session.fill(password_selector, cred.password)
+        await session.fill(password_selector, cred.password, allow_secret_field=True)
         self.audit.record("credential_autofill", task_id=session.info.task_id,
                           user_id=user_id, site=site, host=host_of(session.current_host()),
                           fields=2)

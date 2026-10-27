@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Protocol
 
@@ -85,17 +85,25 @@ class ReceptionistService:
         calendar: CalendarPort | None = None,
         mono: Callable[[], float] = time.monotonic,
         listen_s: float = 7.0,
+        spam_shared_threshold: int = 5,
     ) -> None:
         self.store, self.classifier, self.send, self.clock = store, classifier, send, clock
         self.resolver, self.paused = resolver, paused
         self.per_user_per_day, self.per_caller_per_hour = per_user_per_day, per_caller_per_hour
         self.max_call_s, self.snippet_days = max_call_s, snippet_days
         self.calendar, self.mono, self.listen_s = calendar, mono, listen_s
+        self.spam_shared_threshold = spam_shared_threshold
 
     # ================================================================== a forwarded call
-    async def claims(self, redirecting_raw: str | None, caller: str | None) -> Resolution:
+    async def claims(
+        self,
+        redirecting_raw: str | None,
+        caller: str | None,
+        call_fields: Mapping[str, str] | None = None,
+        dialled: str | None = None,
+    ) -> Resolution:
         """Is this a forwarded call for us? NOT_FORWARDED -> the front door keeps it."""
-        return await self.resolver.resolve(redirecting_raw, caller)
+        return await self.resolver.resolve(redirecting_raw, caller, call_fields, dialled)
 
     async def handle_call(
         self,
@@ -104,11 +112,14 @@ class ReceptionistService:
         redirecting_raw: str | None,
         *,
         resolution: Resolution | None = None,
+        call_fields: Mapping[str, str] | None = None,
     ) -> CallReport | None:
-        res = resolution or await self.resolver.resolve(redirecting_raw, caller_number)
+        res = resolution or await self.resolver.resolve(redirecting_raw, caller_number, call_fields)
         if res.route == Route.NOT_FORWARDED:
             return None
         now = self.clock.now()
+        if res.route == Route.TEST_RING:
+            return await self._test_ring(port, res, now)
         caller = caller_number if caller_number and caller_number.lstrip("+").isdigit() else None
         cfg = ReceptionistConfig()
         if res.route == Route.MATCHED and res.user_id:
@@ -133,9 +144,32 @@ class ReceptionistService:
                 await port.hangup()
         return await self._finish(cap, flow.spoken, cfg, res, caller, now)
 
+    async def _test_ring(self, port: TelephonyPort, res: Resolution, now: datetime) -> CallReport:
+        """The user's own test ring, declined and forwarded back from Friday's pool number: nothing is
+        spoken or stored; the user is told (existing text ``test.confirmed``) that forwarding works."""
+        with contextlib.suppress(Exception):  # the line may already be gone
+            await port.hangup()
+        cap = CallCapture(outcome=CallOutcomeKind.NO_MESSAGE)
+        notified = False
+        if not self.paused() and res.user_id:
+            cfg = await self.store.get_config(res.user_id) or ReceptionistConfig()
+            if not cfg.forwarding_verified:
+                cfg.forwarding_verified = True
+                await self.store.save_config(res.user_id, cfg)
+            lang = "en" if cfg.language == "en" else "hinglish"
+            try:
+                await self.send(res.user_id, copy.t("test.confirmed", lang), [])
+                notified = True
+            except Exception as e:  # noqa: BLE001
+                log.warning("receptionist: test-ring confirmation failed (%s)", type(e).__name__)
+        log.info("receptionist: test ring recognised, forwarding works")
+        return CallReport(cap, None, None, Route.TEST_RING, [], notified)
+
     async def _refusal(self, res: Resolution, caller: str | None, now: datetime) -> str | None:
         if self.paused():
             return "blocked.end"  # kill switch: answer politely, store and send nothing
+        if res.route == Route.REFUSED:
+            return "blocked.end"  # receptionist-only number, nobody identified: cannot take a message
         if res.route == Route.DISABLED:
             return "blocked.end"
         if res.route == Route.MATCHED and res.user_id:
@@ -190,6 +224,17 @@ class ReceptionistService:
             )
             return CallReport(cap, None, msg, res.route, spoken)
         cls = await self.classifier.classify(cap, caller, cfg)
+        if caller:  # shared anonymised spam table (keyed hash + count, no user id)
+            if cls.urgency == Urgency.SPAM:
+                await self.store.record_spam(caller)
+            elif (
+                cls.urgency == Urgency.NORMAL
+                and not cls.known_contact
+                and await self.store.spam_reports(caller) >= self.spam_shared_threshold
+            ):
+                cls = cls.model_copy(
+                    update={"urgency": Urgency.SPAM, "reasons": [*cls.reasons, "number reported as spam on several Friday lines"]}
+                )
         if cls.urgency == Urgency.SPAM and cap.outcome == CallOutcomeKind.MESSAGE:
             cap.outcome = CallOutcomeKind.SPAM_ENDED
         msg = await self.store.add_message(

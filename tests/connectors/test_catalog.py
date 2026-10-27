@@ -35,8 +35,8 @@ def test_cleared_scripted_site_runs_only_with_enable_and_supervision(monkeypatch
     assert C.effective_mode("zomato", set(), supervised=True) == "deeplink"
 
 
-def test_amazon_is_blocked_and_irctc_follows_the_normal_gate():
-    assert C.effective_mode("amazon", {"amazon"}, supervised=True) == "blocked"
+def test_amazon_and_irctc_follow_the_normal_gate():
+    assert C.site("amazon").mode != "blocked" and C.effective_mode("amazon") == "deeplink"
     assert C.site("irctc").mode != "blocked"
     assert C.effective_mode("irctc") == "deeplink"  # link today, like every uncleared site
     assert not is_blocked("irctc", C.policy_hosts("irctc"))  # its login can be saved

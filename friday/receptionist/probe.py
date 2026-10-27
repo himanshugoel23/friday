@@ -169,6 +169,9 @@ def format_report(rows: list[dict[str, Any]]) -> str:
 
 # ---------------------------------------------------------------- hook used by the Vobiz adapter
 _ACTIVE: dict[str, Any] = {"fields": (), "probe": None}
+# keys whose NAME suggests a diversion, and every custom (x-*) header, are captured as call_fields
+_CAPTURE_HINTS = ("diver", "history", "forward", "redirect", "original")
+_MAX_FIELDS, _MAX_VALUE = 12, 300
 
 
 def configure(fields: Iterable[str], probe: InboundProbe | None) -> None:
@@ -176,6 +179,38 @@ def configure(fields: Iterable[str], probe: InboundProbe | None) -> None:
     ``observe_inbound`` does nothing, so the telephony adapter behaves exactly as before."""
     _ACTIVE["fields"] = tuple(fields)
     _ACTIVE["probe"] = probe
+
+
+def observe_fields(params: Mapping[str, str]) -> dict[str, str]:
+    """The diversion-related fields of an inbound answer webhook (configured keys, Diversion /
+    History-Info style names and every ``x-*`` header), value-capped, WITHOUT the base From / To keys.
+    Empty unless the receptionist or its probe is configured. Never raises; never logged."""
+    try:
+        if not (_ACTIVE["fields"] or _ACTIVE["probe"] is not None):
+            return {}
+        cfg = {str(f).lower() for f in _ACTIVE["fields"]}
+        out: dict[str, str] = {}
+        for k, v in params.items():
+            kl = str(k).lower()
+            if kl in _BASE_KEYS or v is None or not str(v).strip():
+                continue
+            if kl in cfg or kl.startswith(("x-", "x_")) or any(h in kl for h in _CAPTURE_HINTS):
+                out[str(k)] = str(v)[:_MAX_VALUE]
+            if len(out) >= _MAX_FIELDS:
+                break
+        return out
+    except Exception:  # noqa: BLE001 - observing must never break a call
+        return {}
+
+
+def verdict(rows: list[dict[str, Any]]) -> tuple[str, str]:
+    """(state, text) from recorded probe rows: ``not_run`` | ``delivered`` | ``not_delivered``."""
+    if not rows:
+        return "not_run", "probe has not been run (no webhook recorded)"
+    keys = sorted({c["key"] for r in rows for c in r.get("candidates", [])})
+    if keys:
+        return "delivered", "the redirecting number IS delivered, in key(s): " + ", ".join(keys)
+    return "not_delivered", f"the redirecting number was NOT delivered in {len(rows)} recorded call(s)"
 
 
 def observe_inbound(params: Mapping[str, str]) -> str | None:

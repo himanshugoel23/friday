@@ -21,6 +21,7 @@ from friday.receptionist.dbmodel import (
     ReceptionistBlockRow,
     ReceptionistConfigRow,
     ReceptionistMessageRow,
+    ReceptionistSpamRow,
     purge_user_receptionist,
 )
 from friday.receptionist.models import (
@@ -36,6 +37,17 @@ UNROUTED_KEEP_DAYS = 7
 
 def _digits10(n: str | None) -> str:
     return re.sub(r"\D", "", n or "")[-10:]
+
+
+def spam_key(number: str | None) -> str | None:
+    """Keyed hash (HMAC with the index key, own label) of the last 10 digits; None without digits.
+    The shared spam table stores only this and a count."""
+    d = _digits10(number)
+    if len(d) < 10:
+        return None
+    from friday.core.crypto import get_field_cipher  # noqa: PLC0415
+
+    return get_field_cipher().blind_index(d, label="receptionist-spam")
 
 
 class ReceptionistStore(Protocol):
@@ -58,6 +70,8 @@ class ReceptionistStore(Protocol):
     async def purge_expired(self, now: datetime, snippet_days: int) -> dict[str, int]: ...
     async def delete_user(self, user_id: str) -> int: ...
     async def enabled_user_ids(self) -> list[str]: ...
+    async def record_spam(self, number: str | None) -> int: ...
+    async def spam_reports(self, number: str | None) -> int: ...
 
 
 # =============================================================================== memory
@@ -67,6 +81,18 @@ class MemoryReceptionistStore:
         self.configs: dict[str, ReceptionistConfig] = {}
         self.messages: dict[str, StoredMessage] = {}
         self.blocks: dict[str, set[str]] = {}
+        self.spam: dict[str, int] = {}  # keyed hash -> reports (shared, no user)
+
+    async def record_spam(self, number: str | None) -> int:
+        k = spam_key(number)
+        if k is None:
+            return 0
+        self.spam[k] = self.spam.get(k, 0) + 1
+        return self.spam[k]
+
+    async def spam_reports(self, number: str | None) -> int:
+        k = spam_key(number)
+        return self.spam.get(k, 0) if k else 0
 
     async def get_config(self, user_id: str) -> ReceptionistConfig | None:
         c = self.configs.get(user_id)
@@ -173,6 +199,30 @@ def _msg(r: ReceptionistMessageRow) -> StoredMessage:
 
 
 class SqlReceptionistStore(Repo):
+    async def record_spam(self, number: str | None) -> int:
+        k = spam_key(number)
+        if k is None:
+            return 0
+        async with self.db.session() as s:
+            row = (
+                await s.execute(select(ReceptionistSpamRow).where(ReceptionistSpamRow.number_hash == k))
+            ).scalar_one_or_none()
+            if row is None:
+                s.add(ReceptionistSpamRow(number_hash=k, reports=1))
+                return 1
+            row.reports = int(row.reports) + 1
+            return int(row.reports)
+
+    async def spam_reports(self, number: str | None) -> int:
+        k = spam_key(number)
+        if k is None:
+            return 0
+        async with self.db.session() as s:
+            row = (
+                await s.execute(select(ReceptionistSpamRow.reports).where(ReceptionistSpamRow.number_hash == k))
+            ).scalar_one_or_none()
+            return int(row or 0)
+
     async def get_config(self, user_id: str) -> ReceptionistConfig | None:
         async with self.db.session() as s:
             row = (
