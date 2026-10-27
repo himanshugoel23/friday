@@ -414,6 +414,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.integration.demo import add_parser as _add_consumer
 
     _add_consumer(sub)  # `friday consumer demo` (offline)
+    from friday.lab.cli import add_parser as _add_lab
+
+    _add_lab(sub)  # `friday lab`: the Chat Lab (simulator only)
     from friday.chatbot.cli import add_parser as _add_chatbot
 
     _add_chatbot(sub)  # `friday chatbot wishlist | status | templates check | templates render`
@@ -560,6 +563,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.playbooks.cli import run_command as run_playbook_command
 
         return run_playbook_command(args)
+    if args.cmd == "lab":  # simulator only: never reads .env, never messages anyone
+        from friday.lab.cli import run_command as run_lab_command
+
+        return run_lab_command(args)
     if args.cmd == "speech":  # offline unless --live; never reads .env itself
         from friday.speech.cli import run_command as run_speech_command
 
