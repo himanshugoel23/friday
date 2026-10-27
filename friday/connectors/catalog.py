@@ -99,9 +99,9 @@ SITES: tuple[SiteSpec, ...] = (
        mode="scripted", adapter="friday.connectors.sites.movies.bookmyshow", irreversible="confirm tickets",
        use_cases=("movie",), note="selectors tuned on a FAKE site only"),
     # ---- shopping
-    _s("amazon", "Amazon India", "shopping", "www.amazon.in,*.amazon.in", "https://www.amazon.in", mode="blocked",
-       legal=LEGAL_BLOCKED, irreversible="place order", use_cases=("shopping",),
-       note="conditions of use bar robots (EM design); it blocked another agent product within days; skip"),
+    _s("amazon", "Amazon India", "shopping", "www.amazon.in,*.amazon.in", "https://www.amazon.in",
+       irreversible="place order", use_cases=("shopping",),
+       note="link hand-over today; no scripted adapter yet; automation terms unverified (conditions of use mention robots): check before enabling"),
     _s("flipkart", "Flipkart", "shopping", "www.flipkart.com,*.flipkart.com", "https://www.flipkart.com",
        use_cases=("shopping",), note="terms unverified"),
 )
