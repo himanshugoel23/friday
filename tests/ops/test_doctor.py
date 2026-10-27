@@ -92,7 +92,7 @@ def test_database_ok_at_head(db_settings):
     s = run(d.check_database(db_settings))
     assert d.FAIL not in statuses(s), messages(s)
     assert f"at head ({d.code_head()})" in messages(s)
-    assert d.code_head() == "0012_receptionist_spam"
+    assert d.code_head() == "0013_evidence"
     assert "SQLite" in messages(s) and d.SKIP in statuses(s)  # RLS skipped on SQLite
 
 
@@ -102,7 +102,7 @@ def test_database_wrong_revision_fails(db_settings, tmp_path):
         c.execute(text("update alembic_version set version_num='0007_consumer_calls'"))
     s = run(d.check_database(db_settings))
     assert d.FAIL in statuses(s)
-    assert "database at 0007_consumer_calls, code expects 0012_receptionist_spam" in messages(s)
+    assert "database at 0007_consumer_calls, code expects 0013_evidence" in messages(s)
 
 
 def test_database_missing_table_fails_and_names_it(db_settings, tmp_path):

@@ -1440,5 +1440,58 @@ CREATE TABLE receptionist_spam (
 
 UPDATE alembic_version SET version_num='0012_receptionist_spam' WHERE alembic_version.version_num = '0011_receptionist';
 
+-- Running upgrade 0012_receptionist_spam -> 0013_evidence
+
+CREATE TABLE evidence_items (
+    user_id VARCHAR(32) NOT NULL, 
+    task_id VARCHAR(32) NOT NULL, 
+    call_id VARCHAR(32), 
+    kind VARCHAR(24) NOT NULL, 
+    level VARCHAR(16) NOT NULL, 
+    summary TEXT, 
+    payload TEXT, 
+    object_key VARCHAR(300), 
+    sha256 VARCHAR(64), 
+    source VARCHAR(16) NOT NULL, 
+    captured_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    expires_at TIMESTAMP WITH TIME ZONE, 
+    shareable BOOLEAN NOT NULL, 
+    redaction VARCHAR(8) NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_evidence_items PRIMARY KEY (id), 
+    CONSTRAINT fk_evidence_items_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_evidence_items_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_evidence_items_task ON evidence_items (task_id);
+
+CREATE INDEX ix_evidence_items_user_captured ON evidence_items (user_id, captured_at);
+
+CREATE INDEX ix_evidence_items_expires ON evidence_items (expires_at);
+
+CREATE TABLE done_claims (
+    user_id VARCHAR(32) NOT NULL, 
+    task_id VARCHAR(32) NOT NULL, 
+    claim_type VARCHAR(24) NOT NULL, 
+    required_level VARCHAR(16) NOT NULL, 
+    status VARCHAR(10) NOT NULL, 
+    evidence_ids JSON, 
+    missing JSON, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_done_claims PRIMARY KEY (id), 
+    CONSTRAINT fk_done_claims_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_done_claims_task_id_tasks FOREIGN KEY(task_id) REFERENCES tasks (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_done_claims_user_id ON done_claims (user_id);
+
+CREATE UNIQUE INDEX ix_done_claims_task ON done_claims (task_id);
+
+UPDATE alembic_version SET version_num='0013_evidence' WHERE alembic_version.version_num = '0012_receptionist_spam';
+
 COMMIT;
 

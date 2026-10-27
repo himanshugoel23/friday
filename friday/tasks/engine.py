@@ -2011,7 +2011,8 @@ class TaskEngine:
     async def _after_success(self, task: Task, result: CallResult, summary: TaskResult) -> None:
         role = role_of(task)
         if role not in _SILENT_ROLES:
-            await self._report(task, summary, recording_url=result.recording_url)
+            proof = await self._proof_message(task, result, summary)
+            await self._report(task, summary, recording_url=result.recording_url, proof=proof)
         # end-of-call business touch (BRIEF #8)
         if (
             summary.business_touch
@@ -2144,6 +2145,34 @@ class TaskEngine:
             )
         )
 
+    async def _proof_message(self, task: Task, result: CallResult, summary: TaskResult) -> Any:
+        """Proof on "done" (docs/PROOF.md): None when FRIDAY_PROOF_ENABLED is off or anything
+        goes wrong, so the message is then exactly the old one. Evidence is stored best-effort."""
+        if not self.settings.proof_enabled:
+            return None
+        store = repo(self.repos, "evidence")
+        if store is None:
+            return None
+        try:
+            from friday.evidence import collector
+            from friday.evidence.done_gate import DoneGate, ProofConfig
+
+            cfg = ProofConfig.from_settings(self.settings)
+            items = collector.from_call(
+                task, result, summary, now=self.clock.now(), retention_days=cfg.retention_days
+            )
+            msg = DoneGate(cfg).compose(task, summary, items)
+        except Exception as e:  # noqa: BLE001 - proof must never block the completion message
+            log.warning("proof compose failed for %s: %r", task.id, e)
+            return None
+        if items:
+            await call_opt(store, "add_items", items)
+        await call_opt(store, "save_claim", msg.claim)
+        await self._audit(
+            task, "proof.claim", claim=msg.claim.claim_type.value, status=msg.status.value
+        )
+        return msg
+
     async def _report(
         self,
         task: Task,
@@ -2151,10 +2180,13 @@ class TaskEngine:
         *,
         recording_url: str | None = None,
         final_options: bool = False,
+        proof: Any = None,
     ) -> None:
         lines = [summary.summary]
         lines += [f"{k}: {v}" for k, v in summary.details.items() if k != "booking_child_id"]
         lines += summary.next_steps
+        if proof is not None:  # DoneGate decided the wording (docs/PROOF.md)
+            lines = [proof.text]
         buttons: list[ReplyButton] = []
         qid = None
         if final_options and task.target is not None:
