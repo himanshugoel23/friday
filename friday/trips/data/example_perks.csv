@@ -1,0 +1,4 @@
+bank,card_name,perk,visits_per_period,period,conditions_text,min_spend_paise,valid_from,valid_to,source_url,checked_on,verified_by,status
+Example Bank,Example Travel Card,domestic_lounge,2,quarter,EXAMPLE ROW: invented for tests and demos. NOT a real perk.,0,,,https://example.invalid/example-travel-card,2026-10-01,EXAMPLE_NOT_REAL,served
+Example Bank,Example Travel Card,intl_lounge,1,year,EXAMPLE ROW: invented for tests and demos. NOT a real perk.,0,,,https://example.invalid/example-travel-card,2026-10-01,EXAMPLE_NOT_REAL,served
+Example Bank,Example Cashback Card,priority_pass,,,EXAMPLE ROW: invented for tests and demos. NOT a real perk.,0,,,https://example.invalid/example-cashback-card,2026-10-01,EXAMPLE_NOT_REAL,draft

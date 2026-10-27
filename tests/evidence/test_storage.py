@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_migration_0013_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0016_family_drive"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0017_trips"
     assert "0013_evidence" in doctor.known_revisions()
     assert "0012_receptionist_spam" in doctor.known_revisions()
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
