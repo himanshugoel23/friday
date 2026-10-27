@@ -49,9 +49,9 @@ TITLES = {
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
-# -> 0015_urgent_escalation -> 0016_family_drive -> 0017_trips
+# -> 0015_urgent_escalation -> 0016_family_drive -> 0017_trips -> 0018_refunds
 # must be in the code
-EXPECTED_HEAD_CHAIN = "0017_trips"
+EXPECTED_HEAD_CHAIN = "0018_refunds"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -429,6 +429,7 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_URGENT_ESCALATION_ENABLED", settings.urgent_escalation_enabled),
         ("FRIDAY_FAMILY_DRIVE_ENABLED", settings.family_drive_enabled),
         ("FRIDAY_TRIPS_ENABLED", settings.trips_enabled),
+        ("FRIDAY_REFUNDS_ENABLED", settings.refunds_enabled),
         ("FRIDAY_VOICE_NOTE_REPLIES", settings.voice_note_replies),
         ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):
@@ -451,6 +452,20 @@ def check_switches(settings: Settings) -> Section:
                 WARN,
                 "FRIDAY_TRIP_LOUNGE_ENABLED is on: lounge hints appear only for card_perks rows "
                 "a named person verified (the repo ships EXAMPLE rows only)",
+            )
+    if settings.refunds_enabled:
+        s.add(
+            WARN,
+            "FRIDAY_REFUNDS_ENABLED is on: refund reminders can reach users. Every line in "
+            "friday/refunds/copy.py is PENDING founder approval, and the schedule and caps in "
+            "docs/REFUNDS.md are proposals",
+        )
+        if settings.refund_chase_calls:
+            s.add(
+                WARN,
+                "FRIDAY_REFUND_CHASE_CALLS is on: vendor follow-up calls can be PROPOSED (the user "
+                "approves, the task engine asks again) but the real task adapter still refuses "
+                "while the call questions in friday/refunds/copy.py are PENDING",
             )
     if settings.family_drive_enabled:
         s.add(

@@ -25,7 +25,7 @@ TABLES = {"trips", "trip_legs", "trip_tasks", "flight_watch", "trip_nudges", "ca
 def test_migration_0017_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0017_trips"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0018_refunds"
     assert "0016_family_drive" in doctor.known_revisions()
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
     migrate.upgrade(url)

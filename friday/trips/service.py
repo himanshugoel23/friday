@@ -8,6 +8,7 @@ engine then asks again before it dials. Friday books nothing here.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -109,6 +110,7 @@ class TripService:
         config: TripConfig | None = None,
         language: str = "hinglish",
         extra_sent_today: Callable[[str], Awaitable[int]] | None = None,
+        refunds: Any = None,
     ) -> None:
         self.settings, self.store, self.clock = settings, store, clock
         self.docs, self.sender, self.tasks, self.status = docs, sender, tasks, status
@@ -116,6 +118,7 @@ class TripService:
         self.cfg = config or TripConfig.from_settings(settings)
         self.lang = language
         self.extra_sent_today = extra_sent_today
+        self.refunds = refunds  # RefundService (optional): a cancellation proposes a refund case
         self.builder = TripBuilder(store, clock)
 
     # ------------------------------------------------------------------ switch
@@ -817,6 +820,20 @@ class TripService:
             out.append(res)
         return out
 
+    async def _propose_refund(self, user_id: str, leg: TripLeg) -> None:
+        """A cancelled leg: ask the refund tracker to PROPOSE a case (the user confirms; nothing
+        is requested from anyone). A refund-tracker failure never breaks the trip flow."""
+        if self.refunds is None:
+            return
+        vendor = re.sub(r"\b[A-Za-z0-9]{1,3}\s?\d{1,4}\b", "", leg.label or "")  # drop "EX 101"
+        vendor = " ".join(vendor.split())
+        try:
+            await self.refunds.propose_from_trip_cancellation(
+                user_id, leg.id, vendor or leg.kind.value
+            )
+        except Exception:  # noqa: BLE001
+            log.warning("refund proposal from a trip cancellation failed", exc_info=True)
+
     async def _status_message(
         self,
         user_id: str,
@@ -870,6 +887,8 @@ class TripService:
                 stop=stop,
             )
         critical = first.kind in ("cancelled", "delay", "back_on_time")
+        if first.kind == "cancelled":
+            await self._propose_refund(user_id, leg)
         key = f"watch:{leg.id}:{first.kind}:{w.delay_minutes}:{w.info.get('gate')}:{w.info.get('terminal')}"
         if trip.muted:
             return Outcome(key, "flight_watch", "muted")

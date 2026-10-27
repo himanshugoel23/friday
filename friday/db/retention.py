@@ -159,6 +159,19 @@ async def expire_trips(
     return {"trips": await repos.trips.expire(now.date(), days)}
 
 
+REFUNDS_RETENTION_DAYS = 180  # a closed refund case is deleted this long after closing
+
+
+async def expire_refunds(
+    repos: Repositories, now: datetime, *, days: int = REFUNDS_RETENTION_DAYS
+) -> dict[str, int]:
+    """Closed refund cases older than ``days`` are deleted with their events, evidence and nudge
+    log. An open case is never deleted by retention."""
+    if repos.refunds is None:
+        return {"refund_cases": 0}
+    return {"refund_cases": await repos.refunds.expire(now, days)}
+
+
 async def purge_preconsent_users(
     repos: Repositories, now: datetime, *, days: int = PRECONSENT_RETENTION_DAYS
 ) -> int:
@@ -215,6 +228,7 @@ async def run_retention(
     out.update(await expire_documents(repos, now))
     out.update(await expire_family_drive(repos, now))
     out.update(await expire_trips(repos, now))
+    out.update(await expire_refunds(repos, now))
     out["pending_deletions"] = await process_pending_deletions(
         repos, store=store, telephony=telephony
     )

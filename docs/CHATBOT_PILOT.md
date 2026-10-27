@@ -284,3 +284,7 @@ The lines for the existing guards (`chatbot.line.safety_emergency`, `safety_medi
 
 `friday/chatbot/`: `copy.py` (all words), `composer.py` (quality rules, language mirroring), `commands.py` (command and answer parsing), `scope.py` (off-topic test, masking), `service.py` (the flow), `templates.py` + `templates.yaml` (template drafts and checker), `cli.py` (`friday chatbot`), `dbmodel.py`. Also `friday/db/repositories/chatbot.py`, migration `0010_chatbot`, hooks in `friday/api/inbound.py`, settings in `friday/core/config.py`, `ListMenu` in `friday/core/models.py` with list sending in `friday/channels/whatsapp.py` and rendering in `friday/channels/simulator.py`.
 Tests: `uv run pytest tests/chatbot -q`.
+
+## PENDING FOUNDER APPROVAL: refund tracking wording (item C)
+
+85 more copy ids (lines, buttons, state names) in `friday/refunds/copy.py`, Roman Hinglish and English, all `PENDING_FOUNDER_APPROVAL`, behind `FRIDAY_REFUNDS_ENABLED` (OFF). The full id list is in `docs/REFUNDS.md`. Plus three pending vendor-call questions (`VENDOR_CALL_QUESTIONS`): no real call can start while `copy.CALL_LINE_STATUS` is pending.

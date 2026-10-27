@@ -46,6 +46,7 @@ from friday.lifestate.dbmodel import (
 from friday.quality.models import QualityCallRow
 from friday.quotes.dbmodel import QuoteConversationRow
 from friday.receptionist.dbmodel import purge_user_receptionist
+from friday.refunds.dbmodel import purge_user_refunds
 from friday.savings.dbmodel import BillRow, SavingsLedgerRow, WalletCardRow
 from friday.trips.dbmodel import purge_user_trips
 from friday.urgent.dbmodel import purge_user_urgent
@@ -122,6 +123,7 @@ class DataPurger(Repo):
             counts.update(await purge_user_urgent(s, user_id))  # urgent-call escalation state
             counts.update(await purge_user_family_drive(s, user_id))  # Drive links, folders, shares
             counts.update(await purge_user_trips(s, user_id))  # trips, legs, tasks, nudges
+            counts.update(await purge_user_refunds(s, user_id))  # refund cases, evidence, nudges
             await wipe(GoogleConnectionRow, GoogleConnectionRow.user_id == user_id)  # tokens
             await wipe(GoogleOAuthStateRow, GoogleOAuthStateRow.user_id == user_id)
             await wipe(LifeFollowupRow, LifeFollowupRow.user_id == user_id)  # life state
