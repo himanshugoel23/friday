@@ -1087,3 +1087,5 @@ Reason: avoid document-storage burden. Supersedes the earlier "no Drive" rule an
 
 ## Task (2026-10-27): founder shared a screenshot of a CREW user's LinkedIn post
 Added as an addendum to docs/CONCIERGE_REFERENCE.md (no names). Confirms Drive + WhatsApp group model; new asks: flight web check-in, arrival forms, negotiated hotel rates. EM agent told.
+
+- 2026-10-27 DONE (EM): docs/TRIP_CONCIERGE_DESIGN.md written (spend cap, proof, refunds, document understanding, family vault in the family's OWN Google Drive per founder decision with drive.file, trip timeline). Design only, repo-only (no CONCIERGE_REFERENCE.md yet). Nothing built.
