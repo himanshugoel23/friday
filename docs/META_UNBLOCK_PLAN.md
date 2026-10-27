@@ -25,3 +25,9 @@ Chat behaviour is testable now without Meta: Chat Lab (friday/lab) and the simul
 
 ## E. Things not to do
 No extra or someone else's Facebook accounts, no unofficial WhatsApp libraries or WhatsApp Web automation (ban risk), no repeated clicking of the blocked button, no tokens or passwords in chat or git.
+
+## F. Facts added 2026-10-28 (founder): proprietorship with GST
+A proprietorship is legally the founder, so any provider or Meta may link the business to his restricted identity. Send this to each provider (B above) as the opening paragraph:
+> My business is a proprietorship with GST. The owner's personal Facebook account has an old (Dec 2022) advertising restriction and my own Meta WhatsApp onboarding is blocked. I do not run ads. Can you onboard my GST-registered business to the WhatsApp Business Platform, with the WhatsApp business account hosted under your own Meta partner account, without requiring me to sign in to my own Meta account? Please answer in writing before I pay anything.
+Documents to have ready (needed by most providers and by Meta business verification anyway): GST certificate, PAN, business address proof, a website or landing page on your own domain with a business email on that domain, a privacy policy page, a Grievance Officer name. Never paste numbers or documents into chat; upload only on a provider's own secure form after they confirm in writing.
+Long-term clean option (ask a CA or lawyer, time and cost unknown): a separate legal entity (LLP or Pvt Ltd) with the co-founder as partner/director, set up by them with their own Meta account on their own device. Not a quick fix and not a way for the restricted owner to run Meta.
