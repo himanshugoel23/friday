@@ -25,14 +25,15 @@ SCRIPT = [
 ]
 
 
-def test_every_switch_defaults_to_off():
-    s = Settings(_env_file=None)
+def test_every_silent_switch_defaults_to_on_since_the_offline_checks_pass():
+    s = Settings(_env_file=None)  # 2026-10-23: founder decision, silent latency switches ON
     assert (s.voice_speculative_understanding, s.llm_stream_to_tts, s.intent_classifier) == (
-        False, False, False)
+        True, True, True)
 
 
-def test_the_scripted_policy_is_built_without_the_extras_by_default():
-    c = SimpleNamespace(settings=Settings(_env_file=None), brain=None, clock=None)
+def test_the_scripted_policy_is_built_without_the_extras_when_switched_off():
+    s = Settings(_env_file=None, intent_classifier=False, voice_speculative_understanding=False)
+    c = SimpleNamespace(settings=s, brain=None, clock=None)
     policy = build_scripted_policy(c)  # type: ignore[arg-type]
     pp = policy.playbook_policy
     assert pp.classifier is None and pp.speculative is False

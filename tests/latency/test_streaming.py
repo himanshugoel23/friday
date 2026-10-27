@@ -458,7 +458,7 @@ async def test_session_off_switch_never_calls_the_streamed_method():
         async def next_call_action_streamed(self, *a: Any, **k: Any) -> Any:
             Policy.streamed_calls += 1
 
-    settings = Settings(_env_file=None)
+    settings = Settings(_env_file=None, llm_stream_to_tts=False)
     sess = SimpleNamespace(r=SimpleNamespace(policy=Policy()), leg=object(), settings=settings,
                            brief=_brief(), transcript=Transcript(), answers=[])
     assert await _Session._next_action(sess, stream=True) == "plain"  # type: ignore[arg-type]

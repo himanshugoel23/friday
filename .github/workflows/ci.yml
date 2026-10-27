@@ -1,0 +1,77 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "claude/**", "feat/**"]
+  pull_request:
+  schedule:
+    - cron: "17 21 * * *"   # nightly full run (UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets-and-hygiene:
+    # Public repo: this job is the first gate. It prints pattern names and file:line, never the match.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: .env, var/ and database files are not tracked; no key-shaped strings
+        run: .github/scripts/secret_scan.sh
+      - name: gitleaks (history)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar xz gitleaks
+          ./gitleaks detect --no-banner --redact --log-opts="--max-count=300"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+
+  tests-fast:
+    # Pull requests and pushes: the subset that guards the browser, the gates and the secrets rules.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: fast subset
+        run: >
+          uv run pytest -q -x
+          tests/connectors tests/connectors_sites tests/integration_browser tests/mcp
+          tests/security tests/core tests/calls tests/tasks
+        env:
+          FRIDAY_MODE: simulator
+
+  tests-full:
+    # Nightly and manual: everything not marked live.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+        env:
+          FRIDAY_MODE: simulator
+
+  audit:
+    # Reports known-vulnerable dependencies. Advisory until the first clean baseline is agreed.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv export --frozen --no-hashes --no-dev -o /tmp/req.txt
+      - run: uvx pip-audit -r /tmp/req.txt --disable-pip

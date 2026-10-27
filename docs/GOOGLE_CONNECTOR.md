@@ -118,7 +118,7 @@ Never requested: Drive, Contacts, `gmail.send`, `gmail.compose`, `gmail.modify`,
    Publishing status **Testing**. Add the scopes `openid`, `email`, `.../auth/calendar.events` and (only if Gmail will
    be tried) `.../auth/gmail.readonly`. Add each tester's Google address under **Test users**.
 4. APIs and Services > Credentials > Create credentials > OAuth client ID > type **Web application**. Authorised
-   redirect URI: `https://64-227-183-183.sslip.io/google/callback` (or the final domain). No JavaScript origins needed.
+   redirect URI: `https://<server-ip-with-dashes>.sslip.io/google/callback` (or the final domain). No JavaScript origins needed.
 5. On the server, in `/opt/friday/.env` (never in git or chat): set `GOOGLE_OAUTH_CLIENT_ID`,
    `GOOGLE_OAUTH_CLIENT_SECRET` and `FRIDAY_GOOGLE_REDIRECT_URI` (same URL as step 4). Leave
    `FRIDAY_GOOGLE_GMAIL_ENABLED` unset (false) for now. Apply migration 0006 (`python -m friday.db.migrate up`, then `rls`),

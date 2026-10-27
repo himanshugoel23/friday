@@ -33,6 +33,7 @@ from friday.db.repositories.calls import (
     InboundKind,
     MatchStatus,
 )
+from friday.db.repositories.chatbot import ChatbotRepo
 from friday.db.repositories.consumer_calls import (
     CallDncRepo,
     ConsumerCallsRepo,
@@ -65,6 +66,7 @@ __all__ = [
     "AuditRepo",
     "AutonomyRepo",
     "BusinessRepo",
+    "ChatbotRepo",
     "CallMemory",
     "CallMemoryRepo",
     "CallbackMatch",
@@ -131,6 +133,7 @@ class Repositories:
     consumer_contacts: ConsumerContactsRepo  # the user's own contact book (friday/calls)
     call_dnc: CallDncRepo  # global do-not-call registry, keyed hash only (friday/calls)
     purger: DataPurger
+    chatbot: ChatbotRepo | None = None  # first-run state, waitlist, wishlist (friday/chatbot)
     retention: Any = None  # RetentionService: .run(now, recording_days, preconsent_days)
 
 
@@ -173,6 +176,7 @@ def make_repositories(
         consumer_contacts=ConsumerContactsRepo(db, clock),
         call_dnc=CallDncRepo(db, clock),
         purger=DataPurger(db, clock),
+        chatbot=ChatbotRepo(db, clock),
     )
     from friday.db.retention import RetentionService
 

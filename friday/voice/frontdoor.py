@@ -308,6 +308,19 @@ class FrontDoor:
         except ComponentNotAvailable:
             return None
 
+    def speech_understander(self) -> Any:
+        """The shared Speech Understander, or None (no LLM component / switched off)."""
+        if not hasattr(self, "_speech_obj"):
+            self._speech_obj = None
+            if self.settings.speech_understanding != "off":
+                try:
+                    from friday.speech import SpeechUnderstander
+
+                    self._speech_obj = SpeechUnderstander(self.c.get("llm"), self.settings)
+                except Exception:  # noqa: BLE001
+                    log.info("front door: speech understanding unavailable")
+        return self._speech_obj
+
     def tts_languages(self) -> frozenset[Language] | None:
         if self._tts_languages is None:
             try:
@@ -591,10 +604,32 @@ class FrontDoorSession:
         if t.audio_class in _NOT_A_PERSON or not (t.text or "").strip():
             return None  # music / voicemail / silence / empty: treated as silence
         text = redact_secrets(t.text or "")
+        t, text = await self._clean_speech(t, text)  # the caller's OWN words (never a vendor's)
         await self._record(Speaker.CALLEE, text, t.language)
         if t.language and t.language not in self.languages:
             self.languages.append(t.language)
         return t
+
+    async def _clean_speech(self, t: Transcription, text: str) -> tuple[Transcription, str]:
+        """Speech Understander on a known, consented caller's chat turn
+        (docs/SPEECH_UNDERSTANDING.md). Short answers (yes/no, a name, "300"), onboarding and
+        consent turns pass through untouched; a slow or failing model falls back to the words as
+        heard within ``speech_understanding_call_timeout_s``."""
+        try:
+            if not (self.user is not None and self.consented and self.state == "chat"):
+                return t, text
+            und = self.fd.speech_understander()
+            if und is None or not und.wants("call"):
+                return t, text
+            ctx = await self.fd.pipeline.context(self.user)
+            res = await und.understand(
+                text, ctx, channel="call", deadline_s=self.s.speech_understanding_call_timeout_s
+            )
+            if res.apply and res.changed:
+                return t.model_copy(update={"text": res.text}), res.text
+        except Exception:  # noqa: BLE001 - a speech problem must never end or stall a call
+            log.exception("front door: speech understanding failed, using the words as heard")
+        return t, text
 
     def _observe_language(self, detected: Language | None, text: str) -> None:
         """Mirror the caller turn by turn, with hysteresis (a one-word 'haan' flips nothing)."""

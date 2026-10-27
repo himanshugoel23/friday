@@ -1,0 +1,262 @@
+# WhatsApp message templates for messages Friday sends OUTSIDE the 24-hour window.
+# PENDING_FOUNDER_APPROVAL: every body below is a draft. Nothing is submitted to Meta until the
+# founder has read and approved the wording (CLAUDE.md rule 3). Check this file with
+#     uv run friday chatbot templates check
+# and regenerate docs/WHATSAPP_TEMPLATES.md with
+#     uv run friday chatbot templates render > docs/WHATSAPP_TEMPLATES.md
+#
+# Layout of one template
+#   key        logical key (Settings.whatsapp_templates key; what the code passes as TemplateRef.key)
+#   name       exact Meta template name. Registered TWICE under this name: language `en` holds the
+#              Roman Hinglish text (the product default) and language `hi` the Devanagari Hindi text.
+#   english    a third, plain-English text, registered under its own `key` / `name` (language `en`)
+#   category   UTILITY or MARKETING (what we ask Meta for; Meta may re-categorise)
+#   params     what {{1}}, {{2}}... mean, in order; `examples` are the sample values Meta needs
+#   why        the reason sentence that MUST appear in the body (a proactive text states why)
+#   fallback   the generic template (friday/core/templates.py) used until this one is approved
+#   buttons    quick replies (Meta: at most 3, title <= 25 characters). `action` is what the
+#              chatbot does when it is tapped (see friday/chatbot/templates.py BUTTON_ACTIONS)
+# Every body says plainly that Friday is an assistant and that she never asks for payment, OTP or
+# PIN, and states how to stop. Bodies never start or end with a variable (Meta rule).
+
+version: 0
+templates:
+  - key: chatbot_morning_brief
+    name: friday_morning_brief_v1
+    category: UTILITY
+    purpose: The morning brief, for a user who opted in to it, when the 24-hour window is closed.
+    params: ["user's first name", "the brief text (one line, items joined with a dot)"]
+    examples: ["Rahul", "Aaj 11 baje meeting, shaam 6 baje bijli ka bill due"]
+    fallback: nudge
+    why:
+      hinglish: "Yeh isliye aaya ki aapne subah ka brief chuna tha."
+      hi: "यह इसलिए आया कि आपने सुबह का ब्रीफ़ चुना था।"
+      en: "You're getting this because you chose a morning brief."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant) ka subah ka brief: {{2}}
+          Yeh isliye aaya ki aapne subah ka brief chuna tha. Band karne ke liye 'stop' likhiye.
+          Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Theek hai", payload: "cb:tpl:ok", action: ok}
+          - {title: "Brief band karo", payload: "cb:tpl:stop", action: stop}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट) का सुबह का ब्रीफ़: {{2}}
+          यह इसलिए आया कि आपने सुबह का ब्रीफ़ चुना था। बंद करने के लिए 'stop' लिखें।
+          मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "ठीक है", payload: "cb:tpl:ok", action: ok}
+          - {title: "ब्रीफ़ बंद करो", payload: "cb:tpl:stop", action: stop}
+    english:
+      key: chatbot_morning_brief_en
+      name: friday_morning_brief_en_v1
+      body: |-
+        Hello {{1}}, your morning brief from Friday (AI assistant): {{2}}
+        You're getting this because you chose a morning brief. Write 'stop' to turn it off.
+        I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Okay", payload: "cb:tpl:ok", action: ok}
+        - {title: "Stop the brief", payload: "cb:tpl:stop", action: stop}
+
+  - key: chatbot_followup
+    name: friday_followup_v1
+    category: UTILITY
+    purpose: One follow-up question after something the user asked to be reminded about.
+    params: ["user's first name", "the follow-up question"]
+    examples: ["Rahul", "Kal ka interview kaisa raha?"]
+    fallback: nudge
+    why:
+      hinglish: "Yeh isliye pooch rahi hoon ki aapne is baare mein yaad dilane ko kaha tha."
+      hi: "यह इसलिए पूछ रही हूँ कि आपने इस बारे में याद दिलाने को कहा था।"
+      en: "I'm asking because you asked me to follow up on this."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant) ki taraf se ek chhota sawaal: {{2}}
+          Yeh isliye pooch rahi hoon ki aapne is baare mein yaad dilane ko kaha tha. 'stop' likhiye toh band.
+          Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Abhi nahi", payload: "cb:tpl:ok", action: ok}
+          - {title: "Mat poocho", payload: "cb:tpl:stop", action: stop}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट) की तरफ़ से एक छोटा सवाल: {{2}}
+          यह इसलिए पूछ रही हूँ कि आपने इस बारे में याद दिलाने को कहा था। 'stop' लिखें तो बंद।
+          मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "अभी नहीं", payload: "cb:tpl:ok", action: ok}
+          - {title: "मत पूछो", payload: "cb:tpl:stop", action: stop}
+    english:
+      key: chatbot_followup_en
+      name: friday_followup_en_v1
+      body: |-
+        Hello {{1}}, a quick question from Friday (AI assistant): {{2}}
+        I'm asking because you asked me to follow up on this. Write 'stop' and I'll stop asking.
+        I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Not now", payload: "cb:tpl:ok", action: ok}
+        - {title: "Stop asking", payload: "cb:tpl:stop", action: stop}
+
+  - key: chatbot_bill_reminder
+    name: friday_bill_reminder_v1
+    category: UTILITY
+    purpose: A bill the user told Friday about is due soon. Friday never pays it.
+    params: ["user's first name", "which bill (name only)", "when it is due"]
+    examples: ["Rahul", "bijli", "25 January"]
+    fallback: nudge
+    why:
+      hinglish: "Yeh isliye aaya ki aapne bill ke reminders chune the."
+      hi: "यह इसलिए आया कि आपने बिल के रिमाइंडर चुने थे।"
+      en: "You're getting this because you chose bill reminders."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant) yaad dila rahi hai: {{2}} ka bill {{3}} tak due hai.
+          Yeh isliye aaya ki aapne bill ke reminders chune the. 'stop' likhiye toh band.
+          Main payment kabhi nahi karti aur OTP, PIN nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Theek hai", payload: "cb:tpl:ok", action: ok}
+          - {title: "Reminder band karo", payload: "cb:tpl:stop", action: stop}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट) याद दिला रही है: {{2}} का बिल {{3}} तक देय है।
+          यह इसलिए आया कि आपने बिल के रिमाइंडर चुने थे। 'stop' लिखें तो बंद।
+          मैं पेमेंट कभी नहीं करती और OTP, PIN नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "ठीक है", payload: "cb:tpl:ok", action: ok}
+          - {title: "रिमाइंडर बंद करो", payload: "cb:tpl:stop", action: stop}
+    english:
+      key: chatbot_bill_reminder_en
+      name: friday_bill_reminder_en_v1
+      body: |-
+        Hello {{1}}, Friday (AI assistant) is reminding you: your {{2}} bill is due by {{3}}.
+        You're getting this because you chose bill reminders. Write 'stop' to turn them off.
+        I never make payments and never ask for OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Okay", payload: "cb:tpl:ok", action: ok}
+        - {title: "Stop reminders", payload: "cb:tpl:stop", action: stop}
+
+  - key: chatbot_call_outcome
+    name: friday_call_outcome_v1
+    category: UTILITY
+    purpose: The result of a call Friday made for the user, after the user approved it.
+    params: ["user's first name", "who was called", "what happened (one line)"]
+    examples: ["Rahul", "Mummy", "Unhone kaha ki wo 8 baje tak aa jayengi"]
+    fallback: task_update
+    why:
+      hinglish: "Yeh isliye aaya ki yeh call aapke kehne par, aapke OK ke baad lagayi gayi thi."
+      hi: "यह इसलिए आया कि यह कॉल आपके कहने पर, आपके OK के बाद लगाई गई थी।"
+      en: "You're getting this because you asked for this call and approved it."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant): {{2}} ko ki gayi aapki call ka nateeja: {{3}}
+          Yeh isliye aaya ki yeh call aapke kehne par, aapke OK ke baad lagayi gayi thi. 'stop' likhiye toh band.
+          Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Theek hai", payload: "cb:tpl:ok", action: ok}
+          - {title: "Kuch galat hai", payload: "cb:tpl:human", action: human}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट): {{2}} को की गई आपकी कॉल का नतीजा: {{3}}
+          यह इसलिए आया कि यह कॉल आपके कहने पर, आपके OK के बाद लगाई गई थी। 'stop' लिखें तो बंद।
+          मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "ठीक है", payload: "cb:tpl:ok", action: ok}
+          - {title: "कुछ गलत है", payload: "cb:tpl:human", action: human}
+    english:
+      key: chatbot_call_outcome_en
+      name: friday_call_outcome_en_v1
+      body: |-
+        Hello {{1}}, Friday (AI assistant): the result of your call to {{2}}: {{3}}
+        You're getting this because you asked for this call and approved it. Write 'stop' to turn it off.
+        I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Okay", payload: "cb:tpl:ok", action: ok}
+        - {title: "Something is wrong", payload: "cb:tpl:human", action: human}
+
+  - key: chatbot_reengage
+    name: friday_reengage_hello_v1
+    category: MARKETING
+    purpose: One gentle ping to a user who has gone quiet for days. Sent at most once.
+    params: ["user's first name", "one short line about what Friday can do for them now"]
+    examples: ["Rahul", "Kal ke kaam ya bill yaad dilane mein madad chahiye to bataiye."]
+    fallback: reengage
+    why:
+      hinglish: "Yeh isliye bheja ki aapne kuch din se baat nahi ki; sirf ek baar poochungi."
+      hi: "यह इसलिए भेजा कि आपने कुछ दिन से बात नहीं की; सिर्फ़ एक बार पूछूँगी।"
+      en: "I'm sending this because we haven't talked for a few days; I'll ask only once."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant) yahan hai. {{2}}
+          Yeh isliye bheja ki aapne kuch din se baat nahi ki; sirf ek baar poochungi. 'stop' likhiye toh dobara nahi bhejungi.
+          Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Haan, batao", payload: "cb:tpl:ok", action: ok}
+          - {title: "Abhi nahi", payload: "cb:tpl:ok", action: ok}
+          - {title: "Stop", payload: "cb:tpl:stop", action: stop}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट) यहाँ है। {{2}}
+          यह इसलिए भेजा कि आपने कुछ दिन से बात नहीं की; सिर्फ़ एक बार पूछूँगी। 'stop' लिखें तो दोबारा नहीं भेजूँगी।
+          मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "हाँ, बताओ", payload: "cb:tpl:ok", action: ok}
+          - {title: "अभी नहीं", payload: "cb:tpl:ok", action: ok}
+          - {title: "Stop", payload: "cb:tpl:stop", action: stop}
+    english:
+      key: chatbot_reengage_en
+      name: friday_reengage_hello_en_v1
+      body: |-
+        Hello {{1}}, Friday (AI assistant) here. {{2}}
+        I'm sending this because we haven't talked for a few days; I'll ask only once. Write 'stop' and I won't send it again.
+        I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Yes, tell me", payload: "cb:tpl:ok", action: ok}
+        - {title: "Not now", payload: "cb:tpl:ok", action: ok}
+        - {title: "Stop", payload: "cb:tpl:stop", action: stop}
+
+  - key: chatbot_consent
+    name: friday_consent_again_v1
+    category: UTILITY
+    purpose: Ask the user to agree again when the wording they agreed to changed or has lapsed.
+    params: ["user's first name"]
+    examples: ["Rahul"]
+    fallback: reengage
+    why:
+      hinglish: "Yeh isliye pooch rahi hoon ki pehli haan purane shabdon par thi."
+      hi: "यह इसलिए पूछ रही हूँ कि पहली हाँ पुराने शब्दों पर थी।"
+      en: "I'm asking because your first yes was given to older wording."
+    languages:
+      en:
+        body: |-
+          Namaste {{1}}, Friday (AI assistant) ke niyam badle hain, isliye aapki haan dobara chahiye.
+          Yeh isliye pooch rahi hoon ki pehli haan purane shabdon par thi. 'stop' likhiye ya Nahi dabaiye toh main khud se message nahi bhejungi.
+          Main payment, OTP, PIN kabhi nahi maangti; sirf aapka apna data, jab chaho delete.
+        buttons:
+          - {title: "Haan, theek hai", payload: "cb:consent:yes", action: consent_yes}
+          - {title: "Nahi", payload: "cb:consent:no", action: consent_no}
+          - {title: "Details", payload: "cb:tpl:details", action: details}
+      hi:
+        body: |-
+          नमस्ते {{1}}, Friday (AI असिस्टेंट) के नियम बदले हैं, इसलिए आपकी हाँ दोबारा चाहिए।
+          यह इसलिए पूछ रही हूँ कि पहली हाँ पुराने शब्दों पर थी। 'stop' लिखें या नहीं दबाएँ तो मैं अपने-आप मैसेज नहीं भेजूँगी।
+          मैं पेमेंट, OTP, PIN कभी नहीं माँगती; सिर्फ़ आपका अपना डेटा, जब चाहें डिलीट।
+        buttons:
+          - {title: "हाँ, ठीक है", payload: "cb:consent:yes", action: consent_yes}
+          - {title: "नहीं", payload: "cb:consent:no", action: consent_no}
+          - {title: "विवरण", payload: "cb:tpl:details", action: details}
+    english:
+      key: chatbot_consent_en
+      name: friday_consent_again_en_v1
+      body: |-
+        Hello {{1}}, Friday (AI assistant) has changed its terms, so I need your yes again.
+        I'm asking because your first yes was given to older wording. Write 'stop' or tap No and I won't message you on my own.
+        I never ask for payment, OTP or PIN; only your own data, and you can delete it anytime.
+      buttons:
+        - {title: "Yes, okay", payload: "cb:consent:yes", action: consent_yes}
+        - {title: "No", payload: "cb:consent:no", action: consent_no}
+        - {title: "Details", payload: "cb:tpl:details", action: details}

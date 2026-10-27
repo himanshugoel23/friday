@@ -44,4 +44,12 @@ Principle: ask just in time (at the moment it helps), one thing at a time, say w
 | Social accounts, SMS inbox, call log, camera roll | not used | never asked | n/a | decided: no social accounts |
 Wording for each ask is drafted in pending copy and shown to the founder before anyone sees it.
 ## Build gaps for the pilot (2 builders now)
+Status 22 Oct: (a) is built behind `FRIDAY_CHATBOT_ONBOARDING`, see `docs/CHATBOT_PILOT.md` (wording pending approval, template drafts in `docs/WHATSAPP_TEMPLATES.md`).
 (a) the pilot onboarding and consent flow in the router with approved-wording placeholders and a consent record; WhatsApp template drafts for messages sent outside 24 hours; contact-card capture into the contact book; (b) the consumer telephony factory and a `friday consumer call-test` command.
+
+## Messages to other people: from whose number? (founder question, 22 Oct 2026)
+Friday cannot send a WhatsApp message, SMS or call as the user's own number: that number lives on the user's phone, and spoofing a sender or caller ID is blocked by carriers and rules and would be impersonation (Friday never impersonates the user). Options, in order:
+1. **From Friday's own verified number, openly "on behalf of <user>"** (default): honest, works for calls and WhatsApp templates, replies can be routed back to the user.
+2. **One-tap handoff from the user's own phone:** Friday drafts the message and sends the user a `wa.me/<number>?text=...` link (WhatsApp) or an `sms:` link that opens the user's own app with the recipient and text filled in. The user taps Send, so the message truly comes from their number, with their consent. Good for personal messages (family, friends) and "tell him I will call back".
+3. **Email from the user's own Gmail** through the Google connector with a send scope and per-message approval (later; the send scope needs Google review).
+For the receptionist's "Busy, tell them later" button, option 2 is the natural fit for people the user knows and option 1 for businesses.

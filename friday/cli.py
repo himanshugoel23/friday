@@ -417,6 +417,18 @@ def main(argv: list[str] | None = None) -> int:
     from friday.lab.cli import add_parser as _add_lab
 
     _add_lab(sub)  # `friday lab`: the Chat Lab (simulator only)
+    from friday.chatbot.cli import add_parser as _add_chatbot
+
+    _add_chatbot(sub)  # `friday chatbot wishlist | status | templates check | templates render`
+    from friday.lang_dev.cli import add_parser as _add_devanagari  # voice notes + Devanagari
+
+    _add_devanagari(sub)  # `friday chatbot devanagari-eval` (offline)
+    from friday.receptionist.cli import add_parser as _add_receptionist
+
+    _add_receptionist(sub)  # `friday receptionist-sim`, `friday receptionist codes|lines|probe`
+    from friday.human.cli import add_parser as _add_voice
+
+    _add_voice(sub)  # `friday voice selftest | human-preview | listening-kit | pron-add | metrics`
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -502,6 +514,12 @@ def main(argv: list[str] | None = None) -> int:
     from friday.connectors.demo import register as register_connectors
 
     register_connectors(sub)  # `friday connectors list|demo-pizza --fake` (docs/CONNECTORS.md)
+    from friday.connectors.sites.sim_cli import register as register_browser_sim
+
+    register_browser_sim(sub)  # `friday browser-sim [--list]` (FAKE sites only)
+    from friday.speech.cli import register as register_speech
+
+    register_speech(sub)  # `friday speech try|eval` (docs/SPEECH_UNDERSTANDING.md)
     sc = sub.add_parser("scout", help="find best vendors (live Google if key, else fixtures)")
     sc.add_argument("--category", required=True)
     sc.add_argument("--area", required=True)
@@ -537,6 +555,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.connectors.demo import run_command as run_connectors_command
 
         return run_connectors_command(args)
+    if args.cmd == "browser-sim":  # offline: fake sites only, never reads .env, no network
+        from friday.connectors.sites.sim_cli import run_command as run_browser_sim
+
+        return run_browser_sim(args)
     if args.cmd == "playbook":  # offline: never reads .env, never touches the network
         from friday.playbooks.cli import run_command as run_playbook_command
 
@@ -545,10 +567,33 @@ def main(argv: list[str] | None = None) -> int:
         from friday.lab.cli import run_command as run_lab_command
 
         return run_lab_command(args)
+    if args.cmd == "speech":  # offline unless --live; never reads .env itself
+        from friday.speech.cli import run_command as run_speech_command
+
+        return run_speech_command(args)
+    from friday.lang_dev.cli import handles as _devanagari_eval
+    from friday.lang_dev.cli import run as _run_devanagari_eval
+
+    if _devanagari_eval(args):  # offline: parsers only, never reads .env
+        return _run_devanagari_eval(args)
+    from friday.receptionist.cli import handles as _receptionist_handles
+    from friday.receptionist.cli import run as _run_receptionist
+
+    if _receptionist_handles(args):  # offline: simulator, codes, lines, probe report
+        return _run_receptionist(args)
+    from friday.human.cli import handles as _voice_handles
+    from friday.human.cli import run as _run_voice
+
+    if _voice_handles(args):  # selftest/metrics offline; previews use the TTS only if keys exist
+        return _run_voice(args)
     if args.cmd == "consumer":  # demo: offline; call-test: one allow-listed call
         from friday.integration.demo import run_command as run_consumer_command
 
         return run_consumer_command(args)
+    if args.cmd == "chatbot" and args.chatbot_cmd == "templates":  # offline: no .env, no network
+        from friday.chatbot.cli import run_offline as run_chatbot_templates
+
+        return run_chatbot_templates(args)
     if args.cmd == "pm-sim":  # offline: fakes only, never reads .env
         from friday.pm.cli import run_pm_sim
 
@@ -717,6 +762,10 @@ def main(argv: list[str] | None = None) -> int:
         except KeyboardInterrupt:
             print("\nStopped by you (Ctrl+C).")
             return 130
+    if args.cmd == "chatbot":
+        from friday.chatbot.cli import run as run_chatbot
+
+        return run_chatbot(args, settings.database_url)
     if args.cmd == "savings":
         from friday.savings.cli import run as run_savings
 

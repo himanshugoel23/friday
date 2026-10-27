@@ -24,8 +24,8 @@ The older laptop checks (Python, uv, tunnel) are still available as `friday doct
 
 ## 2. database
 - `cannot connect` (FAIL): the database address or password in `FRIDAY_DATABASE_URL` is wrong, or this machine is not allowed in. Re-check the Supabase connection string.
-- `migrations have never been applied` / `migration mismatch` (FAIL): the database is behind the code. Run `uv run python -m friday.db.migrate up`. The latest step must be `0009_life_state` (chain 0006, 0007_consumer_calls, 0008_savings_engine, 0009_life_state).
-- `this code does not contain migration 0009_life_state` (WARN): the server has an old copy of Friday. Update it.
+- `migrations have never been applied` / `migration mismatch` (FAIL): the database is behind the code. Run `uv run python -m friday.db.migrate up`. The latest step must be `0010_chatbot` (chain 0006, 0007_consumer_calls, 0008_savings_engine, 0009_life_state, 0010_chatbot).
+- `this code does not contain migration 0010_chatbot` (WARN): the server has an old copy of Friday. Update it.
 - `N expected table(s) missing` (FAIL): the migration did not finish. Run the same `migrate up` command.
 - `row level security is OFF on ...` (FAIL, Postgres/Supabase only): the tables are readable through Supabase's public key. Run `uv run python -m friday.db.migrate rls`.
 - RLS `[SKIP]` on SQLite is normal for a test machine.
@@ -49,8 +49,13 @@ Only checked if `FRIDAY_REDIS_URL` / `FRIDAY_OBJECT_STORE_URL` are set. `not rea
 ## 6. switches
 Shows, never changes: `FRIDAY_MODE`, the four feature switches (`FRIDAY_CONSUMER_CALLS_ENABLED`, `FRIDAY_SAVINGS_ENABLED`, `FRIDAY_LIFESTATE_ENABLED`, `FRIDAY_GOOGLE_ENABLED`; off by default), how MANY numbers are on the test allow-list (never the numbers) and whether the vendor-call redirect is set. WARN: consumer calls are on but the allow-list is empty.
 
+Also lists the human-like voice switches by name, ON or OFF (profile `FRIDAY_VOICE_PROFILE`, silent latency switches, audible `FRIDAY_HUMAN_*` elements, VAD backend with fallback note, streaming STT). WARN if silero is requested but the `vad` extra is missing (energy fallback). Details: docs/HUMAN_VOICE.md; `friday voice selftest` runs the offline checks.
+
 ## 7. off switch
 Shows whether Friday is paused right now (WARN if paused; resume with `uv run friday pause --resume`). Then it tests the mechanism on a throwaway copy with a fake phone line: calls allowed, switch on, call refused, switch off. FAIL means the off switch cannot be trusted; do not go live and tell an engineer. Your real switch is never touched.
 
 ## 8. service (systemd)
 Is the `friday` service active and when did it last write a log line (time only). `unit is failed/inactive` (FAIL): run `sudo systemctl status friday` and `sudo journalctl -u friday -n 50`. Skipped on machines without systemd.
+
+## 9. receptionist (missed-call forwarding)
+Read-only. Shows whether `FRIDAY_RECEPTIONIST_ENABLED` is on (off by default), how MANY users opted in (a count, never who), and the forwarding probe verdict from `var/receptionist/probe.jsonl` (redirecting number delivered in which key, NOT delivered, or probe not run). WARN when the switch is on but nobody opted in, no inbound number is set, or the probe says the redirecting number does not arrive (every forwarded call then takes the generic message-taker path). Details: docs/RECEPTIONIST.md section 3.

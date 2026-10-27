@@ -31,6 +31,13 @@ if [ -n "$FALLBACK" ]; then
   [ "$MODE" = "book-now" ] || { echo "fallback-when (7th argument) only works with book-now"; exit 1; }
   MODEFLAGS+=(--fallback-when "$FALLBACK")
 fi
+# The number to call is NOT written in this (public) repo: it is the first number of FRIDAY_PILOT_ALLOWED_NUMBERS in the server .env,
+# or FRIDAY_TEST_PHONE if set. livecall itself still refuses any number that is not on the allow-list.
+TO="${FRIDAY_TEST_PHONE:-}"
+if [ -z "$TO" ] && [ -r /opt/friday/.env ]; then
+  TO="$(grep -E '^FRIDAY_PILOT_ALLOWED_NUMBERS=' /opt/friday/.env | head -1 | grep -oE '\+[0-9]{10,15}' | head -1)"
+fi
+[ -n "$TO" ] || { echo "Set FRIDAY_PILOT_ALLOWED_NUMBERS (your own number, +91...) in /opt/friday/.env, or run with FRIDAY_TEST_PHONE=+91..."; exit 1; }
 git config --global --add safe.directory /opt/friday 2>/dev/null || true
 git -C /opt/friday pull --ff-only || { echo "git pull failed: stopping"; exit 1; }
 trap 'systemctl start friday' EXIT        # the front door always comes back, even if the call fails
@@ -38,5 +45,5 @@ systemctl stop friday
 cd /opt/friday
 mkdir -p /opt/friday/var/livecalls && chown friday: /opt/friday/var/livecalls 2>/dev/null || true
 sudo -u friday env PYTHONUNBUFFERED=1 /home/friday/.local/bin/uv run friday livecall --playbook salon_booking \
-  --to +918607549916 --on-behalf-of "$NAME" --when "$WHEN" --salon-name "$SALON" --honorific "$HON" --services "$SERVICES" --budget 600 --max-seconds 150 "${MODEFLAGS[@]}" ${PENDING:+--pending-test} ${FULLNAME:+--full-name "$FULLNAME"} 2>&1 | tee /opt/friday/var/livecalls/last-run.log
+  --to "$TO" --on-behalf-of "$NAME" --when "$WHEN" --salon-name "$SALON" --honorific "$HON" --services "$SERVICES" --budget 600 --max-seconds 150 "${MODEFLAGS[@]}" ${PENDING:+--pending-test} ${FULLNAME:+--full-name "$FULLNAME"} 2>&1 | tee /opt/friday/var/livecalls/last-run.log
 echo; echo "Transcript: /opt/friday/var/livecalls/ (newest file). Full log: /opt/friday/var/livecalls/last-run.log. Front door restarting."

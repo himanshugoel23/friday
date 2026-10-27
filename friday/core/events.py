@@ -113,6 +113,12 @@ class InboundCallReceived(Event):
     provider_call_id: str | None = None
     provider: str = "unknown"
     business_id: str | None = None  # simulator only
+    # Raw redirecting (diverting) number of a FORWARDED call, as the provider delivered it (the
+    # webhook key is unverified for Vobiz, see friday/receptionist/identify.py). None: direct call.
+    redirecting: str | None = None
+    # Diversion / History-Info / x-* fields of the answer webhook (receptionist adapter; empty if
+    # the receptionist or its probe is configured). Feeds ``RedirectResolver``; never logged.
+    call_fields: dict[str, str] = Field(default_factory=dict)
 
     @property
     def friday_number(self) -> str | None:

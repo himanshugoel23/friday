@@ -105,7 +105,7 @@ Optional per-request switch: the user types `updates on` (or `updates band` to s
 
 ## Test redirect mode (important)
 
-`FRIDAY_VENDOR_CALL_REDIRECT_TO=+918607549916` (empty by default) makes every vendor call dial THAT number
+`FRIDAY_VENDOR_CALL_REDIRECT_TO=<founder-number>` (empty by default) makes every vendor call dial THAT number
 instead of the real vendor. The script still uses the real vendor's name and city, the vendor is never
 dialled and never messaged (no end-of-call SMS/WhatsApp to the vendor), and call records stay keyed by the
 real vendor number. The pilot allow-list is checked against the number actually dialled: with the allow-list
@@ -117,7 +117,7 @@ is not on the list is refused too. `friday doctor` shows whether the redirect is
 
 `GOOGLE_PLACES_API_KEY`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`,
 `WHATSAPP_APP_SECRET`. Webhook URL for Meta: `<FRIDAY_PUBLIC_BASE_URL>/webhooks/whatsapp` (for the current server
-`https://64-227-183-183.sslip.io/webhooks/whatsapp`); `friday doctor` prints it. Subscribe the app to the
+`https://<server-ip-with-dashes>.sslip.io/webhooks/whatsapp`); `friday doctor` prints it. Subscribe the app to the
 `messages` field. Other settings: `FRIDAY_QUOTES_FLOW_ENABLED`, `FRIDAY_QUOTES_RADIUS_KM`,
 `FRIDAY_QUOTES_MAX_CONCURRENT_CALLS` (1 to 3), `FRIDAY_QUOTES_RETRY_AFTER_MIN`, `FRIDAY_QUOTES_STALE_HOURS`,
 `FRIDAY_QUOTES_PLACES_CACHE_TTL_S`, `FRIDAY_QUOTES_DELIVERY_RECEIPT_WAIT_MIN`, `FRIDAY_QUOTES_SMS_FALLBACK`,

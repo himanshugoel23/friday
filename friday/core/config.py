@@ -372,26 +372,41 @@ class Settings(BaseSettings):
     # Latency switches (docs/LATENCY.md, 2026-10-21). All default OFF; none changes a spoken word.
     # FRIDAY_VOICE_SPECULATIVE_UNDERSTANDING: start understanding the early / stable transcript
     # while the caller's pause is still being timed out; reuse it if the final text is the same.
-    voice_speculative_understanding: bool = False
+    voice_speculative_understanding: bool = True
     # FRIDAY_LLM_STREAM_TO_TTS: stream a model-written reply and speak it sentence by sentence.
-    llm_stream_to_tts: bool = False
+    llm_stream_to_tts: bool = True
     # FRIDAY_INTENT_CLASSIFIER (+ _THRESHOLD): the small trained classifier answers the common
     # replies the rules are unsure about, above the threshold; otherwise rules + model as before.
-    intent_classifier: bool = False
+    intent_classifier: bool = True
     intent_classifier_threshold: float = Field(default=0.9, ge=0.5, le=1.0)
     # Voice quality (docs/LATENCY.md, 2026-10-21 second section). Both OFF; neither changes a word.
     # FRIDAY_VOICE_SEMANTIC_EOT: judge from the words whether the caller has finished; confidently
     # unfinished -> the pause wait grows by _EXTEND_MS (capped 1500), confidently finished and short
     # -> commit at the early point. _THRESHOLD: confidence needed (default: the trained model's).
-    voice_semantic_eot: bool = False
+    voice_semantic_eot: bool = True
     voice_semantic_eot_extend_ms: int = Field(default=700, ge=0, le=1500)
     voice_semantic_eot_threshold: float | None = Field(default=None, ge=0.5, le=1.0)
     # FRIDAY_VOICE_VAD_BACKEND: energy = the loudness rule (default); silero = trained neural VAD
     # (needs the optional extra `vad`; falls back to energy if it cannot load).
-    voice_vad_backend: Literal["energy", "silero"] = "energy"
+    voice_vad_backend: Literal["energy", "silero"] = "silero"
     voice_vad_start_prob: float = Field(default=0.5, ge=0.05, le=0.99)  # speech turns on
     voice_vad_stop_prob: float = Field(default=0.35, ge=0.02, le=0.99)  # speech turns off below
     voice_vad_barge_prob: float = Field(default=0.75, ge=0.3, le=0.99)  # stricter: talk over her
+    # ---- human-like voice (docs/HUMAN_VOICE.md). FRIDAY_VOICE_PROFILE=internal-test turns ON every
+    # element below that is not already on, unless the env sets it explicitly. Production / pilot
+    # keep the AUDIBLE ones OFF until the founder approves the audio. Silent ones are ON.
+    voice_profile: Literal["production", "internal-test"] = "production"
+    human_resume: bool = True  # FRIDAY_HUMAN_RESUME: after barge-in continue the unfinished point
+    human_metrics: bool = True  # FRIDAY_HUMAN_METRICS: per-call human-feel report (silent)
+    human_noise_adapt: bool = False  # FRIDAY_HUMAN_NOISE_ADAPT: noise-aware thresholds + repeat ask
+    human_backchannels: bool = False  # FRIDAY_HUMAN_BACKCHANNELS: "haan ji" in long answers
+    human_prosody: bool = False  # FRIDAY_HUMAN_PROSODY: per-line pace and pauses
+    human_numbers: bool = False  # FRIDAY_HUMAN_NUMBERS: spoken Hinglish numbers/times/prices
+    human_variants: bool = False  # FRIDAY_HUMAN_VARIANTS: phrasing variety (pending table)
+    human_mirror: bool = False  # FRIDAY_HUMAN_MIRROR: pure English / pure Hindi variants
+    human_mood: bool = False  # FRIDAY_HUMAN_MOOD: rushed / annoyed callee -> shorter lines
+    human_match_listener: bool = False  # FRIDAY_HUMAN_MATCH_LISTENER: pace, length
+    human_pauses: bool = False  # FRIDAY_HUMAN_PAUSES: right-sized thoughtful silences
     deepgram_api_key: SecretStr | None = Field(
         default=None, validation_alias=_alias("DEEPGRAM_API_KEY", "FRIDAY_DEEPGRAM_API_KEY")
     )
@@ -540,6 +555,107 @@ class Settings(BaseSettings):
     lifestate_enabled: bool = False  # the user's day: friday/lifestate
     google_enabled: bool = False  # connect/disconnect/status intents and the calendar sync job
 
+    # ---------------------------------------------------------------- receptionist (receptionist/)
+    # docs/RECEPTIONIST.md. Friday answers the user's calls that were NOT picked up (carrier
+    # conditional forwarding). OFF by default; every spoken line is PENDING_FOUNDER_APPROVAL.
+    receptionist_enabled: bool = False
+    receptionist_inbound_number: str | None = None  # shared forwarding number (else friday_numbers)
+    # Where the redirecting (diverting) number may arrive in the provider webhook. UNVERIFIED
+    # for Vobiz: `friday receptionist probe` shows which key really carries it.
+    receptionist_redirect_fields: CsvList = Field(
+        default_factory=lambda: [
+            "ForwardedFrom", "Forwarded-From", "DivertedFrom", "Diversion", "DiversionNumber",
+            "RedirectingNumber", "RedirectingParty", "OriginalCalledNumber", "OriginalTo",
+            "History-Info", "HistoryInfo", "X-Forwarded-For-Number", "SIP-Diversion",
+        ]
+    )  # fmt: skip
+    # True: the shared inbound number serves ONLY the receptionist. A call to it with a missing or
+    # unknown redirecting number hears the fixed "cannot take a message" line (blocked.end) instead
+    # of the generic message-taker. Calls to any other Friday number (the front door) are untouched.
+    receptionist_only_number: bool = False
+    receptionist_probe: bool = False  # log the (masked) inbound webhook keys to a file
+    receptionist_max_call_s: int = 90
+    receptionist_per_user_per_day: int = 40  # answered forwarded calls per user per day
+    receptionist_per_caller_per_hour: int = 3  # the same caller number, any user
+    receptionist_snippet_days: int = 30  # how long a stored transcript snippet lives
+    receptionist_store_dir: str = "var/receptionist"
+
+    # ------------------------------------------------------------------ chatbot pilot (chatbot/)
+    # docs/CHATBOT_PILOT.md. All OFF: with ``chatbot_onboarding`` false the inbound pipeline behaves
+    # exactly as before. The wording of every message is PENDING_FOUNDER_APPROVAL (chatbot/copy.py).
+    chatbot_onboarding: bool = False  # first-run flow, menu/help, capture, off-topic redirect
+    # FRIDAY_PILOT: while on, only allow-listed testers can onboard; everyone else is waitlisted
+    # (number hash only). Allow-list = pilot_allowed_numbers + chatbot_testers + admin_phones.
+    pilot: bool = False
+    chatbot_testers: CsvList = Field(default_factory=list)  # E.164 testers who may onboard
+    # WhatsApp number (E.164) that receives "human"/"support" requests. Never hard-coded.
+    support_inbox: str | None = None
+    # off-topic questions: "redirect" (polite line + wishlist, recommended), "wishlist_only"
+    # (store it, let the brain answer) or "off" (do nothing special)
+    chatbot_offtopic: Literal["redirect", "wishlist_only", "off"] = "redirect"
+    # Instinct review: fixed safety lines, language on request, sums/time/date computed in code
+    chatbot_guards: bool = True  # FRIDAY_CHATBOT_GUARDS
+    chatbot_quick_answers: bool = True  # FRIDAY_CHATBOT_QUICK_ANSWERS
+    # the order of the first-win buttons (any of card, day, call; at most 3 are shown)
+    chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
+    # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
+    chatbot_disclosure_every_step: bool = False
+    # ------------------------------------------------------------------ private browser
+    # docs/PRIVATE_BROWSER_RUNTIME.md. ALL OFF: nothing browser-driven runs unless the master switch
+    # AND a tester id are set. ``FRIDAY_BROWSER_SITES_ENABLED`` (catalog keys), ``_LEGAL_CLEARED``
+    # (sites the founder cleared) and ``_SUPERVISED`` decide, per site, whether a real site may be
+    # automated at all (friday/connectors/catalog.py ``effective_mode``); else a link.
+    browser_enabled: bool = False
+    browser_enabled_users: CsvList = Field(default_factory=list)  # ids, or "*" (never in the pilot)
+    browser_backend: str = "local"  # local | cloud | fake
+    browser_cloud_provider: str | None = None
+    browser_headed: bool = False
+    browser_display: str = ":99"
+    browser_resolve_dns: bool = True
+    browser_timeout_ms: int = 8000
+    browser_task_max_seconds: float = 600.0
+    browser_max_pages: int = 3
+    browser_max_downloads: int = 0
+    browser_max_per_user: int = 1
+    browser_max_global: int = 3
+    browser_vault_ttl_days: int = 30
+    browser_vault_dir: str = "var/browser_vault"
+    browser_credentials_enabled: bool = False
+    browser_credentials_enabled_users: CsvList = Field(default_factory=list)
+    browser_credentials_ttl_days: int = 90
+    browser_credentials_dir: str = "var/browser_credentials"
+    browser_credentials_link_ttl_seconds: float = 600.0
+    browser_live_link_ttl_seconds: float = 900.0
+    browser_live_view_ttl_seconds: float = 900.0
+    browser_frame_min_interval_ms: int = 400
+    browser_takeover_max_seconds: float = 300.0
+    browser_audit_file: str = "var/browser_audit.jsonl"
+    browser_sites_enabled: CsvList = Field(default_factory=list)  # catalog keys, e.g. blinkit,uber
+    browser_legal_cleared: CsvList = Field(default_factory=list)  # site keys the founder cleared
+    browser_supervised: bool = False  # real-site runs only while the founder watches
+    # ------------------------------------------------------------------ voice notes + Devanagari
+    # docs/VOICE_NOTES_AND_DEVANAGARI.md. Both OFF: with them off the pipeline behaves as before.
+    voice_note_replies: bool = False  # FRIDAY_VOICE_NOTE_REPLIES: voice-note in -> voice-note out
+    voice_note_daily_cap: int = Field(default=10, ge=0)  # voice replies per user per IST day
+    voice_note_max_chars: int = Field(default=600, ge=1)  # longer replies go as text only
+    voice_note_cost_per_1k_chars_inr: float = Field(default=3.0, ge=0)  # ESTIMATE, for the cost log
+    voice_note_confirm_below: float = Field(default=0.6, ge=0, le=1)  # ask back below this
+    devanagari_input: bool = False  # Devanagari -> Roman Hinglish for the parsers
+
+    # ------------------------------------------------------------------ speech understanding
+    # docs/SPEECH_UNDERSTANDING.md: a small LLM cleans what the user SPOKE (fillers,
+    # self-corrections, mis-heard names fixed from memory) before the rest reads it.
+    # Founder: live from pilot day 1, fixes are silent.
+    # off | shadow (compute + log, change nothing) | on. Needs a real LLM.
+    speech_understanding: Literal["off", "shadow", "on"] = "on"  # FRIDAY_SPEECH_UNDERSTANDING
+    speech_understanding_voice_notes: bool = True  # the user's WhatsApp voice notes
+    speech_understanding_calls: bool = True  # user's turns on a call (never a vendor)
+    speech_understanding_text: bool = False  # typed WhatsApp text (off: the user's own words)
+    speech_understanding_model: str | None = None  # None: model_for("speech_understand")
+    speech_understanding_timeout_s: float = Field(default=3.0, ge=0.2, le=10.0)  # voice notes
+    speech_understanding_call_timeout_s: float = Field(default=0.9, ge=0.2, le=3.0)  # live calls
+    speech_understanding_min_words: int = Field(default=3, ge=1, le=10)  # shorter: left as spoken
+
     # ------------------------------------------------------------------ proactive
     proactive_enabled: bool = True
     proactive_tick_s: int = 60
@@ -643,6 +759,13 @@ class Settings(BaseSettings):
         "roles",
         "sarvam_verified_capabilities",
         "pilot_allowed_numbers",
+        "chatbot_testers",
+        "chatbot_first_wins",
+        "browser_enabled_users",
+        "browser_credentials_enabled_users",
+        "browser_sites_enabled",
+        "browser_legal_cleared",
+        "receptionist_redirect_fields",
         mode="before",
     )
     @classmethod
@@ -655,6 +778,30 @@ class Settings(BaseSettings):
                 return json.loads(v)
             return [x.strip() for x in v.split(",") if x.strip()]
         return v
+
+    @model_validator(mode="after")
+    def _chatbot_template_names(self) -> Settings:
+        """With the chatbot pilot on, the channel knows the draft templates' Meta names (an
+        explicit FRIDAY_WHATSAPP_TEMPLATES entry always wins). Off: the registry is untouched."""
+        if self.chatbot_onboarding:
+            from friday.chatbot.templates import template_names
+
+            for key, name in template_names().items():
+                self.whatsapp_templates.setdefault(key, name)
+        return self
+
+    @model_validator(mode="after")
+    def _internal_test_voice(self) -> Settings:
+        """FRIDAY_VOICE_PROFILE=internal-test: every human-voice switch ON unless set explicitly."""
+        if self.voice_profile == "internal-test":
+            from friday.human.profile import INTERNAL_TEST_ON
+
+            for name in INTERNAL_TEST_ON:
+                if name not in self.model_fields_set:
+                    setattr(self, name, True)
+            if "voice_vad_backend" not in self.model_fields_set:
+                self.voice_vad_backend = "silero"
+        return self
 
     @model_validator(mode="after")
     def _pilot_no_recordings(self) -> Settings:

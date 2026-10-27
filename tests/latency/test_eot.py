@@ -424,7 +424,7 @@ async def test_a_broken_detector_never_breaks_the_leg():
 # --------------------------------------------------------------------------- session and switches
 def test_switches_default_off_and_the_extension_is_capped_by_config():
     s = Settings(_env_file=None)
-    assert s.voice_semantic_eot is False
+    assert s.voice_semantic_eot is True  # default ON since 2026-10-23
     assert s.voice_semantic_eot_extend_ms == 700 and s.voice_semantic_eot_threshold is None
     assert EotConfig(enabled=True, extend_ms=5000).extend == 1500
     assert EotConfig(enabled=True, extend_ms=-5).extend == 0

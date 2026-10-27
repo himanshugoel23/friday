@@ -7,6 +7,7 @@ from PLAYWRIGHT_CHROMIUM_PATH or is found under /opt/pw-browsers/chromium-*/.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import glob
 import importlib.util
@@ -14,7 +15,10 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from friday.connectors.browser.policy import LimitCounter, NetworkPolicy
 from friday.connectors.browser.port import BrowserError, ElementNotFound
+
+VIEWPORT = (1280, 800)
 
 CHROMIUM_ENV = "PLAYWRIGHT_CHROMIUM_PATH"
 _SEARCH = (
@@ -76,9 +80,17 @@ class PlaywrightBrowserSession:
         allowed_hosts: set[str] | None = None,
         timeout_ms: int = 8000,
         trace: bool = False,
+        policy: NetworkPolicy | None = None,
+        counter: LimitCounter | None = None,
+        headless: bool = True,
+        display: str | None = None,
+        resolver: Any = None,
     ) -> PlaywrightBrowserSession:
         """``storage_state``: a previously exported session (callers keep it encrypted).
-        ``allowed_hosts``: when set, every request to another host is aborted (tests use it)."""
+        ``policy``: default-deny network policy enforced on EVERY request (also sub-resources and
+        popups). ``allowed_hosts`` is the older shorthand (loopback allowed, tests/demos).
+        ``headless=False`` + ``display`` runs headed Chromium in a virtual display (Xvfb).
+        ``counter`` receives page / download / blocked-request events."""
         if not playwright_installed():
             raise BrowserError("playwright is not installed (uv sync --extra browser)")
         exe = find_chromium()
@@ -86,24 +98,23 @@ class PlaywrightBrowserSession:
             raise BrowserError(f"no Chromium found; set {CHROMIUM_ENV}")
         from playwright.async_api import async_playwright
 
+        if policy is None and allowed_hosts is not None:
+            policy = NetworkPolicy.for_hosts(allowed_hosts, allow_loopback=True)
         pw = await async_playwright().start()
         try:
             args = ["--no-sandbox"] if hasattr(os, "geteuid") and os.geteuid() == 0 else []
-            browser = await pw.chromium.launch(executable_path=exe, headless=True, args=args)
-            context = await browser.new_context(storage_state=storage_state)  # fresh per user
+            args += ["--disable-extensions", "--disable-sync", "--no-first-run"]
+            env = {**os.environ, "DISPLAY": display} if (display and not headless) else None
+            browser = await pw.chromium.launch(
+                executable_path=exe, headless=headless, args=args, env=env)
+            context = await browser.new_context(  # fresh per task, never shared
+                storage_state=storage_state, accept_downloads=False, service_workers="block",
+                viewport={"width": VIEWPORT[0], "height": VIEWPORT[1]}, permissions=[])
             context.set_default_timeout(timeout_ms)
-            if allowed_hosts is not None:
-                hosts = set(allowed_hosts)
-
-                async def _guard(route: Any) -> None:
-                    host = route.request.url.split("/")[2].split(":")[0] if "//" in (
-                        route.request.url) else ""
-                    if route.request.url.startswith(("data:", "about:")) or host in hosts:
-                        await route.continue_()
-                    else:
-                        await route.abort()
-
-                await context.route("**/*", _guard)
+            if policy is not None:
+                await _install_guard(context, policy, counter, resolver)
+            if counter is not None:
+                _install_counters(context, counter)
             if trace:
                 await context.tracing.start(screenshots=True, snapshots=True)
             page = await context.new_page()
@@ -111,6 +122,25 @@ class PlaywrightBrowserSession:
             await pw.stop()
             raise
         return cls(pw, browser, context, page, timeout_ms, trace)
+
+    # ---- takeover / live view support (used only by friday.connectors.session)
+    def viewport(self) -> tuple[int, int]:
+        return VIEWPORT
+
+    def current_url(self) -> str:
+        return str(self._page.url)
+
+    async def pointer_click(self, x: int, y: int) -> None:
+        await self._page.mouse.click(x, y)
+
+    async def type_text(self, text: str) -> None:
+        await self._page.keyboard.type(text)
+
+    async def press_key(self, key: str) -> None:
+        await self._page.keyboard.press(key)
+
+    async def scroll(self, dy: int) -> None:
+        await self._page.mouse.wheel(0, dy)
 
     async def goto(self, url: str) -> None:
         await self._page.goto(url)
@@ -162,3 +192,66 @@ class PlaywrightBrowserSession:
             if type(e).__name__ in {"TimeoutError", "Error"}:
                 raise ElementNotFound(f"selector not found: {selector}") from None
             raise
+
+
+async def _install_guard(
+    context: Any, policy: NetworkPolicy, counter: LimitCounter | None, resolver: Any
+) -> None:
+    """Abort every request the policy does not allow. ``resolver(host) -> [ip]`` (optional) adds
+    the DNS-rebinding check; omitted in offline tests."""
+    cache: dict[str, str | None] = {}
+
+    async def _verdict(url: str) -> str | None:
+        reason = policy.check(url)
+        if reason or resolver is None:
+            return reason
+        host = url.split("/")[2].split(":")[0] if "//" in url else ""
+        if host not in cache:
+            try:
+                cache[host] = policy.check_resolved(host, await resolver(host))
+            except Exception:  # noqa: BLE001 - unresolvable: fail closed
+                cache[host] = "host did not resolve"
+        return cache[host]
+
+    async def _guard(route: Any) -> None:
+        url = route.request.url
+        reason = await _verdict(url)
+        if reason is None:
+            await route.continue_()
+            return
+        if counter is not None:
+            counter.blocked(url, reason)
+        await route.abort()
+
+    await context.route("**/*", _guard)
+    with contextlib.suppress(Exception):  # websockets: older Playwright has no route_web_socket
+
+        async def _ws(ws: Any) -> None:
+            reason = policy.check(ws.url)
+            if reason is None:
+                ws.connect_to_server()
+            else:
+                if counter is not None:
+                    counter.blocked(ws.url, reason)
+                await ws.close()
+
+        await context.route_web_socket("**/*", _ws)
+
+
+def _install_counters(context: Any, counter: LimitCounter) -> None:
+    def _download(dl: Any) -> None:
+        counter.note_download()  # accept_downloads=False: the file itself is always discarded
+
+    def _new_page(page: Any) -> None:
+        if not counter.note_page():
+            asyncio.ensure_future(_close_quietly(page))
+            return
+        page.on("download", _download)
+        page.on("close", lambda _p: counter.page_closed())
+
+    context.on("page", _new_page)
+
+
+async def _close_quietly(page: Any) -> None:
+    with contextlib.suppress(Exception):
+        await page.close()

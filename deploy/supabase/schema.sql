@@ -1320,5 +1320,125 @@ CREATE INDEX ix_life_followups_user_sent ON life_followups (user_id, sent_at);
 
 UPDATE alembic_version SET version_num='0009_life_state' WHERE alembic_version.version_num = '0008_savings_engine';
 
+-- Running upgrade 0009_life_state -> 0010_chatbot
+
+CREATE TABLE chatbot_sessions (
+    phone_hash VARCHAR(64) NOT NULL, 
+    user_id VARCHAR(32), 
+    step VARCHAR(24) NOT NULL, 
+    lang VARCHAR(8) NOT NULL, 
+    step_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    pending_kind VARCHAR(24), 
+    pending TEXT, 
+    last_hash VARCHAR(32), 
+    refused_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_chatbot_sessions PRIMARY KEY (id), 
+    CONSTRAINT fk_chatbot_sessions_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_chatbot_sessions_phone_hash UNIQUE (phone_hash)
+);
+
+CREATE INDEX ix_chatbot_sessions_user_id ON chatbot_sessions (user_id);
+
+CREATE TABLE chatbot_waitlist (
+    phone_hash VARCHAR(64) NOT NULL, 
+    first_seen_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    hits INTEGER NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_chatbot_waitlist PRIMARY KEY (id), 
+    CONSTRAINT uq_chatbot_waitlist_phone_hash UNIQUE (phone_hash)
+);
+
+CREATE TABLE chatbot_inbox (
+    kind VARCHAR(12) NOT NULL, 
+    user_id VARCHAR(32), 
+    text TEXT NOT NULL, 
+    lang VARCHAR(8) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    CONSTRAINT pk_chatbot_inbox PRIMARY KEY (id), 
+    CONSTRAINT fk_chatbot_inbox_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_chatbot_inbox_user_id ON chatbot_inbox (user_id);
+
+CREATE INDEX ix_chatbot_inbox_kind_created ON chatbot_inbox (kind, created_at);
+
+UPDATE alembic_version SET version_num='0010_chatbot' WHERE alembic_version.version_num = '0009_life_state';
+
+-- Running upgrade 0010_chatbot -> 0011_receptionist
+
+CREATE TABLE receptionist_configs (
+    user_id VARCHAR(32) NOT NULL, 
+    enabled BOOLEAN NOT NULL, 
+    config TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_receptionist_configs PRIMARY KEY (id), 
+    CONSTRAINT fk_receptionist_configs_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_receptionist_configs_user_id UNIQUE (user_id)
+);
+
+CREATE TABLE receptionist_messages (
+    user_id VARCHAR(32), 
+    caller_hash VARCHAR(64), 
+    caller_number TEXT, 
+    caller_name TEXT, 
+    reason TEXT, 
+    snippet TEXT, 
+    callback_number TEXT, 
+    known_contact_name TEXT, 
+    urgency VARCHAR(8) NOT NULL, 
+    outcome VARCHAR(16) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    notified_at TIMESTAMP WITH TIME ZONE, 
+    duration_s FLOAT NOT NULL, 
+    reasons JSON, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_receptionist_messages PRIMARY KEY (id), 
+    CONSTRAINT fk_receptionist_messages_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_receptionist_messages_user_created ON receptionist_messages (user_id, created_at);
+
+CREATE INDEX ix_receptionist_messages_caller_created ON receptionist_messages (caller_hash, created_at);
+
+CREATE TABLE receptionist_blocks (
+    user_id VARCHAR(32) NOT NULL, 
+    number_hash VARCHAR(64) NOT NULL, 
+    number TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_receptionist_blocks PRIMARY KEY (id), 
+    CONSTRAINT fk_receptionist_blocks_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_receptionist_blocks UNIQUE (user_id, number_hash)
+);
+
+CREATE INDEX ix_receptionist_blocks_user_id ON receptionist_blocks (user_id);
+
+UPDATE alembic_version SET version_num='0011_receptionist' WHERE alembic_version.version_num = '0010_chatbot';
+
+-- Running upgrade 0011_receptionist -> 0012_receptionist_spam
+
+CREATE TABLE receptionist_spam (
+    number_hash VARCHAR(64) NOT NULL, 
+    reports INTEGER NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_receptionist_spam PRIMARY KEY (id), 
+    CONSTRAINT uq_receptionist_spam_number_hash UNIQUE (number_hash)
+);
+
+UPDATE alembic_version SET version_num='0012_receptionist_spam' WHERE alembic_version.version_num = '0011_receptionist';
+
 COMMIT;
 

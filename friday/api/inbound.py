@@ -17,6 +17,7 @@ Owner: Backend Engineer A.
 
 from __future__ import annotations
 
+import asyncio
 import re
 import secrets
 from datetime import datetime, timedelta
@@ -178,6 +179,21 @@ class InboundPipeline:
         from friday.pm.gateway import PMGateway
 
         self.pm_gateway = PMGateway(c)  # non-salon categories (off unless FRIDAY_PM_ENABLED)
+        # the WhatsApp chatbot pilot (docs/CHATBOT_PILOT.md): None unless FRIDAY_CHATBOT_ONBOARDING
+        self.chatbot: Any = None
+        if self.settings.chatbot_onboarding:
+            from friday.chatbot.service import ChatbotService
+
+            self.chatbot = ChatbotService(self)
+        # the private browser (docs/PRIVATE_BROWSER.md): None unless FRIDAY_BROWSER_ENABLED
+        self.browser: Any = None
+        if self.settings.browser_enabled:
+            try:
+                from friday.connectors.wiring import build_browser_stack
+
+                self.browser = build_browser_stack(c)
+            except Exception:  # noqa: BLE001 - the browser must never stop the app from booting
+                log.exception("private browser failed to build; continuing without it")
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -242,8 +258,8 @@ class InboundPipeline:
             log.exception("consumer integration failed to build; continuing without it")
             return None
 
-    async def context(self, user: User) -> ConversationContext:
-        ctx = await build_context(self.repos, self.clock, user)
+    async def context(self, user: User, query: str | None = None) -> ConversationContext:
+        ctx = await build_context(self.repos, self.clock, user, query=query)
         consumer = self.consumer()
         if consumer is not None:
             summary = await consumer.context_summary(user.id)
@@ -375,6 +391,19 @@ class InboundPipeline:
 
     # ------------------------------------------------------------------ main entry
     async def handle(self, msg: InboundMessage) -> None:
+        """One message at a time per sender, in arrival order, so a slow answer is never overtaken
+        or mixed up with the next one (Instinct review, docs/CHATBOT_PERSONA.md appendix C)."""
+        locks = self.__dict__.setdefault("_sender_locks", {})
+        key = msg.from_phone
+        lock = locks.setdefault(key, asyncio.Lock())
+        try:
+            async with lock:
+                await self._handle(msg)
+        finally:
+            if not lock.locked() and not getattr(lock, "_waiters", None):
+                locks.pop(key, None)
+
+    async def _handle(self, msg: InboundMessage) -> None:
         try:
             msg.from_phone = normalize_phone(msg.from_phone, self.settings.default_country_code)
         except ValueError:
@@ -395,6 +424,8 @@ class InboundPipeline:
                 return
             if await self._from_business(msg):
                 return
+            if self.chatbot is not None and await self.chatbot.handle_unknown(msg):
+                return  # pilot onboarding (consent first); False == the invite-code onboarding
             await self._new_user(msg)
             return
 
@@ -435,6 +466,8 @@ class InboundPipeline:
     async def _transcribe(self, msg: InboundMessage) -> str | None:
         if not msg.media_url:
             return None
+        if self.settings.voice_note_replies and (hook := self._media_hook()) is not None:
+            return await hook.transcribe(msg)  # HOOK: same download caps, adds confidence
         messaging = self._opt("messaging")
         if messaging is None:
             return None
@@ -592,10 +625,102 @@ class InboundPipeline:
         await self.callbacks.on_business_message(msg, match)
         return True
 
+    # ------------------------------------------------------------------ voice notes + Devanagari
+    def _media_hook(self) -> Any:
+        """HOOK (docs/VOICE_NOTES_AND_DEVANAGARI.md): the voice-note / script side of the chatbot,
+        or None while FRIDAY_VOICE_NOTE_REPLIES and FRIDAY_DEVANAGARI_INPUT are both off."""
+        if not (self.settings.voice_note_replies or self.settings.devanagari_input):
+            return None
+        if not hasattr(self, "_media_in"):
+            from friday.chatbot_media.wiring import build_inbound
+
+            self._media_in = build_inbound(self.c, self)
+        return self._media_in
+
+    async def _media_inbound(self, user: User, msg: InboundMessage) -> InboundMessage | None:
+        hook = self._media_hook()
+        if hook is None:
+            return msg
+        out = await hook.on_inbound(user, msg)
+        if out is not None and self.settings.devanagari_input:
+            from friday.lang_dev.hook import normalise_inbound
+
+            out = normalise_inbound(out)
+        return out
+
+    # ------------------------------------------------------------------ speech understanding
+    def _speech_und(self) -> Any:
+        """The Speech Understander (docs/SPEECH_UNDERSTANDING.md) or None when it cannot run."""
+        if not hasattr(self, "_speech_obj"):
+            self._speech_obj = None
+            if self.settings.speech_understanding != "off":
+                try:
+                    from friday.speech import SpeechUnderstander
+
+                    self._speech_obj = SpeechUnderstander(self.c.get("llm"), self.settings)
+                except Exception:  # noqa: BLE001 - no LLM component: the layer is simply off
+                    log.info("speech understanding unavailable (no llm component)")
+        return self._speech_obj
+
+    async def _speech_understand(self, user: User, msg: InboundMessage) -> InboundMessage:
+        """The user's own voice note (or text, if switched on) is cleaned silently: fillers out,
+        self-corrections resolved, mis-heard names fixed from memory. Never raises; the original
+        words stay in ``raw['original_text']``. Business messages never come through here."""
+        if not msg.text:
+            return msg
+        channel = {MessageKind.VOICE_NOTE: "voice_note", MessageKind.TEXT: "text"}.get(msg.kind)
+        und = self._speech_und() if channel else None
+        if und is None or not und.wants(channel):
+            return msg
+        try:
+            ctx = await self.context(user)
+            res = await und.understand(msg.text, ctx, channel=channel)
+        except Exception:  # noqa: BLE001
+            log.exception("speech understanding failed; using the words as heard")
+            return msg
+        if not res.apply or not res.changed:
+            return msg
+        await self._learn_aliases(user, res)
+        raw = {**msg.raw, "speech": res.audit()}
+        raw.setdefault("original_text", res.original_text)
+        return msg.model_copy(update={"text": res.text, "raw": raw})
+
+    async def _learn_aliases(self, user: User, res: Any) -> None:
+        """A mis-hearing fixed from memory is a sighting: after two the alias is saved, so the same
+        slip is fixed even without the model (docs/MEMORY_ONE_PAGER.md). Never raises."""
+        try:
+            from friday.memory import MemoryService
+
+            svc = MemoryService(self.repos, self.clock)
+            for r in res.repairs:
+                if r.kind == "mishearing" and r.old and r.new:
+                    await svc.note_misheard(user.id, r.old, r.new)
+        except Exception:  # noqa: BLE001
+            log.exception("memory: alias learning failed")
+
     # ------------------------------------------------------------------ active users
     async def _active(self, user: User, msg: InboundMessage) -> None:
+        # HOOK: remember voice/script for the reply, ask back on a low-confidence transcript,
+        # normalise Devanagari to Roman for the parsers (the log above kept the original text)
+        if self._media_hook() is not None:
+            routed = await self._media_inbound(user, msg)
+            if routed is None:
+                return
+            msg = routed
+        # HOOK: clean what the user SPOKE (voice note)
+        msg = await self._speech_understand(user, msg)
         pending = await self.state.get_pending(user.id, self.clock.now())
         if pending is not None and await self._continue_pending(user, msg, pending):
+            return
+
+        if self.chatbot is not None and await self.chatbot.pre(user, msg):
+            return  # chatbot pilot: menu/help/stop/human/delete, captures, onboarding answers
+
+        if self.browser is not None and await self.browser.handle(user, msg):
+            return  # private browser: "bf:" buttons, "my logins", an order / booking request
+
+        rcp = self.callbacks.receptionist()  # buttons, "what did I miss?" (None: switch off)
+        if rcp is not None and await rcp.handle(user, msg):
             return
 
         consumer = self.consumer()
@@ -610,11 +735,14 @@ class InboundPipeline:
         if msg.kind == MessageKind.BUTTON_REPLY and msg.button_id and await self._button(user, msg):
             return
 
+        if self.chatbot is not None and await self.chatbot.post(user, msg):
+            return  # chatbot pilot: a typed number becomes a contact; off-topic redirect
+
         brain = self.brain()
         if brain is None:
             await self.reply(user, self.NO_BRAIN)
             return
-        ctx = await self.context(user)
+        ctx = await self.context(user, query=msg.text)
         interp: Interpretation = await brain.interpret(ctx, msg)
         if (
             interp.answer is None
@@ -1080,6 +1208,11 @@ class InboundPipeline:
         for task in await self.repos.tasks.list_for_user(user.id, open_only=True):
             await self._engine_call(("cancel",), task.id)
         phone = user.phone
+        if self.browser is not None:  # saved logins, saved browser sessions, live sessions
+            try:
+                await self.browser.forget_user(user.id)
+            except Exception:  # noqa: BLE001 - never block the purge
+                log.exception("browser forget failed during delete everything")
         recordings = await self.repos.purger.recording_urls(user.id)
         counts = await self.repos.purger.purge_user(user.id)
         # SECURITY-14: recordings live outside the DB (object store / provider).

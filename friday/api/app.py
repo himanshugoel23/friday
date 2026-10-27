@@ -139,6 +139,13 @@ def create_app(
         watch_router(app.state.connector_watch, _require_admin_for_watch), prefix="/connectors"
     )
 
+    # ------------------------------------------------------------------ private browser (OFF)
+    if runtime.pipeline.browser is not None:  # only when FRIDAY_BROWSER_ENABLED
+        from friday.api.browser_routes import mount_browser
+
+        mount_browser(app, runtime.pipeline.browser)
+        app.state.browser = runtime.pipeline.browser
+
     # ------------------------------------------------------------------ Google connector
     from friday.api.google import google_router
 
