@@ -1,8 +1,7 @@
 # Trip concierge: design (spend cap, proof, refunds, documents, vault, trip timeline)
 
 Status: DESIGN ONLY, 2026-10-27. No code, nothing built until the founder picks scope (HANDOFF, task 2026-10-27).
-Basis: repo-only. `docs/CONCIERGE_REFERENCE.md` (PM research on Crew-type services) did not exist when this was written,
-so nothing here claims what Crew or any competitor does. When that file lands, fold its findings into section 0 and cite it.
+Basis: this repo plus `docs/CONCIERGE_REFERENCE.md` (PM research on Crew-type services; Crew facts there are mostly claimed or unverified, labels are kept). Section G folds in its Crew-user testimonial addendum.
 Public repo: no keys, no personal data, no real card offers. All user-facing wording goes in new `copy.py` files marked
 PENDING_FOUNDER_APPROVAL (hear-before-change). Replies to the founder stay in English; the bot speaks Hinglish.
 
@@ -184,6 +183,12 @@ Test plan (fakes: `FakeFlightStatus` with delay/cancel/gate-change scripts, `Fak
 Size: 8 days (builder 2, derive+scheduler 3, flight watch 1.5, lounge 1, tests 0.5 rolling). Risks: flight-status data source and its cost/licence is unchosen (no provider verified); lounge rules change often and are a manual chore; wrong leave-by advice has real cost (so show the assumptions and keep the buffers conservative); WhatsApp template approval for out-of-window nudges.
 
 ---
+## G. Additions from the Crew testimonial (docs/CONCIERGE_REFERENCE.md addendum; one user, claimed, unverified)
+G1. Web check-in and arrival forms (travel-form filling). Extends F as trip_tasks kinds `web_checkin` and `arrival_form`. Runs on the private-browser connectors (`connectors/session`, `StepRecorder`), SUPERVISED: Friday prepares the form from confirmed vault fields (D/E), shows the user every value, user approves, the watch link lets the founder/user see it live, and the user (not Friday) completes any OTP, captcha or declaration; Friday never ticks a legal declaration for the user. Passport numbers are read from Drive into memory for the session only. Proof (B): screenshot of the confirmation page with fields painted over, plus the boarding-pass or reference stored in the vault as a pointer. Switch `FRIDAY_TRIP_FORMS_ENABLED=false`; per-site adapters (airline check-in, government arrival portals) are built one at a time as fake-site fixtures first, like `connectors/fake_site`; real portals only with the founder supervising. Risks: portals change layout, captcha/OTP, terms of use, government sites may be on the credential blocked-word list (that list stays authoritative: no login to government-ID sites); wrong data on a legal form has real cost, hence approve-every-value. Test plan: fake airline and fake arrival portal, field-by-field approval, refusal when a field is unconfirmed, no ID number in logs or screenshots. Size: 4 days for the framework plus 2 days per site adapter. Not in the first 32 days.
+G2. Trip thread, group-chat style. Crew's described model is a WhatsApp group of concierge team plus family. Friday's Phase 1 is 1:1 WhatsApp, and the group API/channel is not built or verified (and HANDOFF says no WhatsApp group access). Design: a per-trip THREAD inside the 1:1 chat (every trip message prefixed with the trip name, `/meri trip` summary pinned as the latest card, buttons carry `trip:<id>`), and a "forward to family" action that sends a read-only trip summary to a family member's number only after the owner approves the recipient (members in `family_access`). Real WhatsApp groups are a later decision after the channel is checked; do not promise them. Data: `trip_messages` (trip_id, direction, kind, text_enc, created_at) is optional; the thread view can be rebuilt from `trip_tasks` and evidence, so skip the table unless needed. Size: 2 days. Needs trip templates approved for out-of-window messages.
+G3. Negotiated hotel rates (Crew claim of about 30% off, unverified). This is a SUPPLY problem (direct contracts, wholesalers, corporate rates), not software. Friday can only: ask the hotel by call for a better direct rate or quote (the existing call flow, with the spend cap and proof) and show the user the price the hotel said. It will not claim a discount percentage, a lowest price, or an "exclusive" rate without a signed supply deal. Founder decision 9 (below the cap of 8 only as an aside): whether to pursue hotel supply deals at all; recommend not in Phase 1.
+
+---
 ## Build order and total
 | # | Slice | Days | Needs |
 |---|---|---|---|
@@ -194,6 +199,7 @@ Size: 8 days (builder 2, derive+scheduler 3, flight watch 1.5, lounge 1, tests 0
 | 5 | F trip timeline (without flight watch) | 6 | D, E, A, B |
 | 6 | F flight watch + lounge | 2 | provider decision, founder card rows |
 | 7 | C refunds | 4 | B, A |
+| 8 | G1 forms, G2 trip thread (later) | 4+2 per site, 2 | F, E, browser connectors |
 About 32 engineering days for one builder; 1 and 2 are independent and can run in parallel; 3 can start with fakes before any vision provider exists. Each slice merges behind its OFF switch, with a CLI doctor check like the existing ones.
 
 ## Cross-cutting test plan
