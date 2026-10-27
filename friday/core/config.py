@@ -663,6 +663,14 @@ class Settings(BaseSettings):
     # Instinct review: fixed safety lines, language on request, sums/time/date computed in code
     chatbot_guards: bool = True  # FRIDAY_CHATBOT_GUARDS
     chatbot_quick_answers: bool = True  # FRIDAY_CHATBOT_QUICK_ANSWERS
+    # guardrails module (docs/GUARDRAILS_MODULE.md). ENABLED = the behaviours that already shipped
+    # (emergency / medicine / fake bill / off-topic / quick facts, each still under its own switch
+    # above). Everything NEW is separate and OFF; its wording is PENDING founder approval.
+    guardrails_enabled: bool = True  # FRIDAY_GUARDRAILS_ENABLED
+    guardrails_new_categories: bool = False  # FRIDAY_GUARDRAILS_NEW_CATEGORIES
+    guardrails_rate_limit: bool = False  # FRIDAY_GUARDRAILS_RATE_LIMIT
+    guardrails_output_filter: bool = False  # FRIDAY_GUARDRAILS_OUTPUT_FILTER
+    guardrails_login_otp_in_chat: bool = False  # FRIDAY_GUARDRAILS_LOGIN_OTP_IN_CHAT
     # the order of the first-win buttons (any of card, day, call; at most 3 are shown)
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer

@@ -429,6 +429,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.human.cli import add_parser as _add_voice
 
     _add_voice(sub)  # `friday voice selftest | human-preview | listening-kit | pron-add | metrics`
+    from friday.guardrails.cli import add_parser as _add_guardrails
+
+    _add_guardrails(sub)  # `friday guardrails eval | policy | copy` (offline)
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -563,6 +566,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.playbooks.cli import run_command as run_playbook_command
 
         return run_playbook_command(args)
+    if args.cmd == "guardrails":  # offline: never reads .env, no network
+        from friday.guardrails.cli import run as run_guardrails
+
+        return run_guardrails(args)
     if args.cmd == "lab":  # simulator only: never reads .env, never messages anyone
         from friday.lab.cli import run_command as run_lab_command
 

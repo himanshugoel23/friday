@@ -24,11 +24,10 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from friday.chatbot import commands as cmd
-from friday.chatbot import copy, guards, templates
+from friday.chatbot import copy, templates
 from friday.chatbot.composer import Composed, Composer, buttons_for, mirror_language
 from friday.chatbot.parity import hooks as parity_hooks
 from friday.chatbot.parity.invites import InviteLedger
-from friday.chatbot.scope import is_out_of_scope, mask_numbers
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
     AutonomyCategory,
@@ -52,6 +51,10 @@ from friday.core.models import (
 )
 from friday.db.repositories._base import phone_index
 from friday.db.repositories.chatbot import Session
+from friday.guardrails import Action, Category
+from friday.guardrails import Context as GuardContext
+from friday.guardrails.legacy import language_request
+from friday.guardrails.scope import mask_numbers
 
 if TYPE_CHECKING:
     from friday.api.inbound import InboundPipeline
@@ -378,6 +381,8 @@ class ChatbotService:
         t = cmd.norm(text)
         lang = await self._lang_of(user, sess)
         ctx = _Ctx(user.phone, lang, user, sess)
+        if await self._guardrail(ctx, text, "pre"):
+            return True
         if self.settings.chatbot_guards and await self._guards(ctx, text):
             return True
         if self._parity_on() and (reply := parity_hooks.text_reply(
@@ -404,17 +409,43 @@ class ChatbotService:
             return await self._step_answer(ctx, msg)
         return False
 
-    async def _guards(self, ctx: _Ctx, text: str) -> bool:
-        """Fixed lines for an emergency, a medicine ask or a fake-bill ask, and "reply in Hindi"
-        (docs/CHATBOT_PERSONA.md appendix C). Runs before any flow so a real emergency is never
-        swallowed by a pending question."""
-        kind = guards.safety_kind(text)
-        if kind is not None:
-            await self._send(ctx, copy.line(
-                {"emergency": "safety_emergency", "medicine": "safety_medicine",
-                 "forgery": "refuse_forgery"}[kind], ctx.lang))
+    async def _guardrail(self, ctx: _Ctx, text: str, phase: str) -> bool:
+        """The guardrails module decides (friday/guardrails, docs/GUARDRAILS_MODULE.md): fixed lines
+        for an emergency, self-harm, a medicine ask, a fake bill and the other categories, volume
+        mutes, and (post phase) quick facts and the off-topic redirect. Runs before any flow in the
+        ``pre`` phase so a real emergency is never swallowed by a pending question."""
+        gr = self.p.guardrails
+        d = gr.check(text, GuardContext(
+            user_id=ctx.user.id if ctx.user else None, lang=ctx.lang, now=self._now(), phase=phase))
+        if d.audit and ctx.user is not None:
+            detail = {("decision" if k == "action" else k): v
+                      for k, v in d.audit.items() if k != "user"}
+            await self.p.audit("guardrail.decision", ctx.user, **detail)
+        if d.silent:
             return True
-        code = guards.language_request(text)
+        if d.quick is not None:
+            await self._send(ctx, copy.line(d.quick[0], ctx.lang, **d.quick[1]))
+            return True
+        if d.category == Category.OUT_OF_SCOPE and d.rule == "legacy.out_of_scope":
+            if ctx.user is not None:
+                last = await self.repo.last_inbox_text("wishlist", ctx.user.id)
+                masked = mask_numbers(text)
+                if last != masked:
+                    await self.repo.inbox_add(
+                        "wishlist", masked, user_id=ctx.user.id, lang=ctx.lang)
+            if d.action == Action.REDIRECT and d.reply:
+                await self._send(ctx, d.reply)
+                return True
+            return False
+        if d.reply is not None:
+            await self._send(ctx, d.reply)
+            return True
+        return False
+
+    async def _guards(self, ctx: _Ctx, text: str) -> bool:
+        """"Reply in Hindi" (docs/CHATBOT_PERSONA.md appendix C). The safety lines moved to the
+        guardrails module."""
+        code = language_request(text)
         if code is not None and ctx.user is not None:
             await self.p.apply_profile_updates(ctx.user, {"language": _LANG_ENUM[code]})
             sess = ctx.sess or await self._session(ctx.user, code)
@@ -1013,21 +1044,7 @@ class ChatbotService:
         ctx = _Ctx(user.phone, lang, user, sess)
         if (parts := cmd.split_phone(text)) is not None:
             return await self._typed_number(ctx, *parts)
-        if self.settings.chatbot_quick_answers and (
-            quick := guards.quick_answer(text, self._now())
-        ) is not None:
-            await self._send(ctx, copy.line(quick[0], lang, **quick[1]))
-            return True
-        mode = self.settings.chatbot_offtopic
-        if mode != "off" and is_out_of_scope(text):
-            last = await self.repo.last_inbox_text("wishlist", user.id)
-            masked = mask_numbers(text)
-            if last != masked:
-                await self.repo.inbox_add("wishlist", masked, user_id=user.id, lang=lang)
-            if mode == "redirect":
-                await self._send(ctx, copy.line("offtopic", lang))
-                return True
-        return False
+        return await self._guardrail(ctx, text, "post")
 
     async def _typed_number(self, ctx: _Ctx, number_text: str, rest: str) -> bool:
         from friday.calls.numbers import canonical, is_emergency
