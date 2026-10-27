@@ -25,6 +25,7 @@ CALLER = "+919100000015"
 
 @pytest.fixture(autouse=True)
 def _reset_hook():
+    P.configure((), None)
     yield
     P.configure((), None)
 
