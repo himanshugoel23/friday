@@ -30,3 +30,6 @@ Parked: ordering through platforms, payments by Friday, devices, social accounts
 | 2-6 | built or designed offline | no | earlier slices |
 
 Parked 21 Oct: always-on listening, wake word, desk mode.
+
+## Slice 7 (added 2026-10-27): Instinct parity + beat list (docs/INSTINCT_CHAT_3.md)
+Founder: do everything Instinct does well, and everything where Friday can beat it. Items: (1) digest within 2 min of Gmail connect + self-correction; (2) memory recap / forget; (3) invite count + share link (switch, default off, founder to confirm); (4) re-open-24h-window nudge template (no false urgency); (5) proactive calendar-clash/new-invite heads-up; (6) ride deep links (Uber verified format; no login) - read as "include", founder to confirm; (7) one in-flight turn per user, strict reply ordering; (8) status reply if a task runs > 60 s, with ETA; (9) INR-only prices, no US-only payment routes; (10) fake-document refusal wording; (11) reminder escalation WhatsApp -> call if unacknowledged; (12) secure-page-only for OTP/DOB/address (never in chat).

@@ -1056,3 +1056,6 @@ Founder: "do not do a fixed persona. It should be basis how the user is." Supers
 
 ## Task (2026-10-27): founder shared a 3rd Instinct WhatsApp chat export (Oct 9-25) for reference
 Analysed it; learnings in `docs/INSTINCT_CHAT_3.md` (what Instinct does well, where it fails, what Friday should copy or beat). No code change. The export itself stays out of the repo (it holds the founder's phone details, OTPs and invite tokens). Lesson: raw competitor chats go to the scratchpad only; the repo gets a redacted summary.
+
+## Task (2026-10-27): build the Instinct "does well" + "Friday can beat it" lists
+Founder: update/do everything from docs/INSTINCT_CHAT_3.md. His wording on the ride deep link was unclear ("remove the right deep link while a thing"); I read it as "include the ride deep link too" and will confirm. Slice 7 added to docs/BUILD_BOARD.md; one builder started (switches default off, no real sends).
