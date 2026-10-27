@@ -69,6 +69,7 @@ class ReceptionistConfig(BaseModel):
     known_contacts: dict[str, str] = Field(default_factory=dict)  # E.164 -> display name
     user_name: str = ""  # how callers hear the user's name ("Himanshu"); never a pronoun
     language: str = "hinglish"  # hinglish | hi | en
+    forwarding_verified: bool = False  # the user's declined test ring came back (forwarding works)
     # Facts that must NEVER be spoken (city, address, schedule). Used only by the safety checks.
     private_facts: list[str] = Field(default_factory=list)
 

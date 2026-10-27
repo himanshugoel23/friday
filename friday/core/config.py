@@ -569,6 +569,10 @@ class Settings(BaseSettings):
             "History-Info", "HistoryInfo", "X-Forwarded-For-Number", "SIP-Diversion",
         ]
     )  # fmt: skip
+    # True: the shared inbound number serves ONLY the receptionist. A call to it with a missing or
+    # unknown redirecting number hears the fixed "cannot take a message" line (blocked.end) instead
+    # of the generic message-taker. Calls to any other Friday number (the front door) are untouched.
+    receptionist_only_number: bool = False
     receptionist_probe: bool = False  # log the (masked) inbound webhook keys to a file
     receptionist_max_call_s: int = 90
     receptionist_per_user_per_day: int = 40  # answered forwarded calls per user per day

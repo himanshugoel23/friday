@@ -139,7 +139,25 @@ is configured, and puts the raw value on `InboundCallReceived.redirecting`.
 | none (a direct call to Friday), or Friday's own number, or the caller's own number | not forwarded: the normal front door |
 | a Friday user with the receptionist on | the receptionist, that user's lane |
 | a Friday user with the receptionist off | one short polite line (`rcp.blocked.end`), nothing stored, nothing sent |
+| Friday's own pool number rings and the redirecting number is a Friday user with the receptionist on | **the user's own declined test ring**: nothing is spoken or stored; the call is ended, the user's setup is marked `forwarding_verified` and the existing WhatsApp text `rcpw.test.confirmed` ("forwarding works") is sent |
 | a number that is not a Friday user | **generic message-taker**: does not name anyone, is honest that the message may not reach anybody (`rcp.unrouted.close`), is stored with no user for 7 days for ops, **never** attributed to a guessed user, nobody notified |
+
+**Call fields (added 2026-10-27).** The Vobiz adapter now also puts the diversion-related fields of the answer webhook on
+`InboundCallReceived.call_fields` (configured keys, any key whose name contains diver / history / forward / redirect /
+original, and every `x-*` / `x_*` header; at most 12 keys, 300 characters each; never `From` / `To`; empty unless the
+receptionist or the probe is configured; never logged). `RedirectResolver.resolve` tries the single raw value first, then
+the configured keys, then the other captured keys, and takes the first value that holds a phone number which is not
+Friday's own number, the caller's own number or the dialled number. Still UNVERIFIED which key Vobiz really uses.
+
+**Receptionist-only number (optional, `FRIDAY_RECEPTIONIST_ONLY_NUMBER=true`).** With `FRIDAY_RECEPTIONIST_INBOUND_NUMBER`
+set, a call to THAT number whose redirecting number is missing or unknown hears the fixed existing line `rcp.blocked.end`
+("I am not able to take a message right now") instead of the generic message-taker; nothing is stored or sent. Calls to any
+other Friday number (the front door) are untouched. No new spoken line.
+
+**Shared spam table (migration `0012_receptionist_spam`, table `receptionist_spam`).** Keyed hash (HMAC with the index key,
+own label, last 10 digits) of the caller number plus a report count; no user id, no number, no text, so nothing in it is
+per-user erasable. A SPAM verdict adds one report; an unknown NORMAL caller with at least 5 reports is raised to SPAM (still
+listed in the morning digest, reason shown to the user).
 
 If the probe shows the field does not exist, the fallbacks from docs/JARVIS_FEEL.md 8b apply (ask the caller whom they
 wanted on a small pool, or a paid dedicated number); nothing else in this package changes.
@@ -235,6 +253,7 @@ Word lists are English, Hinglish and Hindi script, written by us and tested on i
 | `FRIDAY_RECEPTIONIST_ENABLED` | the receptionist (claims forwarded calls, buttons, "what did I miss?", digest loop) | **false** |
 | `FRIDAY_RECEPTIONIST_INBOUND_NUMBER` | the shared number users forward to (else the first of `FRIDAY_NUMBERS`) | unset |
 | `FRIDAY_RECEPTIONIST_REDIRECT_FIELDS` | webhook keys that may carry the redirecting number (CSV) | guesses, see 4 |
+| `FRIDAY_RECEPTIONIST_ONLY_NUMBER` | the shared inbound number serves only the receptionist (unknown / missing redirect -> `rcp.blocked.end`) | false |
 | `FRIDAY_RECEPTIONIST_PROBE` | record masked webhook keys to `var/receptionist/probe.jsonl` | false |
 | `FRIDAY_RECEPTIONIST_MAX_CALL_S` | call length cap | 90 |
 | `FRIDAY_RECEPTIONIST_PER_USER_PER_DAY` / `_PER_CALLER_PER_HOUR` | caps | 40 / 3 |
@@ -244,7 +263,7 @@ Changes outside the package (all inert while the switch is off): `core/config.py
 (`InboundCallReceived.redirecting`), `voice/telephony/sarvam.py` (`_observe_redirect`, passes the raw value on),
 `core/container.py` (`receptionist` component), `api/callbacks.py` (claim a forwarded call before the front door),
 `api/inbound.py` (buttons and "what did I miss?"), `api/runtime.py` (build early, digest loop), `db/tables.py` and
-`db/repositories/purge.py` (tables and erasure), `db/migrations/versions/0011_receptionist.py`, `cli.py`.
+`db/repositories/purge.py` (tables and erasure), `db/migrations/versions/0011_receptionist.py` and `0012_receptionist_spam.py`, `ops/doctor.py` (section 9 `check_receptionist`), `cli.py`.
 
 ## 9. Commands
 
@@ -293,6 +312,9 @@ private fact or user number spoken, no digit the caller did not say, no repeated
     the legal read in docs/LEGAL_MAP.md has not been done for this feature.
 16. Postgres: migration `0011` ran on SQLite only. Multi-replica: the per-process pieces are the digest loop (idempotent
     through message status) and nothing else keeps state in memory.
+17. (2026-10-27) That a declined test ring really comes back from the pool number Friday dialled from (carriers may present
+    another caller ID), that the redirecting number then reaches `call_fields`, and which `x-*` header Vobiz uses. The
+    receptionist-only number and the shared spam threshold (5 reports) have only been run against fakes.
 
 ## 12. Open questions for the founder
 

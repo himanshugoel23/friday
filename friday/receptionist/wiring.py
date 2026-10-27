@@ -18,7 +18,7 @@ from typing import Any
 
 from friday.core.clock import to_ist
 from friday.core.logging import get_logger, mask_phone
-from friday.core.models import ReplyButton, User
+from friday.core.models import ReplyButton, User, normalize_phone
 from friday.receptionist import probe as probe_mod
 from friday.receptionist.classify import Classifier
 from friday.receptionist.identify import RedirectResolver, Resolution, Route, UserRef
@@ -57,9 +57,10 @@ class LifeCalendar:
 
 
 class Receptionist:
-    def __init__(self, c: Any, service: ReceptionistService) -> None:
+    def __init__(self, c: Any, service: ReceptionistService, *, only_number: str | None = None) -> None:
         self.c, self.service = c, service
         self.enabled = True
+        self.only_number = only_number  # set: that shared number serves ONLY the receptionist
 
     def _telephony(self) -> Any:
         try:
@@ -71,8 +72,22 @@ class Receptionist:
         """A forwarded call for a known user (or an unknown redirecting number)? Anything else,
         including a direct call to Friday, stays with the front door."""
         raw = getattr(event, "redirecting", None)
-        res = await self.service.claims(raw, getattr(event, "from_phone", None))
+        dialled = getattr(event, "to_number", None)
+        res = await self.service.claims(
+            raw, getattr(event, "from_phone", None), getattr(event, "call_fields", None), dialled
+        )
+        if self._receptionist_only(dialled) and res.route in {Route.NOT_FORWARDED, Route.UNKNOWN_NUMBER}:
+            return Resolution(Route.REFUSED)  # nobody identified on a receptionist-only number
         return None if res.route == Route.NOT_FORWARDED else res
+
+    def _receptionist_only(self, dialled: str | None) -> bool:
+        if not self.only_number or not dialled:
+            return False
+        try:
+            cc = self.c.settings.default_country_code
+            return normalize_phone(dialled, cc) == normalize_phone(self.only_number, cc)
+        except ValueError:
+            return False
 
     async def serve(self, event: Any, res: Resolution) -> None:
         from friday.liveagent.sarvam_adapter import SarvamLegPort  # noqa: PLC0415
@@ -86,7 +101,10 @@ class Receptionist:
             return
         caller = getattr(event, "from_phone", None)
         try:
-            await self.service.handle_call(SarvamLegPort(leg), caller, getattr(event, "redirecting", None), resolution=res)
+            await self.service.handle_call(
+                SarvamLegPort(leg), caller, getattr(event, "redirecting", None), resolution=res,
+                call_fields=getattr(event, "call_fields", None),
+            )
         except Exception:  # noqa: BLE001 - the line must never stay open
             log.exception("receptionist call failed (caller %s)", mask_phone(caller))
             with contextlib.suppress(Exception):
@@ -130,6 +148,10 @@ def build_receptionist(c: Any) -> Receptionist | None:
     resolver = RedirectResolver(
         RepoDirectory(repos, store), fields=fields, default_cc=s.default_country_code,
         friday_numbers=lambda: numbers,
+        pool_numbers=lambda: [
+            *s.friday_numbers, *s.sarvam_caller_ids, *s.exotel_caller_ids,
+            *([s.exotel_caller_id] if s.exotel_caller_id else []),
+        ],
     )  # fmt: skip
     life = getattr(repos, "life", None)
     svc = ReceptionistService(
@@ -139,4 +161,5 @@ def build_receptionist(c: Any) -> Receptionist | None:
         max_call_s=float(s.receptionist_max_call_s), snippet_days=s.receptionist_snippet_days,
         calendar=LifeCalendar(life) if life is not None else None,
     )  # fmt: skip
-    return Receptionist(c, svc)
+    only = s.receptionist_inbound_number if s.receptionist_only_number else None
+    return Receptionist(c, svc, only_number=only)

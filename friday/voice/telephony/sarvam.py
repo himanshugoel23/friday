@@ -259,6 +259,16 @@ def _observe_redirect(params: Mapping[str, str]) -> str | None:
         return None
 
 
+def _observe_fields(params: Mapping[str, str]) -> dict[str, str]:
+    """Diversion / History-Info / x-* fields of an inbound answer webhook (receptionist adapter)."""
+    try:
+        from friday.receptionist.probe import observe_fields
+
+        return observe_fields(params)
+    except Exception:  # noqa: BLE001 - never break an inbound call
+        return {}
+
+
 def _ring_seconds(params: Mapping[str, str]) -> float:
     """Ring time of an unanswered inbound call: ``Duration`` if sent, else EndTime - StartTime
     (local ``yyyy-MM-dd HH:mm:ss`` per the hangup callback docs)."""
@@ -1260,6 +1270,7 @@ class SarvamTelephony:
             )
             leg.provider_call_id = sid
             leg.redirecting = _observe_redirect(params)  # forwarded call? (receptionist)
+            leg.call_fields = _observe_fields(params)  # Diversion / History-Info / x-* headers
             self.legs[key] = leg
             self.by_sid[sid] = leg
         else:
@@ -1407,6 +1418,7 @@ class SarvamTelephony:
                             from_phone=leg.to_phone,
                             to_number=leg.from_number,
                             redirecting=getattr(leg, "redirecting", None),
+                            call_fields=getattr(leg, "call_fields", None) or {},
                         )
                     )
                 )

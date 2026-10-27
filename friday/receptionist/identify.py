@@ -55,6 +55,8 @@ class Route(StrEnum):
     NOT_FORWARDED = "not_forwarded"  # no redirecting number at all (a direct call to Friday)
     UNKNOWN_NUMBER = "unknown_number"  # redirecting number present but no Friday user
     DISABLED = "disabled"  # the user exists but the receptionist is off for them
+    TEST_RING = "test_ring"  # the user's declined test ring came back from Friday's own pool number
+    REFUSED = "refused"  # receptionist-only number: unknown / missing redirect -> fixed refusal line
 
 
 @dataclass
@@ -94,6 +96,33 @@ def extract_redirecting(
     return None
 
 
+def _hint_rank(key: str) -> int:
+    k = key.lower()
+    return 0 if any(h in k for h in ("diver", "history", "forward", "redirect")) else 1
+
+
+def candidate_values(
+    raw: str | None, call_fields: Mapping[str, str] | None, fields: Iterable[str]
+) -> list[tuple[str, str]]:
+    """(field name, raw value) in the order they are tried: the single raw value the adapter found,
+    then the configured keys, then every other captured key (Diversion / History-Info / x-* headers
+    first). Nothing is guessed: each value must still contain a phone number."""
+    out: list[tuple[str, str]] = []
+    if raw and str(raw).strip():
+        out.append(("diversion", str(raw)))
+    cf = {k: str(v) for k, v in (call_fields or {}).items() if str(v).strip()}
+    low = {k.lower(): k for k in cf}
+    seen: set[str] = set()
+    for f in fields:
+        k = low.get(f.lower())
+        if k is not None and k not in seen:
+            seen.add(k)
+            out.append((k, cf[k]))
+    for k in sorted((k for k in cf if k not in seen), key=lambda x: (_hint_rank(x), x.lower())):
+        out.append((k, cf[k]))
+    return out
+
+
 class RedirectResolver:
     def __init__(
         self,
@@ -102,35 +131,48 @@ class RedirectResolver:
         fields: Iterable[str],
         default_cc: str = "+91",
         friday_numbers: Callable[[], Iterable[str]] = lambda: (),
+        pool_numbers: Callable[[], Iterable[str]] = lambda: (),
     ) -> None:
         self.directory, self.fields, self.default_cc = directory, list(fields), default_cc
         self.friday_numbers = friday_numbers
+        self.pool_numbers = pool_numbers  # Friday's own outbound caller-ID pool (test rings)
 
-    async def resolve(self, redirecting_raw: str | None, caller: str | None = None) -> Resolution:
-        """``redirecting_raw`` is the raw value the telephony adapter found (or None)."""
-        if not redirecting_raw:
-            return Resolution(Route.NOT_FORWARDED)
-        n = pick_original("diversion", redirecting_raw)
+    def _norm(self, n: str | None) -> str | None:
         if not n:
-            return Resolution(Route.NOT_FORWARDED)
+            return None
         try:
-            e164 = normalize_phone(n, self.default_cc)
+            return normalize_phone(n, self.default_cc)
         except ValueError:
+            return None
+
+    async def resolve(
+        self,
+        redirecting_raw: str | None,
+        caller: str | None = None,
+        call_fields: Mapping[str, str] | None = None,
+        dialled: str | None = None,
+    ) -> Resolution:
+        """``redirecting_raw`` is the raw value the telephony adapter found (or None);
+        ``call_fields`` are the other captured webhook keys (Diversion, History-Info, x-* headers)."""
+        own = {x for x in (self._norm(n) for n in self.friday_numbers() if n) if x}
+        caller_n, dialled_n = self._norm(caller), self._norm(dialled)
+        e164, reason = None, None
+        for name, value in candidate_values(redirecting_raw, call_fields, self.fields):
+            n = self._norm(pick_original(name, value))
+            # Friday's own number, the caller's own number and the dialled number are not diversions
+            if n is None or n in own or n in (caller_n, dialled_n):
+                continue
+            e164, reason = n, parse_reason(value)
+            break
+        if e164 is None:
             return Resolution(Route.NOT_FORWARDED)
-        own = {normalize_phone(x, self.default_cc) for x in self.friday_numbers() if x}
-        # a number that is Friday's own, or the caller's own number, is not a diversion
-        if e164 in own:
-            return Resolution(Route.NOT_FORWARDED)
-        if caller:
-            try:
-                if normalize_phone(caller, self.default_cc) == e164:
-                    return Resolution(Route.NOT_FORWARDED)
-            except ValueError:
-                pass
         ref = await self.directory.user_for_phone(e164)
-        reason = parse_reason(redirecting_raw)
         if ref is None:
             return Resolution(Route.UNKNOWN_NUMBER, None, e164, reason=reason)
         if not ref.receptionist_enabled:
             return Resolution(Route.DISABLED, ref.user_id, e164, reason=reason)
+        pool = {x for x in (self._norm(n) for n in self.pool_numbers() if n) if x}
+        if caller_n is not None and caller_n in (pool | own):
+            # the user's own declined test ring, forwarded back from Friday's pool number
+            return Resolution(Route.TEST_RING, ref.user_id, e164, reason=reason)
         return Resolution(Route.MATCHED, ref.user_id, e164, reason=reason)

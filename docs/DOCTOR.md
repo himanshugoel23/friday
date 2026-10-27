@@ -56,3 +56,6 @@ Shows whether Friday is paused right now (WARN if paused; resume with `uv run fr
 
 ## 8. service (systemd)
 Is the `friday` service active and when did it last write a log line (time only). `unit is failed/inactive` (FAIL): run `sudo systemctl status friday` and `sudo journalctl -u friday -n 50`. Skipped on machines without systemd.
+
+## 9. receptionist (missed-call forwarding)
+Read-only. Shows whether `FRIDAY_RECEPTIONIST_ENABLED` is on (off by default), how MANY users opted in (a count, never who), and the forwarding probe verdict from `var/receptionist/probe.jsonl` (redirecting number delivered in which key, NOT delivered, or probe not run). WARN when the switch is on but nobody opted in, no inbound number is set, or the probe says the redirecting number does not arrive (every forwarded call then takes the generic message-taker path). Details: docs/RECEPTIONIST.md section 3.
