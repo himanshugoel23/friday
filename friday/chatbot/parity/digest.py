@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Item 1: the inbox + calendar digest sent after Gmail is connected, and its self-correction.
 
 Pure functions over plain data (fake Gmail/Calendar fixtures in tests; the real connector maps its

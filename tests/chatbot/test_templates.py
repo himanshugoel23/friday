@@ -14,7 +14,7 @@ from friday.core.templates import WHATSAPP_TEMPLATES, params_mismatch
 
 REQUIRED = {
     "chatbot_morning_brief", "chatbot_followup", "chatbot_bill_reminder",
-    "chatbot_call_outcome", "chatbot_reengage", "chatbot_consent",
+    "chatbot_call_outcome", "chatbot_reengage", "chatbot_consent", "chatbot_window_reopen",
 }  # fmt: skip
 
 
@@ -39,7 +39,7 @@ def test_the_drafts_cover_every_message_sent_outside_the_window():
 def test_the_checker_passes_on_the_shipped_file():
     report = T.check()
     assert report.ok, [str(p) for p in report.problems]
-    assert report.drafts == 6 and report.registrations == 18
+    assert report.drafts == 7 and report.registrations == 21
 
 
 def test_every_body_has_matching_placeholders_examples_and_buttons():
@@ -276,6 +276,6 @@ def test_the_templates_command_prints_ok_and_renders(capsys):
     from friday.cli import main
 
     assert main(["chatbot", "templates", "check"]) == 0
-    assert "6 template drafts, 18 registrations" in capsys.readouterr().out
+    assert "7 template drafts, 21 registrations" in capsys.readouterr().out
     assert main(["chatbot", "templates", "render"]) == 0
     assert capsys.readouterr().out.startswith("# WhatsApp templates")

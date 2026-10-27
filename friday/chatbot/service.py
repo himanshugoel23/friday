@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any
 from friday.chatbot import commands as cmd
 from friday.chatbot import copy, guards, templates
 from friday.chatbot.composer import Composed, Composer, buttons_for, mirror_language
+from friday.chatbot.parity import hooks as parity_hooks
+from friday.chatbot.parity.invites import InviteLedger
 from friday.chatbot.scope import is_out_of_scope, mask_numbers
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import (
@@ -81,11 +83,16 @@ class ChatbotService:
         self.settings = pipeline.settings
         self.clock = pipeline.clock
         self.composer = Composer(strict=self.settings.env == "test")
+        self._invites = InviteLedger()  # in memory until a table exists (docs/INSTINCT_PARITY.md)
 
     # ========== small helpers
     @property
     def repo(self) -> Any:
         return self.p.repos.chatbot
+
+    def _parity_on(self) -> bool:
+        s = self.settings
+        return bool(s.parity_invites or s.parity_ride_links or s.parity_inr_only)
 
     def _now(self) -> datetime:
         return self.clock.now()
@@ -372,6 +379,10 @@ class ChatbotService:
         lang = await self._lang_of(user, sess)
         ctx = _Ctx(user.phone, lang, user, sess)
         if self.settings.chatbot_guards and await self._guards(ctx, text):
+            return True
+        if self._parity_on() and (reply := parity_hooks.text_reply(
+                self.settings, self._invites, user.id, text, lang)) is not None:
+            await self._send(ctx, reply)
             return True
         if (reply := await self._memory_chat(ctx, text)) is not None:
             await self._send(ctx, reply, kind="list")

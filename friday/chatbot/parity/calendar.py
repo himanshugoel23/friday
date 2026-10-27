@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Item 5: calendar clash and new-invite heads-up, as pure detectors over event lists."""
 
 from __future__ import annotations

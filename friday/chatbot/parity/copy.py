@@ -47,36 +47,6 @@ LINES: dict[str, dict[str, str]] = {
         "hi": "सुधार: मैंने पहले कहा था '{old}', पर सही यह है: '{new}'। गलती के लिए माफ़ कीजिए।",
         "en": "Correction: I earlier said '{old}', but the right answer is '{new}'. Sorry for the mistake.",
     },
-    "memory_empty": {
-        "hinglish": "Abhi mujhe aapke baare mein kuch yaad nahi hai.",
-        "hi": "अभी मुझे आपके बारे में कुछ याद नहीं है।",
-        "en": "I don't remember anything about you yet.",
-    },
-    "memory_head": {
-        "hinglish": "Mujhe aapke baare mein yeh yaad hai:",
-        "hi": "मुझे आपके बारे में यह याद है:",
-        "en": "Here is what I remember about you:",
-    },
-    "memory_offer": {
-        "hinglish": "Kuch bhulana ho toh likhiye 'forget <number>', ya 'forget all'.",
-        "hi": "कुछ भुलाना हो तो लिखें 'forget <नंबर>', या 'forget all'।",
-        "en": "To drop something, write 'forget <number>', or 'forget all'.",
-    },
-    "memory_forgot": {
-        "hinglish": "Theek hai, bhool gayi: {what}",
-        "hi": "ठीक है, भूल गई: {what}",
-        "en": "Okay, forgotten: {what}",
-    },
-    "memory_forgot_all": {
-        "hinglish": "Maine aapke baare mein sab bhula diya.",
-        "hi": "मैंने आपके बारे में सब भुला दिया।",
-        "en": "I forgot everything I knew about you.",
-    },
-    "memory_unknown": {
-        "hinglish": "Yeh number list mein nahi hai. Pehle 'what do you remember' likhiye.",
-        "hi": "यह नंबर सूची में नहीं है। पहले 'what do you remember' लिखें।",
-        "en": "That number isn't on the list. Write 'what do you remember' first.",
-    },
     "invite_status": {
         "hinglish": "Aapke paas {left} invite bache hain (kul {total}). Dost ko yeh link bhejiye: {link}",
         "hi": "आपके पास {left} इनवाइट बचे हैं (कुल {total})। दोस्त को यह लिंक भेजें: {link}",
@@ -112,25 +82,6 @@ LINES: dict[str, dict[str, str]] = {
         "hi": "यह रास्ता सिर्फ़ डॉलर या US कार्ड से चलता है। मैं सिर्फ़ रुपये (INR) वाले तरीके बताती हूँ; कोई भारतीय विकल्प ढूँढूँ?",
         "en": "This route works only in dollars or with a US card. I only suggest rupee (INR) options; shall I look for an Indian one?",
     },
-    "forgery_reference": {
-        "hinglish": "Nakli bill ya document main nahi bana sakti, na sample de sakti hoon. Asli bill chahiye toh pump/dukaan se duplicate bill maang lijiye; main uske liye message ya call kar sakti hoon.",
-        "hi": "नकली बिल या दस्तावेज़ मैं नहीं बना सकती, न नमूना दे सकती हूँ। असली बिल चाहिए तो पंप/दुकान से डुप्लीकेट बिल माँग लीजिए; मैं उसके लिए मैसेज या कॉल कर सकती हूँ।",
-        "en": "I can't make a fake bill or document, or give a sample. If you need the real bill, ask the pump or shop for a duplicate; I can message or call them for you.",
-    },
-    "secure_page": {
-        "hinglish": "{what} chat mein mat bhejiye. Is surakshit page par daaliye: {link}",
-        "hi": "{what} चैट में न भेजें। इस सुरक्षित पेज पर डालें: {link}",
-        "en": "Please don't send {what} in chat. Enter it on this secure page: {link}",
-    },
-    "secure_pasted": {
-        "hinglish": "Lagta hai aapne {what} chat mein bhej diya. Ise dobara mat bhejiye; main ise save nahi karti. Zaroorat ho toh surakshit page use kijiye: {link}",
-        "hi": "लगता है आपने {what} चैट में भेज दिया। इसे दोबारा न भेजें; मैं इसे सेव नहीं करती। ज़रूरत हो तो सुरक्षित पेज इस्तेमाल करें: {link}",
-        "en": "It looks like you sent {what} in chat. Please don't send it again; I don't save it. If needed, use the secure page: {link}",
-    },
-    "field_otp": {"hinglish": "OTP", "hi": "OTP", "en": "an OTP"},
-    "field_dob": {"hinglish": "janm tithi", "hi": "जन्म तिथि", "en": "your date of birth"},
-    "field_address": {"hinglish": "pata (address)", "hi": "पता", "en": "your address"},
-    "field_card": {"hinglish": "card ki detail", "hi": "कार्ड की जानकारी", "en": "card details"},
     "clash_head": {
         "hinglish": "Heads-up: {a} aur {b} ek hi time par hain ({when}).",
         "hi": "ध्यान दें: {a} और {b} एक ही समय पर हैं ({when})।",

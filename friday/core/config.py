@@ -596,6 +596,14 @@ class Settings(BaseSettings):
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer
     chatbot_disclosure_every_step: bool = False
+    # slice 7 Instinct parity (docs/INSTINCT_PARITY.md). ALL OFF; wording PENDING approval.
+    parity_digest: bool = False  # FRIDAY_PARITY_DIGEST: inbox/calendar digest after Gmail connect
+    parity_invites: bool = False  # FRIDAY_PARITY_INVITES: invite counter + share link
+    parity_ride_links: bool = False  # FRIDAY_PARITY_RIDE_LINKS: Uber deep link
+    parity_nudges: bool = False  # FRIDAY_PARITY_NUDGES: window-reopen nudge and calendar heads-up
+    parity_status: bool = False  # FRIDAY_PARITY_STATUS: status reply with ETA after 60 s
+    parity_inr_only: bool = False  # FRIDAY_PARITY_INR_ONLY: refuse USD / US-card-only routes
+    parity_escalation: bool = False  # FRIDAY_PARITY_ESCALATION: missed reminder -> own-number call
     # ------------------------------------------------------------------ voice notes + Devanagari
     # docs/VOICE_NOTES_AND_DEVANAGARI.md. Both OFF: with them off the pipeline behaves as before.
     voice_note_replies: bool = False  # FRIDAY_VOICE_NOTE_REPLIES: voice-note in -> voice-note out

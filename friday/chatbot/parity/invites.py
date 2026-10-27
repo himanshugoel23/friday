@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Item 3: per-user invite counter and tokenized share links. Tokens are hashed at rest.
 
 ``InviteLedger`` is an in-memory implementation of the store (tests, and the shape a DB table

@@ -1,59 +1,17 @@
-"""Items 7 and 8: one in-flight turn per user, strict reply order, and a status reply for slow tasks.
+# ruff: noqa: E501
+"""Item 8: a status reply (with ETA) when a task runs longer than 60 s.
 
-* ``TurnLocks``: an asyncio lock per user. A second message from the same user waits until the first
-  turn has finished, so answers can never arrive after the next question.
-* ``ReplyQueue``: replies are numbered when a turn starts and released strictly in that order.
-* ``StatusWatcher``: if a task runs longer than 60 s, send one status reply with an ETA (once).
+One in-flight turn per user and ordered replies (item 7) already exist in InboundPipeline.handle.
 """
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
 
 from friday.chatbot.parity import copy
 
 STATUS_AFTER_S = 60.0
-
-
-class TurnLocks:
-    def __init__(self) -> None:
-        self._locks: dict[str, asyncio.Lock] = {}
-
-    def lock(self, user_id: str) -> asyncio.Lock:
-        return self._locks.setdefault(user_id, asyncio.Lock())
-
-    @asynccontextmanager
-    async def turn(self, user_id: str):
-        async with self.lock(user_id):
-            yield
-
-    def busy(self, user_id: str) -> bool:
-        lk = self._locks.get(user_id)
-        return bool(lk and lk.locked())
-
-
-class ReplyQueue:
-    """Release replies in ticket order even if they are produced out of order."""
-
-    def __init__(self, send: Callable[[str, str], Awaitable[None]]) -> None:
-        self._send = send
-        self._next_ticket: dict[str, int] = {}
-        self._next_release: dict[str, int] = {}
-        self._held: dict[str, dict[int, str]] = {}
-
-    def ticket(self, user_id: str) -> int:
-        n = self._next_ticket.get(user_id, 0)
-        self._next_ticket[user_id] = n + 1
-        return n
-
-    async def put(self, user_id: str, ticket: int, text: str) -> None:
-        self._held.setdefault(user_id, {})[ticket] = text
-        while (nxt := self._next_release.get(user_id, 0)) in self._held[user_id]:
-            body = self._held[user_id].pop(nxt)
-            self._next_release[user_id] = nxt + 1
-            await self._send(user_id, body)
 
 
 def format_eta(seconds: float | None, lang: str = "hinglish") -> str | None:

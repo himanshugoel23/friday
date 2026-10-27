@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Item 9: INR-only prices and refusal of USD / US-card-only routes."""
 
 from __future__ import annotations

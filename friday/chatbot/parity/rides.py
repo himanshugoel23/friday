@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Item 6: ride deep links. Only the Uber format is verified; Ola and Rapido get no link.
 
 Uber mobile web deep link (needs no login, opens the app or m.uber.com):
