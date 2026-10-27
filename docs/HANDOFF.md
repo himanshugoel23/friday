@@ -1059,3 +1059,6 @@ Analysed it; learnings in `docs/INSTINCT_CHAT_3.md` (what Instinct does well, wh
 
 ## Task (2026-10-27): build the Instinct "does well" + "Friday can beat it" lists
 Founder: update/do everything from docs/INSTINCT_CHAT_3.md. His wording on the ride deep link was unclear ("remove the right deep link while a thing"); I read it as "include the ride deep link too" and will confirm. Slice 7 added to docs/BUILD_BOARD.md; one builder started (switches default off, no real sends).
+
+## Check (2026-10-27): HANDOFF audit vs this chat's work (chat A resumed)
+Found that chat B already built, on this branch: friday/receptionist (0011), chatbot guards (emergency/medicine/fake-bill/language), ordered per-sender handling, memory recap/forget, password vault, speech understander, browser catalog. Duplicates stopped: receptionist builder told to stop and report diffs only; slice 7 builder told to skip items 2, 7, 10, 12. docs/INSTINCT_CHAT_3.md overlaps CHATBOT_PERSONA.md Appendix C (keep; it adds the "beat it" list). Still NOT done in HANDOFF (from chat B): ETA/status line, trusted-source facts (weather/cricket), adaptive tone, password page mounting + WhatsApp "my logins", BBPS decision, receptionist wording/probe, Chat Lab (not on branch yet).
