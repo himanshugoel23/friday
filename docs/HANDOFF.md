@@ -1138,3 +1138,6 @@ Asked: DrivePort (fake + real Drive v3 adapter on the existing OAuth store, no n
   the bytes problem (item D drops the file before the user confirms: ask to resend, or upload to an Inbox folder first); enable Drive API + drive.file in
   the Google console; run the spike. NOT wired: no WhatsApp intent calls the service yet; sharing needs its own switch FRIDAY_FAMILY_DRIVE_SHARING_ENABLED.
   Lesson: shell commands with several heredocs get refused by the worktree guard; write helper scripts with the Write tool, then run them.
+
+## Progress (2026-10-27): merged and pushed: D (0014_documents), urgent escalation (0015), E family Drive (0016, chained after 0015); F builder (0017_trips) started
+Lessons: (1) never chain `git push` after a test run without checking its result (I pushed twice with a failing test; fixed after); (2) tests that rely on global state (probe config, logging level) must reset it BEFORE each test; (3) parallel builders touching migrations/doctor need pre-assigned numbers and a merge fix of down_revision. Open from E: bytes gap (file dropped before "yes": resend vs Friday/Inbox), no WhatsApp intents wired for Drive, 12 Drive facts UNVERIFIED (spike checklist docs/FAMILY_DRIVE.md). Open from urgent: spoken lines + WhatsApp wording approval, template outside 24 h not registered, Runtime.stop() hang bug with in-memory SQLite.
