@@ -86,6 +86,8 @@ class Runtime:
         self.callbacks.subscribe()
         self.c.bus.subscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.subscribe()
+        if self.pipeline.features is not None:  # finished trip / refund follow-up tasks link back
+            self.pipeline.features.subscribe()
         from friday.memory.attach import attach_episodes
 
         attach_episodes(self.c.bus, self.c.repos, self.c.clock)  # one line per finished task
@@ -132,6 +134,9 @@ class Runtime:
             self._tasks.append(asyncio.create_task(self.worker_loop(), name="friday-worker"))
             self._tasks.append(asyncio.create_task(self.quotes_loop(), name="friday-quotes"))
             await self._start_component("task_engine")
+            if self.pipeline.features is not None:  # trip nudges + refund reminders
+                task = asyncio.create_task(self.features_loop(), name="friday-features")
+                self._tasks.append(task)
             consumer = self.pipeline.consumer()
             if consumer is not None:  # run_due / recover_stale / purge_expired / calendar sync
                 self._tasks.append(asyncio.create_task(consumer.loop(), name="friday-consumer"))
@@ -176,6 +181,18 @@ class Runtime:
                 log.exception("quotes tick failed")
             await asyncio.sleep(QUOTES_TICK_S)
 
+    async def features_loop(self) -> None:
+        """Trip timeline nudges and refund reminders (api/features.py); each service applies its own
+        quiet hours, daily caps and de-duplication, so a tick can run as often as this."""
+        from friday.api.features import TICK_S
+
+        while True:
+            try:
+                await self.pipeline.features.tick()
+            except Exception:  # noqa: BLE001
+                log.exception("features tick failed")
+            await asyncio.sleep(TICK_S)
+
     async def retention_loop(self) -> None:
         """SECURITY-32: ``repos.retention.run`` once per IST day (exactly once across
         replicas via the idempotency store inside ``RetentionJob.run_daily``)."""
@@ -210,6 +227,8 @@ class Runtime:
         self.callbacks.unsubscribe()
         self.c.bus.unsubscribe(CallFinished, self._on_call_finished)
         self.pipeline.quotes.unsubscribe()
+        if self.pipeline.features is not None:
+            self.pipeline.features.unsubscribe()
         for comp in reversed(self._started):
             if callable(getattr(comp, "stop", None)):
                 try:

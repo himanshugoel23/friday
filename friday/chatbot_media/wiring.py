@@ -109,6 +109,7 @@ def build_docs(c: Container, pipeline: Any, *, vision: Any = None) -> Any:
         c.clock,
         retention_days=s.docs_retention_days,
         bill_sink=_bill_sink(c) if s.savings_enabled else None,
+        doc_sink=getattr(getattr(pipeline, "features", None), "on_document_confirmed", None),
     )
     allowed = {x.strip() for x in s.docs_enabled_users if x.strip()}
     messaging = _opt(c, "messaging")

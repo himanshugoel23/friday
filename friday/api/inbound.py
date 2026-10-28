@@ -201,6 +201,14 @@ class InboundPipeline:
                     self.browser.log_redacted = lambda u, m: self._log_inbound(u, m, redact=True)
             except Exception:  # noqa: BLE001 - the browser must never stop the app from booting
                 log.exception("private browser failed to build; continuing without it")
+        # trip timeline, refunds, family Drive (api/features.py): None while all are off
+        self.features: Any = None
+        try:
+            from friday.api.features import build_live_features
+
+            self.features = build_live_features(self)
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("live features failed to build; continuing without them")
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -775,6 +783,9 @@ class InboundPipeline:
         if self.chatbot is not None and await self.chatbot.pre(user, msg):
             return  # chatbot pilot: menu/help/stop/human/delete, captures, onboarding answers
 
+        if self.features is not None and await self.features.handle(user, msg):
+            return  # trip thread / refund tracking / family Drive commands and buttons
+
         if self.browser is not None and await self.browser.handle(user, msg):
             return  # private browser: "bf:" buttons, "my logins", an order / booking request
 
@@ -801,6 +812,19 @@ class InboundPipeline:
         if brain is None:
             await self.reply(user, self.NO_BRAIN)
             return
+        if self.settings.parity_status:  # one "still working" reply, with an ETA, after 60 s
+            from friday.chatbot.parity.turns import run_with_status
+
+            async def status(text: str) -> None:
+                await self.reply(user, text)
+
+            await run_with_status(
+                self._brain_turn(user, msg, brain), status, lang=await self._reply_lang(user)
+            )
+            return
+        await self._brain_turn(user, msg, brain)
+
+    async def _brain_turn(self, user: User, msg: InboundMessage, brain: Brain) -> None:
         ctx = await self.context(user, query=msg.text)
         interp: Interpretation = await brain.interpret(ctx, msg)
         if (
