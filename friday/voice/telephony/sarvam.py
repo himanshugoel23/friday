@@ -1206,8 +1206,10 @@ class SarvamTelephony:
         )
         self.legs[key] = leg
         leg.max_duration_s = request.max_duration_s
-        # VERIFIED (call/make-call). 200 = accepted and queued, not answered. ``ring_timeout``
-        # appears in the docs' request example; ``hangup_on_ring`` is the documented field.
+        # VERIFIED (call/make-call). 200 = accepted and queued, not answered. ``ring_timeout`` is in the docs'
+        # example. Do NOT send ``hangup_on_ring``: live CDRs showed Vobiz ending every answered call at the
+        # ring timeout after the call STARTED (duration ~31 s, "Scheduled Hangup", source Vobiz), i.e.
+        # the founder's call was cut mid-sentence ~25 s after pick-up.
         body = await self.rest(
             "POST",
             "/Call/",
@@ -1219,7 +1221,6 @@ class SarvamTelephony:
                 "hangup_url": self.url("hangup", key),
                 "hangup_method": "POST",
                 "ring_timeout": request.ring_timeout_s,
-                "hangup_on_ring": request.ring_timeout_s,
                 "time_limit": request.max_duration_s + 1800,  # safety cap after answer
                 "machine_detection": "true" if request.metadata.get("role") != "user" else "false",
                 "machine_detection_url": self.url("machine", key),

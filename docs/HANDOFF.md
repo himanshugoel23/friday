@@ -1351,3 +1351,6 @@ Breaker + backoff in prerender, no dial while TTS is down (`tts_unavailable`, ch
 
 ## 2026-10-28 evening: ROOT CAUSE #2 of calls cut = web guard wrapper hid the provider (fixed)
 After Sarvam credits were topped up the call still cut. Log: POST /voice/sarvam/answer -> 404 'sarvam is not an active telephony provider': friday/voice/http.find() looks the provider up by type, and webchat.GuardedTelephony wrapped it without a find(). Added GuardedTelephony.find + regression test. (Sarvam 402 was cause #1.)
+
+## 2026-10-28 evening: ROOT CAUSE #3 of calls cut = hangup_on_ring (fixed)
+After the answer-URL fix the call connected (answer 200, media websocket accepted) but Vobiz ended it ~31 s after the call STARTED ("Scheduled Hangup", hangup_source Vobiz, ORIGINATOR_CANCEL; same ~31-33 s duration on every Friday-origin call since 12 Oct). friday/voice/telephony/sarvam.py sent hangup_on_ring=ring_timeout_s (25), which Vobiz applies as a hard hangup N s after start even once answered. Removed it (ring_timeout stays). Unverified until the founder retries: expect the call to stay up past 30 s. If it still ends early, check the Vobiz CDR hangup_source/cause first.

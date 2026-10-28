@@ -138,7 +138,7 @@ async def test_place_call_payload_sticky_and_answer_xml(sar, rec):
     b = rec.body()
     assert b["to"] == "+918040000001" and b["from"] in sar.caller_ids and b["ring_timeout"] == 25
     assert "token=" in b["answer_url"] and "/voice/sarvam/hangup" in b["hangup_url"]
-    assert b["hangup_on_ring"] == 25 and b["answer_method"] == "POST"
+    assert "hangup_on_ring" not in b and b["ring_timeout"] == 25 and b["answer_method"] == "POST"
     assert b["machine_detection"] == "true"
     assert "/voice/sarvam/machine" in b["machine_detection_url"]
     assert 2000 <= b["machine_detection_time"] <= 10000  # documented range
