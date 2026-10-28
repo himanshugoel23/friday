@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "site": "blinkit",
+  "display": "Blinkit",
+  "version": 1,
+  "updated": "2026-10-29",
+  "status": "unverified",
+  "status_note": "Selectors and flows are GUESSES from general knowledge of the public site. NOT checked against the live pages: the first `friday sitemcp live` / `probe` run decides. Do not mark verified without a live run.",
+  "domains": [
+    "blinkit.com",
+    "www.blinkit.com"
+  ],
+  "base_url": "https://blinkit.com",
+  "rate": {
+    "min_interval_s": 4.0,
+    "per_user_min_interval_s": 3.0,
+    "max_wait_s": 20.0
+  },
+  "urls": {
+    "home": "/",
+    "search": "/s/?q={query}",
+    "cart": "/cart"
+  },
+  "blocked": {
+    "markers": [
+      "verify you are human",
+      "are you a robot",
+      "captcha",
+      "access denied",
+      "unusual traffic",
+      "request blocked",
+      "too many requests",
+      "temporarily blocked"
+    ],
+    "selectors": [
+      "iframe[src*=captcha]",
+      "iframe[src*=recaptcha]",
+      "#challenge-form",
+      "[data-testid=challenge]"
+    ],
+    "cooldown_s": 1800
+  },
+  "location": {
+    "open": "[class*=LocationBar]",
+    "input": "input[name=select-locality]",
+    "submit": "",
+    "suggestion": "[class*=LocationSearchList] > div",
+    "current": "[class*=LocationBar]",
+    "not_found_markers": [
+      "not serviceable",
+      "not available at your location",
+      "we are not here yet",
+      "no stores",
+      "coming soon",
+      "couldn't find",
+      "sorry, we are not delivering"
+    ]
+  },
+  "search": {
+    "row": "[data-test-id=plp-product]",
+    "fields": {
+      "title": "[class*=Product__UpdatedTitle]",
+      "price": "[class*=Product__UpdatedPriceAndAtcContainer] div",
+      "pack": "[class*=plp-product__quantity]",
+      "rating": "",
+      "stock": "[class*=out-of-stock]",
+      "url": "a@href"
+    },
+    "empty_markers": [
+      "no results",
+      "didn't find",
+      "couldn't find",
+      "nothing found"
+    ]
+  },
+  "product": {
+    "title": "h1",
+    "price": "[class*=ProductVariants__PriceContainer]",
+    "mrp": "",
+    "pack": "[class*=ProductVariants__VariantText]",
+    "rating": "",
+    "stock": "[class*=out-of-stock]",
+    "add": "[class*=AddToCart]",
+    "qty_plus": "[class*=icon-plus]",
+    "oos_markers": [
+      "out of stock",
+      "sold out"
+    ]
+  },
+  "cart": {
+    "row": "[class*=CartProduct__Container]",
+    "fields": {
+      "name": "[class*=CartProduct__Title]",
+      "qty": "[class*=AddToCart__UpdatedQty]",
+      "price": "[class*=CartProduct__Price]"
+    },
+    "empty_markers": [
+      "your cart is empty"
+    ]
+  },
+  "checkout": {
+    "proceed": "[class*=CheckoutStrip__Container]",
+    "proceed_verified": false,
+    "fee_row": "[class*=BillCard__Row]",
+    "fee_fields": {
+      "label": "[class*=BillCard__Label]",
+      "amount": "[class*=BillCard__Amount]"
+    },
+    "total": "[class*=BillCard__GrandTotal]",
+    "payment_marker": "[class*=PaymentOptions]"
+  },
+  "login": {
+    "open": "[data-testid=login-button]",
+    "phone": "input[type=tel]",
+    "send_otp": "button[type=submit]",
+    "otp": "input[autocomplete=one-time-code]",
+    "verify": "button[type=submit]",
+    "logged_in_marker": "[data-testid=account-menu]",
+    "logout": "[data-testid=logout]",
+    "wrong_otp_markers": [
+      "invalid otp",
+      "incorrect otp",
+      "wrong otp"
+    ]
+  },
+  "probe": {
+    "public_pages": [
+      {
+        "id": "home",
+        "path": "/",
+        "selectors": [
+          "[class*=LocationBar]",
+          "input[type=text]"
+        ]
+      }
+    ]
+  },
+  "quirks": [
+    "Class names carry hashed suffixes in some builds; contains-matches ([class*=...]) are used and still may drift.",
+    "A delivery location is required before any product shows."
+  ],
+  "safety": {
+    "never_pay": true,
+    "stop_before_payment": true,
+    "no_captcha_solving": true,
+    "user_account_only": true
+  },
+  "extra_hosts": [
+    "*.blinkit.com",
+    "*.grofers.com"
+  ],
+  "extra_hosts_note": "GUESS: hosts the page may load scripts/data from (default deny otherwise). Adjust after a live run shows blocked requests."
+}

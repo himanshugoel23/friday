@@ -44,6 +44,7 @@ class GrocerySearch(BaseModel):
     query: str = ""  # what the user typed
     pincode: str | None = None
     area: str | None = None
+    user_id: str | None = None  # browser-backed providers use it for the per-user session
 
 
 class GroceryResult(BaseModel):

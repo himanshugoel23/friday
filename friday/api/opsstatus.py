@@ -13,7 +13,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 
 _DEFAULT_FILE = "/opt/friday/var/autoupdate/status.txt"
 _MAX_BYTES = 60_000
@@ -62,5 +62,34 @@ def ops_status_router() -> APIRouter:
             raise HTTPException(status_code=404, detail="Not Found")
         c = request.app.state.container
         return PlainTextResponse(await callreview.render_review(c.db, c.settings, n))
+
+    def _probe_store(request: Request) -> object | None:
+        """The site MCP probe store, or None while FRIDAY_SITE_MCP_PROBE_ENABLED is off (then both routes are a plain 404)."""
+        st = request.app.state.container.settings
+        if not st.site_mcp_probe_enabled:
+            return None
+        from friday.sitemcp.wiring import store_for
+
+        return store_for(st)
+
+    @router.get("/{token}/probe", response_class=PlainTextResponse)
+    def probe(token: str, request: Request) -> PlainTextResponse:
+        _authorised(token)
+        store = _probe_store(request)
+        if store is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        from friday.sitemcp.live import render_report
+
+        return PlainTextResponse(render_report(store))  # type: ignore[arg-type]
+
+    @router.get("/{token}/shot/{site}")
+    def shot(token: str, site: str, request: Request) -> Response:
+        """Last screenshot of a PUBLIC page for this site (never a logged-in page: the probe is anonymous only)."""
+        _authorised(token)
+        store = _probe_store(request)
+        png = store.shot(site) if store is not None else None  # type: ignore[attr-defined]
+        if png is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return Response(png, media_type="image/png", headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
     return router
