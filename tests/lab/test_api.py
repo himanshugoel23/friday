@@ -542,3 +542,14 @@ def test_the_real_model_toggle_exists_only_with_a_key_and_is_off_by_default(make
     assert lab.post("/llm", mode="fake").json() == {"mode": "fake"}
     assert isinstance(brain.llm, FakeLLM)
     assert "sk-ant-test-not-real" not in "\n".join(lab.bodies)
+
+
+def test_cli_token_option_validation(capsys):
+    import argparse
+
+    from friday.lab import cli
+
+    ns = argparse.Namespace(token="short", allow_live_env=False, ttl_hours=1, notes="x", host="127.0.0.1",
+                            port=1, public_url=None)
+    assert cli.run_command(ns) == 2
+    assert "16 to 64" in capsys.readouterr().out

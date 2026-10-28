@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 
 from friday.lab.app import DEFAULT_TTL_HOURS, create_lab_app
@@ -31,6 +32,12 @@ def add_parser(sub: argparse._SubParsersAction) -> None:  # noqa: SLF001
         help="the access token stops working after this many hours (default 8)",
     )
     p.add_argument(
+        "--token",
+        default=None,
+        help="choose the link's secret yourself (16+ letters, digits, - or _) so it is easy to type on "
+        "an iPad; default is a random one. The lab is a simulator, but pick something nobody can guess",
+    )
+    p.add_argument(
         "--notes",
         default="var/lab/notes.jsonl",
         help="where 'mark this reply wrong' notes are appended",
@@ -51,12 +58,17 @@ def lab_url(base: str, token: str) -> str:
 
 
 def run_command(args: argparse.Namespace) -> int:
+    chosen = getattr(args, "token", None)
+    if chosen is not None and not re.fullmatch(r"[A-Za-z0-9_-]{16,64}", chosen):
+        print("--token must be 16 to 64 characters: letters, digits, - or _")
+        return 2
     try:
         env = environment_settings()
         app = create_lab_app(
             env=env,
             allow_live_env=args.allow_live_env,
             ttl_hours=args.ttl_hours,
+            token=chosen,
             notes_path=args.notes,
         )
     except LabRefused as e:
