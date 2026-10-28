@@ -549,6 +549,12 @@ class PlaybookPolicy:
     def _render(self, pb: Playbook, line_id: str, c: Ctx) -> str:
         if line_id == "offscript" and c.dyn_answer:  # grounded, validated reply
             return c.dyn_answer
+        if "/pending/" in str(pb.source or "").replace("\\", "/"):
+            # a PENDING script line: logged only on a QA call (no-op otherwise), so the founder
+            # can approve or reject it by id (friday qa report)
+            from friday.qa.override import note_pending_line
+
+            note_pending_line(f"playbook:{pb.id}", f"{pb.id}.{line_id}")
         return fill(pb.text(line_id), c.value)
 
     def _lines(self, pb: Playbook, items: list[str | LineRef], c: Ctx) -> list[tuple[str, str]]:

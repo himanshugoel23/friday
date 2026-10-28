@@ -789,6 +789,9 @@ def render(
         text = re.sub(r"\s+([,.!?])", r"\1", text).strip()
         if norm_line(text) in blocked:
             continue
+        from friday.qa.override import note_pending_line
+
+        note_pending_line("liveagent", cand.id)  # no-op unless a QA call is running
         return Rendered(cand.id, text)
     return None
 
