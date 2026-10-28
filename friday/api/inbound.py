@@ -202,6 +202,7 @@ class InboundPipeline:
             except Exception:  # noqa: BLE001 - the browser must never stop the app from booting
                 log.exception("private browser failed to build; continuing without it")
         # trip timeline, refunds, family Drive (api/features.py): None while all are off
+        self.planner: Any = None  # approach planner (friday/planner): None unless its switch is on
         self.features: Any = None
         try:
             from friday.api.features import build_live_features
@@ -209,6 +210,12 @@ class InboundPipeline:
             self.features = build_live_features(self)
         except Exception:  # noqa: BLE001 - never stop the app from booting
             log.exception("live features failed to build; continuing without them")
+        try:
+            from friday.planner.wiring import build_planner
+
+            self.planner = build_planner(self)
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("approach planner failed to build; continuing without it")
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -786,6 +793,12 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
+        if self.planner is not None:  # picks ONE approach (answer / web / app / call / ask) first
+            await self.planner.route(user, msg, self._after_planner)
+            return
+        await self._after_planner(user, msg)
+
+    async def _after_planner(self, user: User, msg: InboundMessage) -> None:
         if self.browser is not None and await self.browser.handle(user, msg):
             return  # private browser: "bf:" buttons, "my logins", an order / booking request
 

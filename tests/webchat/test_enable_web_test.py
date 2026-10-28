@@ -65,6 +65,7 @@ def test_on_sets_switches_prints_names_only_and_is_idempotent(tmp_path):
     assert lines["OPENAI_API_KEY"] == SECRET  # untouched
     assert (lines["FRIDAY_WEB_MAX_CALLS_PER_DAY"], lines["FRIDAY_WEB_MAX_SPEND_INR"], lines["FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]) == ("0", "0", "0")
     assert lines["FRIDAY_REFUND_CHASE_CALLS"] == "false"  # unapproved call lines stay off
+    assert lines["FRIDAY_APPROACH_PLANNER_ENABLED"] == "true" and "FRIDAY_APPROACH_PLANNER_ENABLED" in out
     log = (tmp_path / "calls.log").read_text()
     assert "systemctl restart friday" in log and "web-https" in log
     p2, env2 = _run(tmp_path, env)

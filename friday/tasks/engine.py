@@ -93,6 +93,7 @@ from friday.core.safety import check_commit
 from friday.core.scale import Job, JobPriority, MemoryLock, worker_id
 from friday.core.templates import make_template
 from friday.discovery.geo import is_indian_mobile, is_toll_free, phone_key
+from friday.planner.wording import needs_info_line
 from friday.tasks import states
 from friday.tasks.categories import category_for, level_for
 from friday.tasks.context import build_context
@@ -910,7 +911,7 @@ class TaskEngine:
         await self._transition(task, S.NEEDS_INFO)
         await self.outbox.to_user(
             task.requester_user_id,
-            text or "Before I call, I need: " + ", ".join(m.replace("_", " ") for m in missing),
+            text or needs_info_line(missing, call_in_plan=True),
             task_id=task.id,
         )
 

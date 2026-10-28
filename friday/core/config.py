@@ -694,6 +694,15 @@ class Settings(BaseSettings):
     parity_ride_links: bool = False  # FRIDAY_PARITY_RIDE_LINKS: Uber deep link
     parity_nudges: bool = False  # FRIDAY_PARITY_NUDGES: window-reopen nudge and calendar heads-up
     parity_status: bool = False  # FRIDAY_PARITY_STATUS: status reply with ETA after 60 s
+    # approach planner (docs/APPROACH_PLANNER.md): the PM picks answer/web/app/call/ask first.
+    # OFF: every request keeps the old bucket x category flow. Chat wording PENDING.
+    approach_planner_enabled: bool = False  # FRIDAY_APPROACH_PLANNER_ENABLED
+    approach_use_llm: bool = True  # FRIDAY_APPROACH_USE_LLM: LLM proposes (OpenAI)
+    approach_decide_timeout_s: float = 6.0
+    approach_ack_after_s: float = 8.0  # ONE 'on it' line when a plan takes longer than this
+    approach_web_timeout_s: float = 25.0  # hard cap for a web lookup incl. its single retry
+    approach_web_cache_ttl_s: float = 300.0
+    approach_web_model: str | None = None  # None: openai_default_purpose_model
     parity_inr_only: bool = False  # FRIDAY_PARITY_INR_ONLY: refuse USD / US-card-only routes
     parity_escalation: bool = False  # FRIDAY_PARITY_ESCALATION: missed reminder -> own-number call
     # ------------------------------------------------------------------ private browser
