@@ -1368,3 +1368,6 @@ Plan: a daily quality loop on the web chat with the founder and his wife: they u
 
 ## 2026-10-29: call review showed 'no test calls': stored call destination is the BUSINESS number (pilot guard redirects the dial to the tester)
 callreview now also includes outbound calls when FRIDAY_VENDOR_CALL_REDIRECT_TO is set (every dial rings a tester), and the empty message shows row counts. Web-test script re-run done by founder (call review on, approach planner on, docs vision openai).
+
+## 2026-10-29 00:46 IST: first live web lookup (Zepto atta price): planner routed correctly (web_lookup), OpenAI web_search answered in ~7 s, but reply was 'no reliable result' x3
+Cause (likely): Zepto does not show prices on web pages the search can cite, and the agent drops any answer with no cited source. Fix pushed: instructions now fall back to other Indian sellers (BigBasket, Amazon, JioMart, Flipkart, DMart, brand site) with store names and say the named store's own price was not visible; log line 'web_search: sources=N items=N summary_chars=N' (counts only). Not verified live yet. Idea if still thin: Places-style product APIs or an official quick-commerce connector.
