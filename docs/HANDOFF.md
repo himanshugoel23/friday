@@ -1336,3 +1336,6 @@ Founder said yes to using OpenAI (existing key) as the document/photo vision pro
 
 ## 2026-10-28: OpenAI vision reader built (branch worktree-agent-af864197b030a9337, not pushed)
 friday/docunderstand/openai_vision.py behind VisionPort (provider openai, key OPENAI_API_KEY, model FRIDAY_DOCS_VISION_MODEL default gpt-5.4-mini). Images base64, PDFs as OpenAI file input, fail closed. enable-web-test.sh sets the provider, doctor shows provider/model/key set-missing, `friday docs eval <folder>` + docs/DOC_SAMPLE_SET.md. Fake HTTP transport tests only; never run against the real API. Next: founder photographs the sample set and runs docs eval.
+
+## 2026-10-28 evening: calls cut on answer (Vobiz "Error Reaching Answer URL", code 7011)
+Two calls to the founder's number at 12:46:35 and 12:47:17 UTC ended at answer with billsec 0: Vobiz could not fetch Friday's answer URL (the server had restarted via autoupdate at 12:45). Added redacted log tail: GET /ops-status/<token>/logs (refreshed every autoupdate run) to diagnose without a console. Root cause still to confirm from logs.

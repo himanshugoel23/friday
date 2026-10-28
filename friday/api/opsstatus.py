@@ -25,19 +25,32 @@ def _token() -> str:
     return env or str(dotenv_values(".env").get("FRIDAY_OPS_STATUS_TOKEN") or "")
 
 
+def _read(path: Path) -> PlainTextResponse:
+    try:
+        data = path.read_bytes()[-_MAX_BYTES:]
+    except OSError:
+        return PlainTextResponse("no report yet\n")
+    return PlainTextResponse(data.decode("utf-8", "replace"))
+
+
+def _authorised(token: str) -> None:
+    expected = _token()
+    if len(expected) < 16 or not hmac.compare_digest(token.encode(), expected.encode()):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
 def ops_status_router() -> APIRouter:
     router = APIRouter()
 
     @router.get("/{token}", response_class=PlainTextResponse)
     def status(token: str) -> PlainTextResponse:
-        expected = _token()
-        if len(expected) < 16 or not hmac.compare_digest(token.encode(), expected.encode()):
-            raise HTTPException(status_code=404, detail="Not Found")
-        path = Path(os.environ.get("FRIDAY_OPS_STATUS_FILE", _DEFAULT_FILE))
-        try:
-            data = path.read_bytes()[-_MAX_BYTES:]
-        except OSError:
-            return PlainTextResponse("no report yet\n")
-        return PlainTextResponse(data.decode("utf-8", "replace"))
+        _authorised(token)
+        return _read(Path(os.environ.get("FRIDAY_OPS_STATUS_FILE", _DEFAULT_FILE)))
+
+    @router.get("/{token}/logs", response_class=PlainTextResponse)
+    def logs(token: str) -> PlainTextResponse:
+        _authorised(token)
+        default = str(Path(_DEFAULT_FILE).with_name("logs.txt"))
+        return _read(Path(os.environ.get("FRIDAY_OPS_LOGS_FILE", default)))
 
     return router

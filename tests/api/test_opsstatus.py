@@ -30,3 +30,13 @@ def test_no_report_yet(monkeypatch, tmp_path):
     monkeypatch.setenv("FRIDAY_OPS_STATUS_TOKEN", "t" * 20)
     monkeypatch.setenv("FRIDAY_OPS_STATUS_FILE", str(tmp_path / "missing.txt"))
     assert "no report yet" in _client().get("/ops-status/" + "t" * 20).text
+
+
+def test_logs_route_needs_the_token_too(monkeypatch, tmp_path):
+    f = tmp_path / "logs.txt"
+    f.write_text("line one\n")
+    monkeypatch.setenv("FRIDAY_OPS_STATUS_TOKEN", "t" * 20)
+    monkeypatch.setenv("FRIDAY_OPS_LOGS_FILE", str(f))
+    c = _client()
+    assert c.get("/ops-status/" + "x" * 20 + "/logs").status_code == 404
+    assert "line one" in c.get("/ops-status/" + "t" * 20 + "/logs").text
