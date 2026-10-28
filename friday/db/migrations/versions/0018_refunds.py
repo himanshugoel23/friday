@@ -32,6 +32,10 @@ def _id() -> sa.Column:
 
 
 def upgrade() -> None:
+    # A first run that stopped half-way (SQLite DDL is not transactional) leaves these tables behind
+    # while the version is still 0017; nothing can be in them yet, so start clean.
+    for leftover in ("refund_nudges", "refund_evidence", "refund_events", "refund_cases"):
+        op.execute(f"DROP TABLE IF EXISTS {leftover}")
     op.create_table(
         "refund_cases",
         sa.Column("user_id", sa.String(length=32), nullable=False),
