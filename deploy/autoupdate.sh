@@ -14,7 +14,7 @@ as_friday() { sudo -u friday "$@"; }
 cd "$APP" || exit 1
 # Every run: refresh a redacted tail of the service log (served at /ops-status/<token>/logs) so call and
 # chat problems can be diagnosed without a console. Redacts URL tokens, keys, bearer values; phones -> last 2.
-journalctl -u friday -n 150 --no-pager -o cat 2>/dev/null \
+journalctl -u friday -n 4000 --no-pager -o cat 2>/dev/null | grep -vE "/api/state|/ops-status/|GET /health" | tail -400 \
   | sed -E 's#(/web/|/lab/|/qa/|/ops-status/|/voice/[a-z]+/[a-z]+\?)[A-Za-z0-9_-]{16,}#\1<redacted>#g; s#(token|key|secret|sig|signature|auth)=[^& "]+#\1=<redacted>#Ig; s#(Bearer|Basic) [A-Za-z0-9._~+/=-]+#\1 <redacted>#g; s#sk-[A-Za-z0-9_-]{10,}#sk-<redacted>#g; s#\+?[0-9]{8,12}([0-9]{2})#<num>\1#g' \
   | cut -c1-400 > "$STATE/logs.txt.new" && mv "$STATE/logs.txt.new" "$STATE/logs.txt"
 chown friday:friday "$STATE/logs.txt" 2>/dev/null
