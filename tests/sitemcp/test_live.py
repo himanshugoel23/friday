@@ -260,9 +260,16 @@ def test_enable_web_test_lists_the_new_switch_names():
 
 
 # ------------------------------------------------------------------ real Playwright (skips cleanly when it is not installed)
-async def test_real_chromium_runs_the_live_probe_against_the_local_fake_store(tmp_path):
+async def test_real_chromium_runs_the_live_probe_against_the_local_fake_store(tmp_path, monkeypatch):
     from friday.sitemcp.chromium import SharedChromium
 
+    for k in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(k, raising=False)  # a sandbox agent proxy must not intercept the loopback fake store
+
+    import os
+
+    if os.environ.get("FRIDAY_TEST_REAL_CHROMIUM") != "1":
+        pytest.skip("opt-in: set FRIDAY_TEST_REAL_CHROMIUM=1 (loopback to the fake store fails in some sandboxes)")
     if not SharedChromium.available():
         pytest.skip("Playwright or Chromium not installed here")
     st = FakeStore("testid")

@@ -15,6 +15,10 @@ import sys
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from friday.core.logging import get_logger
+
+log = get_logger(__name__)
+
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 Handler = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]  # (user_id, arguments) -> result
 
@@ -63,6 +67,7 @@ class McpServer:
         try:
             res = await self.handlers[name](user, args)
         except Exception as e:  # noqa: BLE001 - a tool never crashes the server; type name only, no page content
+            log.warning("sitemcp tool %s failed: %s: %s", name, type(e).__name__, str(e)[:160])
             res = {"status": "error", "error": type(e).__name__}
             return self._wrap(id_, res, True)
         return self._wrap(id_, res, False)
