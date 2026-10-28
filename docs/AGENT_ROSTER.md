@@ -70,3 +70,15 @@ Everything it decides is logged on the task record (resumable after restart).
 | 21 | Memory extractor | After each conversation/call: extract follow-ups, dates, concerns, preferences the USER said, each with the exact quote + message/call id (code verifies the quote exists); nothing inferred from outside Friday | yes (checked) | {followups[], dates[], concerns[], prefs[]} |
 | 22 | Proactive planner | Turn stored follow-ups into scheduled actions (what, when, channel WhatsApp or call), obeying: opt-in, quiet hours, max 2/week, transactional wording only, dedupe, cancel when the user already did it | no (rules) | scheduled actions |
 Users can see ("what do you remember?"), delete one/all, or switch proactive off. Agent 20 (follow-up planner) is merged into 22.
+
+## Added 2026-10-28 (founder): approach planner, one agent per approach (`friday/planner/`, docs/APPROACH_PLANNER.md)
+Founder: "the project manager's job is to THINK what is needed in this query." Agent 2 (PM) now starts with a planning step that picks ONE approach; each approach is its own agent with a typed input/output. Behind `FRIDAY_APPROACH_PLANNER_ENABLED` (default off).
+| # | Agent | Job (only this) | LLM? | Output |
+|---|-------|-----------------|------|--------|
+| 23 | Approach planner | request -> ONE of answer / web_lookup / app_or_connector / call_vendors / ask / decline, with a typed reason | LLM proposes (closed JSON schema), code decides | ApproachDecision |
+| 24 | Policy guard | last word on 23: lookup beats call, no connector -> lookup or ask, unsure -> ask, never a silent call | no | ApproachDecision (source=guard when overridden) |
+| 25 | Answer agent (`agents/answer.py`) | answer from knowledge/memory, no tool (default port: the existing brain turn) | brain | AnswerOutput |
+| 26 | Web lookup agent (`agents/web_lookup.py`) | price/availability/timing/review/fact from public web pages: sources, as-of time, caveat, 25 s hard cap, 1 retry, 5 min cache | provider (OpenAI web_search) | WebLookupOutput |
+| 27 | Call agent (`agents/call.py`) | adapter to the EXISTING vendor-call flow (agents 4-20); marks the plan as containing a call; places nothing itself | no | CallPlanOutput |
+| 28 | Ask agent (`agents/ask.py`) | ONE clarifying question; model-written text may not mention calling unless a call is planned | no (templates) | AskOutput |
+App/connector approach: no new agent; it hands over to the existing private-browser flow (`friday/connectors`) when that is enabled.
