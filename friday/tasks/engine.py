@@ -102,6 +102,12 @@ from friday.tasks.policy import TaskPolicy
 from friday.tasks.ports import call_opt, repo
 from friday.tasks.recurrence import next_run
 from friday.tasks.scheduling import next_call_time, retry_at
+from friday.voice.tts.health import (
+    TTS_BACK_LINE,
+    TTS_UNAVAILABLE,
+    TTS_UNAVAILABLE_LINE,
+    get_health,
+)
 
 log = get_logger(__name__)
 
@@ -1236,6 +1242,14 @@ class TaskEngine:
         ]
         return "\n".join(lines)
 
+    def _tell_when_voice_back(self, task: Task) -> None:
+        user_id, outbox = task.requester_user_id, self.outbox
+
+        async def say() -> None:
+            await outbox.to_user(user_id, TTS_BACK_LINE, task_id=task.id)
+
+        get_health().on_recovery(say)
+
     async def _fail(self, task: Task, summary: str) -> None:
         task.result = TaskResult(success=False, summary=summary)
         await self._transition(task, S.FAILED)
@@ -1333,6 +1347,11 @@ class TaskEngine:
             await self._audit(task, "call.blocked_pilot")
             await self._fail(task, PILOT_NO_REAL_CALLS)
             return "pilot"
+        if get_health().unavailable():  # TTS dead (402/429): say so instead of ringing and cutting
+            await self._audit(task, "call.tts_unavailable")
+            await self._fail(task, TTS_UNAVAILABLE_LINE)
+            self._tell_when_voice_back(task)
+            return TTS_UNAVAILABLE
         pool = self.pool
         if pool is not None and await pool.is_blocked(task.target.phone):
             await self._audit(task, "call.blocked_dnc")
@@ -1755,6 +1774,11 @@ class TaskEngine:
         role = role_of(task)
         if o == CallOutcome.CANCELLED:
             raise TaskAborted(task.id)
+        if result.error == TTS_UNAVAILABLE:  # the runner refused to dial: no retry storm
+            await self._audit(task, "call.tts_unavailable")
+            await self._fail(task, TTS_UNAVAILABLE_LINE)
+            self._tell_when_voice_back(task)
+            return
         if is_dnc_request(result) and task.target is not None:
             # SECURITY-22: persisted pool-wide, never auto-retried
             if self.pool is not None:

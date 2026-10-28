@@ -1345,3 +1345,6 @@ Asked "price of 5 kg Aashirvaad atta on Zepto": no result for a long time, and t
 
 ## 2026-10-28 evening: ROOT CAUSE of calls cut at pick-up = Sarvam out of credits
 Server log (redacted tail): friday.voice.tts.cache "tts prerender failed: [sarvam] HTTP 402 insufficient_quota_error 'No credits available'" (plus HTTP 429 rate limit), ~1/s, around the founder's test calls; call ended no_answer/hangup at answer, Vobiz code 7011. Founder must top up Sarvam credits. Code follow-ups: do not place a call when TTS is dead (preflight), circuit-break prerender on 402/429 with backoff, say so in chat instead of ringing and cutting.
+
+## 2026-10-28 night: TTS health gate built (docs/TTS_HEALTH.md), branch worktree-agent-a872db25915ff2d71, not pushed
+Breaker + backoff in prerender, no dial while TTS is down (`tts_unavailable`, chat line), mid-call `tts_failed` hang-up, doctor line. Two new chat lines await founder approval (in the doc). Founder must still top up Sarvam credits.

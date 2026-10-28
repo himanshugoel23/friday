@@ -23,6 +23,7 @@ from friday.core.logging import get_logger
 from friday.core.models import AudioClip, Language, VoiceProfile
 from friday.core.scale import Cache
 from friday.voice.text import strip_fillers
+from friday.voice.tts.health import TTSHealth, TTSUnavailable, classify, get_health
 
 log = get_logger(__name__)
 
@@ -36,8 +37,10 @@ class CachedTTS:
         max_items: int = 512,
         cache: Cache | None = None,
         ttl_s: int = 30 * 86400,
+        health: TTSHealth | None = None,
     ) -> None:
         self.inner = inner
+        self._health = health
         self.shared = cache  # S-10: shared Cache (Redis in prod) so every voice worker hits
         self.ttl_s = ttl_s
         self.name = inner.name
@@ -49,6 +52,10 @@ class CachedTTS:
         self.hits = 0
         self.misses = 0
         self.billed_chars = 0
+
+    @property
+    def health(self) -> TTSHealth:
+        return self._health or get_health()
 
     def voice_for(self, language: Language) -> VoiceProfile:
         return self.inner.voice_for(language)
@@ -119,7 +126,15 @@ class CachedTTS:
             clip = await self._read(key)
             if clip is not None:
                 return clip, True
-            clip = await self.inner.synthesize(clean, language, voice=voice)
+            h = self.health
+            if not h.allow():  # breaker open: fail fast, no vendor call
+                raise TTSUnavailable(self.name, "circuit open")
+            try:
+                clip = await self.inner.synthesize(clean, language, voice=voice)
+            except Exception as e:
+                h.record_error(self.name, e)
+                raise
+            h.record_success(self.name)
             self.misses += 1
             self.billed_chars += len(clean)
             await self._write(key, clip)
@@ -165,8 +180,13 @@ class CachedTTS:
         for t in texts:
             try:
                 await self.synthesize_cached(t, language)
+            except TTSUnavailable:
+                break  # breaker open: skip the rest silently (logged once on the state change)
             except Exception as e:  # noqa: BLE001 - warming is best effort
-                log.warning("tts prerender failed: %r", e)
+                if classify(e) is None:  # health failures are logged once by the breaker
+                    log.warning("tts prerender failed: %r", e)
+                if self.health.unavailable():
+                    break  # this failure just opened the breaker: stop the storm
         return self.misses - before
 
     def _store(self, key: str, clip: AudioClip) -> None:
@@ -185,7 +205,7 @@ def cached(tts, media_dir: str | None, cache: Cache | None = None) -> CachedTTS:
     if isinstance(tts, CachedTTS):
         return tts
     folder = str(Path(media_dir) / "tts_cache") if media_dir else None
-    return CachedTTS(tts, cache_dir=folder, cache=cache)
+    return CachedTTS(tts, cache_dir=folder, cache=cache)  # health: process-wide get_health()
 
 
 def cached_tts(c) -> CachedTTS:  # c: Container
@@ -195,5 +215,7 @@ def cached_tts(c) -> CachedTTS:  # c: Container
         shared = c.get("cache")
     except Exception:  # noqa: BLE001 - not wired in this process role
         shared = None
+    if c.settings.is_live:  # persist breaker state for `friday doctor` (another process)
+        get_health().path = Path(c.settings.tts_health_file)
     media = None if (c.settings.is_live and shared is not None) else c.settings.media_dir
     return cached(c.tts, media, shared)

@@ -21,6 +21,15 @@ from friday.core.events import EventBus
 from friday.db import Database
 
 
+@pytest.fixture(autouse=True)
+def _fresh_tts_health():
+    """The TTS circuit breaker is process-wide: never leak its state between tests."""
+    from friday.voice.tts.health import TTSHealth, set_health
+
+    set_health(TTSHealth())
+    yield
+
+
 @pytest.fixture
 def settings() -> Settings:
     return Settings(

@@ -90,6 +90,12 @@ from friday.voice.eot import EotConfig, build_semantic_eot
 from friday.voice.events import CallCostReport, CallLanguageSwitched, CallLatencyReport
 from friday.voice.latency import LatencyRecorder
 from friday.voice.text import mask_digits, redact_secrets, strip_fillers
+from friday.voice.tts.health import (
+    TTS_FAILED,
+    TTS_UNAVAILABLE,
+    TTSUnavailable,
+    get_health,
+)
 
 log = get_logger(__name__)
 
@@ -419,6 +425,7 @@ class _Session:
         self._stack: AsyncExitStack | None = None
         self._cached_ivr: list[str] = []
         self._prerender: asyncio.Future | None = None
+        self.tts_failed = False
         self._extra_legs: list[CallLeg] = []
         self.care: CareOutcome | None = None
         if brief.task_type == TaskType.CUSTOMER_CARE or brief.company:
@@ -464,6 +471,9 @@ class _Session:
             log.exception("call %s failed", self.result.call_id)
             self.result.outcome = CallOutcome.FAILED
             self.result.error = truncate(f"{type(e).__name__}: {e}", 300)
+        if self.tts_failed:  # the voice died: not the callee hanging up
+            self.result.outcome = CallOutcome.FAILED
+            self.result.error = TTS_FAILED
         await self._finish()
         return self.result
 
@@ -708,6 +718,12 @@ class _Session:
         missing = self._missing_capabilities()
         if missing:
             return self._decline_unsupported(missing)
+        if get_health().unavailable():  # TTS dead (402/429 breaker): do not ring and cut
+            self.result.error = TTS_UNAVAILABLE
+            self.result.collected["failure_reason"] = TTS_UNAVAILABLE
+            self.result.dial_status = DialStatus.FAILED
+            log.warning("call %s not placed: TTS unavailable", self.result.call_id)
+            return CallOutcome.FAILED
         if not await self._reserve_capacity("telephony"):
             self.result.error = "telephony rate-limited; retry later"
             self.result.dial_status = DialStatus.FAILED
@@ -1342,6 +1358,14 @@ class _Session:
         t0 = time.perf_counter()
         try:
             await target.speak(spoken, lang)
+        except CallEnded:
+            raise
+        except Exception as e:  # noqa: BLE001 - classify: did the voice die, or something else?
+            if isinstance(e, TTSUnavailable) or (
+                isinstance(e, ProviderError) and get_health().recent_failure()
+            ):
+                await self._tts_failed(target, e)  # raises CallEnded
+            raise
         finally:
             if hasattr(target, "pace_mult"):
                 target.pace_mult = 1.0
@@ -1352,6 +1376,26 @@ class _Session:
         if not disclosure:
             self.latency.tts(getattr(target, "last_tts_ms", None) or wall)
         await self._record(Speaker.FRIDAY, f"{label}{clean}", lang)
+
+    async def _tts_failed(self, target: CallLeg, exc: BaseException) -> None:
+        """The voice died mid-call. Say the cancel line ONLY if its audio is already cached
+        (never a new vendor call), then hang up cleanly and mark the result ``tts_failed``."""
+        self.tts_failed = True
+        self.result.error = TTS_FAILED
+        self.result.collected["failure_reason"] = TTS_FAILED
+        log.warning("call %s: TTS failed mid-call (%s): ending the call", self.result.call_id,
+                    type(exc).__name__)
+        tts = getattr(getattr(target, "tel", None), "tts", None)
+        lookup = getattr(tts, "lookup", None)
+        if lookup is not None:
+            line, lang = _line(_CANCEL_LINE, self._lang(), name=self.name)
+            try:
+                if await lookup(line, self._speak_lang(lang)) is not None:
+                    await target.speak(line, self._speak_lang(lang))
+            except Exception:  # noqa: BLE001 - best effort, then hang up regardless
+                log.debug("fallback goodbye not played")
+        await self._safe_hangup()
+        raise CallEnded()
 
     async def _disclose(self, human_lang: Language | None) -> None:
         b = self.brief

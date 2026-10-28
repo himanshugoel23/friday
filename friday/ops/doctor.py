@@ -362,6 +362,31 @@ async def check_public_url(settings: Settings, offline: bool, probes: Probes) ->
 
 
 # ----------------------------------------------------------------------------- 5 providers
+def _tts_health_line(s: Section, settings: Settings) -> None:
+    """TTS provider health from the LAST errors the server recorded (a local file; no network)."""
+    import time
+
+    from friday.voice.tts.health import get_health, read_snapshot
+
+    snap = read_snapshot(settings.tts_health_file) or get_health().snapshot()
+    err, now = snap.get("last_error"), time.time()
+    if not err:
+        s.add(OK, "TTS health: no provider errors recorded")
+        return
+    age = max(0, int((now - float(err.get("at", now))) / 60))
+    what = {"quota": "out of credits (HTTP 402): top up the TTS account",
+            "rate": "rate limited (HTTP 429)", "server": "vendor errors (5xx)"}.get(
+        str(err.get("kind")), "errors")
+    who, ok_at = err.get("provider"), snap.get("last_ok_at")
+    if ok_at and float(ok_at) >= float(err.get("at", 0)) and not snap.get("open"):
+        s.add(OK, f"TTS health: recovered; last error {age} min ago was {what} ({who})")
+    elif snap.get("open") and now < float(snap.get("open_until", 0)):
+        s.add(FAIL, f"TTS health: {who} {what}; calls are refused (tts_unavailable) "
+                    f"until the breaker retries; last error {age} min ago")
+    else:
+        s.add(WARN, f"TTS health: {who} {what}; last error {age} min ago, no success since")
+
+
 async def check_providers(settings: Settings, offline: bool, probes: Probes) -> Section:
     s = Section("providers")
     s.add(OK if settings.anthropic_api_key else WARN,
@@ -370,6 +395,7 @@ async def check_providers(settings: Settings, offline: bool, probes: Probes) -> 
     s.add(OK if settings.sarvam_api_key else WARN,
           "SARVAM_API_KEY is " + ("set (presence only, no paid call)"
                                   if settings.sarvam_api_key else "missing"))
+    _tts_health_line(s, settings)
     token = settings.whatsapp_access_token
     pid = settings.whatsapp_phone_number_id
     if not (token and pid):
