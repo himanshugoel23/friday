@@ -29,7 +29,7 @@ if [ "$LOCAL" != "$REMOTE" ]; then
   as_friday git checkout -q "$BRANCH" 2>&1 | tail -1
   as_friday git merge --ff-only -q "origin/$BRANCH" 2>&1 | tail -2
   echo "to   $(as_friday git rev-parse HEAD)"
-  echo "-- packages"; as_friday bash -c "cd $APP && $UV sync --no-dev --extra vad" 2>&1 | tail -2
+  echo "-- packages"; as_friday bash -c "cd $APP && $UV sync --no-dev --extra vad --extra browser" 2>&1 | tail -2
   echo "-- migrate";  as_friday bash -c "cd $APP && $UV run python -m friday.db.migrate up" 2>&1 | tail -4
   echo "-- restart";  systemctl restart friday; sleep 20
 fi

@@ -37,7 +37,7 @@ chown -R friday:friday "$APP"
 if ! su friday -c 'command -v ~/.local/bin/uv' >/dev/null 2>&1; then
   su friday -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
 fi
-su friday -c "cd $APP && ~/.local/bin/uv sync --no-dev --extra vad"   # onnxruntime for the optional neural voice detector (stays off until FRIDAY_VOICE_VAD_BACKEND=silero)
+su friday -c "cd $APP && ~/.local/bin/uv sync --no-dev --extra vad --extra browser"   # onnxruntime for the optional neural voice detector (stays off until FRIDAY_VOICE_VAD_BACKEND=silero)
 
 echo "== 3/6 public address"
 IP="${FRIDAY_SERVER_IP:-$(curl -4 -fsS https://api.ipify.org)}"
