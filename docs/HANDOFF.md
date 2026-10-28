@@ -1393,3 +1393,6 @@ Decision/advice: no tricks that evade provider access rules (no impersonating cl
 
 ## 2026-10-29: updaters keep the browser extra
 deploy/autoupdate.sh, small-update.sh and small-server.sh now sync with `--extra vad --extra browser` so an update never uninstalls Playwright (uv sync is exact). Founder installs the browser binaries and Xvfb once as root (command given in chat); droplet stays 1 GB for now (founder: resize later).
+
+## 2026-10-29 (builder): proactive intents BUILT (docs/PROACTIVE_INTENTS.md), switch FRIDAY_PROACTIVE_INTENTS_ENABLED default OFF, branch worktree-agent-abd5666e753f457c1, not pushed
+Founder's first web test ('Mera gmail check krna' -> flat refusal; 'Kal' / 'interview hainkal' -> generic questions). friday/intents: honest capability replies (real Google connect link only when the connector is configured, else says not set up; paste-the-email fallback), data-table playbooks (interview, birthday, trip, bill, exam, meeting; one question, 2-3 buttons, reminder = date fact), fragment handling (open intent + kal/aaj/parso, typo split, query agent when on). Hooked in InboundPipeline._active before team/planner. All new wording PENDING founder approval (table in the doc). The refusal line itself lives in friday/planner/wording.py (decline) and was NOT changed; it needs the same honest form later.

@@ -70,8 +70,8 @@ LINES: dict[str, dict[str, str]] = {
         "hinglish": "Karne se pehle pakka kar lun: exactly kya pata karna hai, aur kis jagah ke liye?",
     },
     "decline": {
-        "en": "Sorry, I can't help with that one.",
-        "hinglish": "Maaf kijiye, isme main madad nahi kar sakti.",
+        "en": "I can't do that one myself yet. Tell me a bit more and I will find the nearest thing I can do, or you can paste the details here.",
+        "hinglish": "Ye main abhi khud nahi kar sakti. Thoda aur bata dein, main sabse paas ka kaam dhoondhti hoon, ya details yahin paste kar dein.",
     },
     # --- engine "needs info" line: only the call variant says call
     "needs_info_call": {

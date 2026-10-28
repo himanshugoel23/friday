@@ -697,6 +697,9 @@ class Settings(BaseSettings):
     # approach planner (docs/APPROACH_PLANNER.md): the PM picks answer/web/app/call/ask first.
     # OFF: every request keeps the old bucket x category flow. Chat wording PENDING.
     approach_planner_enabled: bool = False  # FRIDAY_APPROACH_PLANNER_ENABLED
+    # proactive intents (docs/PROACTIVE_INTENTS.md): honest "needs a connection" replies, interview /
+    # birthday / trip / bill / exam / meeting playbooks, one-word follow-ups. Chat wording PENDING.
+    proactive_intents_enabled: bool = False  # FRIDAY_PROACTIVE_INTENTS_ENABLED
     approach_use_llm: bool = True  # FRIDAY_APPROACH_USE_LLM: LLM proposes (OpenAI)
     approach_decide_timeout_s: float = 6.0
     approach_ack_after_s: float = 8.0  # ONE 'on it' line when a plan takes longer than this

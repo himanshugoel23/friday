@@ -223,6 +223,11 @@ class InboundPipeline:
             self.team = build_gateway(self)
         except Exception:  # noqa: BLE001 - never stop the app from booting
             log.exception("agent team failed to build; continuing without it")
+        self.intents: Any = None  # proactive intents (friday/intents): None unless its switch is on
+        if getattr(self.settings, "proactive_intents_enabled", False):
+            from friday.intents.gateway import IntentGateway
+
+            self.intents = IntentGateway(self)
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -800,7 +805,13 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
-        if self.team is not None:  # query understanding (+ PM and specialists over A2A) before the planner
+        if self.intents is not None:  # honest capability replies, playbooks, fragments
+            await self.intents.route(user, msg, self._team_or_after)
+            return
+        await self._team_or_after(user, msg)
+
+    async def _team_or_after(self, user: User, msg: InboundMessage) -> None:
+        if self.team is not None:  # query understanding + PM team, before the planner
             await self.team.route(user, msg, self._planner_or_after)
             return
         await self._planner_or_after(user, msg)

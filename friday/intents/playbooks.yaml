@@ -1,0 +1,161 @@
+# Data, not code: every chat line here is PENDING founder approval (docs/PROACTIVE_INTENTS.md).
+# Placeholders: {when} = today/tomorrow/the day after tomorrow (en) or aaj/kal/parso (hinglish).
+# Hinglish is Roman script; Devanagari users get the same Roman Hinglish lines.
+dates:
+  today: [aaj, today, tonight, ajj]
+  tomorrow: [kal, kl, tomorrow, tmrw, tmr]
+  dayafter: [parso, parson, parsoon]
+when:
+  today: {en: today, hinglish: aaj}
+  tomorrow: {en: tomorrow, hinglish: kal}
+  dayafter: {en: the day after tomorrow, hinglish: parso}
+date_buttons:
+  en: [Today, Tomorrow, Day after]
+  hinglish: [Aaj, Kal, Parso]
+common:
+  ask_date:
+    en: "{label} - got it. Is it today, tomorrow or the day after?"
+    hinglish: "{label} - samajh gayi. Aaj hai, kal ya parso?"
+  remind_done:
+    en: "Done, I'll remind you {when}."
+    hinglish: "Ho gaya, {when} yaad dila dungi."
+  dismiss:
+    en: "Okay. I'm here whenever you need me."
+    hinglish: "Theek hai. Zarurat ho toh bataiye."
+  stale:
+    en: "That option has expired. Tell me again what's coming up."
+    hinglish: "Woh option purana ho gaya. Dobara bata dein kya hai."
+  buttons:
+    remind_me: {en: Remind me, hinglish: Reminder lagao}
+    not_now: {en: Not now, hinglish: Abhi nahi}
+playbooks:
+  interview:
+    label: {en: Interview, hinglish: Interview}
+    triggers: [interview, intervew, interviw, intrvw]
+    offer:
+      en: "Interview {when}, all the best! Shall I set a reminder for that day, and make prep points if you tell me the company and role?"
+      hinglish: "Interview {when} hai, all the best! Us din ka reminder laga dun, aur company aur role bata dein toh prep points bhi bana dungi?"
+    prep_button: {en: Prep points, hinglish: Prep points}
+    prep_ask:
+      en: "Sure. Which company and which role?"
+      hinglish: "Zaroor. Kaun si company aur kaun sa role?"
+    handoff: "Help me prepare for a job interview. Company and role: {answer}"
+  birthday:
+    label: {en: Birthday, hinglish: Birthday}
+    triggers: [birthday, bday, "b'day", janmdin, janamdin]
+    offer:
+      en: "Birthday {when}! Want a wish reminder that day, or gift ideas if you tell me who it is and the budget?"
+      hinglish: "Birthday {when} hai! Us din wish ka reminder laga dun, ya kiska hai aur budget bata dein toh gift ideas dun?"
+    offer_own:
+      en: "Happy birthday! Want me to find a place for dinner {when}?"
+      hinglish: "Happy birthday! {when} dinner ke liye koi jagah dhoondh dun?"
+    own_words: [mera, meri, my, mere]
+    own_button: {en: Find a place, hinglish: Jagah dhoondho}
+    own_handoff: "Find a good restaurant for a birthday dinner {when}"
+    prep_button: {en: Gift ideas, hinglish: Gift ideas}
+    prep_ask:
+      en: "Sure. Who is it for, and what's the budget?"
+      hinglish: "Zaroor. Kiske liye, aur budget kitna hai?"
+    handoff: "Suggest birthday gift ideas. Details: {answer}"
+  trip:
+    label: {en: Trip, hinglish: Trip}
+    triggers: [trip, yatra, safar, travel, tour]
+    offer:
+      en: "Trip {when}! Want a reminder for that day, and a packing list if you tell me where to and for how many days?"
+      hinglish: "Trip {when} hai! Us din ka reminder laga dun, aur kahan jana hai aur kitne din, bata dein toh packing list bana dun?"
+    prep_button: {en: Packing list, hinglish: Packing list}
+    prep_ask:
+      en: "Sure. Where to, and for how many days?"
+      hinglish: "Zaroor. Kahan jana hai aur kitne din ke liye?"
+    handoff: "Make a short packing checklist for a trip. Details: {answer}"
+  bill:
+    label: {en: Bill, hinglish: Bill}
+    triggers: [bill, bijli, recharge, emi, premium]
+    needs_due_word: true
+    ask_date_free:
+      en: "Bill due - got it. When is it due, and which bill?"
+      hinglish: "Bill due hai - samajh gayi. Kab due hai, aur kaun sa bill?"
+    offer:
+      en: "Bill due {when}. Shall I remind you that day? You pay in your own app, I never pay."
+      hinglish: "Bill {when} due hai. Us din yaad dila dun? Payment aap apne app se karein, main kabhi pay nahi karti."
+  exam:
+    label: {en: Exam, hinglish: Exam}
+    triggers: [exam, paper, pariksha, boards, viva]
+    offer:
+      en: "Exam {when}, all the best! Want a reminder that day, or a quick revision plan if you tell me the subject and hours left?"
+      hinglish: "Exam {when} hai, all the best! Us din ka reminder laga dun, ya subject aur bache hue ghante bata dein toh revision plan dun?"
+    prep_button: {en: Revision plan, hinglish: Revision plan}
+    prep_ask:
+      en: "Sure. Which subject, and how many hours do you have?"
+      hinglish: "Zaroor. Kaun sa subject, aur kitne ghante hain?"
+    handoff: "Make a quick revision plan for an exam. Details: {answer}"
+  meeting:
+    label: {en: Meeting, hinglish: Meeting}
+    triggers: [meeting, meet, mtg, presentation]
+    offer:
+      en: "Meeting {when}. Want a reminder that day, and prep notes if you tell me who it's with and the topic?"
+      hinglish: "Meeting {when} hai. Us din ka reminder laga dun, aur kisse hai aur topic kya hai bata dein toh prep notes bana dun?"
+    prep_button: {en: Prep notes, hinglish: Prep notes}
+    prep_ask:
+      en: "Sure. Who is it with, and what's the topic?"
+      hinglish: "Zaroor. Kisse meeting hai aur topic kya hai?"
+    handoff: "Make short prep notes for a meeting. Details: {answer}"
+capabilities:
+  gmail:
+    triggers: [gmail, g-mail, inbox, email, e-mail, mail, mails, emails]
+    paste:
+      en: "Until then, paste the email text here and I'll summarise it or draft a reply."
+      hinglish: "Tab tak email ka text yahan paste kijiye, main summary ya reply draft kar dungi."
+    not_configured:
+      en: "I can't read your Gmail yet: the Google connection isn't set up on my side. {paste}"
+      hinglish: "Abhi main aapka Gmail nahi dekh sakti: Google connection mere yahan set up nahi hua hai. {paste}"
+    scope_off:
+      en: "I can't read your Gmail yet: reading email isn't switched on on my side. {paste}"
+      hinglish: "Abhi main aapka Gmail nahi dekh sakti: email padhna mere yahan chalu nahi hua hai. {paste}"
+    connect:
+      en: "I need to connect your Gmail first. Open this link (valid 10 minutes): {link}\n{paste}"
+      hinglish: "Pehle aapka Gmail connect karna hoga. Yeh link kholiye (10 minute valid): {link}\n{paste}"
+    connected:
+      en: "Your Gmail is connected, but I can't read the inbox from chat yet. {paste}"
+      hinglish: "Aapka Gmail juda hua hai, par chat se inbox padhna abhi nahi hota. {paste}"
+    fragment:
+      en: "Noted, {when}. I still can't open your Gmail myself: paste the email text here and I'll handle it."
+      hinglish: "Theek hai, {when}. Main khud abhi aapka Gmail nahi khol sakti: email ka text yahan paste kijiye, main dekh lungi."
+  calendar:
+    triggers: [calendar]
+    paste:
+      en: "Until then, tell me the event and the date and I'll remind you that day."
+      hinglish: "Tab tak event aur date bata dein, main us din yaad dila dungi."
+    not_configured:
+      en: "I can't see your calendar yet: the Google connection isn't set up on my side. {paste}"
+      hinglish: "Abhi main aapka calendar nahi dekh sakti: Google connection mere yahan set up nahi hua hai. {paste}"
+    scope_off:
+      en: "I can't see your calendar yet: it isn't switched on on my side. {paste}"
+      hinglish: "Abhi main aapka calendar nahi dekh sakti: yeh mere yahan chalu nahi hua hai. {paste}"
+    connect:
+      en: "I need to connect your Google Calendar first. Open this link (valid 10 minutes): {link}\n{paste}"
+      hinglish: "Pehle aapka Google Calendar connect karna hoga. Yeh link kholiye (10 minute valid): {link}\n{paste}"
+    connected:
+      en: "Your calendar is connected. Write 'mera din' and I'll show today's plan."
+      hinglish: "Aapka calendar juda hua hai. 'mera din' likhiye, aaj ka plan dikha dungi."
+    fragment:
+      en: "Noted, {when}. I can't open your calendar myself yet: tell me the event and I'll remind you."
+      hinglish: "Theek hai, {when}. Main abhi calendar khud nahi khol sakti: event bata dein, main yaad dila dungi."
+  drive:
+    triggers: [drive, gdrive]
+    static:
+      en: "I can't open your Google Drive from chat yet. Send the photo or PDF here and I'll read it for you."
+      hinglish: "Abhi main chat se aapka Google Drive nahi khol sakti. Photo ya PDF yahan bhej dein, main padh lungi."
+    fragment:
+      en: "Noted, {when}. I still can't open Drive from chat: send the photo or PDF here."
+      hinglish: "Theek hai, {when}. Drive abhi chat se nahi khulta: photo ya PDF yahan bhej dein."
+  app_order:
+    triggers: [zepto, blinkit, swiggy, zomato, instamart, bigbasket]
+    order_words: [order, mangao, mangwa, mangwao, laga, lagao, bhej, buy, kharid]
+    skip_words: [price, daam, rate, kitna, kitne, cost, menu]
+    static:
+      en: "I can't place orders inside apps yet. I can check prices or the menu on the web. Which item?"
+      hinglish: "Abhi main apps ke andar order nahi laga sakti. Web par daam ya menu dekh sakti hoon. Kaun sa item?"
+    fragment:
+      en: "Noted, {when}. I can't order in the app myself: tell me the item and I'll check prices on the web."
+      hinglish: "Theek hai, {when}. App mein order main khud nahi laga sakti: item bata dein, main web par daam dekh lungi."
