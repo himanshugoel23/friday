@@ -122,7 +122,6 @@ def parse_openai_response(resp: Any) -> RawWebResult:
                 url = it.get("url")
                 img = it.get("image_url")
                 count = it.get("rating_count")
-                count = it.get("rating_count")
                 items.append(
                     WebItem(
                         title=str(it.get("title") or "")[:120],

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "site": "bigbasket",
+  "display": "BigBasket",
+  "version": 1,
+  "updated": "2026-10-29",
+  "status": "unverified",
+  "status_note": "Written from general knowledge of the public site. NOT yet checked against the live pages from our server; the first real run decides.",
+  "domains": [
+    "bigbasket.com",
+    "www.bigbasket.com"
+  ],
+  "role": "core",
+  "hides_prices_online": false,
+  "safety": {
+    "never_pay": true,
+    "never_submit_payment": true,
+    "stop_at_payment": true,
+    "public_pages_only": true,
+    "no_login": true,
+    "user_pays_in_own_app": true
+  },
+  "search_query_templates": [
+    "{products} price {location} bigbasket",
+    "{category} price {site} {location}"
+  ],
+  "locations": {
+    "price": "price printed on the product card or page (Rs <n>), per pack",
+    "pack": "pack size in the title (e.g. 5 kg)",
+    "rating": "star rating and count if printed",
+    "delivery_time": "delivery slot or express minutes if printed",
+    "stock": "'Out of stock' / 'Sold out' text if printed"
+  },
+  "quirks": [
+    "Product pages usually show MRP and sale price; availability depends on the pincode and slot."
+  ],
+  "anti_bot": {
+    "behaviour": "Public pages may show a bot challenge or require a delivery location before prices appear.",
+    "our_response": "Never bypass a challenge. Report 'price not visible' and carry on with the other sites."
+  }
+}

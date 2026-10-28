@@ -51,11 +51,13 @@ class PlannerGateway:
         answer: AnswerAgent | None = None,
         call: CallAgent | None = None,
         ack_after_s: float = ACK_AFTER_S,
+        shopping: Any = None,  # friday.shopping.ShoppingAssistant, or None while its switch is off
     ) -> None:
         self.p = pipeline
         self.planner, self.web = planner, web
         self.ask, self.answer, self.call = ask or AskAgent(), answer or AnswerAgent(), call or CallAgent()
         self.ack_after_s = ack_after_s
+        self.shopping = shopping
         self._last: dict[str, tuple[datetime, WebLookupInput, WebLookupOutput]] = {}
 
     # ------------------------------------------------------------------ helpers
@@ -94,6 +96,8 @@ class PlannerGateway:
     # ------------------------------------------------------------------ entry
     async def route(self, user: User, msg: InboundMessage, rest: Rest) -> None:
         text = (msg.text or "").strip()
+        if self.shopping is not None and not await self._busy(user) and await self.shopping.handle(user, msg, await self._lang(user)):
+            return  # shopping: a product word, a Home / PG tap, or the one area answer
         if msg.kind not in (MessageKind.TEXT, MessageKind.VOICE_NOTE) or len(text) < 3 or await self._busy(user):
             await rest(user, msg)
             return
@@ -105,7 +109,10 @@ class PlannerGateway:
         ctx = PlannerContext(text=text, lang=lang, connectors=self.connectors(), pincode=sg.pincode_in(text))
         d = await self.planner.plan(ctx)
         await self._audit(user, d)
-        if d.approach == Approach.WEB_LOOKUP:
+        shop_cat = self.shopping.matches(d.query or "") if self.shopping is not None and d.approach == Approach.WEB_LOOKUP else None
+        if shop_cat is not None:  # the planner's own lookup query is a shopping one ("price of atta on zepto")
+            await self.shopping.start(user, shop_cat, text, lang)
+        elif d.approach == Approach.WEB_LOOKUP:
             await self._lookup(
                 user,
                 WebLookupInput(query=d.query or text, retailer=d.retailer, pincode=ctx.pincode, lang=lang),

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """The curated category table (categories.yaml) and the matcher that maps chat text to a category."""
 
 from __future__ import annotations

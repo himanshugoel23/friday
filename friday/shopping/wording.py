@@ -64,9 +64,22 @@ LINES: dict[str, dict[str, str]] = {
         "en": "I can't look up prices right now. The popular {cat} picks are {names}.",
         "hinglish": "Abhi daam check nahi kar sakti. Popular {cat} yeh hain: {names}.",
     },
-    "ack": {
-        "en": "On it, comparing the popular {cat} options now.",
-        "hinglish": "Ek minute, popular {cat} options compare kar rahi hoon.",
+    "progress": {
+        "en": "Checking {sites} for {cat}... one moment.",
+        "hinglish": "{sites} par {cat} check kar rahi hoon... bas ek minute.",
+    },
+    "sites_read": {
+        "en": "I could read prices on {ok} of {n} sites.",
+        "hinglish": "{n} mein se {ok} sites par daam dikhe.",
+    },
+    "sites_unread": {
+        "en": "Could not read: {names} (price not visible online).",
+        "hinglish": "Yahan nahi padh paayi: {names} (daam online nahi dikhe).",
+    },
+    "also": {"en": "also", "hinglish": "aur"},
+    "refine_fail": {
+        "en": "I could not refresh the prices for that place just now, so the comparison above stands.",
+        "hinglish": "Us jagah ke liye abhi daam refresh nahi ho paaye, upar wali comparison hi sahi maanein.",
     },
     "btn_home": {"en": "Home", "hinglish": "Ghar"},
     "btn_pg": {"en": "PG", "hinglish": "PG"},

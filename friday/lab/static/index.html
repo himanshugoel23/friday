@@ -359,6 +359,10 @@ function content(e) {   // returns [nodes, inlineText]
   }
   const kids = [];
   if (e.media && (e.media.mime || "").startsWith("audio") && S.cfg && S.cfg.web) kids.push(h("audio", { controls: true, preload: "none", src: API + "/media/" + encodeURIComponent(e.media.url), style: "max-width:230px;height:36px" }));
+  else if (e.media && S.cfg && S.cfg.web && (e.media.mime || "").startsWith("image") && /^https:\/\//.test(e.media.url || "")) {
+    // product card: only an https image Friday cited from a product page; hidden if it fails to load (the caption stays)
+    kids.push(h("img", { src: e.media.url, alt: "", loading: "lazy", referrerpolicy: "no-referrer", style: "display:block;max-width:230px;max-height:200px;border-radius:8px;margin-bottom:4px;object-fit:contain;background:#fff", onerror: (ev) => ev.target.remove() }));
+  }
   else if (e.media) kids.push((e.media.mime || "").startsWith("image") ? card("img", "#bf59cf", "Photo", "") : card("doc", "#7f66ff", "Document", ""));
   const txt = e.text || (e.template ? (e.template.params || []).join(" | ") : "");
   if (txt) kids.push(txt);

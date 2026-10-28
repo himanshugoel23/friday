@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Delivery place: Home / PG (Office only when the user asked for it), read from the saved places.
 
 The pincode comes from the saved address; it is never asked for while a saved place exists. With no saved

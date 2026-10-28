@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Product images: ONLY from cited product pages (their og:image) or an image URL the provider itself
 cited. Nothing else is ever shown or fetched. Fails soft: no image means a text-only card."""
 

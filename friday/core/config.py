@@ -702,6 +702,9 @@ class Settings(BaseSettings):
     approach_ack_after_s: float = 8.0  # ONE 'on it' line when a plan takes longer than this
     approach_web_timeout_s: float = 25.0  # hard cap for a web lookup incl. its single retry
     approach_web_cache_ttl_s: float = 300.0
+    # shopping assistant (docs/SHOPPING_ASSISTANT.md): needs the approach planner. Chat wording PENDING.
+    shopping_assistant_enabled: bool = False  # FRIDAY_SHOPPING_ASSISTANT_ENABLED
+    shopping_images_enabled: bool = True  # FRIDAY_SHOPPING_IMAGES_ENABLED: og:image of cited product pages
     approach_web_model: str | None = None  # None: openai_default_purpose_model
     # query understanding + A2A agent team (docs/AGENT_TEAM_DESIGN.md). ALL OFF. Chat wording PENDING.
     query_understanding_enabled: bool = False  # FRIDAY_QUERY_UNDERSTANDING_ENABLED: rewrite TEXT messages
