@@ -1339,3 +1339,6 @@ friday/docunderstand/openai_vision.py behind VisionPort (provider openai, key OP
 
 ## 2026-10-28 evening: calls cut on answer (Vobiz "Error Reaching Answer URL", code 7011)
 Two calls to the founder's number at 12:46:35 and 12:47:17 UTC ended at answer with billsec 0: Vobiz could not fetch Friday's answer URL (the server had restarted via autoupdate at 12:45). Added redacted log tail: GET /ops-status/<token>/logs (refreshed every autoupdate run) to diagnose without a console. Root cause still to confirm from logs.
+
+## 2026-10-28 evening: founder feedback from the first web-chat test (decision)
+Asked "price of 5 kg Aashirvaad atta on Zepto": no result for a long time, and the bot keeps saying "before I call...". Founder: the project manager must THINK what each query needs (call vs web lookup vs app/connector vs just answer vs ask), and every task type should be its own proper agent. Today everything defaults to the bucket x category vendor-CALL plan; there is no price/web lookup. Builder started: approach planner (PM) + web lookup agent + wording fix (never mention calling unless a call is in the plan) + slow-response handling. Log tail at /ops-status/<token>/logs shows the 'search taking long' evidence.
