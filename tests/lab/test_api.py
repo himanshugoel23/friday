@@ -70,12 +70,91 @@ def test_the_page_is_one_self_contained_file(lab):
     assert not re.search(r"""(src|href)\s*=\s*["'](https?:)?//""", html)  # no CDN, no external file
     assert "prefers-color-scheme" in html and "data-theme" in html  # light and dark
     assert 'name="viewport"' in html
-    assert "<title>Friday Chat Lab</title>" in html
+    assert "<title>Friday</title>" in html
     h = r.headers
     assert h["cache-control"] == "no-store" and h["x-robots-tag"] == "noindex"
     assert h["referrer-policy"] == "no-referrer"
     assert "default-src 'none'" in h["content-security-policy"]
     assert "connect-src 'self'" in h["content-security-policy"]
+
+
+# every string of the old developer chrome; none may reach the default page
+DEV_ONLY_STRINGS = (
+    "SIMULATOR",
+    "Fake clock",
+    "+1 hour",
+    "Next morning",
+    "Reset chat",
+    "New user",
+    "Callee",
+    "Export .md",
+    "Switches",
+    "Consumer switches",
+    "REAL language model",
+    "mark wrong",
+    "pending your approval",
+    "What happened inside",
+    "Quick messages",
+    "var/lab/notes.jsonl",
+    "Simulated call",
+    "Raw",
+    "Wording still pending",
+    "Inside",
+)
+
+
+def test_default_page_is_only_the_chat(lab):
+    html = lab.client.get(f"/lab/{lab.token}/").text
+    for s in DEV_ONLY_STRINGS:
+        assert s not in html, s
+    for marker in (
+        'id="side"',
+        'id="pane"',
+        'id="devbar"',
+        "dev.on = true",
+        "<!--DEV-->",
+        "/*DEV*/",
+    ):
+        assert marker not in html, marker
+    # what the chat needs is there
+    for part in (
+        'id="messages"',
+        'id="text"',
+        'id="sendBtn"',
+        'id="attachBtn"',
+        'id="status"',
+        ">Friday<",
+        "prefers-color-scheme",
+    ):
+        assert part in html, part
+    # a ?dev=anything-else is still the plain page
+    assert "Switches" not in lab.client.get(f"/lab/{lab.token}/?dev=0").text
+
+
+def test_dev_parameter_still_exposes_the_dev_tools(lab):
+    html = lab.client.get(f"/lab/{lab.token}/?dev=1").text
+    assert "__API_BASE__" not in html and f"/lab/api/{lab.token}" in html
+    for s in (
+        "SIMULATOR",
+        "Fake clock",
+        "+1 hour",
+        "Next morning",
+        "Reset chat",
+        "New user",
+        "Callee",
+        "Export .md",
+        "Switches",
+        "REAL language model",
+        "mark wrong",
+        "pending your approval",
+        "Quick messages",
+        'id="side"',
+    ):
+        assert s in html, s
+    assert "<!--DEV-->" in html  # the markers stay; only the default response strips them
+    assert lab.client.get(f"/lab/{lab.token}/?dev=1").headers["cache-control"] == "no-store"
+    # the token still guards the dev view
+    assert lab.client.get("/lab/not-the-token/?dev=1").status_code == 404
 
 
 def test_config_lists_users_personas_chips_and_attachments(lab):

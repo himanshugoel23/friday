@@ -1,7 +1,26 @@
 # Friday Chat Lab (22 Oct 2026)
 
 A WhatsApp-style page you open in a browser to test the chatbot **without WhatsApp**. You type, Friday answers with bubbles, buttons and
-lists, and a side panel shows what happened inside. It is a test tool: its own labels are not product copy.
+lists. The default link shows **only the chat** (looks and feels like WhatsApp, nothing else on the screen); the developer tools (side panel,
+switches, fake clock, user switcher) are behind `?dev=1`. It is a test tool: the dev labels are not product copy.
+
+![phone light](img/chatlab/phone-light.png) ![ipad dark](img/chatlab/ipad-dark.png)
+(more in `docs/img/chatlab/`: iPad light, phone dark, the attach sheet.)
+
+## Default view vs developer view
+
+- **Default** (`https://<host>/lab/<token>/`): green header (dark in dark mode) with avatar, "Friday" and "online" / "typing...", wallpaper, your
+  green bubbles on the right and Friday's on the left with tails, time, ticks (one sent, two delivered, blue read), day separators (Today /
+  Yesterday), WhatsApp-style reply buttons and list sheet, an emoji tray, and an input bar whose round button is a mic when empty and send
+  when you type. The clip opens Document (browse, or a named sample such as `electricity-bill.pdf`), Photos, Location (Gurgaon, Bangalore,
+  Mumbai) and Contact (invented people). Light/dark follows the device; safe areas and 16 px inputs for iPad and phone. No banners, notes,
+  hints, chips, switches or panel are even sent to the browser.
+- **Developer** (`...?dev=1`, or tap the header title 5 times, which reloads with `?dev=1`): adds the SIMULATOR line, a gear for the side panel
+  (Controls: user picker, New user, Reset chat, fake clock, callee, exports, theme, quick messages, custom pin/contact; Turn, User, Switches
+  incl. the real-model toggle, Raw), "mark wrong" under Friday's bubbles, button ids, template tags, the wording-pending list. Same API, same
+  token, same simulator-only rules. The server strips the dev parts from the page unless `dev=1` is in the link.
+
+The sections below describe the developer view's panel and controls; in the default view none of those exist.
 
 Code: `friday/lab/` (page: `friday/lab/static/index.html`, one file, no CDN). Tests: `tests/lab/`. Start it with `friday lab`.
 

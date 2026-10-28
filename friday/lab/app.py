@@ -11,6 +11,7 @@ simulator world (``friday/lab/safety.py``).
 
 from __future__ import annotations
 
+import re
 import secrets
 import time
 from collections.abc import AsyncIterator, Callable
@@ -40,6 +41,9 @@ PAGE_CSP = (
     "img-src 'self' data: blob:; media-src blob:; connect-src 'self'; base-uri 'none'; "
     "form-action 'none'; frame-ancestors 'none'"
 )
+
+
+_DEV_BLOCK = re.compile(r"<!--DEV-->.*?<!--/DEV-->|/\*DEV\*/.*?/\*/DEV\*/", re.S)
 
 
 class TokenGate:
@@ -170,9 +174,11 @@ def create_lab_app(
     pages = APIRouter()
 
     @pages.get("/{token}/")
-    async def page(token: str) -> HTMLResponse:
+    async def page(token: str, dev: str = "") -> HTMLResponse:
         world_for(token)
         html = (STATIC / "index.html").read_text(encoding="utf-8")
+        if dev != "1":  # the default page is only the chat: the dev parts are never even sent
+            html = _DEV_BLOCK.sub("", html)
         html = html.replace("__API_BASE__", f"/lab/api/{token}")
         return HTMLResponse(html, headers={**HEADERS, "Content-Security-Policy": PAGE_CSP})
 
