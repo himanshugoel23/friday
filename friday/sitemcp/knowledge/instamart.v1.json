@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "site": "instamart",
+  "display": "Swiggy Instamart",
+  "version": 1,
+  "updated": "2026-10-29",
+  "status": "unverified",
+  "status_note": "Selectors and flows are GUESSES from general knowledge of the public site. NOT checked against the live pages: the first `friday sitemcp live` / `probe` run decides. Do not mark verified without a live run.",
+  "domains": [
+    "swiggy.com",
+    "www.swiggy.com"
+  ],
+  "base_url": "https://www.swiggy.com",
+  "rate": {
+    "min_interval_s": 4.0,
+    "per_user_min_interval_s": 3.0,
+    "max_wait_s": 20.0
+  },
+  "urls": {
+    "home": "/instamart",
+    "search": "/instamart/search?custom_back=true&query={query}",
+    "cart": "/instamart/checkout"
+  },
+  "blocked": {
+    "markers": [
+      "verify you are human",
+      "are you a robot",
+      "captcha",
+      "access denied",
+      "unusual traffic",
+      "request blocked",
+      "too many requests",
+      "temporarily blocked"
+    ],
+    "selectors": [
+      "iframe[src*=captcha]",
+      "iframe[src*=recaptcha]",
+      "#challenge-form",
+      "[data-testid=challenge]"
+    ],
+    "cooldown_s": 1800
+  },
+  "location": {
+    "open": "[data-testid=address-bar]",
+    "input": "input[placeholder*=rea]",
+    "submit": "",
+    "suggestion": "[data-testid=address-suggestion]",
+    "current": "[data-testid=address-bar]",
+    "not_found_markers": [
+      "not serviceable",
+      "not available at your location",
+      "we are not here yet",
+      "no stores",
+      "coming soon",
+      "couldn't find"
+    ]
+  },
+  "search": {
+    "row": "[data-testid=item-card]",
+    "fields": {
+      "title": "[data-testid=item-name]",
+      "price": "[data-testid=item-price]",
+      "pack": "[data-testid=item-weight]",
+      "rating": "",
+      "stock": "[data-testid=item-oos]",
+      "url": "a@href"
+    },
+    "empty_markers": [
+      "no results",
+      "didn't find",
+      "couldn't find",
+      "nothing found"
+    ]
+  },
+  "product": {
+    "title": "h1",
+    "price": "[data-testid=item-price]",
+    "mrp": "[data-testid=item-mrp]",
+    "pack": "[data-testid=item-weight]",
+    "rating": "",
+    "stock": "[data-testid=item-oos]",
+    "add": "[data-testid=add-button]",
+    "qty_plus": "[data-testid=increment]",
+    "oos_markers": [
+      "out of stock",
+      "sold out"
+    ]
+  },
+  "cart": {
+    "row": "[data-testid=cart-row]",
+    "fields": {
+      "name": "[data-testid=cart-row-name]",
+      "qty": "[data-testid=cart-row-qty]",
+      "price": "[data-testid=cart-row-price]"
+    },
+    "empty_markers": [
+      "cart is empty"
+    ]
+  },
+  "checkout": {
+    "proceed": "[data-testid=proceed-checkout]",
+    "proceed_verified": false,
+    "fee_row": "[data-testid=bill-line]",
+    "fee_fields": {
+      "label": "[data-testid=bill-line-label]",
+      "amount": "[data-testid=bill-line-amount]"
+    },
+    "total": "[data-testid=bill-total]",
+    "payment_marker": "[data-testid=payment-methods]"
+  },
+  "login": {
+    "open": "[data-testid=login-button]",
+    "phone": "input[type=tel]",
+    "send_otp": "button[type=submit]",
+    "otp": "input[autocomplete=one-time-code]",
+    "verify": "button[type=submit]",
+    "logged_in_marker": "[data-testid=account-menu]",
+    "logout": "[data-testid=logout]",
+    "wrong_otp_markers": [
+      "invalid otp",
+      "incorrect otp",
+      "wrong otp"
+    ]
+  },
+  "probe": {
+    "public_pages": [
+      {
+        "id": "home",
+        "path": "/",
+        "selectors": [
+          "[data-testid=address-bar]",
+          "input[type=text]"
+        ]
+      }
+    ]
+  },
+  "quirks": [
+    "Instamart lives under /instamart on swiggy.com; the shared Swiggy login covers Food and Instamart.",
+    "Swiggy pages are heavily scripted and sometimes show a bot challenge."
+  ],
+  "safety": {
+    "never_pay": true,
+    "stop_before_payment": true,
+    "no_captcha_solving": true,
+    "user_account_only": true
+  },
+  "extra_hosts": [
+    "*.swiggy.com",
+    "*.swiggycdn.com",
+    "maps.googleapis.com"
+  ],
+  "extra_hosts_note": "GUESS: hosts the page may load scripts/data from (default deny otherwise). Adjust after a live run shows blocked requests."
+}

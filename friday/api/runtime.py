@@ -139,6 +139,8 @@ class Runtime:
                 self._tasks.append(task)
             if s.team_drift_enabled:  # site-knowledge drift checks (friday/team/drift.py), low frequency
                 self._tasks.append(asyncio.create_task(self.team_drift_loop(), name="friday-team-drift"))
+            if s.site_mcp_probe_enabled:  # anonymous live run on the real public grocery sites (friday/sitemcp), low frequency
+                self._tasks.append(asyncio.create_task(self.site_mcp_probe_loop(), name="friday-site-mcp-probe"))
             consumer = self.pipeline.consumer()
             if consumer is not None:  # run_due / recover_stale / purge_expired / calendar sync
                 self._tasks.append(asyncio.create_task(consumer.loop(), name="friday-consumer"))
@@ -212,6 +214,14 @@ class Runtime:
             except Exception:  # noqa: BLE001
                 log.exception("team drift tick failed")
             await asyncio.sleep(1800)
+
+    async def site_mcp_probe_loop(self) -> None:
+        """Anonymous live probe of Zepto / Blinkit / Instamart public pages: once after start, then every
+        FRIDAY_SITE_MCP_PROBE_INTERVAL_H. Results under var/sitemcp/, read through /ops-status/<token>/probe."""
+        from friday.sitemcp.scheduler import ProbeJob
+        from friday.sitemcp.wiring import store_for
+
+        await ProbeJob(self.c.settings, store_for(self.c.settings)).loop()
 
     async def retention_loop(self) -> None:
         """SECURITY-32: ``repos.retention.run`` once per IST day (exactly once across

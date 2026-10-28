@@ -27,6 +27,7 @@ class ShoppingInput(BaseModel):
     pincode: str | None = None
     area: str | None = None
     lang: str = "hinglish"
+    user_id: str | None = None  # only for browser-backed providers (per-user session); never shown or logged
 
 
 class Offer(BaseModel):

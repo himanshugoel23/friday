@@ -708,6 +708,17 @@ class Settings(BaseSettings):
     # shopping assistant (docs/SHOPPING_ASSISTANT.md): needs the approach planner. Chat wording PENDING.
     shopping_assistant_enabled: bool = False  # FRIDAY_SHOPPING_ASSISTANT_ENABLED
     shopping_images_enabled: bool = True  # FRIDAY_SHOPPING_IMAGES_ENABLED: og:image of cited product pages
+    # site MCP (docs/SITE_MCP_DESIGN.md): own browser-driven MCP server per app. All OFF by default.
+    site_mcp_enabled: bool = False  # FRIDAY_SITE_MCP_ENABLED: shopping uses the browser servers (falls back to web search)
+    site_mcp_probe_enabled: bool = False  # FRIDAY_SITE_MCP_PROBE_ENABLED: anonymous live run at start + low frequency (needs Playwright)
+    site_mcp_probe_interval_h: float = 12.0
+    site_mcp_probe_pincode: str = "131001"  # public delivery pincode used by the anonymous probe (not personal)
+    site_mcp_probe_query: str = "atta"
+    site_mcp_sites: CsvList = Field(default_factory=lambda: ["zepto", "blinkit", "instamart"])
+    site_mcp_dir: str = "var/sitemcp"  # probe results, screenshots of PUBLIC pages (var/ is not committed)
+    site_mcp_max_sessions: int = 2  # open browser contexts at once (1 GB droplet)
+    site_mcp_idle_s: int = 240
+    site_mcp_min_free_mb: int = 250  # memory guard: refuse new sessions below this MemAvailable
     approach_web_model: str | None = None  # None: openai_default_purpose_model
     # query understanding + A2A agent team (docs/AGENT_TEAM_DESIGN.md). ALL OFF. Chat wording PENDING.
     query_understanding_enabled: bool = False  # FRIDAY_QUERY_UNDERSTANDING_ENABLED: rewrite TEXT messages

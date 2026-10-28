@@ -1,0 +1,155 @@
+{
+  "schema": 1,
+  "site": "zepto",
+  "display": "Zepto",
+  "version": 1,
+  "updated": "2026-10-29",
+  "status": "unverified",
+  "status_note": "Selectors and flows are GUESSES from general knowledge of the public site. NOT checked against the live pages: the first `friday sitemcp live` / `probe` run decides. Do not mark verified without a live run.",
+  "domains": [
+    "zeptonow.com",
+    "www.zeptonow.com",
+    "zepto.com",
+    "www.zepto.com"
+  ],
+  "base_url": "https://www.zeptonow.com",
+  "rate": {
+    "min_interval_s": 4.0,
+    "per_user_min_interval_s": 3.0,
+    "max_wait_s": 20.0
+  },
+  "urls": {
+    "home": "/",
+    "search": "/search?query={query}",
+    "cart": "/cart"
+  },
+  "blocked": {
+    "markers": [
+      "verify you are human",
+      "are you a robot",
+      "captcha",
+      "access denied",
+      "unusual traffic",
+      "request blocked",
+      "too many requests",
+      "temporarily blocked"
+    ],
+    "selectors": [
+      "iframe[src*=captcha]",
+      "iframe[src*=recaptcha]",
+      "#challenge-form",
+      "[data-testid=challenge]"
+    ],
+    "cooldown_s": 1800
+  },
+  "location": {
+    "open": "[data-testid=location-bar]",
+    "input": "input[placeholder*=ocation]",
+    "submit": "",
+    "suggestion": "[data-testid=address-search-item]",
+    "current": "[data-testid=location-bar]",
+    "not_found_markers": [
+      "not serviceable",
+      "not available at your location",
+      "we are not here yet",
+      "no stores",
+      "coming soon",
+      "couldn't find"
+    ]
+  },
+  "search": {
+    "row": "[data-testid=product-card]",
+    "fields": {
+      "title": "[data-testid=product-name]",
+      "price": "[data-testid=product-price]",
+      "pack": "[data-testid=product-pack]",
+      "rating": "[data-testid=product-rating]",
+      "stock": "[data-testid=out-of-stock]",
+      "url": "a@href"
+    },
+    "empty_markers": [
+      "no results",
+      "didn't find",
+      "couldn't find",
+      "nothing found"
+    ]
+  },
+  "product": {
+    "title": "h1",
+    "price": "[data-testid=product-price]",
+    "mrp": "[data-testid=product-mrp]",
+    "pack": "[data-testid=product-pack]",
+    "rating": "[data-testid=product-rating]",
+    "stock": "[data-testid=out-of-stock]",
+    "add": "[data-testid=add-to-cart]",
+    "qty_plus": "[data-testid=qty-plus]",
+    "oos_markers": [
+      "out of stock",
+      "sold out"
+    ]
+  },
+  "cart": {
+    "row": "[data-testid=cart-item]",
+    "fields": {
+      "name": "[data-testid=cart-item-name]",
+      "qty": "[data-testid=cart-item-qty]",
+      "price": "[data-testid=cart-item-price]"
+    },
+    "empty_markers": [
+      "your cart is empty"
+    ]
+  },
+  "checkout": {
+    "proceed": "[data-testid=cart-proceed]",
+    "proceed_verified": false,
+    "fee_row": "[data-testid=bill-row]",
+    "fee_fields": {
+      "label": "[data-testid=bill-label]",
+      "amount": "[data-testid=bill-amount]"
+    },
+    "total": "[data-testid=bill-total]",
+    "payment_marker": "[data-testid=payment-options]"
+  },
+  "login": {
+    "open": "[data-testid=login-button]",
+    "phone": "input[type=tel]",
+    "send_otp": "button[type=submit]",
+    "otp": "input[autocomplete=one-time-code]",
+    "verify": "button[type=submit]",
+    "logged_in_marker": "[data-testid=account-menu]",
+    "logout": "[data-testid=logout]",
+    "wrong_otp_markers": [
+      "invalid otp",
+      "incorrect otp",
+      "wrong otp"
+    ]
+  },
+  "probe": {
+    "public_pages": [
+      {
+        "id": "home",
+        "path": "/",
+        "selectors": [
+          "[data-testid=location-bar]",
+          "input[type=search]"
+        ]
+      }
+    ]
+  },
+  "quirks": [
+    "Prices and stock depend on the delivery location; anonymous pages may show no prices until a location is set.",
+    "Heavy single page app: results load after the page; selectors drift often.",
+    "An official Zepto MCP server exists (docs/ZEPTO_MCP_PLAN.md) and is the long-term source; this browser server is the bridge until it is approved."
+  ],
+  "safety": {
+    "never_pay": true,
+    "stop_before_payment": true,
+    "no_captcha_solving": true,
+    "user_account_only": true
+  },
+  "extra_hosts": [
+    "*.zeptonow.com",
+    "*.zepto.com"
+  ],
+  "extra_hosts_note": "GUESS: hosts the page may load scripts/data from (default deny otherwise). Adjust after a live run shows blocked requests."
+}

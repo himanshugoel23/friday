@@ -71,7 +71,7 @@ class ShoppingAgent:
         hit = self._cache.get(key)
         if hit and self._mono() - hit[0] < self.cache_ttl_s:
             return hit[1].model_copy(update={"from_cache": True})
-        req = GrocerySearch(category=cat.id, products=cat.popular, query=inp.query, pincode=inp.pincode, area=inp.area)
+        req = GrocerySearch(category=cat.id, products=cat.popular, query=inp.query, pincode=inp.pincode, area=inp.area, user_id=inp.user_id)
         base = {"category_id": cat.id, "retailer": inp.retailer, "as_of": self._now(), "unit": cat.unit}
         try:
             results = await asyncio.wait_for(self.pm.run(req, on_site=on_site), self.timeout_s + 2)

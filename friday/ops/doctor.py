@@ -714,7 +714,14 @@ def _check_browser(settings: Settings) -> Section:
     from friday.connectors.doctor_checks import check_browser, env_from_settings
 
     env = {**os.environ, **env_from_settings(settings)}
-    return check_browser(env)
+    sec = check_browser(env)
+    from friday.sitemcp.doctor import (
+        check as site_mcp_check,  # own browser-driven MCP servers (docs/SITE_MCP_DESIGN.md)
+    )
+
+    for status, msg in site_mcp_check(settings):
+        sec.add({"ok": OK, "warn": WARN, "fail": FAIL}[status], msg)
+    return sec
 
 
 def _check_web(settings: Settings) -> Section:

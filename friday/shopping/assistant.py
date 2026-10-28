@@ -117,7 +117,7 @@ class ShoppingAssistant:
 
     # ------------------------------------------------------------------ the comparison
     async def start(self, user: User, cat: catalog.Category, text: str, lang: str) -> None:
-        inp = ShoppingInput(query=text, category_id=cat.id, retailer=sg.retailer_in(text), pincode=sg.pincode_in(text), lang=lang)
+        inp = ShoppingInput(query=text, category_id=cat.id, retailer=sg.retailer_in(text), pincode=sg.pincode_in(text), lang=lang, user_id=user.id)
         await self._say(user, w.line("progress", lang, sites=", ".join(self.agent.site_names()), cat=cat.id))
         out = await self.agent.run(inp)
         await self._deliver(user, out, inp, cat, lang, text)
