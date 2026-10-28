@@ -7,6 +7,7 @@
 #   tmux new -s lab
 #   sudo bash /opt/friday/deploy/chat-lab.sh                       # prints the link with the token
 #   sudo bash /opt/friday/deploy/chat-lab.sh --ttl-hours 2         # shorter-lived token
+#   sudo bash /opt/friday/deploy/chat-lab.sh --with-model          # asks for the OpenAI key (hidden); real replies, costs money
 #   sudo bash /opt/friday/deploy/chat-lab.sh --public-url https://YOUR-HOST
 # Detach with ctrl-b d; stop with ctrl-c inside the session.
 #
@@ -22,11 +23,26 @@ UV="${UV_BIN:-/home/$RUN_USER/.local/bin/uv}"
 # Run a command as the friday user (same pattern as deploy/zomato-explore.sh and call-me.sh).
 as_friday() {
   if [ "$(id -u)" = 0 ] && [ "$RUN_USER" != root ]; then
-    sudo -u "$RUN_USER" env PYTHONUNBUFFERED=1 "$@"
+    sudo -u "$RUN_USER" --preserve-env=OPENAI_API_KEY,FRIDAY_LLM_PROVIDER env PYTHONUNBUFFERED=1 "$@"
   else
     env PYTHONUNBUFFERED=1 "$@"
   fi
 }
+
+# --with-model: ask for the OpenAI key (hidden), keep it ONLY in this process's environment (never written
+# to disk, never in git) so the page's "real model" switch works; replies then feel real and COST money.
+NEWARGS=()
+for a in "$@"; do
+  if [ "$a" = "--with-model" ]; then
+    read -r -s -p "OpenAI API key (hidden; only for this lab session): " OPENAI_API_KEY </dev/tty; echo
+    OPENAI_API_KEY="$(printf %s "$OPENAI_API_KEY" | tr -d '[:space:]')"
+    export OPENAI_API_KEY FRIDAY_LLM_PROVIDER=openai
+    echo "   key received (length ${#OPENAI_API_KEY}); turn on 'real model' in the page's switches."
+  else
+    NEWARGS+=("$a")
+  fi
+done
+set -- ${NEWARGS[@]+"${NEWARGS[@]}"}
 
 # Where "mark this reply wrong" notes go (gitignored var/).
 mkdir -p "$APP_DIR/var/lab"
