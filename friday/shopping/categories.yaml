@@ -1,0 +1,98 @@
+# Curated shopping categories: DATA, not code. Add a category by adding a block.
+# words: what the user may type (English + Roman Hindi). brands: lower-case brand words that imply the
+# category. popular: the 3-4 products we look up first (names only; every price, rating and ingredient
+# comes from a cited web page, never from this file). unit: kg | l. compare: what we tell the user we
+# compare. weights: price (per kg/L), rating, ingredients. positive/negative: ingredient phrases.
+atta:
+  words: [atta, aata, aate, flour, wheat flour, gehu ka atta, chakki atta]
+  brands: [aashirvaad, ashirvad, aashirwad, pillsbury, annapurna, fortune chakki, patanjali atta, nature fresh, shakti bhog]
+  unit: kg
+  default_pack: 5 kg
+  popular:
+    - Aashirvaad Select Whole Wheat Atta 5 kg
+    - Pillsbury Chakki Fresh Atta 5 kg
+    - Fortune Chakki Fresh Atta 5 kg
+    - Annapurna Whole Wheat Atta 5 kg
+  compare: [whole wheat share and ingredients, chakki fresh, pack size, price per kg, rating]
+  weights: {price: 1.0, rating: 0.6, ingredients: 0.8}
+  positive: [100% whole wheat, 100% atta, whole wheat, chakki fresh, chakki, sharbati, mp wheat]
+  negative: [maida, refined, blend]
+rice:
+  words: [rice, chawal, basmati, basmati rice]
+  brands: [india gate, daawat, fortune rice, kohinoor, lal qilla, tilda]
+  unit: kg
+  default_pack: 5 kg
+  popular:
+    - India Gate Basmati Rice Classic 5 kg
+    - Daawat Rozana Super Basmati Rice 5 kg
+    - Fortune Everyday Basmati Rice 5 kg
+    - Kohinoor Basmati Rice 5 kg
+  compare: [grain type and aging, pack size, price per kg, rating]
+  weights: {price: 1.0, rating: 0.6, ingredients: 0.3}
+  positive: [aged, 100% basmati, extra long grain]
+  negative: [broken, blend]
+dal:
+  words: [dal, daal, toor dal, arhar dal, moong dal, chana dal, masoor dal, urad dal]
+  brands: [tata sampann, organic tattva, fortune dal]
+  unit: kg
+  default_pack: 1 kg
+  popular:
+    - Tata Sampann Toor Dal 1 kg
+    - Fortune Toor Dal 1 kg
+    - Organic Tattva Toor Dal 1 kg
+  compare: [unpolished or polished, pack size, price per kg, rating]
+  weights: {price: 1.0, rating: 0.6, ingredients: 0.6}
+  positive: [unpolished, no added colour, 100% natural]
+  negative: [polished, coloured]
+oil:
+  words: [oil, tel, cooking oil, sunflower oil, mustard oil, sarson ka tel, refined oil, groundnut oil]
+  brands: [fortune oil, saffola, dhara, patanjali oil, gemini oil]
+  unit: l
+  default_pack: 1 L
+  popular:
+    - Fortune Sunflower Refined Oil 1 L
+    - Saffola Gold Oil 1 L
+    - Dhara Kachi Ghani Mustard Oil 1 L
+  compare: [oil type, pack size, price per litre, rating]
+  weights: {price: 1.0, rating: 0.6, ingredients: 0.5}
+  positive: [cold pressed, kachi ghani, filtered]
+  negative: [blended]
+milk:
+  words: [milk, doodh, toned milk, full cream milk]
+  brands: [amul, mother dairy, nandini, epigamia]
+  unit: l
+  default_pack: 1 L
+  popular:
+    - Amul Taaza Toned Milk 1 L
+    - Mother Dairy Full Cream Milk 1 L
+    - Amul Gold Full Cream Milk 1 L
+  compare: [fat level, pack size, price per litre, rating]
+  weights: {price: 1.0, rating: 0.4, ingredients: 0.3}
+  positive: [pasteurised, no preservatives]
+  negative: [flavoured]
+detergent:
+  words: [detergent, washing powder, laundry detergent, liquid detergent, kapde dhone ka powder]
+  brands: [surf excel, ariel, tide, rin, wheel]
+  unit: kg
+  default_pack: 2 kg
+  popular:
+    - Surf Excel Easy Wash Detergent Powder 2 kg
+    - Ariel Matic Front Load Detergent Powder 2 kg
+    - Tide Plus Double Power Detergent Powder 2 kg
+  compare: [washing type (top or front load), pack size, price per kg, rating]
+  weights: {price: 1.0, rating: 0.8, ingredients: 0.0}
+  positive: []
+  negative: []
+shampoo:
+  words: [shampoo, hair wash, anti dandruff shampoo]
+  brands: [head and shoulders, head & shoulders, dove shampoo, clinic plus, tresemme, pantene, sunsilk]
+  unit: l
+  default_pack: 340 ml
+  popular:
+    - Head & Shoulders Anti Dandruff Shampoo 340 ml
+    - Dove Hair Fall Rescue Shampoo 340 ml
+    - TRESemme Keratin Smooth Shampoo 340 ml
+  compare: [hair need (dandruff or hair fall), pack size, price per litre, rating]
+  weights: {price: 1.0, rating: 0.9, ingredients: 0.3}
+  positive: [sulphate free, sulfate free, paraben free]
+  negative: []

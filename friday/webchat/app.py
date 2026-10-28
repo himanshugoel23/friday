@@ -61,7 +61,7 @@ HEADERS = {
 }
 PAGE_CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-    "img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; manifest-src 'self'; "
+    "img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self'; manifest-src 'self'; "
     "worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
 PWA_HEAD = (

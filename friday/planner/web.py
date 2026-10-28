@@ -29,9 +29,14 @@ class WebItem(BaseModel):
     price_inr: float | None = None
     store: str | None = None
     url: str | None = None
-    rating: str | None = None  # as printed, e.g. "4.2" (food agents; optional)
+    rating: str | None = None  # as printed, e.g. "4.2" (food and shopping agents; optional)
     delivery_time: str | None = None  # as printed, e.g. "30-35 min"
     offer: str | None = None  # as printed
+    # optional product facts (shopping assistant); None when the page did not show them
+    pack_text: str | None = None  # "5 kg", "2 x 500 g"
+    rating_count: int | None = None
+    ingredients: str | None = None  # as printed on the page
+    image_url: str | None = None  # kept only if the provider cited it (see parse_openai_response)
 
 
 class WebSource(BaseModel):
@@ -115,6 +120,8 @@ def parse_openai_response(resp: Any) -> RawWebResult:
             summary = str(data.get("summary") or "").strip() or summary
             for it in data.get("items") or []:
                 url = it.get("url")
+                img = it.get("image_url")
+                count = it.get("rating_count")
                 items.append(
                     WebItem(
                         title=str(it.get("title") or "")[:120],
@@ -125,11 +132,15 @@ def parse_openai_response(resp: Any) -> RawWebResult:
                         rating=(str(it["rating"])[:12] if it.get("rating") else None),
                         delivery_time=(str(it["delivery_time"])[:24] if it.get("delivery_time") else None),
                         offer=(str(it["offer"])[:80] if it.get("offer") else None),
+                        pack_text=(str(it["pack_text"])[:40] if it.get("pack_text") else None),
+                        rating_count=(int(count) if isinstance(count, int) and count >= 0 else None),
+                        ingredients=(str(it["ingredients"])[:200] if it.get("ingredients") else None),
+                        image_url=img if isinstance(img, str) and img in seen else None,  # only if cited
                     )
                 )
         except (ValueError, TypeError, AttributeError):
             items = []
-    return RawWebResult(summary=summary[:600], items=items[:5], sources=sources[:6])
+    return RawWebResult(summary=summary[:600], items=items[:6], sources=sources[:6])
 
 
 class OpenAIWebSearch:

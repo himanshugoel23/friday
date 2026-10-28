@@ -38,6 +38,9 @@ def build_planner(pipeline: Any) -> PlannerGateway | None:
         cache_ttl_s=s.approach_web_cache_ttl_s,
         now=pipeline.clock.now,
     )
+    from friday.shopping.wiring import build_shopping
+
     return PlannerGateway(
-        pipeline, planner=ApproachPlanner(llm_decider=llm_decider), web=web, ack_after_s=s.approach_ack_after_s
+        pipeline, planner=ApproachPlanner(llm_decider=llm_decider), web=web, ack_after_s=s.approach_ack_after_s,
+        shopping=build_shopping(pipeline, web.provider),
     )
