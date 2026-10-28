@@ -26,6 +26,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from friday.api.admin import admin_router
+from friday.api.opsstatus import ops_status_router
 from friday.api.runtime import Runtime
 from friday.channels.simulator import SimulatorChannel
 from friday.channels.whatsapp import parse_webhook, verify_signature, verify_subscription
@@ -119,6 +120,7 @@ def create_app(
     if not c.settings.is_live:  # SECURITY-28: simulator routes never exist in live mode
         app.include_router(_sim_router(c, runtime), prefix="/sim")
     app.include_router(admin_router(c), prefix="/admin")
+    app.include_router(ops_status_router(), prefix="/ops-status")
 
     # ------------------------------------------------------------------ connector watch pages
     from friday.api.admin import admin_token as _admin_token

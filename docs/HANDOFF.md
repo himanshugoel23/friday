@@ -1319,3 +1319,6 @@ No privacy page or grievance officer for now; consent wording skipped (a one-lin
 
 ## 2026-10-28 (evening): migration 0018 failed on the server (SQLite "table refund_cases already exists")
 A first run stopped half-way and left tables behind while the version stayed 0017. Migration 0018 now drops the four leftover tables first (nothing can be in them). Founder asked whether to use remote/local MCP for DigitalOcean: advice given, see chat. Idea queued: self-updating server script.
+
+## 2026-10-28: self-updating server (docs/AUTOUPDATE.md)
+DigitalOcean connector works (list/reboot/resize/snapshot only; no exec). SSH from sandbox blocked. Built: autoupdate timer + read-only /ops-status/<token>. Founder must paste ONE line once (install-autoupdate.sh). Remote run-any-script mechanism deliberately not built (needs founder's explicit OK). Droplet is actually 1 GB / $6; upgrade to 2 GB later (founder agreed).
