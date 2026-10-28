@@ -195,9 +195,10 @@ class LabWorld:
         env: Settings | None = None,
         notes_path: Path | str = "var/lab/notes.jsonl",
         start: datetime | None = None,
+        overrides: dict[str, Any] | None = None,
     ) -> LabWorld:
         env = env or environment_settings()
-        settings = lab_settings()
+        settings = lab_settings(**(overrides or {}))
         today = datetime.now(IST).date()
         clock = FakeClock(start or datetime(today.year, today.month, today.day, 10, 0, tzinfo=IST))
         db = Database(settings.database_url)
