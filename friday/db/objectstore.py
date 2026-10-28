@@ -180,10 +180,13 @@ class LocalObjectStore:
 def build_object_store(settings: Settings, *, s3_client: Any = None) -> ObjectStore:
     if settings.object_store_url:
         return S3ObjectStore.from_url(settings.object_store_url, client=s3_client)
-    if settings.is_live:
+    if settings.is_live and getattr(settings, "profile", "default") != "pilot":
         raise ProviderError(
             "object_store", "FRIDAY_OBJECT_STORE_URL (s3://...) is required in live mode"
         )
+    # The private pilot (one small server, recordings off) keeps files on local disk; real
+    # recordings in live mode still need S3. Without this the daily retention job failed on the
+    # first real server (2026-10-28) and expired data would never have been erased.
     media = Path(settings.media_dir)
     # Dev/test only: simulator recordings may also sit in the system temp dir.
     return LocalObjectStore(media / "recordings", extra_roots=[media, tempfile.gettempdir()])
