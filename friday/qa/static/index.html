@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Friday QA</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1c1b19;--mute:#6a675f;--line:#dedbd3;--accent:#1f5f4a;--warn:#a4381d;--ok:#1f6a3a;--real:#a4381d;--sim:#2a5a8a;--chip:#efece4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161513;--card:#201f1c;--ink:#efece4;--mute:#a09c92;--line:#35332e;--accent:#6fc2a2;--warn:#ff8f73;--ok:#7fd49a;--real:#ff8f73;--sim:#8fbbe8;--chip:#2b2925}}
+:root[data-theme="dark"]{--bg:#161513;--card:#201f1c;--ink:#efece4;--mute:#a09c92;--line:#35332e;--accent:#6fc2a2;--warn:#ff8f73;--ok:#7fd49a;--real:#ff8f73;--sim:#8fbbe8;--chip:#2b2925}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;padding:0 16px 80px}
+header{position:sticky;top:0;background:var(--bg);padding:12px 0 10px;border-bottom:1px solid var(--line);z-index:5}
+h1{font-size:20px;margin:0 0 4px}
+.bar{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--mute);font-size:14px}
+.bar b{color:var(--ink)}
+.banner{background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}
+.banner.stop{border-color:var(--warn);color:var(--warn)}
+h2{font-size:15px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em;margin:22px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.card h3{font-size:17px;margin:0 0 4px}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;border:1px solid currentColor;margin-right:6px}
+.chip.real{color:var(--real)}.chip.sim{color:var(--sim)}.chip.info{color:var(--mute)}
+.chip.v-ok{color:var(--ok)}.chip.v-wording,.chip.v-bug{color:var(--warn)}
+.mute{color:var(--mute);font-size:14px}
+button{font:inherit;border-radius:10px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:10px 14px;min-height:44px;cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.primary{color:#0b0b0a}}
+button.danger{border-color:var(--warn);color:var(--warn)}
+button:disabled{opacity:.5}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.detail{border-top:1px dashed var(--line);margin-top:10px;padding-top:10px}
+.detail ol{padding-left:20px;margin:6px 0}
+.cols{display:grid;grid-template-columns:1fr;gap:8px}
+@media (min-width:700px){.cols{grid-template-columns:1fr 1fr}}
+.box{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px}
+.box.real{border-color:var(--real)}.box.sim{border-color:var(--sim)}
+.box h4{margin:0 0 4px;font-size:13px}
+.ring{font-size:42px;font-weight:700;text-align:center;color:var(--warn);margin:6px 0}
+.log{background:var(--chip);border-radius:10px;padding:8px 10px;max-height:240px;overflow:auto;font:13px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap}
+.tr p{margin:4px 0;padding:6px 10px;border-radius:10px;background:var(--chip);font-size:15px}
+.tr p.friday{border-left:4px solid var(--accent)}
+textarea,input[type=text]{width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);color:var(--ink)}
+pre.rep{white-space:pre-wrap;background:var(--chip);padding:10px;border-radius:10px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Friday QA</h1>
+  <div class="bar" id="bar">loading...</div>
+</header>
+<div class="banner" id="banner"></div>
+<div id="list"></div>
+<h2>Results</h2>
+<div class="row"><button onclick="loadReport()">Refresh report</button></div>
+<div id="lines"></div>
+<pre class="rep" id="report">Tap "Refresh report".</pre>
+<script>
+"use strict";
+const API = "__API_BASE__";
+let CFG = null;
+const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt !== undefined) e.textContent = txt; return e; };
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(API + path, opt);
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(data.detail || ("error " + r.status));
+  return data;
+}
+function fmtLeft(s) { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h + "h " + m + "m"; }
+async function loadConfig() {
+  CFG = await api("/config");
+  const bar = document.getElementById("bar"); bar.textContent = "";
+  const add = (k, v) => { const s = el("span"); s.append(k + " "); s.append(el("b", "", v)); bar.append(s); };
+  add("Calls go to", CFG.number); add("Today", CFG.calls_today + "/" + CFG.max_calls_per_day + " calls, Rs " + CFG.spend_today_inr + "/" + CFG.max_spend_inr);
+  add("Max per call", CFG.max_seconds + " s"); add("Link valid", fmtLeft(CFG.token_seconds_left));
+  const b = document.getElementById("banner");
+  b.className = "banner" + (CFG.paused ? " stop" : "");
+  b.textContent = CFG.paused ? "The kill switch is ON (friday pause). No call will be placed." :
+    "Real calls ring ONLY your own phone (" + CFG.number + "). Each call needs you to tap: " + CFG.approval_phrase + ". Chat scenarios use the simulator and call no one.";
+}
+function chips(s) {
+  const w = el("div");
+  w.append(el("span", "chip " + (s.kind === "call" ? "real" : s.kind === "chat" ? "sim" : "info"), s.kind === "call" ? "REAL CALL" : s.kind === "chat" ? "SIMULATOR" : "INSTRUCTIONS"));
+  if (s.verdict) w.append(el("span", "chip v-" + s.verdict, {ok: "OK", wording: "wording change", bug: "bug"}[s.verdict]));
+  if (s.last_run) w.append(el("span", "mute", "last: " + (s.last_run.status || s.last_run.phase)));
+  return w;
+}
+async function loadList() {
+  const {scenarios} = await api("/scenarios");
+  const root = document.getElementById("list");
+  const open = new Set([...root.querySelectorAll(".card.open")].map(c => c.dataset.id));
+  root.textContent = "";
+  let group = null;
+  for (const s of scenarios) {
+    if (s.group !== group) { group = s.group; root.append(el("h2", "", group)); }
+    const card = el("div", "card"); card.dataset.id = s.id;
+    card.append(el("h3", "", s.title)); card.append(chips(s)); card.append(el("div", "mute", s.summary));
+    const row = el("div", "row");
+    const btn = el("button", s.kind === "call" ? "primary" : "", s.kind === "call" ? "Show plan and run" : s.kind === "chat" ? "Show and run" : "Show steps");
+    btn.onclick = () => openPlan(card, s);
+    row.append(btn); card.append(row);
+    const det = el("div", "detail"); det.style.display = "none"; card.append(det);
+    root.append(card);
+    if (open.has(s.id)) { card.classList.add("open"); }
+  }
+}
+async function openPlan(card, s) {
+  const det = card.querySelector(".detail");
+  if (det.style.display !== "none") { det.style.display = "none"; card.classList.remove("open"); return; }
+  card.classList.add("open"); det.style.display = ""; det.textContent = "loading...";
+  try {
+    const p = await api("/plan", {scenario: s.id, params: {}});
+    det.textContent = "";
+    det.append(el("div", "mute", "What will happen:"));
+    const ol = el("ol"); p.steps.forEach(x => ol.append(el("li", "", x))); det.append(ol);
+    if (p.kind === "call") det.append(el("div", "", "Calls " + p.number + ", at most " + p.seconds + " s, cost up to about Rs " + p.est_cost_inr + "."));
+    if (p.shortlist) {
+      det.append(el("div", "mute", "Shortlist (" + p.shortlist.source + "), shown as text only, NOT dialled:"));
+      const ul = el("ul"); p.shortlist.items.forEach(i => ul.append(el("li", "", i.name + (i.rating ? " (rating " + i.rating + ")" : "")))); det.append(ul);
+      if (p.shortlist.note) det.append(el("div", "mute", p.shortlist.note));
+      det.append(el("div", "", "The script will use: " + p.vendor + ". Your phone rings instead of the business."));
+    }
+    if (p.wait) det.append(el("div", "", p.wait));
+    det.append(el("div", "", "You should hear / see: " + p.hear));
+    const cols = el("div", "cols");
+    const r = el("div", "box real"); r.append(el("h4", "", "REAL")); p.real.forEach(x => r.append(el("div", "", "+ " + x)));
+    const m = el("div", "box sim"); m.append(el("h4", "", "SIMULATED")); p.simulated.forEach(x => m.append(el("div", "", "~ " + x)));
+    cols.append(r, m); det.append(cols);
+    const runBox = el("div", "runbox"); det.append(runBox);
+    if (p.kind !== "info") {
+      const go = el("button", "primary", p.kind === "call" ? p.approval_phrase : "Run on the simulator");
+      go.onclick = () => startRun(s, p, runBox, go);
+      const row = el("div", "row"); row.append(go); det.append(row);
+    }
+    det.append(verdictBox(s));
+  } catch (e) { det.textContent = "Could not load: " + e.message; }
+}
+async function startRun(s, p, box, btn) {
+  btn.disabled = true; box.textContent = "";
+  try {
+    const run = await api("/run", {scenario: s.id, approval: p.approval_phrase, params: {vendor: p.vendor || ""}});
+    poll(run.id, box, btn);
+  } catch (e) { box.append(el("div", "mute", "Refused: " + e.message)); btn.disabled = false; }
+}
+async function poll(id, box, btn) {
+  let run;
+  try { run = await api("/run/" + id); } catch (e) { box.textContent = "Lost the run: " + e.message; btn.disabled = false; return; }
+  box.textContent = "";
+  box.append(el("div", "mute", "Status: " + run.phase));
+  if (run.phase === "countdown" && run.seconds_to_ring !== null) {
+    box.append(el("div", "ring", "Ring now in " + run.seconds_to_ring + " s"));
+    const c = el("button", "danger", "Cancel before it rings"); c.onclick = () => api("/cancel", {run_id: id}); box.append(c);
+  } else if (!run.final && run.kind === "call") {
+    const c = el("button", "danger", "Hang up / stop"); c.onclick = () => api("/cancel", {run_id: id}); box.append(c);
+  }
+  box.append(el("div", "log", run.lines.join("\n")));
+  if (run.final) {
+    btn.disabled = false;
+    if (run.error) box.append(el("div", "mute", run.error));
+    const rep = run.report;
+    if (rep) {
+      box.append(el("div", "", "Result: " + rep.status + ", " + Math.round(rep.duration_s) + " s, estimated cost Rs " + (rep.cost_inr || run.est_cost_inr)));
+      const tr = el("div", "tr"); (rep.transcript || []).forEach(t => tr.append(el("p", t.who, t.who + ": " + t.text))); box.append(tr);
+    }
+    loadConfig(); loadList(); return;
+  }
+  setTimeout(() => poll(id, box, btn), 1000);
+}
+function verdictBox(s) {
+  const b = el("div", "detail");
+  b.append(el("div", "mute", "Your verdict for this scenario:"));
+  const ta = el("textarea"); ta.rows = 2; ta.placeholder = "What was wrong or good? (optional)"; b.append(ta);
+  const row = el("div", "row"); const msg = el("span", "mute");
+  for (const [v, label] of [["ok", "OK (thumbs up)"], ["wording", "Wording change"], ["bug", "Mark wrong: bug"]]) {
+    const x = el("button", v === "ok" ? "primary" : "", label);
+    x.onclick = async () => { try { await api("/note", {scenario: s.id, verdict: v, note: ta.value}); msg.textContent = "Saved."; loadList(); } catch (e) { msg.textContent = e.message; } };
+    row.append(x);
+  }
+  row.append(msg); b.append(row); return b;
+}
+async function loadReport() {
+  const r = await api("/report");
+  document.getElementById("report").textContent = r.text;
+  const root = document.getElementById("lines"); root.textContent = "";
+  if (r.pending_lines.length) root.append(el("div", "mute", "Pending lines you heard. Tap to approve or reject by id:"));
+  for (const l of r.pending_lines) {
+    const c = el("div", "card"); c.append(el("div", "", l.line_id)); c.append(el("div", "mute", "heard " + l.heard + "x; now: " + l.decision));
+    const row = el("div", "row");
+    for (const d of ["approve", "reject"]) {
+      const b = el("button", d === "approve" ? "primary" : "danger", d); b.onclick = async () => { await api("/line", {line_id: l.line_id, decision: d, note: ""}); loadReport(); }; row.append(b);
+    }
+    c.append(row); root.append(c);
+  }
+}
+loadConfig().then(loadList).catch(e => { document.getElementById("bar").textContent = "Cannot load: " + e.message; });
+</script>
+</body>
+</html>

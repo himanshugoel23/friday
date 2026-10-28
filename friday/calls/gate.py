@@ -26,6 +26,7 @@ from friday.calls.settings import CallsSettings
 from friday.calls.stores import CallStore
 from friday.core.clock import at_ist, ist_day_bounds, to_ist
 from friday.core.models import User, UserStatus
+from friday.qa.override import override_allows
 from friday.tasks.scheduling import hhmm
 
 
@@ -148,18 +149,23 @@ class CallGate:
 
         number_hash = self.hasher.hash(e164)
         day_start, day_end = ist_day_bounds(now)
-        if await self.store.calls_between(user.id, day_start, day_end) >= s.daily_call_cap:
-            return _deny("user_daily_calls", "deny_cap_user_calls")
+        # QA mode (friday qa): ONLY the founder's own allow-listed number, ONLY while a QA call is
+        # being run, skips the per-user and per-number caps and the calling window. The QA guard
+        # has its own daily call and spend caps (friday/qa/safety.py).
+        qa_lift = override_allows(e164, self.core)
         planned = min(brief.limits.max_duration_s or s.max_call_seconds, s.max_call_seconds)
-        used_s = await self.store.seconds_between(user.id, day_start, day_end)
-        if (used_s + planned) / 60 > s.daily_minute_cap:
-            return _deny("user_daily_minutes", "deny_cap_user_minutes")
-        if await self.store.number_calls_since(number_hash, day_start) >= s.number_day_cap:
-            return _deny("number_day_cap", "deny_cap_number")
-        if await self.store.number_calls_since(number_hash, now - timedelta(days=7)) >= (
-            s.number_week_cap
-        ):
-            return _deny("number_week_cap", "deny_cap_number")
+        if not qa_lift:
+            if await self.store.calls_between(user.id, day_start, day_end) >= s.daily_call_cap:
+                return _deny("user_daily_calls", "deny_cap_user_calls")
+            used_s = await self.store.seconds_between(user.id, day_start, day_end)
+            if (used_s + planned) / 60 > s.daily_minute_cap:
+                return _deny("user_daily_minutes", "deny_cap_user_minutes")
+            if await self.store.number_calls_since(number_hash, day_start) >= s.number_day_cap:
+                return _deny("number_day_cap", "deny_cap_number")
+            if await self.store.number_calls_since(number_hash, now - timedelta(days=7)) >= (
+                s.number_week_cap
+            ):
+                return _deny("number_week_cap", "deny_cap_number")
 
         asks: list[str] = []
         if not brief.approved or not brief.approval_hash:
@@ -171,7 +177,7 @@ class CallGate:
         if not request.number_confirmed:
             asks.append("number_unconfirmed")
         defer: datetime | None = None
-        if not in_window(request.callee_kind.value, now, s):
+        if not qa_lift and not in_window(request.callee_kind.value, now, s):
             asks.append("outside_window")
             defer = next_window_start(request.callee_kind.value, now, s)
         if asks:

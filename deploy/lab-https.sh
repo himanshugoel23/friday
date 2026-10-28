@@ -24,6 +24,9 @@ HOST=$(awk 'NF{print $1; exit}' "$CF")
 LAB_PORT="${FRIDAY_LAB_PORT:-8766}"
 HAS_EXPLORE=0
 grep -q 'handle_path /explore/\*' "$CF" && HAS_EXPLORE=1
+HAS_QA=0
+grep -q 'handle /qa/\*' "$CF" && HAS_QA=1
+QA_PORT="${FRIDAY_QA_PORT:-8767}"
 BAK="$CF.bak.$(date +%s)"
 cp "$CF" "$BAK"
 
@@ -37,6 +40,13 @@ OFF=0
     cat <<CADDY
     handle_path /explore/* {
         reverse_proxy 127.0.0.1:8765
+    }
+CADDY
+  fi
+  if [[ $HAS_QA == 1 ]]; then
+    cat <<CADDY
+    handle /qa/* {
+        reverse_proxy 127.0.0.1:$QA_PORT
     }
 CADDY
   fi

@@ -752,6 +752,12 @@ def use_pending_for_test() -> None:
     _TEST_DIR = PENDING_DIR
 
 
+def clear_pending_for_test() -> None:
+    """Back to the approved scripts (``friday qa`` calls this when its call ends)."""
+    global _TEST_DIR
+    _TEST_DIR = None
+
+
 def playbook_files(directory: Path | None = None) -> dict[str, Path]:
     d = directory or _TEST_DIR or DATA_DIR
     out: dict[str, Path] = {}

@@ -360,6 +360,7 @@ def playbook_test_brief(
     full_name: str | None = None,
     name_speller: Any = None,
     now: datetime | None = None,
+    extra_inputs: dict[str, str] | None = None,
 ) -> Any:
     """A CallBrief for ``friday livecall --playbook``: a normal outbound BOOKING brief with NO
     delegation and no approval, so the call can only end with "I will call back after approval".
@@ -415,6 +416,9 @@ def playbook_test_brief(
         raise PlaybookError(
             ["--mode book needs --book-now (a delegation: one specific --when time and --budget)"],
             name)
+    for k, v in (extra_inputs or {}).items():  # QA scenarios: the archetype's own inputs
+        if k in pb.inputs and v and not inputs.get(k):
+            inputs[k] = clean_input(str(v), 60)
     inputs["playbook_mode"] = "book" if book_now else "quote_only"
     if mode == "quote_only" and book_now:
         raise PlaybookError(["--mode quote-only cannot be combined with --book-now"], name)

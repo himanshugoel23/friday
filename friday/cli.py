@@ -417,6 +417,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.lab.cli import add_parser as _add_lab
 
     _add_lab(sub)  # `friday lab`: the Chat Lab (simulator only)
+    from friday.qa.cli import add_parser as _add_qa
+
+    _add_qa(sub)  # `friday qa`: manual QA with real calls to the founder's own phone
     from friday.chatbot.cli import add_parser as _add_chatbot
 
     _add_chatbot(sub)  # `friday chatbot wishlist | status | templates check | templates render`
@@ -574,6 +577,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.lab.cli import run_command as run_lab_command
 
         return run_lab_command(args)
+    if args.cmd == "qa":  # real calls, founder number only (docs/QA_MANUAL.md)
+        from friday.qa.cli import run_command as run_qa_command
+
+        return run_qa_command(args)
     if args.cmd == "speech":  # offline unless --live; never reads .env itself
         from friday.speech.cli import run_command as run_speech_command
 

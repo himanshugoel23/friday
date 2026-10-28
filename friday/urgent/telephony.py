@@ -19,6 +19,7 @@ from typing import Any
 
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import DialStatus, Language, OutboundCallRequest
+from friday.qa.override import note_pending_line, pending_lines_allowed
 from friday.urgent import lines
 from friday.urgent.models import RingOutcome, RingResult
 
@@ -48,7 +49,9 @@ class TelephonyOwnNumberCaller:
     async def ring(
         self, *, user_id: str, number: str, line_key: str, lang: str, user_name: str, dedupe_key: str
     ) -> RingOutcome:
-        if not lines.approved():
+        # QA override: pending lines play only on a QA call to the founder's own allow-listed number
+        qa_ok = pending_lines_allowed(self.settings) and number in set(self.settings.pilot_allowed_numbers)
+        if not lines.approved() and not qa_ok:
             return RingOutcome(result=RingResult.REFUSED, detail="line_pending")
         if self.paused():
             return RingOutcome(result=RingResult.REFUSED, detail="kill_switch")
@@ -56,6 +59,8 @@ class TelephonyOwnNumberCaller:
             return RingOutcome(result=RingResult.REFUSED, detail="test_allowlist")
         name = (user_name or "").strip() or ("there" if lang == "en" else "ji")
         text = lines.say(line_key, lang, user=name)
+        if not lines.approved():
+            note_pending_line("urgent", f"urg.{line_key}.{lang if lang in lines.LANGS else 'hinglish'}")
         req = OutboundCallRequest(
             to_phone=number, task_id=dedupe_key, record=False, ring_timeout_s=self.ring_timeout_s,
             max_duration_s=self.max_seconds, language=_LANG.get(lang, Language.HINGLISH),
