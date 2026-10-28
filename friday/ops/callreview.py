@@ -53,6 +53,12 @@ def clamp_n(n: int | None) -> int:
     return max(1, min(MAX_N, n or DEFAULT_N))
 
 
+def _all_redirected(settings: Any) -> bool:
+    """Pilot guard: every outbound call is redirected to a tester's own number, so the stored
+    destination (the business's number) never rang anyone else. Then those calls are reviewable."""
+    return bool(getattr(settings, "vendor_call_redirect_to", None))
+
+
 def _flagged(row: CallRow) -> bool:
     c = row.collected if isinstance(row.collected, dict) else {}
     return any(c.get(f) for f in _FLAGS)
@@ -70,7 +76,13 @@ async def render_review(db: Any, settings: Any, n: int | None = None, max_bytes:
     blocks: list[str] = []
     async with db.session() as s:
         rows = (await s.execute(select(CallRow).order_by(CallRow.started_at.desc()).limit(200))).scalars()
-        picked = [r for r in rows if _norm(r.to_phone) in allowed and not _flagged(r)][:n]
+        rows = list(rows)
+        redirected = _all_redirected(settings)
+        picked = [
+            r
+            for r in rows
+            if (_norm(r.to_phone) in allowed or (redirected and r.direction == "outbound")) and not _flagged(r)
+        ][:n]
         for r in picked:
             tl = list(
                 (
@@ -97,7 +109,7 @@ async def render_review(db: Any, settings: Any, n: int | None = None, max_bytes:
                 lines.append(f"{t.speaker}: {redact(t.text)}{c}")
             blocks.append("\n".join(lines))
     if not blocks:
-        return "no test calls to show\n"
+        return f"no test calls to show ({len(rows)} recent call rows in the database, redirect_active={redirected})\n"
     out, used = [], 0
     for b in blocks:
         size = len(b.encode()) + 2

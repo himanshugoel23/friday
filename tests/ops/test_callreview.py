@@ -139,3 +139,13 @@ def test_cli_parser_wired():
     src = open(cli.__file__).read()
     assert '"calls"' in src and "cli_review" in src
     assert isinstance(argparse.ArgumentParser(), argparse.ArgumentParser)
+
+
+async def test_pilot_redirect_makes_vendor_numbered_calls_reviewable(db, cfg):
+    # In the pilot the guard rings the tester's own phone whatever business was 'called', so the
+    # stored destination is the business's number but the speaker was the tester.
+    await _call(db, "eeeeeeee5555", VENDOR, [("callee", "haan ji bataiye", 0.9)])
+    assert "eeeeeeee" not in await callreview.render_review(db, cfg, 5)  # no redirect: hidden
+    cfg.vendor_call_redirect_to = TESTER
+    out = await callreview.render_review(db, cfg, 5)
+    assert "eeeeeeee" in out and "haan ji bataiye" in out and VENDOR not in out

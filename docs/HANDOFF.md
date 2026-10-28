@@ -1365,3 +1365,6 @@ PM step 0 picks ONE approach (ANSWER / WEB_LOOKUP / APP_OR_CONNECTOR / CALL_VEND
 
 ## 2026-10-28 evening: founder decision: spend the next couple of days making the bot as good as possible (quality sprint)
 Plan: a daily quality loop on the web chat with the founder and his wife: they use it for real tasks; I read the redacted logs, call transcripts (/ops-status/<token>/calls, needs enable-web-test.sh re-run) and thumbs feedback; fix the top issues; push (server self-updates); repeat. First targets: (1) how the bot talks on calls (transcript review), (2) wording ('before I call' only when a call is planned), (3) approach planner + web lookup live check (Zepto price), (4) query understanding + personal dictionary + PM/A2A team (builder running), (5) food ordering agents, (6) latency of first reply, (7) voice outage handling. Nothing is 'perfect': measure with a scorecard (task success, wrong-info rate, time to first reply, call completion, user rating).
+
+## 2026-10-29: call review showed 'no test calls': stored call destination is the BUSINESS number (pilot guard redirects the dial to the tester)
+callreview now also includes outbound calls when FRIDAY_VENDOR_CALL_REDIRECT_TO is set (every dial rings a tester), and the empty message shows row counts. Web-test script re-run done by founder (call review on, approach planner on, docs vision openai).
