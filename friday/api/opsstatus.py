@@ -63,4 +63,13 @@ def ops_status_router() -> APIRouter:
         c = request.app.state.container
         return PlainTextResponse(await callreview.render_review(c.db, c.settings, n))
 
+    @router.get("/{token}/bench", response_class=PlainTextResponse)
+    def bench(token: str) -> PlainTextResponse:
+        _authorised(token)
+        from friday.bench import ops as bench_ops
+
+        if not bench_ops.enabled():  # off by default: same 404 as a wrong token
+            raise HTTPException(status_code=404, detail="Not Found")
+        return _read(Path(bench_ops.report_path()))
+
     return router

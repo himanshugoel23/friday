@@ -419,6 +419,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.lab.cli import add_parser as _add_lab
 
     _add_lab(sub)  # `friday lab`: the Chat Lab (simulator only)
+    from friday.bench.cli import add_parser as _add_bench
+
+    _add_bench(sub)  # `friday bench run|list`: Instinct parity benchmark (in-process, simulator)
     from friday.webchat.cli import add_parser as _add_web
 
     _add_web(sub)  # `friday web`: Friday Web channel testers and links
@@ -592,6 +595,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.lab.cli import run_command as run_lab_command
 
         return run_lab_command(args)
+    if args.cmd == "bench":  # in-process simulator pipeline; no calls, no messages, no network
+        from friday.bench.cli import run_command as run_bench_command
+
+        return run_bench_command(args)
     if args.cmd == "web":  # local files only: testers, personal links, feedback (own Settings)
         from friday.webchat.cli import run_command as run_web_command
 
