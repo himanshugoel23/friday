@@ -153,6 +153,14 @@ dialog.sheet::backdrop { background: #0008; }
 .sh .two { display: flex; gap: 10px; margin-top: 12px; }
 .sh .two .sbtn { margin-top: 0; }
 .sh .ghost { background: var(--field); color: var(--ink); }
+.fb { display: flex; gap: 6px; margin: 3px 0 0 8px; font-size: 15px; }
+.fb button { background: var(--pill); color: var(--pill-ink); border: 0; border-radius: 14px; padding: 2px 10px; font-size: 15px; min-height: 28px; }
+.fb.on { opacity: .7; }
+.consent { position: fixed; inset: 0; z-index: 50; background: var(--wall); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.consent .box { max-width: 340px; text-align: center; color: var(--ink); }
+.consent .box p { font-size: 17px; margin: 0 0 20px; }
+.consent .box button { background: var(--fab); color: var(--fab-ink); border: 0; border-radius: 24px; padding: 12px 36px; font-size: 16px; }
+.consent .box a { display: inline-block; margin-top: 16px; color: var(--link); font-size: 13px; }
 @media (max-width: 700px) { .row { max-width: 86%; } }
 /*DEV*/
 .devbar { background: var(--sys); color: var(--ink); font-size: 12px; padding: 4px 16px; text-align: center; border-bottom: 1px solid var(--line); flex: none; }
@@ -298,7 +306,7 @@ function setIcon(el, name) { el.innerHTML = ICON[name]; }
 
 async function api(path, opts) {
   let r;
-  try { r = await fetch(API + path, opts); } catch (e) { showErr("Cannot reach the lab. Is it still running?"); throw e; }
+  try { r = await fetch(API + path, opts); } catch (e) { showErr("Cannot reach Friday. Check your connection."); throw e; }
   if (r.status === 404) { showErr("This link is wrong or has expired."); throw new Error("404"); }
   if (!r.ok) {
     let d = ""; try { d = (await r.json()).detail; } catch (e) {}
@@ -350,7 +358,8 @@ function content(e) {   // returns [nodes, inlineText]
     return [[e.text || e.button_id || ""], true];
   }
   const kids = [];
-  if (e.media) kids.push((e.media.mime || "").startsWith("image") ? card("img", "#bf59cf", "Photo", "") : card("doc", "#7f66ff", "Document", ""));
+  if (e.media && (e.media.mime || "").startsWith("audio") && S.cfg && S.cfg.web) kids.push(h("audio", { controls: true, preload: "none", src: API + "/media/" + encodeURIComponent(e.media.url), style: "max-width:230px;height:36px" }));
+  else if (e.media) kids.push((e.media.mime || "").startsWith("image") ? card("img", "#bf59cf", "Photo", "") : card("doc", "#7f66ff", "Document", ""));
   const txt = e.text || (e.template ? (e.template.params || []).join(" | ") : "");
   if (txt) kids.push(txt);
   return [kids, !!txt];
@@ -367,6 +376,18 @@ function buildRow(e, start) {
   if (!me) {
     if (e.buttons && e.buttons.length) row.append(h("div", { class: "qr" }, e.buttons.map((b) => h("button", { class: "qbtn", "data-bid": b.id, onclick: () => tap(e.id, b.id) }, ico("reply"), b.title))));
     if (e.list) row.append(h("div", { class: "qr" }, h("button", { class: "qbtn", onclick: () => openList(e) }, ico("list"), e.list.button || "Choose")));
+  }
+  if (!me && S.cfg && S.cfg.web && e.text) {
+    const icons = { up: "\u{1F44D}", down: "\u{1F44E}", wrong: "\u2691" };
+    if (e.mark) row.append(h("div", { class: "fb on" }, icons[e.mark]));
+    bubble.addEventListener("click", () => {
+      const open = row.querySelector(".fb:not(.on)"); if (open) { open.remove(); return; }
+      const send = async (kind) => {
+        const note = kind === "up" ? "" : (window.prompt("What was wrong? (optional)") || "");
+        try { await post("/feedback", { message_id: e.id, kind, note }); e.mark = kind; S.sig = ""; renderMessages(); } catch (err) {}
+      };
+      row.append(h("div", { class: "fb" }, ["up", "down", "wrong"].map((k) => h("button", { "aria-label": k, onclick: () => send(k) }, icons[k]))));
+    });
   }
   if (dev.on) dev.decorate(e, row, bubble, meta);
   return row;
@@ -460,8 +481,13 @@ function attachItem(label, color, icon, fn) {
   return h("button", { class: "att", onclick: fn }, c, label);
 }
 $("attachBtn").onclick = () => openSheet("", [h("div", { class: "attgrid" },
-  attachItem("Document", "#7f66ff", "doc", openDocs), attachItem("Photos", "#bf59cf", "img", () => pickFile("image/*")),
-  attachItem("Location", "#1fa855", "pin", openLocations), attachItem("Contact", "#009de2", "person", openContacts))]);
+  attachItem("Document", "#7f66ff", "doc", S.cfg.web ? () => pickFile("application/pdf,image/*") : openDocs), attachItem("Photos", "#bf59cf", "img", () => pickFile("image/*")),
+  attachItem("Location", "#1fa855", "pin", S.cfg.web ? shareLocation : openLocations), S.cfg.web ? null : attachItem("Contact", "#009de2", "person", openContacts))]);
+function shareLocation() {
+  sheet.close();
+  if (!navigator.geolocation) { showErr("Location is not available here."); return; }
+  navigator.geolocation.getCurrentPosition((p) => act(() => post("/location", { phone: S.phone, lat: p.coords.latitude, lng: p.coords.longitude })), () => showErr("Location was not shared."), { timeout: 10000 });
+}
 function pickFile(accept) { sheet.close(); file.accept = accept; file.value = ""; file.click(); }
 file.addEventListener("change", () => {
   const f = file.files[0]; if (!f) return;
@@ -484,12 +510,12 @@ function openContacts() {
 }
 
 // voice note
-let rec = null, chunks = [], recog = null, tmr = null;
+let rec = null, chunks = [], recog = null, tmr = null, pendingBlob = null;
 function openVoice() {
-  S.pendingAudio = null;
+  S.pendingAudio = null; pendingBlob = null;
   const big = h("button", { class: "fab big", "aria-label": "Record" }); big.innerHTML = ICON.mic;
   const tm = h("span", { class: "tm" }, "0:00");
-  const words = h("textarea", { class: "words", rows: "3", placeholder: "Voice note text", "aria-label": "Voice note text" });
+  const words = h("textarea", { class: "words", rows: "3", placeholder: "Voice note text", "aria-label": "Voice note text", hidden: !!S.cfg.web });
   const au = h("audio", { controls: true, hidden: true });
   const stop = () => { if (rec) rec.stop(); clearInterval(tmr); };
   big.onclick = async () => {
@@ -501,17 +527,35 @@ function openVoice() {
       rec.ondataavailable = (ev) => chunks.push(ev.data);
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        S.pendingAudio = URL.createObjectURL(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
+        pendingBlob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+        S.pendingAudio = URL.createObjectURL(pendingBlob);
         au.src = S.pendingAudio; au.hidden = false; rec = null; big.classList.remove("on");
         if (recog) { try { recog.stop(); } catch (e) {} }
       };
       rec.start(); big.classList.add("on"); const t0 = Date.now();
       tmr = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); tm.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }, 250);
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SR = S.cfg.web ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
       if (SR) { try { recog = new SR(); recog.lang = "hi-IN"; recog.interimResults = true; recog.onresult = (ev) => { let s = ""; for (const r of ev.results) s += r[0].transcript; words.value = s; }; recog.start(); } catch (e) { recog = null; } }
     } catch (e) { words.focus(); }
   };
-  const send = h("button", { class: "sbtn", onclick: () => {
+  const stopAndWait = () => new Promise((res) => {
+    if (!rec) { res(); return; }
+    const r = rec, old = r.onstop; r.onstop = (ev) => { old(ev); res(); }; r.stop(); clearInterval(tmr);
+  });
+  const send = h("button", { class: "sbtn", onclick: async () => {
+    if (S.cfg.web) {
+      await stopAndWait();
+      const blob = pendingBlob, audio = S.pendingAudio; if (!blob || blob.size < 200) { big.focus(); return; }
+      sheet.close();
+      act(async () => {
+        const fd = new FormData(); fd.append("file", blob, "voice");
+        const snap = await api("/voice-note", { method: "POST", body: fd });
+        const mine = [...(snap.entries || [])].reverse().find((x) => x.dir === "in" && x.kind === "voice_note");
+        if (audio && mine) S.audio[mine.seq] = audio;
+        return snap;
+      });
+      return;
+    }
     const says = words.value.trim(); if (!says) { words.focus(); return; }
     stop(); const audio = S.pendingAudio; sheet.close();
     act(async () => { const snap = await post("/voice", { phone: S.phone, says }); if (audio && snap.turn) S.audio[snap.turn.input_seq] = audio; return snap; });
@@ -528,11 +572,23 @@ $("title").addEventListener("click", () => {
   if (taps.length >= 5) { taps = []; if (!dev.on) location.search = "?dev=1"; }
 });
 
+function askConsent() {
+  return new Promise((done) => {
+    const c = S.cfg.consent;
+    const go = h("button", { onclick: async () => { try { await post("/consent"); } catch (e) { return; } box.remove(); done(); } }, c.button);
+    const box = h("div", { class: "consent" }, h("div", { class: "box" }, h("p", {}, c.text), go,
+      c.privacy ? h("div", {}, h("a", { href: c.privacy, target: "_blank", rel: "noopener" }, c.privacy_label)) : null));
+    document.body.append(box);
+  });
+}
 async function init() {
   S.cfg = await api("/config");
+  if (S.cfg.consent && S.cfg.consent.required) await askConsent();
   await switchUser(S.cfg.users[0].phone);
   if (dev.start) dev.start();
   setInterval(() => { if (!document.hidden && !S.busy) refresh(); }, 3000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });   // back from sleep
+  window.addEventListener("online", refresh);
 }
 
 /*DEV*/

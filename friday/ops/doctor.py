@@ -33,7 +33,7 @@ OK, WARN, FAIL, SKIP = "OK", "WARN", "FAIL", "SKIPPED"
 TAGS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
 SECTIONS = (
     "settings", "database", "services", "public_url", "providers", "switches", "off_switch",
-    "systemd", "receptionist", "browser",
+    "systemd", "receptionist", "browser", "web",
 )
 TITLES = {
     "settings": "1. settings",
@@ -46,6 +46,7 @@ TITLES = {
     "systemd": "8. service (systemd)",
     "receptionist": "9. receptionist (missed-call forwarding)",
     "browser": "10. private browser",
+    "web": "11. web channel (browser chat for named testers)",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
@@ -680,6 +681,37 @@ def _check_browser(settings: Settings) -> Section:
     return check_browser(env)
 
 
+def _check_web(settings: Settings) -> Section:
+    """Friday Web channel (friday/webchat): read-only, names and ok/warn only."""
+    from friday.webchat.config import WebConfig
+    from friday.webchat.guard import startup_problems
+    from friday.webchat.registry import Registry
+
+    sec = Section("web")
+    cfg = WebConfig()
+    if not cfg.channel_enabled:
+        sec.add(OK, "web channel OFF (FRIDAY_WEB_CHANNEL_ENABLED is not true); WhatsApp is unchanged")
+        return sec
+    problems = startup_problems(settings, cfg)
+    for p in problems:
+        sec.add(FAIL, p)
+    if not problems:
+        sec.add(OK, "web channel ON: WhatsApp and SMS sends are replaced by the web chat; calls only to a tester's own number")
+    n = len(Registry(cfg.path).active())
+    sec.add(OK if n else WARN, f"{n} active tester link(s)" + ("" if n else " (friday web invite --name ... --phone ...)"))
+    if not settings.pilot_allowed_numbers and not settings.chatbot_testers:
+        sec.add(FAIL, "no number in FRIDAY_PILOT_ALLOWED_NUMBERS or FRIDAY_CHATBOT_TESTERS: no tester can be invited")
+    if not (cfg.max_calls_per_day and cfg.max_spend_inr and cfg.global_max_spend_inr):
+        sec.add(WARN, "call/spend caps are 0 = unlimited (pilot default); the Vobiz prepaid balance is the ceiling")
+    if settings.invite_only:
+        sec.add(WARN, "FRIDAY_INVITE_ONLY is true: a new tester is asked for an invite code first; set it to false for the pilot")
+    if not cfg.admin_token:
+        sec.add(OK, "admin page off (set FRIDAY_WEB_ADMIN_TOKEN, 16-64 chars, to turn it on)")
+    if not settings.public_base_url.startswith("https://"):
+        sec.add(WARN, "FRIDAY_PUBLIC_BASE_URL is not https: phones need https for the microphone and add-to-home-screen")
+    return sec
+
+
 # ----------------------------------------------------------------------------- driver
 async def run_sections(
     settings: Settings, *, offline: bool = False, only: str | None = None,
@@ -697,6 +729,7 @@ async def run_sections(
         "systemd": lambda: check_systemd(probes),
         "receptionist": lambda: check_receptionist(settings),
         "browser": lambda: _check_browser(settings),
+        "web": lambda: _check_web(settings),
     }
     out: list[Section] = []
     for name in [only] if only else SECTIONS:
