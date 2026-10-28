@@ -95,11 +95,12 @@ class SpeechUnderstander:
         channel: str = "voice_note",
         deadline_s: float | None = None,
         memory: MemoryView | None = None,
+        force: bool = False,
     ) -> UnderstoodUtterance:
         t0 = time.perf_counter()
         original = (text or "").strip()
         res = UnderstoodUtterance(original_text=original, corrected_text=original, channel=channel)
-        shadow = self.mode == "shadow"
+        shadow = self.mode == "shadow" and not force  # ``force``: the query agent owns the switch
 
         def done(r: UnderstoodUtterance) -> UnderstoodUtterance:
             r.latency_ms = (time.perf_counter() - t0) * 1000
@@ -107,7 +108,7 @@ class SpeechUnderstander:
             log.info("speech understand channel=%s %s", channel, r.audit())
             return r
 
-        if not original or not self.wants(channel):
+        if not original or not (force or self.wants(channel)):
             res.reason = "off" if original else "empty"
             return done(res)
         if _word_count(original) < int(getattr(self.s, "speech_understanding_min_words", 3)):

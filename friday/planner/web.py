@@ -29,6 +29,9 @@ class WebItem(BaseModel):
     price_inr: float | None = None
     store: str | None = None
     url: str | None = None
+    rating: str | None = None  # as printed, e.g. "4.2" (food agents; optional)
+    delivery_time: str | None = None  # as printed, e.g. "30-35 min"
+    offer: str | None = None  # as printed
 
 
 class WebSource(BaseModel):
@@ -43,7 +46,7 @@ class RawWebResult(BaseModel):
 
 
 class WebSearchPort(Protocol):
-    async def search(self, query: str, *, timeout_s: float) -> RawWebResult: ...
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult: ...
 
 
 class UnavailableWebSearch:
@@ -51,7 +54,7 @@ class UnavailableWebSearch:
 
     permanent_failure = True
 
-    async def search(self, query: str, *, timeout_s: float) -> RawWebResult:  # noqa: ARG002
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult:  # noqa: ARG002
         raise ProviderError("web_search", "no web search provider configured (needs OPENAI_API_KEY)")
 
 
@@ -63,7 +66,7 @@ class FakeWebSearch:
         self.script = list(script)
         self.calls: list[str] = []
 
-    async def search(self, query: str, *, timeout_s: float) -> RawWebResult:  # noqa: ARG002
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult:  # noqa: ARG002
         self.calls.append(query)
         item = self.script[min(len(self.calls) - 1, len(self.script) - 1)]
         if isinstance(item, Exception):
@@ -119,6 +122,9 @@ def parse_openai_response(resp: Any) -> RawWebResult:
                         price_inr=(float(it["price_inr"]) if isinstance(it.get("price_inr"), (int, float)) else None),
                         store=(str(it["store"])[:40] if it.get("store") else None),
                         url=url if url in seen else None,  # a url the provider did not cite is dropped
+                        rating=(str(it["rating"])[:12] if it.get("rating") else None),
+                        delivery_time=(str(it["delivery_time"])[:24] if it.get("delivery_time") else None),
+                        offer=(str(it["offer"])[:80] if it.get("offer") else None),
                     )
                 )
         except (ValueError, TypeError, AttributeError):
@@ -133,11 +139,11 @@ class OpenAIWebSearch:
         self.model, self.context_size = model, context_size
         self._client = client or openai.AsyncOpenAI(api_key=api_key, max_retries=0)
 
-    async def search(self, query: str, *, timeout_s: float) -> RawWebResult:
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult:
         try:
             resp = await self._client.responses.create(
                 model=self.model,
-                instructions=_INSTRUCTIONS,
+                instructions=_INSTRUCTIONS + (" " + hint if hint else ""),
                 input=f"<query>{query}</query>",
                 tools=[{
                     "type": "web_search",
