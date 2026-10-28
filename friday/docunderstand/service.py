@@ -61,9 +61,11 @@ class DocumentService:
         *,
         retention_days: int = 180,
         bill_sink: BillSink | None = None,
+        doc_sink: Callable[[str, Document], Awaitable[str | None]] | None = None,
     ) -> None:
         self.pipeline, self.store, self.clock = pipeline, store, clock
         self.retention_days, self.bill_sink = retention_days, bill_sink
+        self.doc_sink = doc_sink  # a confirmed ticket or hotel builds a trip (api/features)
 
     # ------------------------------------------------------------------ a file arrives
     async def handle_media(self, user_id: str, language: str, data: bytes, mime: str) -> DocReply:
@@ -113,7 +115,15 @@ class DocumentService:
                     key = "saved.bill"
             except Exception as e:  # noqa: BLE001 - the confirmed fields are already kept
                 log.info("bill sink failed: %s", type(e).__name__)
-        return DocReply(copy.t(key, language))
+        text = copy.t(key, language)
+        if self.doc_sink is not None:
+            try:
+                extra = await self.doc_sink(doc.user_id, doc)
+                if extra:
+                    text = f"{text}\n{extra}"
+            except Exception as e:  # noqa: BLE001 - the confirmed fields are already kept
+                log.info("doc sink failed: %s", type(e).__name__)
+        return DocReply(text)
 
     # ------------------------------------------------------------------ a typed correction
     async def handle_text(self, user_id: str, language: str, text: str) -> DocReply | None:
