@@ -7,6 +7,7 @@ Routes
                                delivery statuses -> message log
   /sim/*                       simulator chat + simulated inbound calls (simulator
                                messaging only)
+  /web/*                       Friday Web channel (only when FRIDAY_WEB_CHANNEL_ENABLED; docs/WEB_CHANNEL.md)
   /voice/*                     the voice router (c.get("voice_router")) if available
   /google/*                    per-user Google connector (connect, callback, status, disconnect)
 
@@ -38,9 +39,18 @@ log = get_logger(__name__)
 
 
 def create_app(
-    container: Container | None = None, *, background: bool = True, fast_pin_hash: bool = False
+    container: Container | None = None,
+    *,
+    background: bool = True,
+    fast_pin_hash: bool = False,
+    web_config: Any = None,
 ) -> FastAPI:
     c = container or Container(Settings())
+    # Friday Web channel (FRIDAY_WEB_CHANNEL_ENABLED, default OFF): swaps WhatsApp/SMS/telephony for the
+    # web channel and its call guard BEFORE the pipeline is built. None while the switch is off.
+    from friday.webchat.app import mount_web, prepare_web
+
+    web = prepare_web(c, web_config)
     runtime = Runtime(c, fast_pin_hash=fast_pin_hash)
 
     @asynccontextmanager
@@ -119,6 +129,8 @@ def create_app(
     if not c.settings.is_live:  # SECURITY-28: simulator routes never exist in live mode
         app.include_router(_sim_router(c, runtime), prefix="/sim")
     app.include_router(admin_router(c), prefix="/admin")
+    if web is not None:
+        mount_web(app, web, runtime)
 
     # ------------------------------------------------------------------ connector watch pages
     from friday.api.admin import admin_token as _admin_token

@@ -81,6 +81,8 @@ def test_the_page_is_one_self_contained_file(lab):
 # every string of the old developer chrome; none may reach the default page
 DEV_ONLY_STRINGS = (
     "SIMULATOR",
+    "Fake WhatsApp",
+    "cannot message or call",
     "Fake clock",
     "+1 hour",
     "Next morning",

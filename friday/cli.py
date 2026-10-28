@@ -417,6 +417,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.lab.cli import add_parser as _add_lab
 
     _add_lab(sub)  # `friday lab`: the Chat Lab (simulator only)
+    from friday.webchat.cli import add_parser as _add_web
+
+    _add_web(sub)  # `friday web`: Friday Web channel testers and links
     from friday.qa.cli import add_parser as _add_qa
 
     _add_qa(sub)  # `friday qa`: manual QA with real calls to the founder's own phone
@@ -536,7 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--budget", type=int, default=None)
     sc.add_argument("--home-visit", action="store_true")
     sc.add_argument("--fixtures", action="store_true", help="force recorded fixtures")
-    sr = sub.add_parser("scout-report", help="per category: % with phone/hours/type (live only)")
+    sr = sub.add_parser("scout-report", help="per category: %% with phone/hours/type (live only)")
     sr.add_argument("--categories", default="all")
     sr.add_argument("--areas", default=None, help="semicolon separated")
     sr.add_argument("--max-queries", type=int, default=2)
@@ -577,6 +580,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.lab.cli import run_command as run_lab_command
 
         return run_lab_command(args)
+    if args.cmd == "web":  # local files only: testers, personal links, feedback (own Settings)
+        from friday.webchat.cli import run_command as run_web_command
+
+        return run_web_command(args)
     if args.cmd == "qa":  # real calls, founder number only (docs/QA_MANUAL.md)
         from friday.qa.cli import run_command as run_qa_command
 
