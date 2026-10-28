@@ -77,7 +77,7 @@ def run_command(args: argparse.Namespace) -> int:
     s = Settings()
     provider = (s.docs_vision_provider or "none").strip().lower()
     if provider in ("", "none", "off"):
-        print("FRIDAY_DOCS_VISION_PROVIDER is 'none': set it to 'openai' to run the reader. Not running.")
+        print("FRIDAY_DOCS_VISION_PROVIDER is 'none': set it to 'openai'. Not running.")
         return 2
     clock = SystemClock()
     limits = DocLimits(

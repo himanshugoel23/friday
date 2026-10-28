@@ -577,7 +577,7 @@ class Settings(BaseSettings):
     docs_enabled: bool = False  # FRIDAY_DOCS_ENABLED
     docs_enabled_users: CsvList = Field(default_factory=list)  # user ids or phones; empty = all
     docs_vision_provider: str = "none"  # none | openai (reuses OPENAI_API_KEY); others are stubs
-    docs_vision_model: str = OPENAI_LIGHT_MODEL  # FRIDAY_DOCS_VISION_MODEL (vision-capable chat model)
+    docs_vision_model: str = OPENAI_LIGHT_MODEL  # FRIDAY_DOCS_VISION_MODEL
     docs_vision_timeout_s: float = Field(default=45.0, gt=0)  # whole read, no retry
     docs_max_bytes: int = Field(default=8 * 1024 * 1024, ge=1024)  # per file (WhatsApp: 16 MB)
     docs_max_pages: int = Field(default=5, ge=1)

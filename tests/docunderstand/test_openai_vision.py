@@ -1,4 +1,4 @@
-"""OpenAI vision adapter: fake HTTP transport only (httpx.MockTransport). No network, no real key."""
+"""OpenAI vision adapter: fake HTTP transport only (httpx.MockTransport). No network, no key."""
 
 from __future__ import annotations
 
@@ -164,7 +164,7 @@ def test_injection_text_in_document_is_flagged_and_never_followed() -> None:
     assert "seat" not in out.document.fields
     assert all(f.needs_confirm for f in out.document.fields.values())
     body = json.loads(seen[0].content)
-    assert body["messages"][0]["content"] == EXTRACTION_INSTRUCTION  # document never in the system text
+    assert body["messages"][0]["content"] == EXTRACTION_INSTRUCTION  # document not in system text
 
 
 def test_no_secret_or_document_content_in_logs(caplog) -> None:
