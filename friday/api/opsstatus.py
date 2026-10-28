@@ -71,8 +71,9 @@ def ops_status_router() -> APIRouter:
         if not bench_ops.enabled():  # off by default: same 404 as a wrong token
             raise HTTPException(status_code=404, detail="Not Found")
         return _read(Path(bench_ops.report_path()))
+
     def _probe_store(request: Request) -> object | None:
-        """The site MCP probe store, or None while FRIDAY_SITE_MCP_PROBE_ENABLED is off (then both routes are a plain 404)."""
+        """The site MCP probe store, or None while the probe switch is off (routes 404)."""
         st = request.app.state.container.settings
         if not st.site_mcp_probe_enabled:
             return None
@@ -92,12 +93,13 @@ def ops_status_router() -> APIRouter:
 
     @router.get("/{token}/shot/{site}")
     def shot(token: str, site: str, request: Request) -> Response:
-        """Last screenshot of a PUBLIC page for this site (never a logged-in page: the probe is anonymous only)."""
+        """Last screenshot of a PUBLIC page (anonymous probe only, never logged in)."""
         _authorised(token)
         store = _probe_store(request)
         png = store.shot(site) if store is not None else None  # type: ignore[attr-defined]
         if png is None:
             raise HTTPException(status_code=404, detail="Not Found")
-        return Response(png, media_type="image/png", headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+        headers = {"Cache-Control": "no-store", "X-Robots-Tag": "noindex"}
+        return Response(png, media_type="image/png", headers=headers)
 
     return router
