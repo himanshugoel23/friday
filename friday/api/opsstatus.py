@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 from dotenv import dotenv_values
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 _DEFAULT_FILE = "/opt/friday/var/autoupdate/status.txt"
@@ -52,5 +52,15 @@ def ops_status_router() -> APIRouter:
         _authorised(token)
         default = str(Path(_DEFAULT_FILE).with_name("logs.txt"))
         return _read(Path(os.environ.get("FRIDAY_OPS_LOGS_FILE", default)))
+
+    @router.get("/{token}/calls", response_class=PlainTextResponse)
+    async def calls(token: str, request: Request, n: int = 5) -> PlainTextResponse:
+        _authorised(token)
+        from friday.ops import callreview
+
+        if not callreview.enabled():  # off by default: same 404 as a wrong token
+            raise HTTPException(status_code=404, detail="Not Found")
+        c = request.app.state.container
+        return PlainTextResponse(await callreview.render_review(c.db, c.settings, n))
 
     return router

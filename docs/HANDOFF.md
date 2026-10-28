@@ -1354,3 +1354,6 @@ After Sarvam credits were topped up the call still cut. Log: POST /voice/sarvam/
 
 ## 2026-10-28 evening: ROOT CAUSE #3 of calls cut = hangup_on_ring (fixed)
 After the answer-URL fix the call connected (answer 200, media websocket accepted) but Vobiz ended it ~31 s after the call STARTED ("Scheduled Hangup", hangup_source Vobiz, ORIGINATOR_CANCEL; same ~31-33 s duration on every Friday-origin call since 12 Oct). friday/voice/telephony/sarvam.py sent hangup_on_ring=ring_timeout_s (25), which Vobiz applies as a hard hangup N s after start even once answered. Removed it (ring_timeout stays). Unverified until the founder retries: expect the call to stay up past 30 s. If it still ends early, check the Vobiz CDR hangup_source/cause first.
+
+## 2026-10-28: call review for founder test calls (docs/CALL_REVIEW.md)
+Founder wants Claude to review how the bot talks on his TEST calls. Built GET /ops-status/<token>/calls + `friday calls review --n`, switch FRIDAY_OPS_CALL_REVIEW_ENABLED (off by default; enable-web-test.sh turns it on). Allow-listed numbers only, masked phone, redacted OTP/email/keys, 40 KB cap. Branch worktree-agent-a3ec34839c7a69ade, not pushed. Latency/barge-in not stored per call yet.

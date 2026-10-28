@@ -440,6 +440,10 @@ def main(argv: list[str] | None = None) -> int:
     from friday.guardrails.cli import add_parser as _add_guardrails
 
     _add_guardrails(sub)  # `friday guardrails eval | policy | copy` (offline)
+    calls = sub.add_parser("calls", help="review test-call transcripts (needs FRIDAY_OPS_CALL_REVIEW_ENABLED)")
+    csub = calls.add_subparsers(dest="calls_cmd", required=True)
+    crev = csub.add_parser("review", help="last N test calls: transcript + metrics, masked and redacted")
+    crev.add_argument("--n", type=int, default=5)
     sub.add_parser("init-env", help="create .env from .env.example with fresh random secrets")
     td = sub.add_parser("tts-dict", help="Sarvam pronunciation dictionary: show | sync")
     td.add_argument("action", choices=["show", "sync"])
@@ -799,6 +803,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.savings.cli import run as run_savings
 
         return run_savings(args, settings.database_url)
+    if args.cmd == "calls":
+        from friday.ops.callreview import cli_review
+
+        return cli_review(settings, args.n)
     if args.cmd == "initdb":
         asyncio.run(_initdb(settings))
         return 0

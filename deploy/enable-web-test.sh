@@ -97,6 +97,7 @@ if mode == "on":
             put(k, "0")
         for k in FEATURES_ON:
             put(k, "true")
+        put("FRIDAY_OPS_CALL_REVIEW_ENABLED", "true")  # test-call transcripts at /ops-status/<token>/calls (docs/CALL_REVIEW.md)
         put("FRIDAY_DOCS_VISION_PROVIDER", "openai")  # reads photos/PDFs with the existing OPENAI_API_KEY
         for k in ALWAYS_OFF:
             put(k, "false")
@@ -105,6 +106,7 @@ else:
     put("FRIDAY_INVITE_ONLY", "true")
     for k in FEATURES_ON + ALWAYS_OFF:
         put(k, "false")
+    put("FRIDAY_OPS_CALL_REVIEW_ENABLED", "false")
     put("FRIDAY_DOCS_VISION_PROVIDER", "none")
 
 if problem:
@@ -123,7 +125,7 @@ def present(key):
 
 
 print(f"web test: {mode.upper()}  (key names only; no values are printed)")
-for k in ["FRIDAY_WEB_CHANNEL_ENABLED", "FRIDAY_INVITE_ONLY", "FRIDAY_CHATBOT_ONBOARDING", "FRIDAY_PILOT"] + FEATURES_ON + ALWAYS_OFF:
+for k in ["FRIDAY_WEB_CHANNEL_ENABLED", "FRIDAY_INVITE_ONLY", "FRIDAY_CHATBOT_ONBOARDING", "FRIDAY_PILOT", "FRIDAY_OPS_CALL_REVIEW_ENABLED"] + FEATURES_ON + ALWAYS_OFF:
     print(f"  {k:<40} {onoff(k)}")
 print(f"  {'FRIDAY_PROFILE':<40} {'pilot' if get('FRIDAY_PROFILE') == 'pilot' else 'NOT pilot'}")
 print(f"  {'FRIDAY_DOCS_VISION_PROVIDER':<40} {get('FRIDAY_DOCS_VISION_PROVIDER') or 'none'}")
