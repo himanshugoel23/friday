@@ -1410,3 +1410,6 @@ tests/sitemcp real-Chromium test failed in this sandbox (Page.goto ERR_FAILED to
 
 ## 2026-10-29: update step failed after the root-run Playwright install ('failed to remove file ... Permission denied')
 `uv run playwright install-deps` as root left root-owned files in /opt/friday/.venv, so the friday-user `uv sync` in the updater errored. autoupdate.sh and small-update.sh now `chown -R friday:friday $APP/.venv` before the sync (fixed step as root). Lesson: run uv/playwright as the friday user; root only for apt.
+
+## 2026-10-29 01:49 IST: 'Gmail' now answers honestly: 'Google connection not set up here'
+Cause: friday/intents asks the consumer router (friday/integration) for the Google connector; that router is built only when a consumer switch such as FRIDAY_GOOGLE_ENABLED is on. enable-google.sh now also sets FRIDAY_GOOGLE_ENABLED=true (and off mode clears it). Also 'Connect my google' hit the generic clarify question instead of the connect flow: route 'connect (my) google' phrases to the connect step in friday/intents.
