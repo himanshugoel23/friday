@@ -18,8 +18,10 @@ open(p, "w").write("\n".join(lines) + "\n")
 PY
 }
 ask_plain() { local v; read -r -p "$2: " v </dev/tty; [ -n "$v" ] && setv "$1" "$v"; return 0; }
+SHOW=0; [ "${1:-}" = "show" ] && SHOW=1   # `bash set-whatsapp.sh show`: the paste is visible on YOUR screen (not hidden)
 ask_hidden() { # pasted secrets often carry spaces/newlines: strip all whitespace; show only the LENGTH
-  local v; read -r -s -p "$2: " v </dev/tty; echo
+  local v
+  if [ "$SHOW" = 1 ]; then read -r -p "$2: " v </dev/tty; else read -r -s -p "$2: " v </dev/tty; echo; fi
   v="$(printf %s "$v" | tr -d '[:space:]')"
   if [ -n "$v" ]; then setv "$1" "$v"; echo "   saved $1 (length ${#v})"; fi
   return 0
