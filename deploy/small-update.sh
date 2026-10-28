@@ -14,6 +14,7 @@ as_friday git fetch origin "$BRANCH" 2>&1 | tail -1
 as_friday git checkout "$BRANCH" 2>&1 | tail -1
 as_friday git pull --ff-only origin "$BRANCH" 2>&1 | tail -2
 echo "== 2/4 packages"
+chown -R friday:friday "$APP/.venv" 2>/dev/null  # a root-run playwright install leaves root-owned files
 as_friday bash -c "cd $APP && $UV sync --no-dev --extra vad --extra browser" 2>&1 | tail -2
 echo "== 3/4 database (migrations)"
 as_friday bash -c "cd $APP && $UV run python -m friday.db.migrate up" 2>&1 | tail -3

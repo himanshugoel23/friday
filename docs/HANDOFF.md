@@ -1407,3 +1407,6 @@ Founder decision: use the BROWSER for now (official MCP/OAuth approvals take wee
 
 ## 2026-10-29: site MCP merged; real-Chromium test made opt-in; tool failures now log type+message
 tests/sitemcp real-Chromium test failed in this sandbox (Page.goto ERR_FAILED to the loopback fake store with the sandbox's Chromium) so it is opt-in: FRIDAY_TEST_REAL_CHROMIUM=1. The real proof is the live probe on the server. friday/sitemcp/protocol.py now logs 'sitemcp tool X failed: <Type>: <msg>' (first 160 chars, no page content) so probe errors are diagnosable from the log tail.
+
+## 2026-10-29: update step failed after the root-run Playwright install ('failed to remove file ... Permission denied')
+`uv run playwright install-deps` as root left root-owned files in /opt/friday/.venv, so the friday-user `uv sync` in the updater errored. autoupdate.sh and small-update.sh now `chown -R friday:friday $APP/.venv` before the sync (fixed step as root). Lesson: run uv/playwright as the friday user; root only for apt.
