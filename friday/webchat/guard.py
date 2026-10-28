@@ -143,6 +143,14 @@ class GuardedTelephony:
     def name(self) -> str:
         return getattr(self._inner, "name", "telephony")
 
+    def find(self, cls: type) -> Any:
+        """Same contract as RoutedTelephony.find: the voice webhooks (/voice/sarvam/answer ...) look the
+        provider up by type, and a wrapper hides it (that made Vobiz get a 404 and cut every call)."""
+        if isinstance(self._inner, cls):
+            return self._inner
+        finder = getattr(self._inner, "find", None)
+        return finder(cls) if callable(finder) else None
+
     async def place_call(self, request: Any, *a: Any, **k: Any) -> Any:
         g = self.guard
         tester: Tester | None = None

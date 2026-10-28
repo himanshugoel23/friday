@@ -1348,3 +1348,6 @@ Server log (redacted tail): friday.voice.tts.cache "tts prerender failed: [sarva
 
 ## 2026-10-28 night: TTS health gate built (docs/TTS_HEALTH.md), branch worktree-agent-a872db25915ff2d71, not pushed
 Breaker + backoff in prerender, no dial while TTS is down (`tts_unavailable`, chat line), mid-call `tts_failed` hang-up, doctor line. Two new chat lines await founder approval (in the doc). Founder must still top up Sarvam credits.
+
+## 2026-10-28 evening: ROOT CAUSE #2 of calls cut = web guard wrapper hid the provider (fixed)
+After Sarvam credits were topped up the call still cut. Log: POST /voice/sarvam/answer -> 404 'sarvam is not an active telephony provider': friday/voice/http.find() looks the provider up by type, and webchat.GuardedTelephony wrapped it without a find(). Added GuardedTelephony.find + regression test. (Sarvam 402 was cause #1.)

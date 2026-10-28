@@ -411,3 +411,19 @@ def test_admin_page_is_off_without_a_token(wired, tmp_path, monkeypatch):
     app = create_app(wired, background=False, fast_pin_hash=True, web_config=cfg)
     with TestClient(app) as client:
         assert client.get("/web/admin/anything-0123456789abc/").status_code == 404
+
+
+def test_guarded_telephony_still_exposes_the_provider_to_the_voice_webhooks():
+    # Regression: Vobiz got 404 on /voice/sarvam/answer because the guard wrapper hid SarvamTelephony.
+    from friday.webchat.guard import GuardedTelephony
+
+    class Provider:
+        pass
+
+    class Other:
+        pass
+
+    inner = Provider()
+    wrapped = GuardedTelephony(inner, guard=None)  # type: ignore[arg-type]
+    assert wrapped.find(Provider) is inner
+    assert wrapped.find(Other) is None
