@@ -1342,3 +1342,6 @@ Two calls to the founder's number at 12:46:35 and 12:47:17 UTC ended at answer w
 
 ## 2026-10-28 evening: founder feedback from the first web-chat test (decision)
 Asked "price of 5 kg Aashirvaad atta on Zepto": no result for a long time, and the bot keeps saying "before I call...". Founder: the project manager must THINK what each query needs (call vs web lookup vs app/connector vs just answer vs ask), and every task type should be its own proper agent. Today everything defaults to the bucket x category vendor-CALL plan; there is no price/web lookup. Builder started: approach planner (PM) + web lookup agent + wording fix (never mention calling unless a call is in the plan) + slow-response handling. Log tail at /ops-status/<token>/logs shows the 'search taking long' evidence.
+
+## 2026-10-28 evening: ROOT CAUSE of calls cut at pick-up = Sarvam out of credits
+Server log (redacted tail): friday.voice.tts.cache "tts prerender failed: [sarvam] HTTP 402 insufficient_quota_error 'No credits available'" (plus HTTP 429 rate limit), ~1/s, around the founder's test calls; call ended no_answer/hangup at answer, Vobiz code 7011. Founder must top up Sarvam credits. Code follow-ups: do not place a call when TTS is dead (preflight), circuit-break prerender on 402/429 with backoff, say so in chat instead of ringing and cutting.
