@@ -137,12 +137,19 @@ def format_probe(p: dict[str, Any]) -> str:
 async def probe_from_settings(settings: Any) -> dict[str, Any]:
     if not (settings.sarvam_telephony_auth_id and settings.sarvam_telephony_auth_token):
         raise ProviderError("vobiz", "SARVAM_TELEPHONY_AUTH_ID / _AUTH_TOKEN not set")
-    return await fetch_probe(
+    probe = await fetch_probe(
         settings.sarvam_telephony_auth_id,
         settings.sarvam_telephony_auth_token.get_secret_value(),
         base_url=settings.sarvam_telephony_base_url or DEFAULT_BASE_URL,
         caller_ids=list(settings.sarvam_caller_ids or settings.friday_numbers or []),
     )
+    try:  # the call queue paces to these account limits (friday/callqueue/limits.py)
+        from friday.callqueue.limits import save_probe
+
+        save_probe(settings, probe)
+    except OSError:
+        pass
+    return probe
 
 
 def run_live_check(settings: Any) -> int:

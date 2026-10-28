@@ -782,6 +782,15 @@ class Settings(BaseSettings):
     paused: bool = False
     pause_file: str = "./var/PAUSED"
 
+    # ------------------------------------------------------------------ own outbound call queue
+    # friday/callqueue (docs/CALL_QUEUE.md). OFF = the direct dial path, unchanged.
+    call_queue_enabled: bool = False  # FRIDAY_CALL_QUEUE_ENABLED
+    call_queue_db: str = "./var/call_queue.db"  # local sqlite state (restart-safe); no migration
+    call_queue_max_concurrent: int | None = None  # None = account config (probe cache), else 3
+    call_queue_cps: float | None = None  # call starts per second; None = account config, else 1
+    call_queue_grace_s: int = 10  # extra seconds after ring timeout, then cancel
+    call_queue_max_wait_s: int = 900  # longest a call may wait for a slot before it is refused
+
     # ------------------------------------------------------------------ security keys
     # SECURITY-30: separate keys per purpose. In dev each falls back to
     # HKDF(secret_key, label); in live all three are required (live_problems()).

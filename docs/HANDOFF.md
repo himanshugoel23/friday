@@ -1325,3 +1325,6 @@ DigitalOcean connector works (list/reboot/resize/snapshot only; no exec). SSH fr
 
 ## 2026-10-28: Friday Web channel merged (friday/webchat, docs/WEB_CHANNEL.md)
 Built by a builder agent, merged with the autoupdate work; full suite green in 3 chunks (2204 + 2948 + 2733). Off unless FRIDAY_WEB_CHANNEL_ENABLED=true and FRIDAY_PROFILE=pilot. Needs on the server: FRIDAY_INVITE_ONLY=false, FRIDAY_VENDOR_CALL_REDIRECT_TO = an allow-listed number, ffmpeg for iPhone voice notes. Founder asked about real Zomato ordering: not real (fake-site tested only; recommend official Swiggy/Zomato MCP route first). Google Places key added by founder (verify via ops-status after next push).
+
+## 2026-10-28: own outbound call queue (friday/callqueue, docs/CALL_QUEUE.md), branch claude/call-queue
+Founder ask: Vobiz has features.call_queue ON and we cannot turn it off, so Friday paces its own calls. Built: sqlite-backed queue (no migration) wrapping telephony.place_call; limits from settings, then cached Vobiz probe, then 3 concurrent / 1 per second; urgent first; one live call per destination; idempotency key; stale-slot reclaim; unanswered calls cancelled at ring timeout + grace (leg.hangup = Vobiz DELETE); allow-list and kill switch kept; doctor section 12; switch FRIDAY_CALL_QUEUE_ENABLED (default off). Not merged or pushed. No spoken lines touched.

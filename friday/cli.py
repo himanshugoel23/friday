@@ -22,6 +22,7 @@ import importlib
 import signal
 import sys
 
+from friday.callqueue.queue import install_call_queue
 from friday.core.config import Settings
 from friday.core.container import FACTORIES, Container
 from friday.core.logging import setup_logging
@@ -93,6 +94,7 @@ async def _worker(settings: Settings) -> None:
     c = Container(settings)
     runtime = Runtime(c)
     install_pause_guard(c)
+    install_call_queue(c)  # no-op unless FRIDAY_CALL_QUEUE_ENABLED
     await runtime.start(background=True)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -802,6 +804,7 @@ def main(argv: list[str] | None = None) -> int:
 
         container = Container(settings)
         install_pause_guard(container)  # wraps instance methods; no-op until `friday pause`
+        install_call_queue(container)  # no-op unless FRIDAY_CALL_QUEUE_ENABLED
         uvicorn.run(create_app(container), host=settings.host, port=settings.port)
         asyncio.run(container.aclose())
         return 0

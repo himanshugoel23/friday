@@ -33,7 +33,7 @@ OK, WARN, FAIL, SKIP = "OK", "WARN", "FAIL", "SKIPPED"
 TAGS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
 SECTIONS = (
     "settings", "database", "services", "public_url", "providers", "switches", "off_switch",
-    "systemd", "receptionist", "browser", "web",
+    "systemd", "receptionist", "browser", "web", "call_queue",
 )
 TITLES = {
     "settings": "1. settings",
@@ -47,6 +47,7 @@ TITLES = {
     "receptionist": "9. receptionist (missed-call forwarding)",
     "browser": "10. private browser",
     "web": "11. web channel (browser chat for named testers)",
+    "call_queue": "12. outbound call queue (Friday's own pacing)",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
@@ -712,6 +713,16 @@ def _check_web(settings: Settings) -> Section:
     return sec
 
 
+def _check_call_queue(settings: Settings) -> Section:
+    """Friday's own call queue (friday/callqueue): read-only, no number is ever shown."""
+    from friday.callqueue.doctor import check
+
+    sec = Section("call_queue")
+    for status, msg in check(settings):
+        sec.add({"ok": OK, "warn": WARN, "fail": FAIL}[status], msg)
+    return sec
+
+
 # ----------------------------------------------------------------------------- driver
 async def run_sections(
     settings: Settings, *, offline: bool = False, only: str | None = None,
@@ -730,6 +741,7 @@ async def run_sections(
         "receptionist": lambda: check_receptionist(settings),
         "browser": lambda: _check_browser(settings),
         "web": lambda: _check_web(settings),
+        "call_queue": lambda: _check_call_queue(settings),
     }
     out: list[Section] = []
     for name in [only] if only else SECTIONS:

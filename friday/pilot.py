@@ -847,6 +847,9 @@ async def run_listen(
         from friday.pause import install_pause_guard
 
         install_pause_guard(c)  # `friday pause` also stops what a call starts (as in `serve`)
+        from friday.callqueue.queue import install_call_queue
+
+        install_call_queue(c)  # no-op unless FRIDAY_CALL_QUEUE_ENABLED
         app = create_app(c, background=True, fast_pin_hash=True)
         runtime = app.state.runtime
         c.bus.subscribe(FrontDoorCallFinished, on_finished)
