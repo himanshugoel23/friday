@@ -18,7 +18,12 @@ open(p, "w").write("\n".join(lines) + "\n")
 PY
 }
 ask_plain() { local v; read -r -p "$2: " v </dev/tty; [ -n "$v" ] && setv "$1" "$v"; return 0; }
-ask_hidden() { local v; read -r -s -p "$2: " v </dev/tty; echo; [ -n "$v" ] && setv "$1" "$v"; return 0; }
+ask_hidden() { # pasted secrets often carry spaces/newlines: strip all whitespace; show only the LENGTH
+  local v; read -r -s -p "$2: " v </dev/tty; echo
+  v="$(printf %s "$v" | tr -d '[:space:]')"
+  if [ -n "$v" ]; then setv "$1" "$v"; echo "   saved $1 (length ${#v})"; fi
+  return 0
+}
 
 echo "WhatsApp values (Enter keeps the stored value)"
 ask_plain  WHATSAPP_PHONE_NUMBER_ID "Phone number ID (not secret)"
@@ -31,6 +36,7 @@ systemctl restart friday
 HOST="$(grep -m1 -E '^FRIDAY_PUBLIC_BASE_URL=' "$ENVF" | cut -d= -f2- || true)"
 [ -n "$HOST" ] || HOST="https://$(curl -4 -fsS https://api.ipify.org | tr . -).sslip.io"
 echo
+echo "(An app secret is normally 32 characters; an access token is much longer, 150+.)"
 echo "Saved and restarted. In Meta: WhatsApp > Configuration > Webhook:"
 echo "  Callback URL: $HOST/webhooks/whatsapp"
 echo "  Verify token: the word you typed above"
