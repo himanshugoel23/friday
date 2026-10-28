@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "site": "swiggy",
+  "version": 1,
+  "updated": "2026-10-28",
+  "status": "unverified",
+  "status_note": "Written from general knowledge of the public site. NOT yet checked against the live pages from our server. Patterns are starting points; the drift check marks what it could verify.",
+  "domains": ["swiggy.com", "www.swiggy.com"],
+  "safety": {
+    "never_pay": true,
+    "never_submit_payment": true,
+    "stop_at_payment": true,
+    "orders_only_via_browser_connector": true,
+    "public_pages_only_for_search_and_probes": true,
+    "no_login_in_probes": true,
+    "user_pays_in_own_app": true
+  },
+  "search_flow": [
+    "1. Resolve the user's area (their own saved place or city); ask if unknown. Never guess a city.",
+    "2. Web search: '<dish> <area> swiggy' (OpenAI web_search via the WEB_LOOKUP port). Keep only results on swiggy.com.",
+    "3. For each cited swiggy.com page read: restaurant name, rating, cost for two or dish price, delivery time, offer text as printed.",
+    "4. Apply the user's price cap only where a dish price is actually shown; otherwise label the price 'not shown'.",
+    "5. Return options with the cited page as source and a deep link; if no restaurant page was cited, return the dish search link."
+  ],
+  "url_patterns": {
+    "home": "https://www.swiggy.com/",
+    "search": "https://www.swiggy.com/search?query={query}",
+    "city_home": "https://www.swiggy.com/city/{city_slug}",
+    "restaurant": "https://www.swiggy.com/restaurants/{restaurant_slug}"
+  },
+  "pattern_confidence": {"home": "high", "search": "medium", "city_home": "medium", "restaurant": "low"},
+  "city_slug_rule": "lower-case, spaces to hyphens; unknown -> use the search link and say the location must be set in the app",
+  "locations": {
+    "restaurant_name": "heading of the restaurant page; card title in search results",
+    "rating": "star badge with rating and count on the card (e.g. '4.2')",
+    "price": "listing cards show 'Rs <n> for two'; dish prices are on the menu page loaded by script",
+    "delivery_time": "minutes shown on the card (e.g. '25-30 mins'); exact only after the address is set",
+    "offers": "offer banner on the card/header (e.g. 'Items at Rs 99'); coupons at checkout",
+    "delivery_fee": "only visible at cart after an address is chosen"
+  },
+  "login_checkout": {
+    "login": "phone number + OTP (typed by the user in their own app; Friday never asks for it here)",
+    "location": "a delivery location must be set (cookie or account) before the search shows results",
+    "steps": ["search a dish or restaurant", "open restaurant", "add items", "open cart", "choose address", "payment page"],
+    "stop_rule": "Friday stops BEFORE the payment page. The user opens the deep link and pays in their own app. No payment is ever submitted by Friday."
+  },
+  "quirks": [
+    "The search page needs a location; without one it may show a location prompt instead of results.",
+    "Menu item prices are script-loaded; web search snippets often show 'for two' costs instead of dish prices.",
+    "Prices, offers and delivery times differ by outlet, address and time; results can be stale.",
+    "Taxes, packing and delivery fees are added at checkout."
+  ],
+  "anti_bot": {
+    "behaviour": "Public pages may answer 403/429 or show a bot challenge to non-browser clients, especially from cloud data-centre addresses.",
+    "our_response": "Never solve or bypass a challenge. Probes and lookups report 'unverified' and keep the last good knowledge version.",
+    "markers": ["captcha", "just a moment", "access denied", "verify you are human", "unusual traffic"]
+  },
+  "search_query_templates": [
+    "{dish} {area} swiggy",
+    "swiggy {dish} near {area} delivery price"
+  ],
+  "probes": [
+    {"id": "home", "pattern": "home", "url": "https://www.swiggy.com/", "expect_status": [200], "expect_markers": ["swiggy"]},
+    {"id": "city_delhi", "pattern": "city_home", "vars": {"city_slug": "delhi"}, "url": "https://www.swiggy.com/city/delhi", "expect_status": [200], "expect_markers": ["swiggy"]}
+  ],
+  "observed": {}
+}

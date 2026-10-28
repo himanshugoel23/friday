@@ -703,6 +703,22 @@ class Settings(BaseSettings):
     approach_web_timeout_s: float = 25.0  # hard cap for a web lookup incl. its single retry
     approach_web_cache_ttl_s: float = 300.0
     approach_web_model: str | None = None  # None: openai_default_purpose_model
+    # query understanding + A2A agent team (docs/AGENT_TEAM_DESIGN.md). ALL OFF. Chat wording PENDING.
+    query_understanding_enabled: bool = False  # FRIDAY_QUERY_UNDERSTANDING_ENABLED: rewrite TEXT messages
+    query_understanding_timeout_s: float = 2.5  # hard deadline of the model step (rules/fuzzy always run)
+    agent_team_enabled: bool = False  # FRIDAY_AGENT_TEAM_ENABLED: PM + specialists over A2A
+    a2a_http_enabled: bool = False  # FRIDAY_A2A_HTTP_ENABLED: serve agent cards + JSON-RPC over HTTP
+    a2a_http_token: str | None = None  # FRIDAY_A2A_HTTP_TOKEN (name only): required for HTTP calls
+    team_big_goal_threshold: int = 3  # goals >= this -> lead PM + sub-PMs
+    team_max_sub_pms: int = 4
+    team_budget_steps: int = 30  # A2A requests per user task, whole tree
+    team_budget_seconds: float = 40.0
+    team_budget_cost_inr: float = 8.0  # ESTIMATE, not measured
+    team_cost_per_search_inr: float = 1.0  # ESTIMATE per web search
+    team_knowledge_dir: str = "var/team_knowledge"  # runtime knowledge versions (var/ is not committed)
+    team_drift_enabled: bool = False  # FRIDAY_TEAM_DRIFT_ENABLED: scheduled public-page probes
+    team_drift_interval_h: float = 24.0
+    team_probe_min_interval_s: float = 6.0  # per domain
     parity_inr_only: bool = False  # FRIDAY_PARITY_INR_ONLY: refuse USD / US-card-only routes
     parity_escalation: bool = False  # FRIDAY_PARITY_ESCALATION: missed reminder -> own-number call
     # ------------------------------------------------------------------ private browser

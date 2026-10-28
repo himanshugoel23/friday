@@ -1,0 +1,30 @@
+{
+  "_note": "Shared, user-independent lingo. Whole-word, case-insensitive. Only safe expansions: no numbers, no names. User-specific words live in the per-user dictionary, not here.",
+  "abbreviations": {
+    "pls": "please", "plz": "please", "plzz": "please", "pleez": "please",
+    "tmrw": "tomorrow", "tmr": "tomorrow", "tmrrw": "tomorrow", "2moro": "tomorrow",
+    "rn": "right now", "asap": "as soon as possible",
+    "u": "you", "ur": "your", "bcoz": "because", "bcz": "because", "coz": "because",
+    "abt": "about", "msg": "message", "nxt": "next", "thx": "thanks", "tnx": "thanks",
+    "nrby": "nearby", "resto": "restaurant", "nonveg": "non-veg", "dlvry": "delivery", "deliv": "delivery",
+    "hw": "how", "wht": "what", "wat": "what", "wen": "when", "whr": "where",
+    "b4": "before", "gr8": "great"
+  },
+  "common_words": [
+    "near", "nearby", "under", "below", "above", "over", "price", "prices", "cheap", "cheaper", "cheapest", "best", "good", "better",
+    "order", "orders", "food", "pizza", "burger", "home", "house", "office", "delivery", "restaurant", "restaurants", "online",
+    "please", "thanks", "thank", "find", "show", "give", "need", "want", "like", "with", "without", "from", "that", "this", "what",
+    "where", "when", "which", "while", "will", "would", "could", "should", "have", "need", "tell", "know", "check", "look", "there",
+    "here", "today", "tomorrow", "tonight", "morning", "evening", "night", "afternoon", "week", "weekend", "month", "price",
+    "area", "place", "places", "shop", "shops", "store", "stores", "market", "road", "street", "colony", "sector", "town",
+    "rating", "ratings", "review", "reviews", "offer", "offers", "discount", "menu", "table", "book", "booking", "ticket",
+    "kitna", "kitne", "kitni", "mujhe", "chahiye", "dikhao", "batao", "bataiye", "paas", "mein", "abhi", "kabhi", "parso", "narso",
+    "khana", "wala", "wali", "wale", "aur", "phir", "karo", "karna", "karne", "kijiye", "hain", "nahi", "nahin", "theek", "achha",
+    "accha", "sasta", "saste", "sabse", "ghar", "ghar", "dukaan", "bazaar", "bahut", "thoda", "zyada", "kuch", "koi", "wahan",
+    "yahan", "mera", "meri", "mere", "tera", "teri", "apna", "apni", "apne", "unka", "uska", "isme", "usme", "lekin", "agar",
+    "toh", "bhi", "kyun", "kyunki", "matlab", "basically", "actually", "butter", "chicken", "paneer", "biryani", "dosa", "thali",
+    "momos", "naan", "roti", "dal", "chole", "rolls", "noodles", "pasta", "sandwich", "cake", "coffee", "chai", "lunch", "dinner",
+    "breakfast", "under", "total", "plus", "more", "less", "same", "other", "another", "first", "last", "next", "after", "before",
+    "within", "around", "inside", "outside", "side", "left", "right", "name", "phone", "number", "call", "calls", "send", "bhejo"
+  ]
+}

@@ -216,6 +216,13 @@ class InboundPipeline:
             self.planner = build_planner(self)
         except Exception:  # noqa: BLE001 - never stop the app from booting
             log.exception("approach planner failed to build; continuing without it")
+        self.team: Any = None  # query understanding + A2A agent team (friday/team): None unless a switch is on
+        try:
+            from friday.team.wiring import build_gateway
+
+            self.team = build_gateway(self)
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("agent team failed to build; continuing without it")
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
@@ -793,6 +800,12 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
+        if self.team is not None:  # query understanding (+ PM and specialists over A2A) before the planner
+            await self.team.route(user, msg, self._planner_or_after)
+            return
+        await self._planner_or_after(user, msg)
+
+    async def _planner_or_after(self, user: User, msg: InboundMessage) -> None:
         if self.planner is not None:  # picks ONE approach (answer / web / app / call / ask) first
             await self.planner.route(user, msg, self._after_planner)
             return

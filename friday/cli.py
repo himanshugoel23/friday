@@ -535,6 +535,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.speech.cli import register as register_speech
 
     register_speech(sub)  # `friday speech try|eval` (docs/SPEECH_UNDERSTANDING.md)
+    from friday.team.cli import register as register_team
+
+    register_team(sub)  # `friday team knowledge|review|approve|reject|rollback|drift-run` (docs/AGENT_TEAM_DESIGN.md)
     from friday.docunderstand.cli import register as register_docs
 
     register_docs(sub)  # `friday docs eval <folder>` (docs/DOC_SAMPLE_SET.md)
@@ -601,6 +604,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.docunderstand.cli import run_command as run_docs_command
 
         return run_docs_command(args)
+    if args.cmd == "team":  # local knowledge files; only `drift-run` touches the network (public pages)
+        from friday.team.cli import run_command as run_team_command
+
+        return run_team_command(args)
     if args.cmd == "speech":  # offline unless --live; never reads .env itself
         from friday.speech.cli import run_command as run_speech_command
 
