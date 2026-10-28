@@ -160,6 +160,13 @@ def create_app(
         mount_browser(app, runtime.pipeline.browser)
         app.state.browser = runtime.pipeline.browser
 
+    # ------------------------------------------------------------------ A2A over HTTP (OFF; needs a bearer token)
+    team = getattr(getattr(runtime.pipeline, "team", None), "team", None)
+    if team is not None and c.settings.a2a_http_enabled:
+        from friday.a2a.http import build_router as a2a_router
+
+        app.include_router(a2a_router(team.servers, c.settings.a2a_http_token))
+
     # ------------------------------------------------------------------ Google connector
     from friday.api.google import google_router
 

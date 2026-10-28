@@ -137,6 +137,8 @@ class Runtime:
             if self.pipeline.features is not None:  # trip nudges + refund reminders
                 task = asyncio.create_task(self.features_loop(), name="friday-features")
                 self._tasks.append(task)
+            if s.team_drift_enabled:  # site-knowledge drift checks (friday/team/drift.py), low frequency
+                self._tasks.append(asyncio.create_task(self.team_drift_loop(), name="friday-team-drift"))
             consumer = self.pipeline.consumer()
             if consumer is not None:  # run_due / recover_stale / purge_expired / calendar sync
                 self._tasks.append(asyncio.create_task(consumer.loop(), name="friday-consumer"))
@@ -192,6 +194,24 @@ class Runtime:
             except Exception:  # noqa: BLE001
                 log.exception("features tick failed")
             await asyncio.sleep(TICK_S)
+
+    async def team_drift_loop(self) -> None:
+        """Probe the public pages of each site agent's knowledge (robots.txt respected, rate limited, no login);
+        record drift reports and proposed versions. Does real work at most once per FRIDAY_TEAM_DRIFT_INTERVAL_H."""
+        from pathlib import Path
+
+        from friday.team.drift import DriftJob, HttpxFetcher
+        from friday.team.knowledge import KnowledgeStore
+
+        s = self.c.settings
+        job = DriftJob(KnowledgeStore(Path(s.team_knowledge_dir)), HttpxFetcher(), min_interval_s=s.team_probe_min_interval_s,
+                       interval_h=s.team_drift_interval_h)
+        while True:
+            try:
+                await job.tick()
+            except Exception:  # noqa: BLE001
+                log.exception("team drift tick failed")
+            await asyncio.sleep(1800)
 
     async def retention_loop(self) -> None:
         """SECURITY-32: ``repos.retention.run`` once per IST day (exactly once across

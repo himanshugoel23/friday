@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "site": "zomato",
+  "version": 1,
+  "updated": "2026-10-28",
+  "status": "unverified",
+  "status_note": "Written from general knowledge of the public site. NOT yet checked against the live pages from our server. Every pattern below is a starting point; the scheduled drift check marks what it could verify.",
+  "domains": ["zomato.com", "www.zomato.com"],
+  "safety": {
+    "never_pay": true,
+    "never_submit_payment": true,
+    "stop_at_payment": true,
+    "orders_only_via_browser_connector": true,
+    "public_pages_only_for_search_and_probes": true,
+    "no_login_in_probes": true,
+    "user_pays_in_own_app": true
+  },
+  "search_flow": [
+    "1. Resolve the user's area (their own saved place or city); ask if unknown. Never guess a city.",
+    "2. Web search: '<dish> restaurants <area> zomato' (OpenAI web_search via the WEB_LOOKUP port). Keep only results on zomato.com.",
+    "3. For each cited zomato.com page read: restaurant name, rating, cost for two or dish price, delivery time, offer text as printed.",
+    "4. Apply the user's price cap only where a dish price is actually shown; otherwise label the price 'not shown'.",
+    "5. Return options with the cited page as source and a deep link; if no restaurant page was cited, return the city delivery page as a search link."
+  ],
+  "url_patterns": {
+    "home": "https://www.zomato.com/",
+    "city_home": "https://www.zomato.com/{city_slug}",
+    "city_delivery": "https://www.zomato.com/{city_slug}/delivery",
+    "restaurant": "https://www.zomato.com/{city_slug}/{restaurant_slug}",
+    "restaurant_order": "https://www.zomato.com/{city_slug}/{restaurant_slug}/order",
+    "dish_listing": "https://www.zomato.com/{city_slug}/delivery/dish-{dish_slug}"
+  },
+  "pattern_confidence": {
+    "home": "high", "city_home": "medium", "city_delivery": "medium",
+    "restaurant": "medium", "restaurant_order": "low", "dish_listing": "low"
+  },
+  "city_slug_rule": "lower-case, spaces to hyphens; Delhi NCR towns often share one slug ('ncr'); unknown -> use city_home search link and say so",
+  "locations": {
+    "restaurant_name": "heading of the restaurant page; also the name field of the schema.org Restaurant JSON-LD block if present",
+    "rating": "rating badge near the name; aggregateRating.ratingValue in JSON-LD if present",
+    "price": "listing cards show 'cost for two'; item prices are on the Order Online menu tab and are loaded by script (often NOT in the static page or in search snippets)",
+    "delivery_time": "minutes range on delivery listing cards, e.g. '30-35 min'; exact time only inside the app after the address is set",
+    "offers": "offer strip on the card or restaurant header, e.g. '50% OFF up to Rs 100'; bank/coupon offers appear at checkout",
+    "delivery_fee": "only visible at cart/checkout after an address is chosen"
+  },
+  "login_checkout": {
+    "login": "phone number + OTP (the user types it in their own app; Friday never asks for it here)",
+    "location": "delivery address must be set before prices and delivery times are exact",
+    "steps": ["search or open restaurant", "add items", "open cart", "choose address", "payment page"],
+    "stop_rule": "Friday stops BEFORE the payment page. The user opens the deep link and pays in their own app. No payment is ever submitted by Friday."
+  },
+  "quirks": [
+    "Menu item prices are script-loaded; web search snippets often show 'cost for two' instead of the dish price.",
+    "The same dish can cost more in the app than on dine-in menus; taxes, packing and delivery fees are added at checkout.",
+    "Prices, offers and delivery times differ by outlet, address and time of day; search results can be hours or days old.",
+    "A restaurant shown on the web may be closed or out of delivery range for the user's address."
+  ],
+  "anti_bot": {
+    "behaviour": "Public pages may answer 403/429 or show a bot challenge to non-browser clients, especially from cloud data-centre addresses.",
+    "our_response": "Never solve or bypass a challenge. Probes and lookups report 'unverified' and keep the last good knowledge version.",
+    "markers": ["captcha", "just a moment", "access denied", "verify you are human", "unusual traffic"]
+  },
+  "search_query_templates": [
+    "{dish} restaurants near {area} zomato",
+    "zomato {dish} {area} delivery price"
+  ],
+  "probes": [
+    {"id": "home", "pattern": "home", "url": "https://www.zomato.com/", "expect_status": [200], "expect_markers": ["zomato"]},
+    {"id": "city_delivery", "pattern": "city_delivery", "vars": {"city_slug": "ncr"}, "url": "https://www.zomato.com/ncr/delivery", "expect_status": [200], "expect_markers": ["zomato"]}
+  ],
+  "observed": {}
+}

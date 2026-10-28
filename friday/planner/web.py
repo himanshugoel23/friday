@@ -29,9 +29,11 @@ class WebItem(BaseModel):
     price_inr: float | None = None
     store: str | None = None
     url: str | None = None
+    rating: str | None = None  # as printed, e.g. "4.2" (food and shopping agents; optional)
+    delivery_time: str | None = None  # as printed, e.g. "30-35 min"
+    offer: str | None = None  # as printed
     # optional product facts (shopping assistant); None when the page did not show them
     pack_text: str | None = None  # "5 kg", "2 x 500 g"
-    rating: float | None = None  # out of 5, as printed
     rating_count: int | None = None
     ingredients: str | None = None  # as printed on the page
     image_url: str | None = None  # kept only if the provider cited it (see parse_openai_response)
@@ -49,7 +51,7 @@ class RawWebResult(BaseModel):
 
 
 class WebSearchPort(Protocol):
-    async def search(self, query: str, *, timeout_s: float, instructions: str | None = None) -> RawWebResult: ...
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult: ...
 
 
 class UnavailableWebSearch:
@@ -57,7 +59,7 @@ class UnavailableWebSearch:
 
     permanent_failure = True
 
-    async def search(self, query: str, *, timeout_s: float, instructions: str | None = None) -> RawWebResult:  # noqa: ARG002
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult:  # noqa: ARG002
         raise ProviderError("web_search", "no web search provider configured (needs OPENAI_API_KEY)")
 
 
@@ -69,7 +71,7 @@ class FakeWebSearch:
         self.script = list(script)
         self.calls: list[str] = []
 
-    async def search(self, query: str, *, timeout_s: float, instructions: str | None = None) -> RawWebResult:  # noqa: ARG002
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult:  # noqa: ARG002
         self.calls.append(query)
         item = self.script[min(len(self.calls) - 1, len(self.script) - 1)]
         if isinstance(item, Exception):
@@ -119,7 +121,7 @@ def parse_openai_response(resp: Any) -> RawWebResult:
             for it in data.get("items") or []:
                 url = it.get("url")
                 img = it.get("image_url")
-                rating = it.get("rating")
+                count = it.get("rating_count")
                 count = it.get("rating_count")
                 items.append(
                     WebItem(
@@ -128,8 +130,10 @@ def parse_openai_response(resp: Any) -> RawWebResult:
                         price_inr=(float(it["price_inr"]) if isinstance(it.get("price_inr"), (int, float)) else None),
                         store=(str(it["store"])[:40] if it.get("store") else None),
                         url=url if url in seen else None,  # a url the provider did not cite is dropped
+                        rating=(str(it["rating"])[:12] if it.get("rating") else None),
+                        delivery_time=(str(it["delivery_time"])[:24] if it.get("delivery_time") else None),
+                        offer=(str(it["offer"])[:80] if it.get("offer") else None),
                         pack_text=(str(it["pack_text"])[:40] if it.get("pack_text") else None),
-                        rating=(float(rating) if isinstance(rating, (int, float)) and 0 < rating <= 5 else None),
                         rating_count=(int(count) if isinstance(count, int) and count >= 0 else None),
                         ingredients=(str(it["ingredients"])[:200] if it.get("ingredients") else None),
                         image_url=img if isinstance(img, str) and img in seen else None,  # only if cited
@@ -147,11 +151,11 @@ class OpenAIWebSearch:
         self.model, self.context_size = model, context_size
         self._client = client or openai.AsyncOpenAI(api_key=api_key, max_retries=0)
 
-    async def search(self, query: str, *, timeout_s: float, instructions: str | None = None) -> RawWebResult:
+    async def search(self, query: str, *, timeout_s: float, hint: str | None = None) -> RawWebResult:
         try:
             resp = await self._client.responses.create(
                 model=self.model,
-                instructions=instructions or _INSTRUCTIONS,
+                instructions=_INSTRUCTIONS + (" " + hint if hint else ""),
                 input=f"<query>{query}</query>",
                 tools=[{
                     "type": "web_search",
