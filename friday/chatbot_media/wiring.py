@@ -104,7 +104,7 @@ def build_docs(c: Container, pipeline: Any, *, vision: Any = None) -> Any:
         confirm_below=s.docs_confirm_below, pending_days=s.docs_pending_days,
     )  # fmt: skip
     service = DocumentService(
-        DocumentPipeline(vision or build_vision(s.docs_vision_provider), c.clock, cache, limits),
+        DocumentPipeline(vision or build_vision(s.docs_vision_provider, s), c.clock, cache, limits),
         store,
         c.clock,
         retention_days=s.docs_retention_days,

@@ -110,6 +110,19 @@ class ProviderStub:
         raise VisionUnavailable(f"vision provider {self.provider!r} is not implemented yet")
 
 
-def build_vision(provider: str) -> VisionPort:
+def build_vision(provider: str, settings: Any | None = None) -> VisionPort:
+    """``openai`` reuses the brain's OPENAI_API_KEY; other named providers stay stubs."""
     name = (provider or "none").strip().lower()
-    return UnavailableVision() if name in ("", "none", "off") else ProviderStub(name)
+    if name in ("", "none", "off"):
+        return UnavailableVision()
+    if name == "openai":
+        from friday.docunderstand.openai_vision import DEFAULT_MODEL, OpenAIVision
+
+        key = getattr(settings, "openai_api_key", None)
+        return OpenAIVision(
+            api_key=key.get_secret_value() if key else None,
+            model=getattr(settings, "docs_vision_model", None) or DEFAULT_MODEL,
+            timeout_s=getattr(settings, "docs_vision_timeout_s", 45.0),
+            max_bytes=getattr(settings, "docs_max_bytes", 8 * 1024 * 1024),
+        )
+    return ProviderStub(name)

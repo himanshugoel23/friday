@@ -27,7 +27,7 @@ Before: trips, refunds and family Drive were reachable from no chat message, but
 | Web chat, consent, replies, buttons, voice notes, location | **REAL** (LLM, speech, Places are the real providers if their keys are set). Needs ffmpeg for iPhone voice notes (the script installs it) | `hi`, then answer the questions |
 | Calls started from chat | **REAL** Vobiz call, but forced to the tester's OWN phone by `GuardedTelephony`; a real business is never dialled | `Mere liye <salon> se haircut ka price pucho` -> approve -> your phone rings |
 | Proof / evidence (`FRIDAY_PROOF_ENABLED`) | **REAL** in the task engine: the "done" message after a call is composed by the done-gate and evidence is stored. Wording **PENDING** founder approval | finish any call above; look at the completion message |
-| Document reading (`FRIDAY_DOCS_ENABLED`) | **WIRED, reading NOT available**: no vision provider is implemented (`FRIDAY_DOCS_VISION_PROVIDER=none`), so a photo/PDF gets "cannot read files now" and never reaches the brain. Needs the founder's provider choice | attach a photo with the paperclip |
+| Document reading (`FRIDAY_DOCS_ENABLED`, `FRIDAY_DOCS_VISION_PROVIDER=openai`) | **REAL once the script is run** (the script sets provider `openai`; reuses `OPENAI_API_KEY`; model `FRIDAY_DOCS_VISION_MODEL`, default `gpt-5.4-mini`). Images as base64, PDFs as OpenAI file input; any error/timeout/non-JSON -> "could not read". **Tested only with a fake HTTP transport, never against the real API; accuracy unmeasured** (see `docs/DOC_SAMPLE_SET.md`, `friday docs eval <folder>`). Without the key the doctor says `missing` and files get "cannot read files now" | attach a photo with the paperclip |
 | Trip timeline (`FRIDAY_TRIPS_ENABLED`) | **WIRED (new)**. Because document reading is unavailable, a typed flight stands in. Flight-status watch: **NOT wired** (no provider chosen; the watch simply does not run). Lounge/perks: off. Hotel-call proposal creates a real task that rings YOUR phone (spoken lines pending) | `add flight EX101 DEL BOM 2026-11-14 18:30 arr 2026-11-14 20:40`, then `meri trip`, `kab nikalna hai`, `trip mute`, `pickup: <address>`; nudges arrive on their own (tick 60 s) |
 | Refund tracking (`FRIDAY_REFUNDS_ENABLED`) | **WIRED (new)**: cases, evidence, reminders (tick 60 s, 10:00 IST, 22:00-08:00 quiet, 3 per week cap), buttons | `Exampleair ka refund nahi aaya 4500`, `mera refund kahan hai`, `Exampleair refund aa gaya 4500`, `refund mute` |
 | Refund chase calls (`FRIDAY_REFUND_CHASE_CALLS`) | **OFF on purpose**: call lines are PENDING, the port refuses (`LinesPending`) until a reviewed commit flips `CALL_LINE_STATUS` | -- |
@@ -52,7 +52,7 @@ Before: trips, refunds and family Drive were reachable from no chat message, but
 
 ## Still open before a confident test
 
-1. Vision provider for documents (founder decision); then re-test photo -> "sahi hai" -> trip.
+1. Run the real OpenAI document reader on the founder's sample set (`friday docs eval`), then re-test photo -> "sahi hai" -> trip.
 2. Wording and spoken lines of trips, refunds, urgent, receptionist are PENDING approval (hear-before-change).
 3. Google Cloud OAuth app (Drive) and the Drive "bytes gap" decision.
 4. Postgres, real Vobiz, real phones: never exercised.

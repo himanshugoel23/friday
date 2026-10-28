@@ -1333,3 +1333,6 @@ Founder wants to test the REAL flow in the Web channel. Audit found trips, refun
 
 ## 2026-10-28: founder decision: vision provider = OpenAI (GPT vision)
 Founder said yes to using OpenAI (existing key) as the document/photo vision provider (FRIDAY_DOCS_VISION_PROVIDER=openai). Builder to implement VisionPort.read (images + PDFs), fail closed, sample-doc test set with fakes, no real-network tests. Every extracted field still needs user confirmation. Documents go to OpenAI to be read (privacy note); family docs still only in the family's Drive.
+
+## 2026-10-28: OpenAI vision reader built (branch worktree-agent-af864197b030a9337, not pushed)
+friday/docunderstand/openai_vision.py behind VisionPort (provider openai, key OPENAI_API_KEY, model FRIDAY_DOCS_VISION_MODEL default gpt-5.4-mini). Images base64, PDFs as OpenAI file input, fail closed. enable-web-test.sh sets the provider, doctor shows provider/model/key set-missing, `friday docs eval <folder>` + docs/DOC_SAMPLE_SET.md. Fake HTTP transport tests only; never run against the real API. Next: founder photographs the sample set and runs docs eval.

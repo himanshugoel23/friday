@@ -531,6 +531,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.speech.cli import register as register_speech
 
     register_speech(sub)  # `friday speech try|eval` (docs/SPEECH_UNDERSTANDING.md)
+    from friday.docunderstand.cli import register as register_docs
+
+    register_docs(sub)  # `friday docs eval <folder>` (docs/DOC_SAMPLE_SET.md)
     sc = sub.add_parser("scout", help="find best vendors (live Google if key, else fixtures)")
     sc.add_argument("--category", required=True)
     sc.add_argument("--area", required=True)
@@ -590,6 +593,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.qa.cli import run_command as run_qa_command
 
         return run_qa_command(args)
+    if args.cmd == "docs":  # reads local files only; real API only if the provider is openai
+        from friday.docunderstand.cli import run_command as run_docs_command
+
+        return run_docs_command(args)
     if args.cmd == "speech":  # offline unless --live; never reads .env itself
         from friday.speech.cli import run_command as run_speech_command
 

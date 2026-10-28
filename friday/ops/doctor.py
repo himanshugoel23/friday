@@ -436,6 +436,15 @@ def check_switches(settings: Settings) -> Section:
         ("FRIDAY_DEVANAGARI_INPUT", settings.devanagari_input),
     ):
         s.add(OK, f"{name}={'on' if on else 'off'}")
+    prov = (settings.docs_vision_provider or "none").strip().lower()
+    has_key = "set" if settings.openai_api_key else "missing"
+    line = f"document reading: FRIDAY_DOCS_VISION_PROVIDER={prov}"
+    if prov == "openai":
+        line += f", model={settings.docs_vision_model}, OPENAI_API_KEY={has_key}"
+        s.add(OK if has_key == "set" else WARN, line)
+    else:
+        note = " (no reader: files get 'cannot read now')"
+        s.add(WARN if settings.docs_enabled else OK, line + note)
     if settings.trips_enabled:
         s.add(
             WARN,

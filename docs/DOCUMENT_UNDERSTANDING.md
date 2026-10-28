@@ -54,9 +54,16 @@ is never touched, only our pointer goes. `schema.sql`, `rls.sql` and doctor `EXP
 `FRIDAY_DOCS_ENABLED`, `FRIDAY_DOCS_ENABLED_USERS` (ids or phones), `FRIDAY_DOCS_VISION_PROVIDER`, `FRIDAY_DOCS_MAX_BYTES`,
 `FRIDAY_DOCS_MAX_PAGES`, `FRIDAY_DOCS_DAILY_CAP`, `FRIDAY_DOCS_CONFIRM_BELOW` (0.75), `FRIDAY_DOCS_PENDING_DAYS`, `FRIDAY_DOCS_RETENTION_DAYS`.
 
+## OpenAI reader (`FRIDAY_DOCS_VISION_PROVIDER=openai`)
+`friday/docunderstand/openai_vision.py`: founder chose OpenAI with the existing `OPENAI_API_KEY`. Model `FRIDAY_DOCS_VISION_MODEL`
+(default `gpt-5.4-mini`, the brain's light model), `FRIDAY_DOCS_VISION_TIMEOUT_S` (45, one attempt, no retry). Image -> base64 `image_url`
+part; PDF -> Chat Completions `file` part (no PDF library added); JSON-object reply only. Oversize (`FRIDAY_DOCS_MAX_BYTES`), HTTP error,
+timeout, empty or non-JSON reply all fail closed ("failed"; a PDF error says it cannot read this PDF now). Logs: type, size, ms only.
+`friday docs eval <folder>` reads local files and prints field results, storing nothing (`docs/DOC_SAMPLE_SET.md`). Tests use a fake HTTP transport.
+
 ## Not done / unverified
-- No real provider: founder picks one (Claude, Gemini, other); then implement `VisionPort.read` (images and PDFs) and measure accuracy on
-  real Indian ticket layouts, low light, scanned PDFs, Devanagari bills. Nothing was run against a real model or real WhatsApp media.
+- The OpenAI reader has never run against the real API; measure accuracy on real Indian ticket layouts, low light, scanned PDFs,
+  Devanagari bills. Claude/Gemini providers remain stubs. Nothing was run against real WhatsApp media.
 - No separate PDF text-extraction port (no PDF library in the project); PDFs go to the vision provider, page count is a regex.
 - Buttons "add to trip" / "keep in vault" arrive with items F and E. The Drive pointer columns exist but nothing fills them yet.
 - A user who sends a menu/quote photo while the switch is on gets the "generic" reading instead of the quotes flow; decide scope
