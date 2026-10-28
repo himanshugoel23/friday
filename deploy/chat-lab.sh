@@ -7,6 +7,7 @@
 #   tmux new -s lab
 #   sudo bash /opt/friday/deploy/chat-lab.sh                       # prints the link with the token
 #   sudo bash /opt/friday/deploy/chat-lab.sh --ttl-hours 2         # shorter-lived token
+#   sudo bash /opt/friday/deploy/chat-lab.sh --use-stored-key      # reuse the OpenAI key already on the server (never printed); real replies, costs money
 #   sudo bash /opt/friday/deploy/chat-lab.sh --with-model          # asks for the OpenAI key (hidden); real replies, costs money
 #   sudo bash /opt/friday/deploy/chat-lab.sh --public-url https://YOUR-HOST
 # Detach with ctrl-b d; stop with ctrl-c inside the session.
@@ -33,7 +34,16 @@ as_friday() {
 # to disk, never in git) so the page's "real model" switch works; replies then feel real and COST money.
 NEWARGS=()
 for a in "$@"; do
-  if [ "$a" = "--with-model" ]; then
+  if [ "$a" = "--use-stored-key" ]; then
+    # Reuse the OpenAI key already stored for the Friday service. The shell (running as root) copies it into
+    # THIS process's environment only: it is never printed, never written elsewhere, never in git or chat.
+    ENVF="$APP_DIR/.env"
+    [ -r "$ENVF" ] || { echo "No readable $ENVF"; exit 1; }
+    OPENAI_API_KEY="$(grep -m1 -E '^OPENAI_API_KEY=' "$ENVF" | cut -d= -f2- | tr -d '[:space:]"'"'"'')"
+    [ -n "$OPENAI_API_KEY" ] || { echo "OPENAI_API_KEY is not set in $ENVF"; exit 1; }
+    export OPENAI_API_KEY FRIDAY_LLM_PROVIDER=openai
+    echo "   using the stored OpenAI key (length ${#OPENAI_API_KEY}); turn on 'real model' in the page's switches (?dev=1)."
+  elif [ "$a" = "--with-model" ]; then
     read -r -s -p "OpenAI API key (hidden; only for this lab session): " OPENAI_API_KEY </dev/tty; echo
     OPENAI_API_KEY="$(printf %s "$OPENAI_API_KEY" | tr -d '[:space:]')"
     export OPENAI_API_KEY FRIDAY_LLM_PROVIDER=openai
