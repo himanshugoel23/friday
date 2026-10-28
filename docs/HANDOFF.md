@@ -1322,3 +1322,6 @@ A first run stopped half-way and left tables behind while the version stayed 001
 
 ## 2026-10-28: self-updating server (docs/AUTOUPDATE.md)
 DigitalOcean connector works (list/reboot/resize/snapshot only; no exec). SSH from sandbox blocked. Built: autoupdate timer + read-only /ops-status/<token>. Founder must paste ONE line once (install-autoupdate.sh). Remote run-any-script mechanism deliberately not built (needs founder's explicit OK). Droplet is actually 1 GB / $6; upgrade to 2 GB later (founder agreed).
+
+## 2026-10-28: Friday Web channel merged (friday/webchat, docs/WEB_CHANNEL.md)
+Built by a builder agent, merged with the autoupdate work; full suite green in 3 chunks (2204 + 2948 + 2733). Off unless FRIDAY_WEB_CHANNEL_ENABLED=true and FRIDAY_PROFILE=pilot. Needs on the server: FRIDAY_INVITE_ONLY=false, FRIDAY_VENDOR_CALL_REDIRECT_TO = an allow-listed number, ffmpeg for iPhone voice notes. Founder asked about real Zomato ordering: not real (fake-site tested only; recommend official Swiggy/Zomato MCP route first). Google Places key added by founder (verify via ops-status after next push).
