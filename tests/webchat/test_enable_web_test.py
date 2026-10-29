@@ -107,3 +107,13 @@ def test_off_mode_switches_everything_off_and_keeps_keys_and_profile(tmp_path):
     assert f"OPENAI_API_KEY={SECRET}" in env.splitlines() and "FRIDAY_PROFILE=pilot" in env.splitlines()
     assert "web-https --off" in (tmp_path / "calls.log").read_text()
     assert SECRET not in p.stdout + p.stderr
+
+
+def test_a2a_http_is_on_with_a_generated_token_that_is_never_printed_and_kept_on_rerun(tmp_path):
+    p, env1 = _run(tmp_path, BASE)
+    assert p.returncode == 0, p.stderr
+    assert "FRIDAY_A2A_HTTP_ENABLED=true" in env1
+    token = next(line.split("=", 1)[1] for line in env1.splitlines() if line.startswith("FRIDAY_A2A_HTTP_TOKEN="))
+    assert len(token) >= 32 and token not in p.stdout and token not in p.stderr
+    p2, env2 = _run(tmp_path, env1)
+    assert f"FRIDAY_A2A_HTTP_TOKEN={token}" in env2  # a rerun keeps the same token

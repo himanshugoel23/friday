@@ -78,13 +78,14 @@ FEATURES_ON = [
     "FRIDAY_STYLE_LAYER_ENABLED",  # Instinct-style replies (docs/STYLE_GUIDE.md); wording PENDING founder approval
     # founder 2026-10-29 'switch everything on' (tester-only server; memory guard refuses browser sessions when RAM is low):
     "FRIDAY_CALL_QUEUE_ENABLED", "FRIDAY_SITE_MCP_ENABLED", "FRIDAY_SITE_MCP_PROBE_ENABLED",
+    "FRIDAY_A2A_HTTP_ENABLED",  # agents over HTTP at /a2a/<agent>; answers 403 without FRIDAY_A2A_HTTP_TOKEN (generated below, never printed)
     "FRIDAY_BROWSER_AGENT_ENABLED", "FRIDAY_JOB_APPLY_ENABLED",  # job apply still needs the user's own 'job apply on' opt-in in chat; preview mode by default
 ]
 # stay off in both modes (calls with unapproved lines / not wired to the live path / sharing)
 ALWAYS_OFF = [
     "FRIDAY_REFUND_CHASE_CALLS", "FRIDAY_FAMILY_DRIVE_SHARING_ENABLED", "FRIDAY_PARITY_DIGEST",
     "FRIDAY_PARITY_NUDGES", "FRIDAY_PARITY_ESCALATION",
-    "FRIDAY_A2A_HTTP_ENABLED", "FRIDAY_TEAM_DRIFT_ENABLED",  # HTTP exposure and live site probes: switched on by hand only
+    "FRIDAY_TEAM_DRIFT_ENABLED",  # live site probes (duplicates SITE_MCP_PROBE): switched on by hand only
 ]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]
 
@@ -104,6 +105,10 @@ if mode == "on":
             put(k, "0")
         for k in FEATURES_ON:
             put(k, "true")
+        if not get("FRIDAY_A2A_HTTP_TOKEN"):
+            import secrets
+
+            put("FRIDAY_A2A_HTTP_TOKEN", secrets.token_urlsafe(32))  # bearer token for /a2a; read it from .env yourself if you want to test
         put("FRIDAY_OPS_CALL_REVIEW_ENABLED", "true")  # test-call transcripts at /ops-status/<token>/calls (docs/CALL_REVIEW.md)
         put("FRIDAY_OPS_BENCH_ENABLED", "true")  # last parity bench report at /ops-status/<token>/bench
         put("FRIDAY_DOCS_VISION_PROVIDER", "openai")  # reads photos/PDFs with the existing OPENAI_API_KEY
@@ -139,7 +144,7 @@ for k in ["FRIDAY_WEB_CHANNEL_ENABLED", "FRIDAY_INVITE_ONLY", "FRIDAY_CHATBOT_ON
 print(f"  {'FRIDAY_PROFILE':<40} {'pilot' if get('FRIDAY_PROFILE') == 'pilot' else 'NOT pilot'}")
 print(f"  {'FRIDAY_DOCS_VISION_PROVIDER':<40} {get('FRIDAY_DOCS_VISION_PROVIDER') or 'none'}")
 for k in ["FRIDAY_VENDOR_CALL_REDIRECT_TO", "FRIDAY_PILOT_ALLOWED_NUMBERS", "FRIDAY_PUBLIC_BASE_URL",
-          "FRIDAY_WEB_ADMIN_TOKEN", "OPENAI_API_KEY", "SARVAM_API_KEY", "GOOGLE_PLACES_API_KEY"]:
+          "FRIDAY_WEB_ADMIN_TOKEN", "FRIDAY_A2A_HTTP_TOKEN", "OPENAI_API_KEY", "SARVAM_API_KEY", "GOOGLE_PLACES_API_KEY"]:
     print(f"  {k:<40} {present(k)}")
 print("  web caps (calls/day, INR/day, global INR/day)   " + ("unlimited (0)" if all(get(k) == "0" for k in CAPS) else "check"))
 PY

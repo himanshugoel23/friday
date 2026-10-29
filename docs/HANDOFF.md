@@ -1426,3 +1426,5 @@ Founder: Instinct has browser agents that work out each task on ANY site and ask
 
 ## 2026-10-29: founder 'switch everything on' -> enable-web-test.sh now also turns on CALL_QUEUE, SITE_MCP, SITE_MCP_PROBE, BROWSER_AGENT, JOB_APPLY
 Still OFF on purpose (by hand only): REFUND_CHASE_CALLS (unapproved call lines), FAMILY_DRIVE_SHARING, PARITY_DIGEST/NUDGES/ESCALATION (not wired live), A2A_HTTP (network exposure), TEAM_DRIFT (site probes duplicate SITE_MCP_PROBE). Risks stated to founder: 1 GB droplet vs Chromium (memory guard refuses sessions when low), real-site behaviour unverified, page text from logged-in pages goes to OpenAI (privacy decision pending), job apply needs the user's own 'job apply on' opt-in and defaults to preview.
+
+## 2026-10-29 ~21:50 IST: founder ran enable-web-test.sh (everything on except A2A HTTP + drift + unwired parity). Then asked for A2A HTTP on too: script now turns FRIDAY_A2A_HTTP_ENABLED on and generates FRIDAY_A2A_HTTP_TOKEN (random, kept on rerun, never printed); /a2a answers 403 without the bearer token. Test added.
