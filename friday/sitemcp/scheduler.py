@@ -56,11 +56,33 @@ class ProbeJob:
         log.info("site mcp probe: %s", {r["site"]: r["overall"] for r in out})  # statuses only
         return out
 
+    def _recent(self) -> bool:
+        """True when every site was probed less than one interval ago (a restart must not hit the sites again:
+        several updates a day would look like hammering and got the droplet an HTTP 429 from one site)."""
+        from datetime import UTC, datetime
+
+        hours = max(1.0, float(self.s.site_mcp_probe_interval_h))
+        done = self.store.live_all()
+        if not done:
+            return False
+        for site in self.s.site_mcp_sites:
+            fin = (done.get(site) or {}).get("finished_at")
+            try:
+                age_h = (datetime.now(UTC) - datetime.fromisoformat(str(fin))).total_seconds() / 3600
+            except (TypeError, ValueError):
+                return False
+            if age_h >= hours:
+                return False
+        return True
+
     async def loop(self) -> None:
         await self._sleep(START_DELAY_S)
         while True:
             try:
-                await self.run_all()
+                if self._recent():
+                    log.info("site mcp probe: skipped at start, a recent result exists")
+                else:
+                    await self.run_all()
             except Exception:  # noqa: BLE001
                 log.exception("site mcp probe tick failed")
             await self._sleep(max(1.0, float(self.s.site_mcp_probe_interval_h)) * 3600)
