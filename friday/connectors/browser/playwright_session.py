@@ -24,6 +24,11 @@ CHROMIUM_ENV = "PLAYWRIGHT_CHROMIUM_PATH"
 _SEARCH = (
     "/opt/pw-browsers/chromium-*/chrome-linux*/chrome",
     "/opt/pw-browsers/chromium_headless_shell-*/chrome-linux*/headless_shell",
+    # `playwright install chromium` run as the service user (the droplet): ~/.cache/ms-playwright
+    "~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome",
+    "~/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux*/headless_shell",
+    "/home/friday/.cache/ms-playwright/chromium-*/chrome-linux*/chrome",
+    "/home/friday/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux*/headless_shell",
 )
 
 _ROWS_JS = """
@@ -51,8 +56,15 @@ def find_chromium() -> str | None:
     env = os.environ.get(CHROMIUM_ENV)
     if env and os.path.exists(env):
         return env
-    for pattern in _SEARCH:
-        hits = sorted(glob.glob(pattern))
+    custom = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    patterns = list(_SEARCH)
+    if custom:
+        patterns += [
+            f"{custom}/chromium-*/chrome-linux*/chrome",
+            f"{custom}/chromium_headless_shell-*/chrome-linux*/headless_shell",
+        ]
+    for pattern in patterns:
+        hits = sorted(glob.glob(os.path.expanduser(pattern)))
         if hits:
             return hits[-1]
     return None
