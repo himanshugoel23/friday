@@ -1413,3 +1413,6 @@ tests/sitemcp real-Chromium test failed in this sandbox (Page.goto ERR_FAILED to
 
 ## 2026-10-29 01:49 IST: 'Gmail' now answers honestly: 'Google connection not set up here'
 Cause: friday/intents asks the consumer router (friday/integration) for the Google connector; that router is built only when a consumer switch such as FRIDAY_GOOGLE_ENABLED is on. enable-google.sh now also sets FRIDAY_GOOGLE_ENABLED=true (and off mode clears it). Also 'Connect my google' hit the generic clarify question instead of the connect flow: route 'connect (my) google' phrases to the connect step in friday/intents.
+
+## 2026-10-29: Instinct chat 5 reviewed (docs/INSTINCT_CHAT_5.md) + founder asks the engineering manager for a general BROWSER AGENT
+Instinct runs a goal-driven browser agent (portals and career pages, forms, one-time codes from mail, proof screenshots, grouped questions to the user). Builder started: friday/browser_agent + docs/BROWSER_AGENT_DESIGN.md (ask_user grouped, request_confirmation before any irreversible submit, no payment, no identity-account creation, injection-safe, domain allow-list, preview-mode job-apply playbook). Open item: a protected distress/self-harm protocol in the guardrails (14416, 112). Raw export stays outside the repo; this public repo carries no personal circumstances.
