@@ -1339,6 +1339,10 @@ def _open(ctx: ConversationContext, *statuses: TaskStatus):
     return [t for t in ctx.open_tasks if t.status in statuses]
 
 
+_CLOSERS = ("thanks", "thank you", "thx", "shukriya", "dhanyavaad", "ok thanks", "cool", "nice", "great", "👍", "🙏", "धन्यवाद", "शुक्रिया")
+_OPENERS = ("hi", "hello", "hey", "hii", "namaste", "namaskar", "good morning", "good evening", "good night", "how are you", "kaise ho", "kya haal", "नमस्ते", "हेलो")
+
+
 def _greeting(lang: str, name: str | None) -> str:
     """The warm general opener (name, example buckets, one question); imported lazily."""
     from friday.replywriter.templates import greeting_text
@@ -2426,6 +2430,15 @@ def interpret(ctx: ConversationContext, msg: InboundMessage) -> InterpretOut:
         )
     if has_any(t, SMALL_TALK) and len(t.split()) <= 5:
         greet = c.name or ""
+        if has_any(t, _CLOSERS) and not has_any(t, _OPENERS):  # thanks / ok / cool: a short sign-off, not the opener
+            return InterpretOut(
+                intent=Intent.SMALL_TALK,
+                reply=c.say(
+                    en=f"Hello{' ' + greet if greet else ''}. What shall I take care of?",
+                    hinglish=f"Hi{' ' + greet if greet else ''}. Aaj kya karun aapke liye?",
+                    playful_tail=" 🙂",
+                ),
+            )
         return InterpretOut(
             intent=Intent.SMALL_TALK,
             reply=c.say(
