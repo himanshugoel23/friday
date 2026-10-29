@@ -60,6 +60,10 @@ class ShoppingAgent:
         self.pm = ShoppingPM(self.kb, providers, audit=audit, cost_per_search_inr=cost_per_search_inr, timeout_s=timeout_s)
         self._cache: dict[tuple[str, str, str, str, str], tuple[float, ShoppingOutput]] = {}
 
+    def scope_site(self, retailer: str | None) -> str | None:
+        """The grocery site key for a store the user named, or None (unknown store: compare everything)."""
+        return self._site_of(retailer)
+
     def site_names(self) -> list[str]:
         order = ("zepto", "blinkit", "instamart", "bigbasket")
         core = [s for s in self.kb if self.kb[s].get("role", "core") == "core"]
@@ -67,14 +71,18 @@ class ShoppingAgent:
 
     async def run(self, inp: ShoppingInput, *, on_site: OnSite | None = None) -> ShoppingOutput:
         cat = catalog.categories()[inp.category_id]
-        key = (cat.id, (inp.retailer or "").lower(), inp.pincode or "", (inp.area or "").lower(), inp.lang)
+        only = self._site_of(inp.retailer) if inp.scoped else None
+        key = (cat.id, (inp.retailer or "").lower(), inp.pincode or "", (inp.area or "").lower(), inp.lang + ("|only" if only else ""))
         hit = self._cache.get(key)
         if hit and self._mono() - hit[0] < self.cache_ttl_s:
             return hit[1].model_copy(update={"from_cache": True})
         req = GrocerySearch(category=cat.id, products=cat.popular, query=inp.query, pincode=inp.pincode, area=inp.area, user_id=inp.user_id)
         base = {"category_id": cat.id, "retailer": inp.retailer, "as_of": self._now(), "unit": cat.unit}
+        if only:
+            base["scope"] = self.pm.display(only)
+            base["others"] = [n.replace("Swiggy ", "") for n in self.site_names() if n != base["scope"]]  # "Instamart", as people say it
         try:
-            results = await asyncio.wait_for(self.pm.run(req, on_site=on_site), self.timeout_s + 2)
+            results = await asyncio.wait_for(self.pm.run(req, on_site=on_site, only=only), self.timeout_s + 2)
         except TimeoutError:
             return ShoppingOutput(status="timeout", **base)  # type: ignore[arg-type]
         out = await self._merge(inp, cat, results, base)

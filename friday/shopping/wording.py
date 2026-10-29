@@ -81,6 +81,12 @@ LINES: dict[str, dict[str, str]] = {
         "en": "I could not refresh the prices for that place just now, so the comparison above stands.",
         "hinglish": "Us jagah ke liye abhi daam refresh nahi ho paaye, upar wali comparison hi sahi maanein.",
     },
+    "compare_no": {
+        "en": "Okay, I will stay with {store}. Say 'compare' any time and I will check the others too.",
+        "hinglish": "Theek hai, {store} par hi rehte hain. 'compare' likhiye to baaki par bhi dekh lungi.",
+    },
+    "btn_cmp_yes": {"en": "Compare", "hinglish": "Compare karo"},
+    "btn_cmp_no": {"en": "No thanks", "hinglish": "Nahi, theek hai"},
     "btn_home": {"en": "Home", "hinglish": "Ghar"},
     "btn_pg": {"en": "PG", "hinglish": "PG"},
     "btn_office": {"en": "Office", "hinglish": "Office"},

@@ -224,6 +224,13 @@ class InboundPipeline:
             self.planner = build_planner(self)
         except Exception:  # noqa: BLE001 - never stop the app from booting
             log.exception("approach planner failed to build; continuing without it")
+        self.reply_service: Any = None  # reply writer + tester log (friday/replywriter); None unless a switch is on
+        try:
+            from friday.replywriter.service import ReplyService
+
+            self.reply_service = ReplyService.from_pipeline(self)
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("reply writer failed to build; continuing without it")
         self.team: Any = None  # query understanding + A2A agent team (friday/team): None unless a switch is on
         try:
             from friday.team.wiring import build_gateway
@@ -1363,6 +1370,12 @@ class InboundPipeline:
                 await self.browser_agent.forget_user(user.id)
             except Exception:  # noqa: BLE001
                 log.exception("browser agent forget failed during delete everything")
+        try:  # the tester reply-log records (a local file); erased even when the switch is off
+            from friday.replywriter.log import ReplyLog
+
+            ReplyLog.open(self.settings, now=self.clock.now).erase_user(user.id)
+        except Exception:  # noqa: BLE001 - never block the purge
+            log.exception("reply log erase failed during delete everything")
         recordings = await self.repos.purger.recording_urls(user.id)
         counts = await self.repos.purger.purge_user(user.id)
         # SECURITY-14: recordings live outside the DB (object store / provider).

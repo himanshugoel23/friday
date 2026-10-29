@@ -425,6 +425,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.webchat.cli import add_parser as _add_web
 
     _add_web(sub)  # `friday web`: Friday Web channel testers and links
+    from friday.replywriter.cli import add_parser as _add_replylog
+
+    _add_replylog(sub)  # `friday replylog`: tester training-data log (local files only)
     from friday.qa.cli import add_parser as _add_qa
 
     _add_qa(sub)  # `friday qa`: manual QA with real calls to the founder's own phone
@@ -606,6 +609,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.webchat.cli import run_command as run_web_command
 
         return run_web_command(args)
+    if args.cmd == "replylog":  # local files only: stats, approved-only export, hard delete; uploads nothing
+        from friday.replywriter.cli import run_command as run_replylog_command
+
+        return run_replylog_command(args)
     if args.cmd == "qa":  # real calls, founder number only (docs/QA_MANUAL.md)
         from friday.qa.cli import run_command as run_qa_command
 

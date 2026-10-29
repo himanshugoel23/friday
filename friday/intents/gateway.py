@@ -29,6 +29,9 @@ from friday.chatbot.composer import Composer, detect_language
 from friday.core.clock import IST
 from friday.core.logging import get_logger
 from friday.core.models import Fact, FactKind, InboundMessage, MessageKind, ReplyButton, User
+from friday.replywriter.schema import Button, Facts, ReplyInput
+from friday.replywriter.service import context_from
+from friday.replywriter.templates import greeting_text
 from friday.style import StyleLayer
 
 log = get_logger(__name__)
@@ -136,9 +139,37 @@ class IntentGateway:
     async def _say(self, user: User, text: str, buttons: list[ReplyButton] | None = None) -> None:
         comp = self._composer.compose(text, buttons=buttons or [], kind="assist")
         if comp is not None:
-            parts = self._style.fit(comp.text, source="intents", has_buttons=bool(comp.buttons))
+            body, chosen = comp.text, comp.buttons
+            rs = getattr(self.p, "reply_service", None)  # reply writer / tester log (off: body is sent exactly as composed)
+            if rs is not None:
+                inp = ReplyInput(
+                    intent="playbook", draft=[comp.text], buttons=[Button(id=b.id, title=b.title[:24]) for b in comp.buttons],
+                    **context_from(None, await self.p._reply_lang(user)),  # type: ignore[arg-type]
+                )
+                out = await rs.respond(user.id, inp, [comp.text])
+                if out.writer != "legacy":
+                    body = "\n\n".join(out.messages)
+                    keep = {b.id for b in out.buttons}
+                    chosen = [b for b in comp.buttons if b.id in keep] if keep else comp.buttons
+            parts = self._style.fit(body, source="intents", has_buttons=bool(chosen))
             for i, part in enumerate(parts):  # buttons ride on the last part
-                await self.p.reply(user, part, comp.buttons if i == len(parts) - 1 else [])
+                await self.p.reply(user, part, chosen if i == len(parts) - 1 else [])
+
+    async def _greet(self, user: User, text: str) -> bool:
+        """A bare 'Hi' from an active user: the reply writer's greeting (name, example buckets, one question).
+        Only while the reply writer or its log is on; otherwise the brain answers as before."""
+        from friday.quotes.parse import GREETING_RE
+
+        rs = getattr(self.p, "reply_service", None)
+        if rs is None or not GREETING_RE.match(text):
+            return False
+        lang = await self.p._reply_lang(user)
+        name = await rs.first_name(self.p, user)
+        inp = ReplyInput(intent="greeting", facts=Facts(name=name), pending="answer", **context_from(text, lang))  # type: ignore[arg-type]
+        out = await rs.respond(user.id, inp, greeting_text(name, "en" if lang == "en" else "hinglish"))
+        for part in out.messages:
+            await self.p.reply(user, part)
+        return True
 
     def _qu(self) -> Any:
         return getattr(getattr(self.p, "team", None), "qu", None)
@@ -159,6 +190,8 @@ class IntentGateway:
             return
         if await self._busy(user):
             await rest(user, msg)
+            return
+        if await self._greet(user, text):
             return
         lang = pick_lang(text, await self.p._reply_lang(user))
         if await self._handle(user, msg, text, lang, rest):

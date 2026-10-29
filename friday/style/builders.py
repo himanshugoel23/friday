@@ -109,13 +109,17 @@ class ProofCard:
     seen: str = ""  # failed or stopped attempts: what the page or call showed
     has_screenshot: bool = False
     keep_days: int | None = None
+    plain: str = ""  # failed / attempted: what happened in plain words (replaces the generic head and the 'Saw:' line)
+    next_step: str = ""  # failed / attempted: what Friday can do next
     extra: list[str] = field(default_factory=list)
 
 
 def proof_card(card: ProofCard, lang: str = "hinglish") -> str:
     """Head, what / where / when / amount / reference / link, screenshot note, expiry line."""
     outcome = card.outcome if card.outcome in OUTCOMES else "attempted"
-    rows = [t(f"proof_head_{outcome}", lang), t("proof_what", lang, v=card.what)]
+    plain = card.plain if outcome in ("attempted", "failed") else ""
+    head = t("proof_plain", lang, v=plain) if plain else t(f"proof_head_{outcome}", lang)
+    rows = [head, t("proof_what", lang, v=card.what)]
     for key, value in (
         ("proof_where", card.where),
         ("proof_when", card.when),
@@ -127,6 +131,8 @@ def proof_card(card: ProofCard, lang: str = "hinglish") -> str:
             rows.append(t(key, lang, v=value))
     if card.seen and outcome in ("attempted", "failed", "checkout"):
         rows.append(t("proof_seen", lang, v=card.seen))
+    if card.next_step and plain:
+        rows.append(t("proof_next", lang, v=card.next_step))
     if card.has_screenshot:
         rows.append(t("proof_shot", lang))
     if card.keep_days:

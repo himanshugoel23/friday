@@ -70,11 +70,14 @@ class ShoppingPM:
                 await r  # type: ignore[misc]
         return site, res, status
 
-    async def run(self, req: GrocerySearch, *, on_site: OnSite | None = None) -> dict[str, tuple[GroceryResult | None, str]]:
-        """site -> (result or None, status ok | not_visible | failed | skipped). Never raises for agent trouble."""
+    async def run(self, req: GrocerySearch, *, on_site: OnSite | None = None, only: str | None = None) -> dict[str, tuple[GroceryResult | None, str]]:
+        """site -> (result or None, status ok | not_visible | failed | skipped). Never raises for agent trouble.
+        ``only``: the user named ONE store, so only that site is asked (the rest are offered afterwards)."""
         budget = self._budget()
         root = f"shop-{id(req):x}"
         avail = set(await self.client.agents_with_skill(GROCERY_SKILL))
+        if only is not None and only in avail:
+            avail = {only}
         core = sorted(s for s in avail if self.kb[s].get("role", "core") == "core")
         extra = sorted(s for s in avail if self.kb[s].get("role") == "extra")
         out: dict[str, tuple[GroceryResult | None, str]] = {}

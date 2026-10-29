@@ -61,6 +61,8 @@ TEXTS: dict[str, dict[str, str]] = {
         "hinglish": "Payment step par ruk gayi. Kuch charge nahi hua. Yeh dikha:",
     },
     "proof_head_failed": {"en": "That did not go through. Here is what I saw:", "hinglish": "Yeh nahi ho paya. Yeh dikha:"},
+    "proof_plain": {"en": "{v}.", "hinglish": "{v}."},
+    "proof_next": {"en": "Next: {v}.", "hinglish": "Aage: {v}."},
     "proof_what": {"en": "What: {v}", "hinglish": "Kya: {v}"},
     "proof_where": {"en": "Where: {v}", "hinglish": "Kahan: {v}"},
     "proof_when": {"en": "When: {v}", "hinglish": "Kab: {v}"},

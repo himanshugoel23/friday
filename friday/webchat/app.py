@@ -172,6 +172,11 @@ class RevokeIn(BaseModel):
     ref: str
 
 
+class ReviewIn(BaseModel):
+    action: str  # approve | reject | edit
+    text: str = Field(default="", max_length=2000)
+
+
 def mount_web(app: FastAPI, state: WebState, runtime: Any) -> None:
     state.runtime = runtime
     app.state.web = state
@@ -249,6 +254,39 @@ def mount_web(app: FastAPI, state: WebState, runtime: Any) -> None:
             return json_({"detail": "no such tester"}, 404)
         state.channel.store_for(t.id).clear()
         return json_({"tester": t.public()})
+
+    # ------------------------------------------------------------------ reply review (founder; docs/REPLY_WRITER.md)
+    def reply_log() -> Any:
+        from friday.replywriter.log import ReplyLog
+
+        return ReplyLog.open(c.settings, now=state.now)
+
+    @router.get("/admin/{admin_token}/review")
+    async def review_page(admin_token: str) -> HTMLResponse:
+        admin_ok(admin_token)
+        html = copy.REVIEW_HTML.replace("__API__", f"/web/admin/{admin_token}/api")
+        return HTMLResponse(html, headers={**HEADERS, "Content-Security-Policy": PAGE_CSP})
+
+    @router.get("/admin/{admin_token}/api/review")
+    async def review_list(admin_token: str, limit: int = 40) -> JSONResponse:
+        admin_ok(admin_token)
+        rl = reply_log()
+        rows = [
+            {
+                "id": i["id"], "ts": i["ts"], "intent": i["intent"], "writer": i["writer"], "fact_check": i["fact_check"],
+                "status": i["status"], "reactions": i["reactions"], "messages": i["output"]["messages"], "gold": i["gold"],
+            }
+            for i in rl.items()[: max(1, min(limit, 200))]
+        ]
+        return json_({"enabled": bool(getattr(c.settings, "reply_log_enabled", False)), "stats": rl.stats(), "items": rows})
+
+    @router.post("/admin/{admin_token}/api/review/{rid}")
+    async def review_act(admin_token: str, rid: str, body: ReviewIn) -> JSONResponse:
+        admin_ok(admin_token)
+        status = {"approve": "approved", "reject": "rejected", "edit": "edited"}.get(body.action)
+        if status is None or not reply_log().review(rid, status, body.text):
+            return json_({"detail": "cannot review that reply"}, 422)
+        return json_({"ok": True, "status": status})
 
     # ------------------------------------------------------------------ the tester's page
     @router.get("/{token}/")
@@ -456,6 +494,9 @@ def mount_web(app: FastAPI, state: WebState, runtime: Any) -> None:
             raise HTTPException(status_code=422, detail="Cannot rate that message.")
         entry["mark"] = body.kind
         state.registry.add_feedback(t, body.kind, body.message_id, entry.get("text") or "", body.note, state.now())
+        rs = getattr(getattr(runtime, "pipeline", None), "reply_service", None)
+        if rs is not None:  # the thumb becomes the reaction on the reply-log record that sent this text
+            rs.react(entry.get("text") or "", body.kind, body.note)
         return json_({"ok": True})
 
     router.include_router(api)

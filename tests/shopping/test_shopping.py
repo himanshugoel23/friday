@@ -103,8 +103,10 @@ async def test_no_saved_place_asks_one_question_then_saves_the_answer(media_worl
 
 async def test_quick_commerce_hidden_price_falls_back_to_other_sellers_and_says_so(media_world):
     w, _ = await world(media_world, SiteFake(DEFAULT))
-    out = await w.say("aashirvaad atta price on zepto")
-    body = "\n".join(texts(out))
+    first = texts(await w.say("aashirvaad atta price on zepto"))  # ONE store named: only Zepto is checked first
+    assert "only Zepto" in first[0] and "no_result" not in "\n".join(first)
+    assert "Want me to compare with" in first[-1]  # the single closing question offers the others
+    body = "\n".join(texts(await w.say("yes")))  # the user accepts: everything is compared
     assert "Zepto does not show its own prices online, so these are other sellers' prices." in body
     assert "Rs 289" in body or "Rs 295" in body
     assert not sg.mentions_call(body)

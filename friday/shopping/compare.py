@@ -28,6 +28,7 @@ class ShoppingInput(BaseModel):
     area: str | None = None
     lang: str = "hinglish"
     user_id: str | None = None  # only for browser-backed providers (per-user session); never shown or logged
+    scoped: bool = False  # the user named ONE store: check only it first (the others are offered afterwards)
 
 
 class Offer(BaseModel):
@@ -82,6 +83,8 @@ class ShoppingOutput(BaseModel):
     sites: list[SiteStatus] = Field(default_factory=list)
     unit: str = "kg"
     from_cache: bool = False
+    scope: str | None = None  # display name of the ONE store that was checked alone, else None
+    others: list[str] = Field(default_factory=list)  # display names of the stores not checked yet (offered next)
 
 
 def parse_pack(*texts: str | None) -> tuple[float | None, str | None]:

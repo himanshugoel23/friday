@@ -27,6 +27,7 @@ from friday.core.clock import format_ist
 from friday.core.models import CallOutcome, CallResult, DialStatus, Task, TaskResult
 from friday.evidence import collector
 from friday.evidence.models import EvidenceItem, EvidenceKind, EvidenceLevel, Redaction
+from friday.replywriter import status_words as sw
 from friday.style.builders import ProofCard, proof_card
 
 KINDS = ("call", "lookup", "cart", "checkout", "form")
@@ -51,6 +52,7 @@ class ActionProof:
     seen: str = ""
     screenshot: bytes | None = None
     masked: bool = False
+    code: str = ""  # internal status code of a failed attempt (no_result, blocked ...): turned into plain words in the card
     extra: dict[str, str] = field(default_factory=dict)
 
 
@@ -112,11 +114,14 @@ def adapt_result(
     """Turn a sitemcp / browser_agent result (object or dict) into an ``ActionProof``."""
     url = _get(result, "url", "link", "page_url", "final_url")
     shot = _get(result, "screenshot", "screenshot_bytes", "shot")
+    outcome = outcome_of(_get(result, "status", "outcome", "overall"), kind)
+    raw = str(_get(result, "status", "outcome", "overall") or "").strip().lower()
     return ActionProof(
         user_id=user_id,
         task_id=task_id,
         kind=kind if kind in KINDS else "lookup",
-        outcome=outcome_of(_get(result, "status", "outcome", "overall"), kind),
+        outcome=outcome,
+        code=raw if outcome in ("failed", "attempted") and raw not in ("", "ok") else "",
         what=_clean(what, 120),
         where=_clean(_get(result, "site", "host") or (urlparse(str(url)).hostname if url else ""), 60),
         when=now,
@@ -168,6 +173,13 @@ class ProofService:
         now = now or proof.when or datetime.now().astimezone()
         lang = lang or self.lang
         expires = collector.expiry(now, self.days)
+        # a user never sees an internal code (no_result, lookup:blocked ...): say what happened in plain words
+        plain = nxt = ""
+        if proof.outcome in ("failed", "attempted") and (proof.code or sw.is_code(proof.seen)):
+            plain = sw.what_happened(proof.code or proof.seen, lang)
+            nxt = sw.next_step([], lang)
+        if sw.is_code(proof.seen):  # the plain sentence already says it; never print the code
+            proof.seen = ""
         items: list[EvidenceItem] = [
             EvidenceItem(
                 user_id=proof.user_id,
@@ -208,7 +220,7 @@ class ProofService:
         card = ProofCard(
             outcome=proof.outcome, what=proof.what, where=proof.where,
             when=format_ist(now) if proof.when or now else "", amount=proof.amount, reference=proof.reference,
-            link=proof.link, seen=proof.seen, has_screenshot=media is not None,
+            link=proof.link, seen=proof.seen, has_screenshot=media is not None, plain=plain, next_step=nxt,
             keep_days=self.days if self.store is not None else None,  # never promise retention that is not stored
         )
         return ProofMessage(text=proof_card(card, lang), items=items, media=media, media_key=key)
