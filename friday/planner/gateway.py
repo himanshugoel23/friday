@@ -65,7 +65,10 @@ class PlannerGateway:
         return self.p.clock.now()
 
     def connectors(self) -> frozenset[str]:
-        return frozenset({"browser"}) if getattr(self.p, "browser", None) is not None else frozenset()
+        names = {"browser"} if getattr(self.p, "browser", None) is not None else set()
+        if getattr(self.p, "browser_agent", None) is not None:
+            names.add("browser_agent")  # the general browser agent (friday/browser_agent)
+        return frozenset(names)
 
     async def _busy(self, user: User) -> bool:
         """A task is waiting for this user's answer: the message belongs to it, not to a new plan."""
@@ -125,6 +128,13 @@ class PlannerGateway:
             await self._say(user, q)
         elif d.approach == Approach.DECLINE:
             await self._say(user, wording.guard_text(d.question, call_in_plan=False, fallback=wording.line("decline", lang)))
+        elif (
+            d.approach == Approach.APP_OR_CONNECTOR
+            and getattr(self.p, "browser_agent", None) is not None
+            and sg.browser_task(text)
+            and await self.p.browser_agent.start_task(user, text, lang)
+        ):
+            return  # the general browser agent took it (no site MCP / connector covers this)
         else:
             await self._pass_through(user, msg, d, lang, rest)
 

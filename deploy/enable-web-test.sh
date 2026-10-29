@@ -81,6 +81,7 @@ ALWAYS_OFF = [
     "FRIDAY_REFUND_CHASE_CALLS", "FRIDAY_FAMILY_DRIVE_SHARING_ENABLED", "FRIDAY_PARITY_DIGEST",
     "FRIDAY_PARITY_NUDGES", "FRIDAY_PARITY_ESCALATION",
     "FRIDAY_A2A_HTTP_ENABLED", "FRIDAY_TEAM_DRIFT_ENABLED",  # HTTP exposure and live site probes: switched on by hand only
+    "FRIDAY_BROWSER_AGENT_ENABLED", "FRIDAY_JOB_APPLY_ENABLED",  # general browser agent (tasks on any site) + job-application playbook: need Chromium (friday doctor), real-site behaviour unverified, switched on by hand only
     "FRIDAY_SITE_MCP_ENABLED", "FRIDAY_SITE_MCP_PROBE_ENABLED",  # browser-driven site servers + anonymous live probe: need Playwright/Chromium (friday doctor), switched on by hand only
 ]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]

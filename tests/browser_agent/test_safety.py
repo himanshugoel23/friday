@@ -156,7 +156,7 @@ async def test_upload_failure_is_reported_and_left_for_the_user():
     assert len(rig.browser.uploads) == 2  # tried twice, then stopped retrying
     # an unknown file ref is never turned into a path
     rig2 = make_rig(job_site(), [A("click", target="e1"), A("upload", target="e4", file_ref="/etc/passwd"), A("finish", result="x")], start=JOB)
-    out2 = await rig2.agent.start("u1", spec(start_url=JOB))
+    await rig2.agent.start("u1", spec(start_url=JOB))
     assert rig2.browser.uploads == []
 
 
@@ -177,7 +177,7 @@ async def test_logs_prompts_and_state_carry_no_user_values():
 async def test_enter_cannot_be_used_to_submit_without_a_yes():
     pages = job_site()
     rig = make_rig(pages, [A("goto", url=f"{BASE}/review"), A("press", key="Enter"), A("give_up", reason="x")], start=JOB)
-    out = await rig.agent.start("u1", spec(start_url=JOB))
+    await rig.agent.start("u1", spec(start_url=JOB))
     assert ("press", "Enter") not in rig.browser.log and rig.browser.submitted is False
 
 

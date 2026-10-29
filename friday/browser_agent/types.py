@@ -104,6 +104,7 @@ class Permit(BaseModel):
     host: str
     expires_at: str
     action_class: str = "irreversible"
+    label: str = ""  # the button the user was shown; the permit works for THAT control only
 
 
 class Pending(BaseModel):

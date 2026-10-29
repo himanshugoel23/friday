@@ -38,7 +38,7 @@ class Team:
 
 
 def build_team(settings: Any, clock: Any, *, provider: Any | None = None, store: KnowledgeStore | None = None,
-               audit: A2AAudit | None = None) -> Team:
+               audit: A2AAudit | None = None, browser_agent: Any | None = None) -> Team:
     root = Path(settings.team_knowledge_dir)
     store = store or KnowledgeStore(root)
     audit = audit or A2AAudit(path=root / "a2a_audit.jsonl")
@@ -53,6 +53,13 @@ def build_team(settings: Any, clock: Any, *, provider: Any | None = None, store:
     spec = WebLookupSpecialist(lookup, cost_per_search_inr=settings.team_cost_per_search_inr)
     servers[spec.name] = A2AServer(spec.card(), spec)
     transport = InProcessTransport(servers)
+    if browser_agent is not None:
+        # the general browser agent (skill browser.task): IN-PROCESS ONLY. It is deliberately NOT in ``servers``, which is what the
+        # optional HTTP route serves: a remote A2A caller must never be able to start browsing for a user.
+        from friday.browser_agent.a2a_agent import BrowserAgentSpecialist
+
+        bspec = BrowserAgentSpecialist(browser_agent)
+        transport.register(bspec.name, A2AServer(bspec.card(), bspec))
 
     def budget() -> TaskBudget:
         return TaskBudget(settings.team_budget_steps, settings.team_budget_seconds, settings.team_budget_cost_inr)
@@ -78,7 +85,8 @@ def build_gateway(pipeline: Any) -> TeamGateway | None:
             qu = QueryUnderstandingAgent(None, UserDictionary(pipeline.repos), s)
     pm = team = None
     if team_on:
-        team = build_team(s, pipeline.clock)
+        ba = getattr(pipeline, "browser_agent", None)
+        team = build_team(s, pipeline.clock, browser_agent=ba.agent if ba is not None else None)
         pm = team.pm
     gw = TeamGateway(pipeline, qu=qu, pm=pm, web_render=(lambda data, lang: _render_web(team, data, lang)) if team else None,
                      ack_after_s=s.approach_ack_after_s)

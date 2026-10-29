@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "playbook": "job_apply",
+  "note": "Playbook as DATA. Keys are the fact keys the agent uses (fact:<key>) so one answer serves every site. Nothing here is a value of any user.",
+  "profile_fields": [
+    {"key": "full_name", "label": "Full name", "required": true},
+    {"key": "email", "label": "Email address", "required": true},
+    {"key": "phone", "label": "Mobile number", "required": true},
+    {"key": "current_city", "label": "Current city", "required": true},
+    {"key": "total_experience_years", "label": "Total experience (years)", "required": true},
+    {"key": "current_title", "label": "Current job title", "required": false},
+    {"key": "current_company", "label": "Current company", "required": false},
+    {"key": "current_ctc", "label": "Current salary (CTC)", "required": false},
+    {"key": "expected_ctc", "label": "Expected salary (CTC)", "required": true},
+    {"key": "notice_period", "label": "Notice period", "required": true, "options": ["Immediate", "15 days", "30 days", "60 days", "90 days"], "default": "30 days"},
+    {"key": "willing_to_relocate", "label": "Willing to relocate?", "required": false, "options": ["Yes", "No"]},
+    {"key": "linkedin_url", "label": "LinkedIn profile link", "required": false}
+  ],
+  "resume": {"file_ref": "resume", "extensions": [".pdf", ".docx", ".doc"], "max_mb": 5,
+             "note": "The user registers the resume once. The agent only ever names the ref 'resume'; it never sees a path. Upload uses set_input_files on the file input and reads it back; UNVERIFIED on real sites."},
+  "typical_questions": [
+    {"match": "notice period", "key": "notice_period"},
+    {"match": "expected (ctc|salary)", "key": "expected_ctc"},
+    {"match": "current (ctc|salary)", "key": "current_ctc"},
+    {"match": "total experience|years of experience", "key": "total_experience_years"},
+    {"match": "relocate", "key": "willing_to_relocate"},
+    {"match": "linkedin", "key": "linkedin_url"},
+    {"match": "current (company|employer)", "key": "current_company"}
+  ],
+  "attestations_always_asked": [
+    "I have never paid anyone for this job or training",
+    "Background check / verification consent",
+    "Declaration that the information is true",
+    "Terms and conditions / privacy consent that the site presents as a legal statement"
+  ],
+  "never": [
+    "pay any registration, training or security fee (stop: this is a scam pattern)",
+    "type Aadhaar, PAN, passport or bank numbers",
+    "create an account without the user's ok for that site",
+    "apply when the daily cap is reached"
+  ],
+  "limits": {"daily_cap_default": 5, "mode_default": "preview", "modes": ["preview", "auto"]},
+  "goal_template": "Apply to the job at {url} for the user. Fill the form ONLY from stored facts (fact:<key>). Fact keys used for job forms: {keys}. Upload the resume with file_ref resume. Legal statements are asked verbatim (attest). Before the final submit call request_confirmation with the job title, the company and what will be sent. Report the job title and company in finish."
+}

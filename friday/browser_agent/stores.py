@@ -228,26 +228,51 @@ class RepoFacts:
 
 # ----------------------------------------------------------------------------- files
 class FileRefs:
-    """File references the USER registered (resume ...). The model only ever names a ref; it never supplies a path."""
+    """File references the USER registered (resume ...), stored under ``<dir>/files/<hash of user>/<ref>.<ext>``. Restart-safe and erasable.
+    The model only ever names a ref; it never supplies a path, and a ref is a short lowercase word."""
 
     ALLOWED_EXT = (".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg")
     MAX_BYTES = 5_000_000
+    REF = re.compile(r"^[a-z][a-z0-9_]{0,23}$")
 
-    def __init__(self, refs: dict[str, dict[str, str]] | None = None) -> None:
-        self.refs = refs or {}  # user_id -> {ref: path}
+    def __init__(self, root: Path | str) -> None:
+        self.root = Path(root) / "files"
+        self.root.mkdir(parents=True, exist_ok=True)
 
-    def register(self, user_id: str, ref: str, path: str) -> bool:
-        p = Path(path)
-        if p.suffix.lower() not in self.ALLOWED_EXT or not p.is_file() or p.stat().st_size > self.MAX_BYTES:
+    def _udir(self, user_id: str) -> Path:
+        return self.root / hashlib.sha256(user_id.encode()).hexdigest()[:12]
+
+    def store(self, user_id: str, ref: str, source: str | Path) -> bool:
+        """Copy a file the user sent into their private folder. False if the type or size is not allowed."""
+        src = Path(source)
+        if not self.REF.match(ref) or src.suffix.lower() not in self.ALLOWED_EXT or not src.is_file() or src.stat().st_size > self.MAX_BYTES:
             return False
-        self.refs.setdefault(user_id, {})[ref] = str(p)
+        d = self._udir(user_id)
+        d.mkdir(parents=True, exist_ok=True)
+        for old in d.glob(f"{ref}.*"):
+            old.unlink()
+        dest = d / f"{ref}{src.suffix.lower()}"
+        dest.write_bytes(src.read_bytes())
+        dest.chmod(0o600)
         return True
 
     def resolve(self, user_id: str, file_ref: str) -> str | None:
-        return self.refs.get(user_id, {}).get(file_ref)
+        if not self.REF.match(file_ref or ""):
+            return None
+        hits = sorted(self._udir(user_id).glob(f"{file_ref}.*"))
+        return str(hits[0]) if hits else None
 
     def names(self, user_id: str) -> list[str]:
-        return sorted(self.refs.get(user_id, {}))
+        d = self._udir(user_id)
+        return sorted({p.stem for p in d.glob("*.*")}) if d.exists() else []
+
+    def delete_user(self, user_id: str) -> int:
+        d, n = self._udir(user_id), 0
+        for f in list(d.glob("*")) if d.exists() else []:
+            with contextlib.suppress(OSError):
+                f.unlink()
+                n += 1
+        return n
 
 
 # ----------------------------------------------------------------------------- event log (no secrets)

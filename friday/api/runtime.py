@@ -139,6 +139,8 @@ class Runtime:
                 self._tasks.append(task)
             if s.team_drift_enabled:  # site-knowledge drift checks (friday/team/drift.py), low frequency
                 self._tasks.append(asyncio.create_task(self.team_drift_loop(), name="friday-team-drift"))
+            if getattr(self.pipeline, "browser_agent", None) is not None:  # question timeouts, resume after restart, proof purge, evening job summary
+                self._tasks.append(asyncio.create_task(self.browser_agent_loop(), name="friday-browser-agent"))
             if s.site_mcp_probe_enabled:  # anonymous live run on the real public grocery sites (friday/sitemcp), low frequency
                 self._tasks.append(asyncio.create_task(self.site_mcp_probe_loop(), name="friday-site-mcp-probe"))
             consumer = self.pipeline.consumer()
@@ -214,6 +216,16 @@ class Runtime:
             except Exception:  # noqa: BLE001
                 log.exception("team drift tick failed")
             await asyncio.sleep(1800)
+
+    async def browser_agent_loop(self) -> None:
+        """Housekeeping of the general browser agent (friday/browser_agent/gateway.py ``tick``), once a minute."""
+        gw = self.pipeline.browser_agent
+        while True:
+            try:
+                await gw.tick()
+            except Exception:  # noqa: BLE001
+                log.exception("browser agent tick failed")
+            await asyncio.sleep(60)
 
     async def site_mcp_probe_loop(self) -> None:
         """Anonymous live probe of Zepto / Blinkit / Instamart public pages: once after start, then every

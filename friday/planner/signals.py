@@ -65,6 +65,28 @@ CALL_WORDS_RE = re.compile(
 )
 
 
+# tasks on ANY website that no site MCP or connector covers (docs/BROWSER_AGENT_DESIGN.md)
+BROWSER_TASK_RE = re.compile(
+    r"\bcancel\s+(my|the|our)\s+(\w+\s+){0,2}(subscription|membership|auto-?renew\w*)\b|"
+    r"\bunsubscribe\s+(me\s+)?from\b|"
+    r"\bapply\s+(for|to)\s+(this|the|a|that)?\s*(job|position|role|vacancy)\b|\bapply\s+(on|at|via)\s+\S+\.\S+|"
+    r"\bfill\s+(out|in|up)\s+(the|this|a|my)\s+(\w+\s+){0,2}(form|application)\b|"
+    r"\bdownload\s+(my|the)\s+(\w+\s+){0,2}(bill|invoice|statement|receipt)\b|"
+    r"\bcheck\s+(my|the)\s+(\w+\s+){0,2}(booking|reservation|application\s+status|order\s+status)\b|"
+    r"\b(stop|halt)\s+(at|before)\s+(the\s+)?checkout\b|\bfill\s+(the\s+)?cart\b",
+    _I,
+)
+SITE_RE = re.compile(r"https?://\S+|\b(?:[a-z0-9-]+\.)+(?:com|in|co\.in|org|net|io|app|ai)\b", _I)
+SITE_VERBS_RE = re.compile(r"\b(read|check|find|get|download|fill|open|log\s*in|look\s+at)\b", _I)
+
+
+def browser_task(text: str) -> bool:
+    """A 'do this on a website for me' request with no known retailer/connector: the general browser agent's job."""
+    if retailer_in(text) and not BROWSER_TASK_RE.search(text):
+        return False
+    return bool(BROWSER_TASK_RE.search(text) or (SITE_RE.search(text) and SITE_VERBS_RE.search(text)))
+
+
 def retailer_in(text: str) -> str | None:
     low = text.lower()
     for name in RETAILERS:

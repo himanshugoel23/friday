@@ -35,6 +35,7 @@ from friday.browser_agent.ports import (
 )
 from friday.browser_agent.stores import AgentLog, new_run_id
 from friday.browser_agent.types import (
+    TERMINAL,
     Action,
     AskField,
     HistoryItem,
@@ -47,7 +48,6 @@ from friday.browser_agent.types import (
     RunState,
     Status,
 )
-from friday.browser_agent.types import TERMINAL
 from friday.core.clock import Clock, SystemClock
 from friday.core.logging import get_logger
 
@@ -95,8 +95,8 @@ class BrowserAgent:
     def _later(self, seconds: float) -> str:
         return (self.clock.now() + timedelta(seconds=seconds)).isoformat(timespec="seconds")
 
-    async def start(self, user_id: str, spec: RunSpec) -> RunOutcome:
-        """Create a run and drive it until it finishes or needs the user. Domains are checked HERE, by code."""
+    async def start(self, user_id: str, spec: RunSpec, *, preask: list[AskField] | None = None) -> RunOutcome:
+        """Create a run and drive it until it finishes or needs the user. Domains are checked HERE, by code. ``preask``: fields to ask first."""
         doms = [d.lower().strip() for d in spec.allowed_domains if d and d.strip()]
         if not doms or any(rules.domain_denied(d) for d in doms):
             state = RunState(id=new_run_id(), user_id=user_id, spec=spec, created_at=self.now_iso(), updated_at=self.now_iso())
@@ -108,6 +108,8 @@ class BrowserAgent:
         state = RunState(id=new_run_id(), user_id=user_id, spec=spec, created_at=self.now_iso(), updated_at=self.now_iso())
         self.store.save(state)
         self.log("run_start", run=state.id, domains=",".join(doms), playbook=spec.playbook, steps=spec.max_steps)
+        if preask:  # known gaps in the user's profile: ONE grouped question BEFORE the browser is opened (no browser, no model cost)
+            return self._pause_fields(state, preask, doms[0])
         return await self._run(state)
 
     async def resume(self, run_id: str) -> RunOutcome | None:
@@ -208,7 +210,7 @@ class BrowserAgent:
         if not yn:
             self.log("confirmation_declined", run=state.id, host=p.host)
             return self._end(state, Status.CANCELLED, reason="declined")
-        state.permits.append(Permit(id=p.id, summary=p.summary, host=p.host, expires_at=self._later(self.permit_ttl)))
+        state.permits.append(Permit(id=p.id, summary=p.summary, host=p.host, expires_at=self._later(self.permit_ttl), label=p.target))
         state.pending, state.status = None, Status.RUNNING
         self.log("confirmation_granted", run=state.id, host=p.host, permit=p.id)
         return await self._run(state)
@@ -554,6 +556,8 @@ class BrowserAgent:
         permit = next((p for p in state.permits if p.id == v.permit_id), None)
         if permit is not None:
             what += f": {clip(permit.summary, 120)}"
+            if permit.action_class == "job_application_submit":
+                what += " (standing opt-in)"
             state.permits = [p for p in state.permits if p.id != permit.id]
         if v.via == "standing":
             state.spec.standing_ok = []  # one application per run
@@ -669,11 +673,14 @@ class BrowserAgent:
         pol = Policy(state, self._domains(state), self.clock.now())
         if state.spec.playbook == "job_apply" and "job_application_submit" in state.spec.standing_ok and not pol._has_open_attestation(snap):
             state.permits.append(Permit(id=new_run_id(), summary=summary, host=host, expires_at=self._later(self.permit_ttl), action_class="job_application_submit"))
+            state.spec.standing_ok = []  # ONE application per run: the standing opt-in is spent by this permit
             self._hist(state, a, "", "standing opt-in covers this application")
             self.log("standing_permit", run=state.id, host=host)
             return None
-        q = ask.confirm_pending(summary, host=host, lang=state.spec.lang)
-        state.pending = Pending(kind="confirm", id=new_run_id(), question=q, summary=summary, host=host, created_at=self.now_iso(), expires_at=self._later(self.confirm_ttl))
+        el = next((e for e in snap.elements if e.id == (a.target or "")), None)
+        label = rules.own_label(el)[:60] if el is not None else ""
+        q = ask.confirm_pending(summary + (f'\nButton: "{label}"' if label else ""), host=host, lang=state.spec.lang)
+        state.pending = Pending(kind="confirm", id=new_run_id(), question=q, summary=summary, target=label, host=host, created_at=self.now_iso(), expires_at=self._later(self.confirm_ttl))
         state.status = Status.WAITING_CONFIRM
         self.store.save(state)
         self.log("request_confirmation", run=state.id, host=host)

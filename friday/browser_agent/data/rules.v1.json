@@ -187,5 +187,16 @@
   "stripe.com",
   "npci.org.in",
   "bhimupi"
+ ],
+ "irreversible_link": [
+  "\\bconfirm",
+  "\\bfinish\\b",
+  "\\bsubmit\\b",
+  "finali[sz]e",
+  "\\bsign\\b",
+  "e-?sign",
+  "yes,?\\s+cancel",
+  "complete\\s+(the\\s+)?(cancellation|booking|purchase)",
+  "send\\s+application"
  ]
 }

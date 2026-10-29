@@ -111,6 +111,8 @@ def is_irreversible(el: Element) -> bool:
     if el.role not in ("button", "link"):
         return False
     name = " ".join(el.name.split())
+    if el.role == "link":  # a plain link only navigates; just the plainly final ones ("Confirm ...", "Finish") need a yes
+        return _any("irreversible_link", name)
     if _any("irreversible_element", name):
         return not _any("safe_submit_labels", name.strip().lower())
     return bool(el.submit and not _any("safe_submit_labels", name.strip().lower()))

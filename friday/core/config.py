@@ -720,6 +720,21 @@ class Settings(BaseSettings):
     site_mcp_idle_s: int = 240
     site_mcp_min_free_mb: int = 250  # memory guard: refuse new sessions below this MemAvailable
     approach_web_model: str | None = None  # None: openai_default_purpose_model
+    # general browser agent (docs/BROWSER_AGENT_DESIGN.md): tasks on ANY site, asks the user where needed. ALL OFF. Chat wording PENDING.
+    browser_agent_enabled: bool = False  # FRIDAY_BROWSER_AGENT_ENABLED
+    browser_agent_dir: str = "var/browser_agent"  # run state, proofs (git-ignored)
+    browser_agent_max_steps: int = 40
+    browser_agent_max_seconds: float = 300.0  # ACTIVE seconds per run (waiting for the user does not count)
+    browser_agent_max_cost_inr: float = 12.0  # ESTIMATE from token counts, not measured
+    browser_agent_ask_timeout_h: float = 24.0  # an unanswered question closes the run politely
+    browser_agent_confirm_timeout_min: float = 30.0
+    browser_agent_proof_days: int = 14
+    browser_agent_model: str | None = None  # None: openai_default_purpose_model
+    browser_agent_in_inr_per_1k: float = 0.05  # GUESS: input price per 1k tokens, INR
+    browser_agent_out_inr_per_1k: float = 0.2  # GUESS: output price per 1k tokens, INR
+    # job-application playbook on top of the browser agent. OFF; never applies without the user's standing opt-in.
+    job_apply_enabled: bool = False  # FRIDAY_JOB_APPLY_ENABLED
+    job_apply_daily_cap: int = 5  # applications per user per day (auto mode)
     # query understanding + A2A agent team (docs/AGENT_TEAM_DESIGN.md). ALL OFF. Chat wording PENDING.
     query_understanding_enabled: bool = False  # FRIDAY_QUERY_UNDERSTANDING_ENABLED: rewrite TEXT messages
     query_understanding_timeout_s: float = 2.5  # hard deadline of the model step (rules/fuzzy always run)

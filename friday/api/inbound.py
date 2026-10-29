@@ -201,6 +201,14 @@ class InboundPipeline:
                     self.browser.log_redacted = lambda u, m: self._log_inbound(u, m, redact=True)
             except Exception:  # noqa: BLE001 - the browser must never stop the app from booting
                 log.exception("private browser failed to build; continuing without it")
+        # general browser agent (friday/browser_agent): tasks on ANY site; None unless FRIDAY_BROWSER_AGENT_ENABLED
+        self.browser_agent: Any = None
+        try:
+            from friday.browser_agent.wiring import build_agent
+
+            self.browser_agent = build_agent(self)
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("browser agent failed to build; continuing without it")
         # trip timeline, refunds, family Drive (api/features.py): None while all are off
         self.planner: Any = None  # approach planner (friday/planner): None unless its switch is on
         self.features: Any = None
@@ -805,6 +813,9 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
+        if self.browser_agent is not None and await self.browser_agent.handle(user, msg):
+            return  # the user's answer to a website task's question / confirmation, 'stop', job-apply commands
+
         if self.intents is not None:  # honest capability replies, playbooks, fragments
             await self.intents.route(user, msg, self._team_or_after)
             return
@@ -1344,6 +1355,11 @@ class InboundPipeline:
                 await self.browser.forget_user(user.id)
             except Exception:  # noqa: BLE001 - never block the purge
                 log.exception("browser forget failed during delete everything")
+        if self.browser_agent is not None:  # website-task runs, proofs, files, job ledger
+            try:
+                await self.browser_agent.forget_user(user.id)
+            except Exception:  # noqa: BLE001
+                log.exception("browser agent forget failed during delete everything")
         recordings = await self.repos.purger.recording_urls(user.id)
         counts = await self.repos.purger.purge_user(user.id)
         # SECURITY-14: recordings live outside the DB (object store / provider).

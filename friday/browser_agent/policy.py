@@ -136,13 +136,12 @@ class Policy:
         host = rules.host_of(snap.url)
         if rules.is_account_creation(el) and not rules.host_allowed(host, self.state.spec.account_ok_hosts):
             return Verdict.refuse("creating an account needs the user's ok for this site", "need_account", lab)
-        if el.role == "link" and el.href_host:
-            if rules.domain_denied(el.href_host):
-                return Verdict.refuse("link to a site Friday never opens")
+        if el.role == "link" and el.href_host and rules.domain_denied(el.href_host):
+            return Verdict.refuse("link to a site Friday never opens")
         if rules.is_irreversible(el):
             if rules.is_attestation(el):
                 return Verdict.refuse("legal text must be confirmed by the user", "need_confirm", lab)
-            p = self._permit_for(host)
+            p = self._permit_for(host, lab)
             if p:
                 return Verdict(True, via="permit", permit_id=p, label=lab)
             if (self.state.spec.playbook == "job_apply" and "job_application_submit" in self.state.spec.standing_ok
@@ -158,8 +157,8 @@ class Policy:
                 return True
         return False
 
-    def _permit_for(self, host: str) -> str:
+    def _permit_for(self, host: str, label: str = "") -> str:
         for p in self.state.permits:
-            if parse_iso(p.expires_at) > self.now and (not p.host or p.host == host):
+            if parse_iso(p.expires_at) > self.now and (not p.host or p.host == host) and (not p.label or p.label.lower() == label.lower()):
                 return p.id
         return ""

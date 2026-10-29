@@ -60,6 +60,11 @@ class HeuristicDecider:
                 approach=Approach.CALL_VENDORS, confidence=0.8,
                 reason=_reason(ReasonCode.LOCAL_HUMAN_NEEDED, "you asked me to call"),
             )  # fmt: skip
+        if "browser_agent" in ctx.connectors and sg.browser_task(text) and not (sg.lookup_can_answer(text) and retailer):
+            return ApproachDecision(
+                approach=Approach.APP_OR_CONNECTOR, confidence=0.8,
+                reason=_reason(ReasonCode.ORDER_VIA_APP, "a task on a website that I can do in a browser"),
+            )  # fmt: skip
         if sg.lookup_can_answer(text):
             return ApproachDecision(
                 approach=Approach.WEB_LOOKUP, confidence=0.85, query=clean_query(text), retailer=retailer,

@@ -721,6 +721,10 @@ def _check_browser(settings: Settings) -> Section:
 
     for status, msg in site_mcp_check(settings):
         sec.add({"ok": OK, "warn": WARN, "fail": FAIL}[status], msg)
+    from friday.browser_agent.doctor import check as browser_agent_check  # general browser agent (docs/BROWSER_AGENT_DESIGN.md)
+
+    for status, msg in browser_agent_check(settings):
+        sec.add({"ok": OK, "warn": WARN, "fail": FAIL}[status], msg)
     return sec
 
 

@@ -361,3 +361,14 @@ async def test_extract_reads_an_answer_from_the_page():
     rig.llm.extract_answer = "Rs 1,249"
     out = await rig.agent.start("u1", spec(start_url=JOB))
     assert out.status == Status.DONE and "NOTES" in rig.llm.prompts[1] and "Rs 1,249" in rig.llm.prompts[1]
+
+
+async def test_a_yes_is_bound_to_the_button_the_user_was_shown():
+    pages = job_site()
+    pages[REVIEW].elements.append({"name": "Cancel my account", "role": "button", "submit": True, "submit_marks": True})
+    script = [A("goto", url=REVIEW), A("request_confirmation", summary=SUBMIT_TEXT, target="e1"), A("click", target="e2"), A("click", target="e1"), A("finish", result="sent")]
+    rig = make_rig(pages, script, facts=FACTS, start=JOB)
+    out = await rig.agent.start("u1", spec(start_url=JOB))
+    assert out.status == Status.WAITING_CONFIRM and 'Button: "Submit application"' in out.message
+    out = await rig.agent.reply(out.run_id, "yes")
+    assert out.status == Status.DONE and rig.browser.clicked() == ["Submit application"]  # the other irreversible button was refused

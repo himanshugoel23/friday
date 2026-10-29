@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Errors a page provider may raise. The loop maps them to stable run statuses."""
 
 from __future__ import annotations
