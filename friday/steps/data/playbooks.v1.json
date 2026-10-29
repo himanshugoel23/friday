@@ -1,0 +1,74 @@
+{
+ "schema": 1,
+ "note": "Step playbooks as DATA. A plan can only use the closed step types of friday/steps/types.py. Goal templates are the small prompt of ONE browser-loop step; the safety rules (payment stop, allow-list, injection safety, no account creation, irreversible confirmation) are NOT repeated here: the browser agent policy layer enforces them on every action of every step.",
+ "forbidden": [
+  "pay", "payment", "payments", "checkout", "check out", "card", "credit card", "debit card", "upi", "cvv", "wallet", "netbanking",
+  "place order", "place the order", "buy now", "purchase", "e-sign", "esign", "sign the", "sign this", "signature",
+  "create account", "create an account", "sign up", "signup", "register", "aadhaar", "aadhar", "pan card"
+ ],
+ "answers": {
+  "open_site": "login_wall=yes|no; location_prompt=yes|no; <one short sentence of what the page shows>",
+  "search": "results visible | location=not_accepted | login_wall=yes",
+  "read_results": "products separated by ' ; ', each as: title | pack | price in rupees (max 8), or: no_price"
+ },
+ "goals": {
+  "open_site": "STEP: open and look. The site {host} is open at {start_url}. Look at the page only: do not search, do not log in, do not click anything that changes data. Take one screenshot_proof. Then finish with exactly this result format: login_wall=yes or no (yes only if the content cannot be used without logging in); location_prompt=yes or no (does the page ask for a delivery location); then one short sentence about what the page shows.",
+  "search": "STEP: search. Search this site for: {query}. Use the site's search box with value_source text:{query}. If the site first asks for a delivery location, set it with the stored fact delivery_area (value_source fact:delivery_area) and pick the matching suggestion; if the site does not accept that area, finish with the result location=not_accepted. If you hit a login wall, finish with login_wall=yes. Stop as soon as search results are visible and finish with the result: results visible. {retry_hint}",
+  "read_results": "STEP: read the results. Read the product results now visible for: {query}. Take one screenshot_proof. Finish with the products separated by ' ; ' (at most 8), each in the format: title | pack size | price in rupees (for example: Aashirvaad Atta | 5 kg | Rs 289 ; Pillsbury Atta | 5 kg | Rs 262). Use only what the page printed. If no price is visible, finish with the result: no_price. If a login wall hides the prices, finish with login_wall=yes. {retry_hint}",
+  "navigate": "STEP: go to a section. Go to the part of this site about: {target}. Only open pages; click nothing that changes data. Take one screenshot_proof and finish with one sentence of what you see there. {retry_hint}",
+  "fill_preview": "STEP: fill and preview. Fill the form for: {target}, using stored facts; ask the user for anything missing. Do NOT submit and do not click the final send button. Take one screenshot_proof and finish with a short list of the fields filled and the name of the button that would send it.",
+  "act_confirmed": "STEP: one action that cannot be undone: {target}. First show the user exactly what will happen with request_confirmation. Only after their yes do the single final click, then take one screenshot_proof and finish with what the site says.",
+  "read_status": "STEP: read a status. Find the status of: {target}. Take one screenshot_proof and finish with the status in one sentence (dates and numbers exactly as printed).",
+  "login_request": "STEP: ask the site for a login code. On the login screen type the user's phone number from the stored fact phone (value_source fact:phone) and press the button that sends the code. Do NOT enter any code now. When the site says a code was sent, finish with the result: code_requested. If the site cannot send a code, finish with the result: no_code.",
+  "login_enter": "STEP: enter the login code. The code field takes the one-time code with value_source otp. Fill it, then press the verify or continue button. Finish with the result: logged_in=yes if the page now shows the site content or the account, otherwise logged_in=no."
+ },
+ "playbooks": {
+  "price_check": {
+   "match": [
+    "(?:price|rate|daam|cost|bhav)\\s+(?:of|for|ka|ki)\\s+(?P<item>.+?)\\s+(?:on|at|from|in|par|pe)\\s+(?P<store>[\\w.\\-]+)",
+    "(?:get|check|find|show|tell|batao|dikhao)\\s+(?P<item>.+?)\\s+(?:price|rate|daam|cost|bhav)\\s+(?:on|at|from|in|par|pe)\\s+(?P<store>[\\w.\\-]+)",
+    "(?P<item>.+?)\\s+(?:price|rate|daam|bhav)\\s+(?:on|at|from|in|par|pe)\\s+(?P<store>[\\w.\\-]+)"
+   ],
+   "steps": [
+    {"type": "open_site"},
+    {"type": "need_area"},
+    {"type": "need_login"},
+    {"type": "search"},
+    {"type": "read_results"},
+    {"type": "match_variant"},
+    {"type": "compare_and_suggest"},
+    {"type": "report"}
+   ]
+  },
+  "cancel_subscription": {
+   "match": ["\\bcancel\\s+(?:my|the|our)\\s+(?:\\w+\\s+){0,2}(?:subscription|membership|auto-?renew\\w*)\\b"],
+   "steps": [
+    {"type": "open_site"},
+    {"type": "need_login"},
+    {"type": "navigate", "args": {"target": "account, membership or subscription settings"}},
+    {"type": "read_status", "args": {"target": "the current plan and when it ends"}},
+    {"type": "act_confirmed", "args": {"target": "cancel the subscription"}},
+    {"type": "report"}
+   ]
+  },
+  "fill_form_preview": {
+   "match": ["\\bfill\\s+(?:out|in|up)\\s+(?:the|this|a|my)\\s+(?:\\w+\\s+){0,2}(?:form|application)\\b"],
+   "steps": [
+    {"type": "open_site"},
+    {"type": "need_login"},
+    {"type": "fill_preview", "args": {"target": "the form on this page"}},
+    {"type": "report"}
+   ]
+  },
+  "track_order": {
+   "match": ["\\b(?:track|check|where\\s+is)\\s+(?:my|the)\\s+(?:\\w+\\s+){0,2}(?:order|booking|reservation|delivery|parcel)\\b"],
+   "steps": [
+    {"type": "open_site"},
+    {"type": "need_login"},
+    {"type": "navigate", "args": {"target": "my orders or order tracking"}},
+    {"type": "read_status", "args": {"target": "the latest order or booking"}},
+    {"type": "report"}
+   ]
+  }
+ }
+}

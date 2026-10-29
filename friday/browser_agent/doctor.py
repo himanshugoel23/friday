@@ -12,6 +12,10 @@ def check(settings: Any, *, mem_reader: Any = read_mem_available_mb) -> list[tup
     on = bool(getattr(settings, "browser_agent_enabled", False))
     jobs = bool(getattr(settings, "job_apply_enabled", False))
     out = [("ok", f"browser agent: {'ON' if on else 'off'} (FRIDAY_BROWSER_AGENT_ENABLED), job-apply playbook {'ON' if jobs else 'off'} (FRIDAY_JOB_APPLY_ENABLED); no pay / sign / account-creation tool exists")]
+    steps = bool(getattr(settings, "browser_steps_enabled", False))
+    out.append(("ok", f"step-by-step web tasks: {'ON' if steps else 'off'} (FRIDAY_BROWSER_STEPS_ENABLED); plan first, one step at a time"))
+    if steps and not on:
+        out.append(("warn", "step-by-step web tasks are on but the browser agent is off: they stay off"))
     if jobs and not on:
         out.append(("warn", "job-apply playbook is on but the browser agent is off: nothing will run"))
     if on:

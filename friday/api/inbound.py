@@ -224,6 +224,15 @@ class InboundPipeline:
             self.planner = build_planner(self)
         except Exception:  # noqa: BLE001 - never stop the app from booting
             log.exception("approach planner failed to build; continuing without it")
+        self.browser_steps: Any = None  # step-by-step web tasks (friday/steps): None unless FRIDAY_BROWSER_STEPS_ENABLED (+ browser agent)
+        try:
+            from friday.steps.wiring import build_steps
+
+            self.browser_steps = build_steps(self)
+            if self.planner is not None:
+                self.planner.steps = self.browser_steps
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("step runner failed to build; continuing without it")
         self.team: Any = None  # query understanding + A2A agent team (friday/team): None unless a switch is on
         try:
             from friday.team.wiring import build_gateway
@@ -816,6 +825,9 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
+        if self.browser_steps is not None and await self.browser_steps.handle(user, msg):
+            return  # the user's answer to a step-by-step web task (area, yes/no, a form field), 'stop'
+
         if self.browser_agent is not None and await self.browser_agent.handle(user, msg):
             return  # the user's answer to a website task's question / confirmation, 'stop', job-apply commands
 
@@ -1358,6 +1370,11 @@ class InboundPipeline:
                 await self.browser.forget_user(user.id)
             except Exception:  # noqa: BLE001 - never block the purge
                 log.exception("browser forget failed during delete everything")
+        if self.browser_steps is not None:  # step plans and their loop runs
+            try:
+                await self.browser_steps.forget_user(user.id)
+            except Exception:  # noqa: BLE001
+                log.exception("step runner forget failed during delete everything")
         if self.browser_agent is not None:  # website-task runs, proofs, files, job ledger
             try:
                 await self.browser_agent.forget_user(user.id)

@@ -54,12 +54,14 @@ class PlannerGateway:
         call: CallAgent | None = None,
         ack_after_s: float = ACK_AFTER_S,
         shopping: Any = None,  # friday.shopping.ShoppingAssistant, or None while its switch is off
+        steps: Any = None,  # friday.steps.gateway.StepGateway, or None while FRIDAY_BROWSER_STEPS_ENABLED is off (set by the pipeline)
     ) -> None:
         self.p = pipeline
         self.planner, self.web = planner, web
         self.ask, self.answer, self.call = ask or AskAgent(), answer or AnswerAgent(), call or CallAgent()
         self.ack_after_s = ack_after_s
         self.shopping = shopping
+        self.steps = steps
         self._style = StyleLayer.from_pipeline(pipeline)  # FRIDAY_STYLE_LAYER_ENABLED (off: no change)
         self._last: dict[str, tuple[datetime, WebLookupInput, WebLookupOutput]] = {}
 
@@ -108,6 +110,9 @@ class PlannerGateway:
     # ------------------------------------------------------------------ entry
     async def route(self, user: User, msg: InboundMessage, rest: Rest) -> None:
         text = (msg.text or "").strip()
+        if (self.steps is not None and msg.kind in (MessageKind.TEXT, MessageKind.VOICE_NOTE) and len(text) >= 3
+                and not await self._busy(user) and await self.steps.start(user, text, await self._lang(user))):
+            return  # step-by-step web task ('price of atta on zepto', cancel a subscription ...): plan first, one step at a time
         if self.shopping is not None and not await self._busy(user) and await self.shopping.handle(user, msg, await self._lang(user)):
             return  # shopping: a product word, a Home / PG tap, or the one area answer
         if msg.kind not in (MessageKind.TEXT, MessageKind.VOICE_NOTE) or len(text) < 3 or await self._busy(user):
