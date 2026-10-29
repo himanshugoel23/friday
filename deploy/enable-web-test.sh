@@ -76,14 +76,15 @@ FEATURES_ON = [
     "FRIDAY_SHOPPING_ASSISTANT_ENABLED",
     "FRIDAY_QUERY_UNDERSTANDING_ENABLED", "FRIDAY_AGENT_TEAM_ENABLED", "FRIDAY_PROACTIVE_INTENTS_ENABLED",
     "FRIDAY_STYLE_LAYER_ENABLED",  # Instinct-style replies (docs/STYLE_GUIDE.md); wording PENDING founder approval
+    # founder 2026-10-29 'switch everything on' (tester-only server; memory guard refuses browser sessions when RAM is low):
+    "FRIDAY_CALL_QUEUE_ENABLED", "FRIDAY_SITE_MCP_ENABLED", "FRIDAY_SITE_MCP_PROBE_ENABLED",
+    "FRIDAY_BROWSER_AGENT_ENABLED", "FRIDAY_JOB_APPLY_ENABLED",  # job apply still needs the user's own 'job apply on' opt-in in chat; preview mode by default
 ]
 # stay off in both modes (calls with unapproved lines / not wired to the live path / sharing)
 ALWAYS_OFF = [
     "FRIDAY_REFUND_CHASE_CALLS", "FRIDAY_FAMILY_DRIVE_SHARING_ENABLED", "FRIDAY_PARITY_DIGEST",
     "FRIDAY_PARITY_NUDGES", "FRIDAY_PARITY_ESCALATION",
     "FRIDAY_A2A_HTTP_ENABLED", "FRIDAY_TEAM_DRIFT_ENABLED",  # HTTP exposure and live site probes: switched on by hand only
-    "FRIDAY_BROWSER_AGENT_ENABLED", "FRIDAY_JOB_APPLY_ENABLED",  # general browser agent (tasks on any site) + job-application playbook: need Chromium (friday doctor), real-site behaviour unverified, switched on by hand only
-    "FRIDAY_SITE_MCP_ENABLED", "FRIDAY_SITE_MCP_PROBE_ENABLED",  # browser-driven site servers + anonymous live probe: need Playwright/Chromium (friday doctor), switched on by hand only
 ]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]
 
