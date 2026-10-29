@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "note": "Brand word -> domains the user may name in plain words ('cancel my netflix'). Everything else needs a URL or a website name from the user. The model never picks domains.",
+  "brands": {
+    "naukri": ["naukri.com"], "linkedin": ["linkedin.com"], "indeed": ["indeed.com", "in.indeed.com"], "foundit": ["foundit.in"], "instahyre": ["instahyre.com"],
+    "wellfound": ["wellfound.com"], "netflix": ["netflix.com"], "hotstar": ["hotstar.com"], "spotify": ["spotify.com"], "primevideo": ["primevideo.com"],
+    "zee5": ["zee5.com"], "sonyliv": ["sonyliv.com"], "youtube": ["youtube.com"], "airtel": ["airtel.in"], "jio": ["jio.com"], "bsnl": ["bsnl.co.in"]
+  }
+}
