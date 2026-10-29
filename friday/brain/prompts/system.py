@@ -253,4 +253,6 @@ def system_prompt(
     body = _PURPOSES[purpose]
     if purpose == "call_turn":
         return f"{PERSONA}\n{body}\n{UNTRUSTED}"
-    return f"{persona_block(tone, language)}\n{body}\n{UNTRUSTED}"
+    from friday.style.prompt import style_suffix  # empty unless FRIDAY_STYLE_LAYER_ENABLED
+
+    return f"{persona_block(tone, language)}\n{body}{style_suffix()}\n{UNTRUSTED}"

@@ -236,6 +236,81 @@ def not_contains_any(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
     return (not hit), "" if not hit else "contains: " + ", ".join(hit[:3])
 
 
+# --------------------------------------------------------------------------- style rules (docs/STYLE_GUIDE.md)
+# Thin wrappers over friday.style.check, so production and bench use the SAME deterministic checks.
+
+
+@rule
+def style_length(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    """Every message of the turn fits the length budget (arg: 'text' = 5 lines, 'result' = 8, 'proof' = 10)."""
+    from friday.style import check as sc
+
+    kind = str(arg or "result")
+    bad = [v for t in r.texts if t for v in sc.check(t, kind=kind) if v.code == "too_long"]
+    return (not bad), "" if not bad else bad[0].detail
+
+
+@rule
+def style_one_question(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    """At most one question group in the turn (a grouped-questions list counts as one)."""
+    from friday.style import check as sc
+
+    n = sc.question_groups(r.text)
+    return n <= 1, "" if n <= 1 else f"{n} question groups in one turn"
+
+
+@rule
+def style_no_headers(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    from friday.style import check as sc
+
+    bad = any(v.code == "markdown_header" for v in sc.check(r.text))
+    return (not bad), "" if not bad else "markdown header in a chat reply"
+
+
+@rule
+def style_headline_first(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    """A comparison opens with the headline fact, not with its first option line."""
+    from friday.style import check as sc
+
+    ok = all(sc.headline_first(t) for t in r.texts if t)
+    return ok, "" if ok else "options listed before the headline"
+
+
+@rule
+def style_cancel_wording(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    """After a cancel the reply says what was NOT done ('Nothing was charged or booked')."""
+    from friday.style import check as sc
+
+    ok = sc.has_cancel_wording(r.text)
+    return ok, "" if ok else "cancel reply does not say that nothing was charged or booked"
+
+
+@rule
+def style_proof_present(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    """After an action the turn carries a proof (what / reference / link / screenshot note)."""
+    from friday.style import check as sc
+
+    ok = sc.has_proof_marks(r.text)
+    return ok, "" if ok else "no proof (what, reference, link or screenshot) after the action"
+
+
+@rule
+def style_script_mirror(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    """Roman stays Roman; Devanagari gets Devanagari."""
+    from friday.style import check as sc
+
+    bad = sc.script_violation(c.user_text, r.text)
+    return (not bad), bad or ""
+
+
+@rule
+def style_no_flat_refusal(r: Reply, c: Ctx, arg: Any) -> tuple[bool, str]:
+    from friday.style import check as sc
+
+    bad = any(v.code == "flat_refusal" for v in sc.check(r.text, has_buttons=bool(r.buttons)))
+    return (not bad), "" if not bad else "refusal with no nearest alternative"
+
+
 HONEST_RULES = ("not_flat_refusal", "states_need_or_alternative")
 
 

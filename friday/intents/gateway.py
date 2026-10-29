@@ -29,6 +29,7 @@ from friday.chatbot.composer import Composer, detect_language
 from friday.core.clock import IST
 from friday.core.logging import get_logger
 from friday.core.models import Fact, FactKind, InboundMessage, MessageKind, ReplyButton, User
+from friday.style import StyleLayer
 
 log = get_logger(__name__)
 
@@ -106,6 +107,7 @@ class IntentGateway:
         self.p = pipeline
         self._open: dict[str, Open] = {}
         self._composer = Composer()
+        self._style = StyleLayer.from_pipeline(pipeline)  # FRIDAY_STYLE_LAYER_ENABLED (off: no change)
 
     # ------------------------------------------------------------------ helpers
     def _now(self) -> datetime:
@@ -134,7 +136,9 @@ class IntentGateway:
     async def _say(self, user: User, text: str, buttons: list[ReplyButton] | None = None) -> None:
         comp = self._composer.compose(text, buttons=buttons or [], kind="assist")
         if comp is not None:
-            await self.p.reply(user, comp.text, comp.buttons)
+            parts = self._style.fit(comp.text, source="intents", has_buttons=bool(comp.buttons))
+            for i, part in enumerate(parts):  # buttons ride on the last part
+                await self.p.reply(user, part, comp.buttons if i == len(parts) - 1 else [])
 
     def _qu(self) -> Any:
         return getattr(getattr(self.p, "team", None), "qu", None)

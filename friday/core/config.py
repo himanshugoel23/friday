@@ -700,6 +700,9 @@ class Settings(BaseSettings):
     # proactive intents (docs/PROACTIVE_INTENTS.md): honest "needs a connection" replies, interview /
     # birthday / trip / bill / exam / meeting playbooks, one-word follow-ups. Chat wording PENDING.
     proactive_intents_enabled: bool = False  # FRIDAY_PROACTIVE_INTENTS_ENABLED
+    # Instinct-style reply layer (docs/STYLE_GUIDE.md): style block in the brain prompts, message budget on
+    # owned templates, proof cards. OFF: nothing changes. All new wording PENDING founder approval.
+    style_layer_enabled: bool = False  # FRIDAY_STYLE_LAYER_ENABLED
     approach_use_llm: bool = True  # FRIDAY_APPROACH_USE_LLM: LLM proposes (OpenAI)
     approach_decide_timeout_s: float = 6.0
     approach_ack_after_s: float = 8.0  # ONE 'on it' line when a plan takes longer than this

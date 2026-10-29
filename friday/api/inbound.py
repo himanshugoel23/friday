@@ -228,6 +228,9 @@ class InboundPipeline:
             from friday.intents.gateway import IntentGateway
 
             self.intents = IntentGateway(self)
+        from friday.style.prompt import set_enabled as _style_prompt
+
+        _style_prompt(getattr(self.settings, "style_layer_enabled", False))  # brain prompts
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)

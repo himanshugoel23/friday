@@ -29,6 +29,7 @@ class EvidenceKind(StrEnum):
     CONFIRMATION_TEXT = "confirmation_text"  # SMS/email text the user forwarded
     VENDOR_MESSAGE = "vendor_message"
     USER_CONFIRMED = "user_confirmed"
+    ACTION_PROOF = "action_proof"  # action card (docs/STYLE_GUIDE.md)
 
 
 REFERENCE_KINDS = frozenset({EvidenceKind.ORDER_ID, EvidenceKind.BOOKING_REF})

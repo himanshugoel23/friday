@@ -21,6 +21,7 @@ from friday.shopping import catalog, places
 from friday.shopping import wording as w
 from friday.shopping.agent import ShoppingAgent
 from friday.shopping.compare import Product, ShoppingInput, ShoppingOutput
+from friday.style import StyleLayer
 
 log = get_logger(__name__)
 _IST = timezone(timedelta(hours=5, minutes=30))
@@ -69,6 +70,7 @@ class ShoppingAssistant:
     def __init__(self, pipeline: Any, agent: ShoppingAgent, *, image_cards: bool | None = None) -> None:
         self.p, self.agent = pipeline, agent
         self._image_cards = image_cards  # None: detect (web chat only)
+        self._style = StyleLayer.from_pipeline(pipeline)  # FRIDAY_STYLE_LAYER_ENABLED (off: no change)
         self._pending: dict[str, Pending] = {}
 
     # ------------------------------------------------------------------ helpers
@@ -81,7 +83,9 @@ class ShoppingAssistant:
         return bool(getattr(getattr(self.p.notifier, "messaging", None), "is_web", False))
 
     async def _say(self, user: User, text: str, buttons: list[ReplyButton] | None = None) -> None:
-        await self.p.reply(user, text, buttons or [])
+        parts = self._style.fit(text, source="shopping", kind="result", has_buttons=bool(buttons))
+        for i, part in enumerate(parts):  # buttons ride on the last part
+            await self.p.reply(user, part, (buttons or []) if i == len(parts) - 1 else [])
 
     def matches(self, text: str) -> catalog.Category | None:
         return catalog.is_shopping_request(text)
@@ -167,15 +171,25 @@ class ShoppingAssistant:
             except Exception:  # noqa: BLE001 - a card is a nicety; the text comparison follows anyway
                 log.info("shopping: image card failed")
 
+    async def _proof(self, user: User, out: ShoppingOutput, cat: catalog.Category, lang: str) -> None:
+        """PROOF card for a finished lookup (style layer only; see friday/evidence/action_proof.py)."""
+        from friday.evidence.action_proof import send_card
+
+        ok_sites = [s.display for s in out.sites if s.status == "ok"]
+        res = {"status": out.status, "url": out.sources[0].url if out.sources else None, "site": ", ".join(ok_sites[:3]), "seen": "" if out.status == "ok" else f"lookup {out.status}"}
+        await send_card(self.p, user, res, kind="lookup", what=f"{cat.id} prices", lang=lang)
+
     async def _deliver(self, user: User, out: ShoppingOutput, inp: ShoppingInput, cat: catalog.Category, lang: str, text: str) -> None:
         if out.status != "ok":
             await self._say(user, self._soft_fail(out, cat, lang))
+            await self._proof(user, out, cat, lang)  # a failed attempt also says what was seen
             return
         await self._say(user, self._headline(out, cat, lang))
         await self._send_cards(user, out, lang)
         body = self._comparison(out, lang)
         if inp.pincode:  # the user already gave a place: nothing to ask
             await self._say(user, body)
+            await self._proof(user, out, cat, lang)
             return
         office = catalog.wants_office(text)
         saved = await places.saved_places(self.p.repos, user.id, include_office=office)
@@ -222,5 +236,6 @@ class ShoppingAssistant:
             header = w.line("refined_new", lang, label=label, name=rec.product.title, reason=rec.reason)
         lines.append(self._comparison(out, lang, header=header))
         await self._say(user, "\n".join(lines))
+        await self._proof(user, out, pend.cat, lang)
         return True
 

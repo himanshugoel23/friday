@@ -32,6 +32,8 @@ from friday.planner.agents.web_lookup import WebLookupAgent, WebLookupInput, Web
 from friday.planner.planner import ApproachPlanner
 from friday.planner.slow import ACK_AFTER_S, run_with_ack
 from friday.planner.types import Approach, ApproachDecision, PlannerContext
+from friday.style import StyleLayer
+from friday.style import builders as style_say
 
 log = get_logger(__name__)
 
@@ -58,6 +60,7 @@ class PlannerGateway:
         self.ask, self.answer, self.call = ask or AskAgent(), answer or AnswerAgent(), call or CallAgent()
         self.ack_after_s = ack_after_s
         self.shopping = shopping
+        self._style = StyleLayer.from_pipeline(pipeline)  # FRIDAY_STYLE_LAYER_ENABLED (off: no change)
         self._last: dict[str, tuple[datetime, WebLookupInput, WebLookupOutput]] = {}
 
     # ------------------------------------------------------------------ helpers
@@ -85,7 +88,13 @@ class PlannerGateway:
         return await self.p._reply_lang(user)
 
     async def _say(self, user: User, text: str) -> None:
-        await self.p.reply(user, text)
+        for part in self._style.fit(text, source="planner", kind="result"):  # one part while the switch is off
+            await self.p.reply(user, part)
+
+    def _ack_text(self, approach: Approach, retailer: str | None, lang: str) -> str:
+        if self._style.enabled and approach == Approach.WEB_LOOKUP:
+            return style_say.ack(wording.where_label(retailer, lang), lang)
+        return wording.ack_line(approach, retailer, lang)
 
     async def _audit(self, user: User, d: ApproachDecision) -> None:
         with contextlib.suppress(Exception):
@@ -122,7 +131,7 @@ class PlannerGateway:
             q = self.ask.run(
                 AskInput(reason_code=d.reason.code, proposed=d.question, lang=lang, call_in_plan=False)
             ).question
-            await self._say(user, q)
+            await self._say(user, self._style.flag(q, source="planner.ask", user_text=text))
         elif d.approach == Approach.DECLINE:
             await self._say(user, wording.guard_text(d.question, call_in_plan=False, fallback=wording.line("decline", lang)))
         else:
@@ -143,11 +152,18 @@ class PlannerGateway:
 
     async def _lookup(self, user: User, inp: WebLookupInput, lang: str) -> None:
         async def ack() -> None:
-            await self._say(user, wording.ack_line(Approach.WEB_LOOKUP, inp.retailer, lang))
+            await self._say(user, self._ack_text(Approach.WEB_LOOKUP, inp.retailer, lang))
 
         out = await run_with_ack(self.web.run(inp), ack, after_s=self.ack_after_s)
         self._last[user.id] = (self._now(), inp, out)
         await self._say(user, self.web.render(out, lang))
+        if out.ask_pincode:  # the reply ends with a question: nothing may bury it
+            return
+        from friday.evidence.action_proof import send_card
+
+        first = next(iter(getattr(out, "sources", None) or []), None)
+        res = {"status": out.status, "url": getattr(first, "url", None), "seen": "" if out.status == "ok" else f"lookup {out.status}"}
+        await send_card(self.p, user, res, kind="lookup", what=inp.query[:80], lang=lang)
 
     async def _pass_through(
         self, user: User, msg: InboundMessage, d: ApproachDecision, lang: str, rest: Rest
@@ -161,6 +177,6 @@ class PlannerGateway:
                 return
 
         async def ack() -> None:
-            await self._say(user, wording.ack_line(d.approach, d.retailer, lang))
+            await self._say(user, self._ack_text(d.approach, d.retailer, lang))
 
         await run_with_ack(rest(user, msg), ack, after_s=self.ack_after_s)

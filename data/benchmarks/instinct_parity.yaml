@@ -221,3 +221,83 @@ scenarios:
     messages: ["bijli ka bill bharna hai"]
     expected_today: needs connector
     rules: [not_flat_refusal, total_before_payment, stops_before_payment, max_one_question, mirrors_roman_script, has_next_step]
+
+  # ---- style scenarios (docs/STYLE_GUIDE.md): the Instinct way of replying. Neutral fixtures.
+  # These test SHAPE (length, one question, headline first, nothing-charged wording, proof, script),
+  # not wording quality: that needs the founder's ear on real replies.
+  - id: style_gmail_short
+    category: style
+    capability: email
+    messages: ["Mera gmail check krna"]
+    expected_today: needs connector
+    rules: [{style_length: text}, style_one_question, style_no_headers, style_no_flat_refusal, style_script_mirror]
+
+  - id: style_gmail_en
+    category: style
+    capability: email
+    user: english
+    messages: ["Can you check my gmail?"]
+    expected_today: needs connector
+    rules: [{style_length: text}, style_one_question, style_no_headers, style_no_flat_refusal, style_script_mirror]
+
+  - id: style_interview_one_idea
+    category: style
+    capability: reminder
+    messages: ["kal mera interview hai"]
+    expected_today: works
+    rules: [{style_length: text}, style_one_question, style_no_headers, style_script_mirror]
+
+  - id: style_birthday_en
+    category: style
+    capability: reminder
+    user: english
+    messages: ["My mom's birthday is tomorrow"]
+    expected_today: works
+    rules: [{style_length: text}, style_one_question, style_no_headers, style_script_mirror]
+
+  - id: style_alarm_limit
+    category: style
+    capability: reminder
+    messages: ["kal subah 6 baje ka alarm laga do"]
+    expected_today: works
+    note: honest limit with the nearest alternative, short.
+    rules: [{style_length: text}, style_no_flat_refusal, style_one_question, style_script_mirror]
+
+  - id: style_sms_limit
+    category: style
+    capability: connector
+    messages: ["mummy ko SMS karke bol do ki main late aaunga"]
+    expected_today: works
+    rules: [{style_length: text}, style_no_flat_refusal, style_one_question, style_script_mirror]
+
+  - id: style_atta_headline
+    category: style
+    capability: connector
+    messages: ["atta"]
+    expected_today: needs connector
+    note: comparison opens with the headline fact; one closing question; fits the result budget.
+    rules: [{style_length: result}, style_headline_first, style_one_question, style_no_headers, style_script_mirror]
+
+  - id: style_proof_after_lookup
+    category: style
+    capability: connector
+    messages: ["Zepto par 5 kg atta ka price batao"]
+    expected_today: needs connector
+    note: a lookup ends with a proof card (what / where / when / link) as its own message.
+    rules: [style_proof_present, {style_length: result}, style_no_headers]
+
+  - id: style_cancel_nothing_charged
+    category: style
+    capability: browser
+    messages: ["Sector 39 mein ek medium veg pizza order karo", "nahi, cancel kar do"]
+    expected_today: not built
+    note: known gap until the order flow has its own cancel template; must say nothing was charged.
+    rules: [style_cancel_wording, {style_length: text}, style_one_question]
+
+  - id: style_devanagari_mirror
+    category: style
+    capability: language
+    messages: ["मुझे कल इंटरव्यू है"]
+    expected_today: not built
+    note: Devanagari in, Devanagari out; Roman lines are the only approved set today.
+    rules: [style_script_mirror, {style_length: text}, style_one_question]

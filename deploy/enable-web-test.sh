@@ -75,6 +75,7 @@ FEATURES_ON = [
     "FRIDAY_GUARDRAILS_NEW_CATEGORIES", "FRIDAY_BROWSER_LOGIN_OTP_IN_CHAT", "FRIDAY_APPROACH_PLANNER_ENABLED",
     "FRIDAY_SHOPPING_ASSISTANT_ENABLED",
     "FRIDAY_QUERY_UNDERSTANDING_ENABLED", "FRIDAY_AGENT_TEAM_ENABLED", "FRIDAY_PROACTIVE_INTENTS_ENABLED",
+    "FRIDAY_STYLE_LAYER_ENABLED",  # Instinct-style replies (docs/STYLE_GUIDE.md); wording PENDING founder approval
 ]
 # stay off in both modes (calls with unapproved lines / not wired to the live path / sharing)
 ALWAYS_OFF = [

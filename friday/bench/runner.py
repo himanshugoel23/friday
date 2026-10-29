@@ -24,7 +24,7 @@ DEFAULT_DIR = Path("var/bench")
 # Switches the web test turns on (deploy/enable-web-test.sh); the bench mirrors the live web chat.
 FEATURE_SWITCHES = (
     "approach_planner_enabled", "shopping_assistant_enabled", "query_understanding_enabled",
-    "agent_team_enabled", "proactive_intents_enabled", "parity_inr_only", "parity_ride_links",
+    "agent_team_enabled", "proactive_intents_enabled", "style_layer_enabled", "parity_inr_only", "parity_ride_links",
     "parity_invites", "parity_status", "guardrails_new_categories",
 )
 TESTERS = {"hinglish": "+919800000001", "english": "+919800000002"}  # invented lab users
