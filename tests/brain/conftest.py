@@ -119,3 +119,12 @@ def transcript(brief: CallBrief, *turns: tuple[str, str], disclosure: bool = Tru
     for speaker, text in turns:
         tr.add(Speaker(speaker), text, at=NOW)
     return tr
+
+
+@pytest.fixture(autouse=True)
+def _style_prompt_off():
+    # The style block is a process-wide switch that other suites (bench) turn on; prompt snapshots expect it off.
+    from friday.style.prompt import set_enabled
+
+    set_enabled(False)
+    yield
