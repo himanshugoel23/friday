@@ -1413,3 +1413,6 @@ tests/sitemcp real-Chromium test failed in this sandbox (Page.goto ERR_FAILED to
 
 ## 2026-10-29 01:49 IST: 'Gmail' now answers honestly: 'Google connection not set up here'
 Cause: friday/intents asks the consumer router (friday/integration) for the Google connector; that router is built only when a consumer switch such as FRIDAY_GOOGLE_ENABLED is on. enable-google.sh now also sets FRIDAY_GOOGLE_ENABLED=true (and off mode clears it). Also 'Connect my google' hit the generic clarify question instead of the connect flow: route 'connect (my) google' phrases to the connect step in friday/intents.
+
+## 2026-10-29 (builder): GENERAL BROWSER AGENT started (friday/browser_agent, docs/BROWSER_AGENT_DESIGN.md)
+Founder: Instinct has browser agents that work out each task on ANY site and ask the user where needed; our site MCPs cover only known sites. Building a goal-driven loop (observe, think, act) behind FRIDAY_BROWSER_AGENT_ENABLED (default OFF) and a job-application playbook behind FRIDAY_JOB_APPLY_ENABLED (default OFF). Rules: pages are untrusted data, per-task domain allow-list, never payment/identity/account-creation/captcha, passwords only via the vault link, irreversible submits need an explicit yes in chat, proof for every irreversible action. Fakes only; nothing run on a real site. Not pushed.
