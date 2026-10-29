@@ -225,6 +225,12 @@ class Runtime:
                 await gw.tick()
             except Exception:  # noqa: BLE001
                 log.exception("browser agent tick failed")
+            steps = getattr(self.pipeline, "browser_steps", None)
+            if steps is not None:  # step plans: codes that arrived, OTP timeout + resend, busy retries, restarts
+                try:
+                    await steps.tick()
+                except Exception:  # noqa: BLE001
+                    log.exception("step runner tick failed")
             await asyncio.sleep(60)
 
     async def site_mcp_probe_loop(self) -> None:

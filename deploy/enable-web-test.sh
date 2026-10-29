@@ -79,6 +79,7 @@ FEATURES_ON = [
     # founder 2026-10-29 'switch everything on' (tester-only server; memory guard refuses browser sessions when RAM is low):
     "FRIDAY_CALL_QUEUE_ENABLED", "FRIDAY_SITE_MCP_ENABLED", "FRIDAY_SITE_MCP_PROBE_ENABLED",
     "FRIDAY_A2A_HTTP_ENABLED",  # agents over HTTP at /a2a/<agent>; answers 403 without FRIDAY_A2A_HTTP_TOKEN (generated below, never printed)
+    "FRIDAY_BROWSER_STEPS_ENABLED",  # web tasks as an explicit step plan, one step at a time (docs/BROWSER_AGENT_STEPS.md); needs the browser agent
     "FRIDAY_BROWSER_AGENT_ENABLED", "FRIDAY_JOB_APPLY_ENABLED",  # job apply still needs the user's own 'job apply on' opt-in in chat; preview mode by default
 ]
 # stay off in both modes (calls with unapproved lines / not wired to the live path / sharing)

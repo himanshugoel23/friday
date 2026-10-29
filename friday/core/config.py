@@ -735,6 +735,10 @@ class Settings(BaseSettings):
     browser_agent_model: str | None = None  # None: openai_default_purpose_model
     browser_agent_in_inr_per_1k: float = 0.05  # GUESS: input price per 1k tokens, INR
     browser_agent_out_inr_per_1k: float = 0.2  # GUESS: output price per 1k tokens, INR
+    # step-by-step web tasks (docs/BROWSER_AGENT_STEPS.md): plan first, then ONE step at a time (area, login OTP, search, variants, suggestions). OFF.
+    browser_steps_enabled: bool = False  # FRIDAY_BROWSER_STEPS_ENABLED (needs the browser agent)
+    browser_steps_dir: str = "var/steps"  # plans + step loop runs (git-ignored)
+    browser_steps_otp_ttl_s: float = 300.0  # how long a login code is waited for before ONE resend is offered
     # job-application playbook on top of the browser agent. OFF; never applies without the user's standing opt-in.
     job_apply_enabled: bool = False  # FRIDAY_JOB_APPLY_ENABLED
     job_apply_daily_cap: int = 5  # applications per user per day (auto mode)
