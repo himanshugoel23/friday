@@ -279,3 +279,45 @@ async def test_real_chromium_runs_the_live_probe_against_the_local_fake_store(tm
     finally:
         st.stop()
     assert r["overall"] == "ok" and r["items_found"] == 3
+
+
+async def test_control_run_records_example_com_result_and_closes(tmp_path):
+    from friday.sitemcp.live import run_control
+    from friday.sitemcp.probestore import ProbeStore
+
+    class Sess:
+        last_status = 200
+        closed = False
+
+        async def goto(self, url):
+            self.url = url
+
+        async def text(self, selector):
+            return "Example Domain This domain is for use in examples"
+
+        async def screenshot(self, mask_selectors=()):
+            return b"png"
+
+        async def close(self):
+            Sess.closed = True
+
+    class Factory:
+        async def open(self, kb, state):
+            assert kb["domains"] == ["example.com"]
+            return Sess()
+
+    store = ProbeStore(tmp_path)
+    r = await run_control(Factory(), store)
+    assert r["overall"] == "ok" and r["steps"][0]["detail"].startswith("http=200") and Sess.closed
+    assert store.shot("control") == b"png" and "control" in store.live_all()
+
+
+async def test_control_run_error_is_recorded_not_raised(tmp_path):
+    from friday.sitemcp.live import run_control
+
+    class Factory:
+        async def open(self, kb, state):
+            raise RuntimeError("boom")
+
+    r = await run_control(Factory(), None)
+    assert r["overall"] == "error" and "RuntimeError" in r["steps"][0]["detail"]

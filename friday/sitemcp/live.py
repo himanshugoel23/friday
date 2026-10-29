@@ -85,6 +85,45 @@ async def run_live(kb: dict[str, Any], factory: BrowserFactory, store: ProbeStor
     return result
 
 
+CONTROL_URL = "https://example.com/"
+
+
+async def run_control(factory: BrowserFactory, store: ProbeStore | None, *, now: Callable[[], datetime] | None = None,
+                      mono: Callable[[], float] = time.monotonic) -> dict[str, Any]:
+    """Control run: open example.com (a page that blocks nobody). Loads => the browser works and a grocery site's
+    refusal is about the site or our address; blank => our browser setup. Anonymous, one request, then closed."""
+    now = now or (lambda: datetime.now(UTC))
+    kb = {"site": "control", "version": 1, "status": "control", "domains": ["example.com"]}
+    result: dict[str, Any] = {"site": "control", "kb_version": 1, "kb_status": "control", "started_at": now().isoformat(timespec="seconds"),
+                              "steps": [], "overall": "ok", "items_found": 0, "priced": 0, "sample": [], "screenshot": False}
+    shot: bytes | None = None
+    sess: Any = None
+    t0 = mono()
+    try:
+        sess = await factory.open(kb, None)
+        await sess.goto(CONTROL_URL)
+        text = (await sess.text("body"))[:200]
+        code = getattr(sess, "last_status", None)
+        ok = "Example Domain" in text
+        result["steps"].append({"step": "open example.com", "status": "ok" if ok else "changed", "ms": int((mono() - t0) * 1000),
+                                "detail": f"http={code} page_text={'Example Domain' if ok else 'not the expected page'}"})
+        if not ok:
+            result["overall"] = "changed"
+        shot = await sess.screenshot()
+        result["screenshot"] = True
+    except Exception as e:  # noqa: BLE001 - a probe never crashes the server
+        result["overall"] = "error"
+        result["steps"].append({"step": "open example.com", "status": "error", "ms": int((mono() - t0) * 1000), "detail": f"{type(e).__name__}: {str(e)[:100]}"})
+    finally:
+        if sess is not None:
+            with contextlib.suppress(Exception):
+                await sess.close()
+    result["finished_at"] = now().isoformat(timespec="seconds")
+    if store is not None:
+        store.save_live(result, shot)
+    return result
+
+
 def render_report(store: ProbeStore, kbs: dict[str, dict[str, Any]] | None = None) -> str:
     """Plain text for GET /ops-status/<token>/probe: statuses, counts, timings. No personal data."""
     live, drift = store.live_all(), store.drift_all()

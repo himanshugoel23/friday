@@ -14,7 +14,7 @@ from friday.core.logging import get_logger
 from friday.sitemcp.chromium import SharedChromium
 from friday.sitemcp.guard import MemoryGuard, RobotsPolicy
 from friday.sitemcp.knowledge import load_knowledge
-from friday.sitemcp.live import run_live
+from friday.sitemcp.live import run_control, run_live
 from friday.sitemcp.probestore import ProbeStore
 
 log = get_logger(__name__)
@@ -42,6 +42,8 @@ class ProbeJob:
     async def run_all(self) -> list[dict[str, Any]]:
         kbs = load_knowledge()
         out: list[dict[str, Any]] = []
+        if self._available() and self.memory.ok():
+            await run_control(self._maker(), self.store)  # example.com: tells a browser problem from a site refusing us
         for i, site in enumerate(s for s in self.s.site_mcp_sites if s in kbs):
             kb = kbs[site]
             if i:
