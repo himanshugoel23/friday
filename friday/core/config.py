@@ -703,6 +703,15 @@ class Settings(BaseSettings):
     # Instinct-style reply layer (docs/STYLE_GUIDE.md): style block in the brain prompts, message budget on
     # owned templates, proof cards. OFF: nothing changes. All new wording PENDING founder approval.
     style_layer_enabled: bool = False  # FRIDAY_STYLE_LAYER_ENABLED
+    # Reply writer (docs/REPLY_WRITER.md): ONE interface that decides what to text and how. OFF: gateways send their
+    # own templates exactly as before. ON: the LLM writer is tried, fact-checked, template fallback.
+    reply_writer_enabled: bool = False  # FRIDAY_REPLY_WRITER_ENABLED
+    reply_writer_timeout_s: float = 6.0  # FRIDAY_REPLY_WRITER_TIMEOUT_S
+    # Training-data log (testers only, local JSONL, nothing leaves the server). OFF by default.
+    reply_log_enabled: bool = False  # FRIDAY_REPLY_LOG_ENABLED
+    reply_log_dir: str = "var/replylog"  # FRIDAY_REPLY_LOG_DIR
+    reply_log_retention_days: int = 90  # FRIDAY_REPLY_LOG_RETENTION_DAYS
+    reply_log_max_mb: float = 20.0  # FRIDAY_REPLY_LOG_MAX_MB
     approach_use_llm: bool = True  # FRIDAY_APPROACH_USE_LLM: LLM proposes (OpenAI)
     approach_decide_timeout_s: float = 6.0
     approach_ack_after_s: float = 8.0  # ONE 'on it' line when a plan takes longer than this

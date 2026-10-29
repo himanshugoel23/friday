@@ -393,6 +393,8 @@ class QuotesFlow:
         pid = msg.provider_message_id
         now = self.clock.now()
         if msg.kind == MessageKind.TEXT:
+            if P.GREETING_RE.match(text) and conv.state in (State.COLLECTING, State.CONFIRMING):
+                return False  # "Hi" is not an answer: the general greeting takes it; the open question stays open
             if P.STOP_RE.match(text):
                 await self._remember(conv.id, pid)
                 await self._stop_all(user, conv)

@@ -91,7 +91,7 @@ async def test_failed_and_stopped_attempts_say_what_was_seen():
     stop = await svc.record(adapt({"status": "stopped", "message": "payment page, card form"}, kind="checkout"), now=NOW, lang="en")
     assert "Nothing was charged" in stop.text and "Saw: payment page, card form" in stop.text
     fail = await svc.record(adapt({"status": "timeout", "message": "page never loaded"}, kind="form"), now=NOW, lang="hinglish")
-    assert fail.text.startswith("Yeh nahi ho paya.") and "Dikha: page never loaded" in fail.text
+    assert fail.text.startswith("Isme bahut der lag gayi.") and "Dikha: page never loaded" in fail.text and "timeout" not in fail.text
 
 
 async def test_card_without_a_store_promises_no_retention():

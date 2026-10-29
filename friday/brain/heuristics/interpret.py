@@ -1339,6 +1339,13 @@ def _open(ctx: ConversationContext, *statuses: TaskStatus):
     return [t for t in ctx.open_tasks if t.status in statuses]
 
 
+def _greeting(lang: str, name: str | None) -> str:
+    """The warm general opener (name, example buckets, one question); imported lazily."""
+    from friday.replywriter.templates import greeting_text
+
+    return "\n".join(greeting_text(name or None, lang))
+
+
 def _newest(tasks):
     return sorted(tasks, key=lambda t: t.updated_at, reverse=True)[0] if tasks else None
 
@@ -2422,8 +2429,8 @@ def interpret(ctx: ConversationContext, msg: InboundMessage) -> InterpretOut:
         return InterpretOut(
             intent=Intent.SMALL_TALK,
             reply=c.say(
-                en=f"Hello{' ' + greet if greet else ''}. What shall I take care of?",
-                hinglish=f"Hi{' ' + greet if greet else ''}. Aaj kya karun aapke liye?",
+                en=_greeting("en", greet),  # a warm general opener, never a service menu
+                hinglish=_greeting("hinglish", greet),
                 playful_tail=" 🙂",
             ),
         )

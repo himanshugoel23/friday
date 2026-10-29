@@ -60,3 +60,43 @@ document.getElementById("go").onclick=async()=>{
 };
 load();
 </script></body></html>"""
+
+REVIEW_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">
+<title>Friday reply review</title>
+<style>
+:root{--bg:#fff;--ink:#111b21;--mut:#667781;--line:#e1e5e8;--acc:#008069;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#0b141a;--ink:#e9edef;--mut:#8696a0;--line:#2f3b43}}
+body{margin:0;padding:16px;font:15px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--ink);max-width:48rem}
+h1{font-size:18px}.card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0}
+.mut{color:var(--mut);font-size:13px}pre{white-space:pre-wrap;margin:6px 0;font:inherit}
+textarea{width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-height:5rem}
+button{font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);margin:4px 4px 0 0}
+button.p{background:var(--acc);color:#fff;border-color:var(--acc)}button.r{color:var(--bad)}
+</style></head><body>
+<h1>Reply review</h1>
+<div id="top" class="mut"></div>
+<div id="list"></div>
+<script>
+"use strict";
+const API="__API__";
+const el=(t,a,...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a||{}))e[x]=v;e.append(...k);return e;};
+async function call(path,body){const r=await fetch(API+path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});const d=await r.json();if(!r.ok)throw new Error(d.detail||r.status);return d;}
+async function act(id,action,text){try{await call("/review/"+id,{action:action,text:text||""});load();}catch(e){alert(e.message);}}
+async function load(){
+  const d=await call("/review");
+  document.getElementById("top").textContent=(d.enabled?"":"The reply log switch is off; showing what is already stored. ")+d.stats.records+" replies, "+d.stats.approved_examples+" approved of about "+d.stats.fine_tune_target+" wanted before a fine-tune.";
+  const l=document.getElementById("list");l.replaceChildren();
+  for(const x of d.items){
+    const ta=el("textarea",{value:(x.gold||x.messages).join("\\n\\n")});
+    const mood=x.reactions.map(r=>r.kind).join(", ");
+    l.append(el("div",{className:"card"},
+      el("div",{className:"mut"},x.ts.replace("T"," ").slice(0,16)+" | "+x.intent+" | writer: "+x.writer+" | fact check: "+x.fact_check+" | "+x.status+(mood?" | tester: "+mood:"")),
+      el("pre",{},x.messages.join("\\n\\n")),ta,
+      Object.assign(el("button",{className:"p"},"Approve"),{onclick:()=>act(x.id,"approve")}),
+      Object.assign(el("button",{},"Save my version"),{onclick:()=>act(x.id,"edit",ta.value)}),
+      Object.assign(el("button",{className:"r"},"Reject"),{onclick:()=>act(x.id,"reject")})));
+  }
+}
+load();
+</script></body></html>"""

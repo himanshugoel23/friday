@@ -80,12 +80,14 @@ FEATURES_ON = [
     "FRIDAY_CALL_QUEUE_ENABLED", "FRIDAY_SITE_MCP_ENABLED", "FRIDAY_SITE_MCP_PROBE_ENABLED",
     "FRIDAY_A2A_HTTP_ENABLED",  # agents over HTTP at /a2a/<agent>; answers 403 without FRIDAY_A2A_HTTP_TOKEN (generated below, never printed)
     "FRIDAY_BROWSER_STEPS_ENABLED",  # web tasks as an explicit step plan, one step at a time (docs/BROWSER_AGENT_STEPS.md); needs the browser agent
+    "FRIDAY_REPLY_LOG_ENABLED",  # founder-approved 2026-10-29: tester chat facts are logged locally (var/replylog, 0600/encrypted, 90 days, deletable; nothing leaves the server)
     "FRIDAY_BROWSER_AGENT_ENABLED", "FRIDAY_JOB_APPLY_ENABLED",  # job apply still needs the user's own 'job apply on' opt-in in chat; preview mode by default
 ]
 # stay off in both modes (calls with unapproved lines / not wired to the live path / sharing)
 ALWAYS_OFF = [
     "FRIDAY_REFUND_CHASE_CALLS", "FRIDAY_FAMILY_DRIVE_SHARING_ENABLED", "FRIDAY_PARITY_DIGEST",
     "FRIDAY_PARITY_NUDGES", "FRIDAY_PARITY_ESCALATION",
+    "FRIDAY_REPLY_WRITER_ENABLED",  # LLM reply writer (docs/REPLY_WRITER.md): off until approved examples exist and it beats the prompt on the bench
     "FRIDAY_TEAM_DRIFT_ENABLED",  # live site probes (duplicates SITE_MCP_PROBE): switched on by hand only
 ]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]

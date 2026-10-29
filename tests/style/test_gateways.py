@@ -45,7 +45,7 @@ async def test_switch_off_is_byte_for_byte_the_old_behaviour(tmp_path):
 
 async def test_switch_on_adds_a_proof_card_after_a_lookup_and_keeps_messages_short(tmp_path):
     (turn,) = await talk(tmp_path, True, "Zepto par 5 kg atta ka price batao")
-    card = [t for t in turn if t.startswith(("Ho gaya. Proof:", "Yeh nahi ho paya.", "Koshik"))]
+    card = [t for t in turn if "Kya: " in t]
     assert len(card) == 1 and "Kya: " in card[0]  # failed lookup in the fake world still sends what was seen
     assert check.check(card[0], kind="proof") == []
     assert all(len(check.lines_of(t)) <= 10 for t in turn)

@@ -100,6 +100,11 @@ STATUS_RE = re.compile(
     r"stat|स्टेटस|क्या हुआ|रिज़ल्ट)\s*[?.!]*\s*$",
     re.I,
 )
+# a bare greeting is never an answer to a salon question ("Hi" must not be read as the missing service)
+GREETING_RE = re.compile(
+    r"^\s*(?:hi+|hello+|hey+|hlo|helo|namaste|namaskar|नमस्ते|good\s+(?:morning|afternoon|evening))\s*[!.,]*\s*(?:friday)?\s*[!.]*\s*$",
+    re.I,
+)
 YES_RE = re.compile(
     r"^\s*(yes|y|yeah|yep|ok|okay|haan|han|ha|haa|ji|ji haan|haan ji|call karo|call kar do|"
     r"kar do|karo|theek hai|thik hai|sure|go ahead|हाँ|हां|ठीक है|कर दो|करो)\s*[.!]*\s*$",

@@ -32,6 +32,8 @@ from friday.planner.agents.web_lookup import WebLookupAgent, WebLookupInput, Web
 from friday.planner.planner import ApproachPlanner
 from friday.planner.slow import ACK_AFTER_S, run_with_ack
 from friday.planner.types import Approach, ApproachDecision, PlannerContext
+from friday.replywriter.schema import Facts, ReplyInput
+from friday.replywriter.service import context_from
 from friday.style import StyleLayer
 from friday.style import builders as style_say
 
@@ -95,6 +97,19 @@ class PlannerGateway:
     async def _say(self, user: User, text: str) -> None:
         for part in self._style.fit(text, source="planner", kind="result"):  # one part while the switch is off
             await self.p.reply(user, part)
+
+    async def _say_w(self, user: User, intent: str, facts: Facts, legacy: str, lang: str, **kw: Any) -> None:
+        """Send ``legacy`` through the reply writer / tester log. With both off, or when the writer keeps the gateway's
+        own text, this is exactly ``_say(legacy)``."""
+        parts = [legacy]
+        rs = getattr(self.p, "reply_service", None)
+        if rs is not None:
+            inp = ReplyInput(intent=intent, facts=facts, draft=[legacy], **context_from(None, lang), **kw)  # type: ignore[arg-type]
+            out = await rs.respond(user.id, inp, [legacy])
+            if out.writer != "legacy":
+                parts = list(out.messages)
+        for part in parts:
+            await self._say(user, part)
 
     def _ack_text(self, approach: Approach, retailer: str | None, lang: str) -> str:
         if self._style.enabled and approach == Approach.WEB_LOOKUP:
@@ -167,11 +182,14 @@ class PlannerGateway:
 
     async def _lookup(self, user: User, inp: WebLookupInput, lang: str) -> None:
         async def ack() -> None:
-            await self._say(user, self._ack_text(Approach.WEB_LOOKUP, inp.retailer, lang))
+            facts = Facts(store=inp.retailer.title() if inp.retailer else None)
+            await self._say_w(user, "ack", facts, self._ack_text(Approach.WEB_LOOKUP, inp.retailer, lang), lang)
 
         out = await run_with_ack(self.web.run(inp), ack, after_s=self.ack_after_s)
         self._last[user.id] = (self._now(), inp, out)
-        await self._say(user, self.web.render(out, lang))
+        failed = out.status != "ok"
+        facts = Facts(store=inp.retailer.title() if inp.retailer else None, status_codes=[out.status] if failed else [], next_actions=["retry", "open_site"] if failed else [])
+        await self._say_w(user, "lookup_failed" if failed and not out.ask_pincode else "passthrough", facts, self.web.render(out, lang), lang, pending="retry" if failed and not out.ask_pincode else None)
         if out.ask_pincode:  # the reply ends with a question: nothing may bury it
             return
         from friday.evidence.action_proof import send_card
