@@ -72,7 +72,7 @@ async def test_switch_off_nothing_changes_the_old_shopping_flow_answers(media_wo
     w, pipe, browser = await world(media_world, tmp_path, steps=False)
     assert pipe.browser_steps is None and pipe.planner.steps is None
     out = texts(await w.say("price of atta on zepto"))
-    assert out and not any(o.startswith("Step ") for o in out) and "Checking Zepto" in out[0]
+    assert out and not any(o.startswith("Step ") for o in out) and "Checking only Zepto" in out[0]
     assert browser.log == []  # the browser was never touched
 
 
