@@ -321,3 +321,4 @@ async def test_control_run_error_is_recorded_not_raised(tmp_path):
 
     r = await run_control(Factory(), None)
     assert r["overall"] == "error" and "RuntimeError" in r["steps"][0]["detail"]
+

@@ -832,6 +832,9 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
+        if await self._ops_probe_command(user, msg):
+            return  # founder-only 'browser status': the site probe report (statuses/timings only) in the chat
+
         if self.browser_steps is not None and await self.browser_steps.handle(user, msg):
             return  # the user's answer to a step-by-step web task (area, yes/no, a form field), 'stop'
 
@@ -842,6 +845,24 @@ class InboundPipeline:
             await self.intents.route(user, msg, self._team_or_after)
             return
         await self._team_or_after(user, msg)
+
+    async def _ops_probe_command(self, user: User, msg: InboundMessage) -> bool:
+        """'browser status' (or 'probe status'): the founder reads the site probe report in the chat instead of
+        opening the token page. Only the first allow-listed number or an admin phone; the report holds statuses,
+        counts and timings, no keys, cookies or personal data (friday/sitemcp/live.render_report)."""
+        st = self.settings
+        text = " ".join((msg.text or "").lower().split())
+        if msg.kind != MessageKind.TEXT or text not in {"browser status", "probe status", "browser check"}:
+            return False
+        owners = {*(st.admin_phones or []), *list(st.pilot_allowed_numbers)[:1]}
+        if not st.site_mcp_probe_enabled or user.phone not in owners:
+            return False
+        from friday.sitemcp.live import render_report
+        from friday.sitemcp.wiring import store_for
+
+        report = render_report(store_for(st))
+        await self.notifier.notify_user(user.id, report[:3500], buttons=[], task_id=None)
+        return True
 
     async def _team_or_after(self, user: User, msg: InboundMessage) -> None:
         if self.team is not None:  # query understanding + PM team, before the planner
