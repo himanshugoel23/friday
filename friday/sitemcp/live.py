@@ -105,7 +105,7 @@ async def run_control(factory: BrowserFactory, store: ProbeStore | None, *, now:
         await sess.goto(CONTROL_URL)
         text = (await sess.text("body"))[:200]
         code = getattr(sess, "last_status", None)
-        ok = "Example Domain" in text
+        ok = "Example Domain" in text or "domain is for use in" in text
         result["steps"].append({"step": "open example.com", "status": "ok" if ok else "changed", "ms": int((mono() - t0) * 1000),
                                 "detail": f"http={code} page_text={'Example Domain' if ok else 'not the expected page: ' + ' '.join(text.split())[:80]!r}"})
         if not ok:
