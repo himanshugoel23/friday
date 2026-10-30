@@ -29,7 +29,7 @@ def check(settings: Any, *, mem_reader: Any = read_mem_available_mb, now: dateti
     on = bool(getattr(settings, "site_mcp_enabled", False))
     probe_on = bool(getattr(settings, "site_mcp_probe_enabled", False))
     out.append(("ok", f"site MCP: shopping switch {'ON' if on else 'off'} (FRIDAY_SITE_MCP_ENABLED), live probe {'ON' if probe_on else 'off'} (FRIDAY_SITE_MCP_PROBE_ENABLED); no pay / place-order tool exists"))
-    need = on or probe_on
+    need = (on or probe_on) and not getattr(settings, "remote_browser_enabled", False)  # a remote browser needs no local Chromium
     lvl = "warn" if need else "ok"
     pw, exe, xvfb = playwright_installed(), find_chromium(), bool(shutil.which("Xvfb") or shutil.which("xvfb-run"))
     out.append((("ok" if pw else lvl), "site MCP: playwright python package " + ("present" if pw else "MISSING")))
@@ -43,6 +43,14 @@ def check(settings: Any, *, mem_reader: Any = read_mem_available_mb, now: dateti
         out.append(("ok", "site MCP: free RAM unknown on this OS (the memory guard allows sessions)"))
     else:
         out.append((("ok" if mem >= floor else "warn"), f"site MCP: {mem:.0f} MB RAM available (new browser sessions are refused below {floor:.0f} MB; one Chromium needs about 300-500 MB)"))
+    if getattr(settings, "remote_browser_enabled", False):
+        from friday.sitemcp.remote import make_factory
+
+        f = make_factory(settings)
+        use = f.budget.usage()
+        out.append((("ok" if f.available() else "warn"), f"remote browser: ON, {f.label}, {'configured' if f.provider.configured() else 'NOT configured (key or URL missing)'}; today {use['sessions']}/{f.budget.max_sessions} sessions, about Rs {use['inr']:.0f} of Rs {f.budget.max_inr:.0f} (ESTIMATE); page content passes through this third party"))
+    else:
+        out.append(("ok", "remote browser: off (FRIDAY_REMOTE_BROWSER_ENABLED); the local Chromium is used"))
     kbs = load_knowledge()
     unverified = sorted(s for s, k in kbs.items() if k["status"] != "verified")
     out.append(("ok", f"site MCP knowledge: {len(kbs)} sites, {len(unverified)} unverified (selectors are guesses until a live run confirms them)"))

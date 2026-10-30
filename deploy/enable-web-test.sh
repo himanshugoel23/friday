@@ -88,6 +88,7 @@ ALWAYS_OFF = [
     "FRIDAY_REFUND_CHASE_CALLS", "FRIDAY_FAMILY_DRIVE_SHARING_ENABLED", "FRIDAY_PARITY_DIGEST",
     "FRIDAY_PARITY_NUDGES", "FRIDAY_PARITY_ESCALATION",
     "FRIDAY_REPLY_WRITER_ENABLED",  # LLM reply writer (docs/REPLY_WRITER.md): off until approved examples exist and it beats the prompt on the bench
+    "FRIDAY_REMOTE_BROWSER_ENABLED",  # managed remote browser (docs/REMOTE_BROWSER.md): page content goes to a third party; the founder turns it on by hand after pasting a key
     "FRIDAY_TEAM_DRIFT_ENABLED",  # live site probes (duplicates SITE_MCP_PROBE): switched on by hand only
 ]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]

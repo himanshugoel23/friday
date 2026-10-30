@@ -43,7 +43,7 @@ async def run_live(kb: dict[str, Any], factory: BrowserFactory, store: ProbeStor
     site = kb["site"]
     result: dict[str, Any] = {"site": site, "kb_version": kb["version"], "kb_status": kb["status"], "query": query, "pincode": pincode,
                               "started_at": now().isoformat(timespec="seconds"), "steps": [], "overall": "ok", "items_found": 0, "priced": 0,
-                              "sample": [], "screenshot": False}
+                              "sample": [], "screenshot": False, "browser": getattr(factory, "label", "local")}
     pool = SessionPool(factory, robots=robots, limiter=limiter, memory=memory or MemoryGuard(), max_sessions=1, max_pages=1)
     server = SiteServer(kb, pool)
     hub = SiteMcpHub({site: server}, pool)
@@ -95,7 +95,8 @@ async def run_control(factory: BrowserFactory, store: ProbeStore | None, *, now:
     now = now or (lambda: datetime.now(UTC))
     kb = {"site": "control", "version": 1, "status": "control", "domains": ["example.com"]}
     result: dict[str, Any] = {"site": "control", "kb_version": 1, "kb_status": "control", "started_at": now().isoformat(timespec="seconds"),
-                              "steps": [], "overall": "ok", "items_found": 0, "priced": 0, "sample": [], "screenshot": False}
+                              "steps": [], "overall": "ok", "items_found": 0, "priced": 0, "sample": [], "screenshot": False,
+                              "browser": getattr(factory, "label", "local")}
     shot: bytes | None = None
     sess: Any = None
     t0 = mono()
@@ -118,6 +119,8 @@ async def run_control(factory: BrowserFactory, store: ProbeStore | None, *, now:
         if sess is not None:
             with contextlib.suppress(Exception):
                 await sess.close()
+        with contextlib.suppress(Exception):
+            await factory.aclose()  # a remote session is paid for by the minute: release it right after the control run
     result["finished_at"] = now().isoformat(timespec="seconds")
     if store is not None:
         store.save_live(result, shot)
@@ -132,7 +135,7 @@ def render_report(store: ProbeStore, kbs: dict[str, dict[str, Any]] | None = Non
     out = ["Site MCP probe report (anonymous public pages only; selectors are unverified guesses until these say ok)", ""]
     for site in sorted(live):
         r = live[site]
-        out.append(f"{site}: overall={r['overall']}  kb v{r['kb_version']} {r['kb_status']}  finished {r.get('finished_at', '?')}Z  items={r['items_found']} priced={r['priced']}  screenshot={'yes' if r.get('screenshot') else 'no'}")
+        out.append(f"{site}: overall={r['overall']}  kb v{r['kb_version']} {r['kb_status']}  finished {r.get('finished_at', '?')}Z  items={r['items_found']} priced={r['priced']}  screenshot={'yes' if r.get('screenshot') else 'no'}  browser={r.get('browser', 'local')}")
         for s in r["steps"]:
             out.append(f"  - {s['step']}: {s['status']} ({s['ms']} ms){' ' + s['detail'] if s['detail'] else ''}")
         for it in r.get("sample", []):

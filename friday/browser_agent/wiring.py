@@ -60,11 +60,12 @@ def build_pool(settings: Any, hub: Any = None) -> Any:
     """Share the site-MCP pool (ONE Chromium, shared session cap) when it exists; else a pool of our own."""
     if hub is not None:
         return hub.pool
-    from friday.sitemcp.chromium import SharedChromium
     from friday.sitemcp.guard import MemoryGuard, RobotsPolicy
+    from friday.sitemcp.remote import is_remote, make_factory
     from friday.sitemcp.runtime import SessionPool
 
-    return SessionPool(SharedChromium(), vault=None, robots=RobotsPolicy(), memory=MemoryGuard(float(settings.site_mcp_min_free_mb)),
+    return SessionPool(make_factory(settings), vault=None, robots=RobotsPolicy(),
+                       memory=MemoryGuard(0.0 if is_remote(settings) else float(settings.site_mcp_min_free_mb)),
                        max_sessions=int(settings.site_mcp_max_sessions), idle_s=float(settings.site_mcp_idle_s))
 
 

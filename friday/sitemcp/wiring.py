@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from friday.shopping.sites import GroceryProvider, WebGroceryProvider
-from friday.sitemcp.chromium import SharedChromium
 from friday.sitemcp.guard import MemoryGuard, RobotsPolicy
 from friday.sitemcp.hub import SiteMcpHub
 from friday.sitemcp.knowledge import load_knowledge
 from friday.sitemcp.probestore import ProbeStore
 from friday.sitemcp.provider import BrowserMcpGroceryProvider, FallbackGroceryProvider
+from friday.sitemcp.remote import is_remote, make_factory
 from friday.sitemcp.runtime import BrowserFactory, SessionPool
 from friday.sitemcp.site import SiteServer
 
@@ -38,8 +38,9 @@ def build_hub(settings: Any, *, browser_stack: Any = None, factory: BrowserFacto
 
     root = Path(getattr(settings, "site_mcp_dir", "var/sitemcp"))
     vault = StorageVault(FileVaultStore(root / "vault"), cipher_from_settings(settings))  # cookies encrypted per user, erasable
-    pool = SessionPool(factory or SharedChromium(), vault=vault, robots=RobotsPolicy(),
-                       memory=MemoryGuard(float(getattr(settings, "site_mcp_min_free_mb", 250))),
+    # a remote browser uses no local RAM, so the local memory guard is off for it
+    pool = SessionPool(factory or make_factory(settings), vault=vault, robots=RobotsPolicy(),
+                       memory=MemoryGuard(0.0 if is_remote(settings) else float(getattr(settings, "site_mcp_min_free_mb", 250))),
                        max_sessions=int(getattr(settings, "site_mcp_max_sessions", 2)), idle_s=float(getattr(settings, "site_mcp_idle_s", 240)))
     otp = tokens = None
     base = str(getattr(settings, "public_base_url", "") or "").rstrip("/")

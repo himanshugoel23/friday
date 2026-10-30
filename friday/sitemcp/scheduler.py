@@ -11,11 +11,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from friday.core.logging import get_logger
-from friday.sitemcp.chromium import SharedChromium
 from friday.sitemcp.guard import MemoryGuard, RobotsPolicy
 from friday.sitemcp.knowledge import load_knowledge
 from friday.sitemcp.live import run_control, run_live
 from friday.sitemcp.probestore import ProbeStore
+from friday.sitemcp.remote import is_remote, make_factory_class_for_probe
 
 log = get_logger(__name__)
 START_DELAY_S = 90.0  # let the app finish booting first
@@ -23,18 +23,21 @@ BETWEEN_SITES_S = 30.0
 
 
 class ProbeJob:
-    def __init__(self, settings: Any, store: ProbeStore, *, factory_maker: Callable[[], Any] = SharedChromium,
-                 available: Callable[[], bool] = SharedChromium.available, sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    def __init__(self, settings: Any, store: ProbeStore, *, factory_maker: Callable[[], Any] | None = None,
+                 available: Callable[[], bool] | None = None, sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
                  robots: RobotsPolicy | None = None, memory: MemoryGuard | None = None) -> None:
-        self.s, self.store, self._maker, self._available, self._sleep = settings, store, factory_maker, available, sleep
+        default_maker, default_available = make_factory_class_for_probe(settings)  # local Chromium, or the remote browser when switched on
+        self.s, self.store, self._sleep = settings, store, sleep
+        self._maker, self._available = factory_maker or default_maker, available or default_available
         self.robots = robots if robots is not None else RobotsPolicy()
-        self.memory = memory or MemoryGuard(float(settings.site_mcp_min_free_mb))
+        self.memory = memory or MemoryGuard(0.0 if is_remote(settings) else float(settings.site_mcp_min_free_mb))
 
     def _unavailable(self, kb: dict[str, Any], overall: str, detail: str) -> dict[str, Any]:
         now = datetime.now(UTC).isoformat(timespec="seconds")
         r = {"site": kb["site"], "kb_version": kb["version"], "kb_status": kb["status"], "query": self.s.site_mcp_probe_query,
              "pincode": self.s.site_mcp_probe_pincode, "started_at": now, "finished_at": now, "overall": overall, "items_found": 0,
              "priced": 0, "sample": [], "screenshot": False,
+             "browser": (f"remote:{self.s.remote_browser_provider}" if is_remote(self.s) else "local"),
              "steps": [{"step": "prerequisites", "status": overall, "ms": 0, "detail": detail}]}
         self.store.save_live(r, None)
         return r
@@ -49,7 +52,7 @@ class ProbeJob:
             if i:
                 await self._sleep(BETWEEN_SITES_S)
             if not self._available():
-                out.append(self._unavailable(kb, "browser_unavailable", "Playwright or Chromium missing: see `friday doctor` for the install commands"))
+                out.append(self._unavailable(kb, "browser_unavailable", "browser missing or not configured: see `friday doctor` (local: install commands; remote: key or URL)"))
             elif not self.memory.ok():
                 out.append(self._unavailable(kb, "skipped_low_memory", "less free RAM than FRIDAY_SITE_MCP_MIN_FREE_MB"))
             else:

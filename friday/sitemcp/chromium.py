@@ -44,6 +44,29 @@ class ContextSession(PlaywrightBrowserSession):
             await self._context.close()
 
 
+async def open_guarded(browser: Any, pw: Any, kb: dict[str, Any], storage_state: dict[str, Any] | None, timeout_ms: int,
+                       session_cls: Any, *, locale: str | None = "en-IN", **session_kw: Any) -> Any:
+    """One isolated context on ``browser`` with the default-deny NetworkPolicy guard and light resource blocking.
+    Shared by the local and the remote browser so both enforce exactly the same rules. No user agent, no navigator overrides."""
+    opts: dict[str, Any] = {"storage_state": storage_state, "accept_downloads": False, "service_workers": "block",
+                            "viewport": {"width": VIEWPORT[0], "height": VIEWPORT[1]}, "permissions": []}
+    if locale:
+        opts["locale"] = locale
+    context = await browser.new_context(**opts)
+    context.set_default_timeout(timeout_ms)
+    await _install_guard(context, NetworkPolicy.for_hosts(allowed_hosts(kb)), None, None)
+
+    async def _light(route: Any) -> None:  # save RAM and bandwidth: no images / media / fonts
+        if route.request.resource_type in ("image", "media", "font"):
+            await route.abort()
+        else:
+            await route.fallback()
+
+    await context.route("**/*", _light)
+    page = await context.new_page()
+    return session_cls(pw, browser, context, page, timeout_ms, **session_kw)
+
+
 class SharedChromium:
     def __init__(self, *, headless: bool = True, display: str | None = None, timeout_ms: int = 12000) -> None:
         self.headless, self.display, self.timeout_ms = headless, display, timeout_ms
@@ -75,22 +98,11 @@ class SharedChromium:
             self._browser = await self._pw.chromium.launch(executable_path=exe, headless=self.headless, args=args, env=env)
             return self._browser
 
+    label = "local"
+
     async def open(self, kb: dict[str, Any], storage_state: dict[str, Any] | None) -> ContextSession:
         browser = await self._ensure()
-        context = await browser.new_context(storage_state=storage_state, accept_downloads=False, service_workers="block",
-                                            viewport={"width": VIEWPORT[0], "height": VIEWPORT[1]}, permissions=[], locale="en-IN")
-        context.set_default_timeout(self.timeout_ms)
-        await _install_guard(context, NetworkPolicy.for_hosts(allowed_hosts(kb)), None, None)
-
-        async def _light(route: Any) -> None:  # save RAM and bandwidth: no images / media / fonts
-            if route.request.resource_type in ("image", "media", "font"):
-                await route.abort()
-            else:
-                await route.fallback()
-
-        await context.route("**/*", _light)
-        page = await context.new_page()
-        return ContextSession(self._pw, browser, context, page, self.timeout_ms)
+        return await open_guarded(browser, self._pw, kb, storage_state, self.timeout_ms, ContextSession, locale="en-IN")
 
     async def aclose(self) -> None:
         for closer in (lambda: self._browser.close() if self._browser else None, lambda: self._pw.stop() if self._pw else None):

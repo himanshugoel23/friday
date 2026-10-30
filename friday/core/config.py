@@ -731,6 +731,17 @@ class Settings(BaseSettings):
     site_mcp_max_sessions: int = 2  # open browser contexts at once (1 GB droplet)
     site_mcp_idle_s: int = 240
     site_mcp_min_free_mb: int = 250  # memory guard: refuse new sessions below this MemAvailable
+    # managed REMOTE browser (docs/REMOTE_BROWSER.md): page content passes through a third party; privacy decision PENDING. OFF.
+    remote_browser_enabled: bool = False  # FRIDAY_REMOTE_BROWSER_ENABLED: site MCP / probe / browser agent use the remote browser
+    remote_browser_provider: str = "browserbase"  # FRIDAY_REMOTE_BROWSER_PROVIDER: browserbase | steel | cdp
+    remote_browser_cdp_url: SecretStr | None = None  # FRIDAY_REMOTE_BROWSER_CDP_URL (provider 'cdp'; may hold a token, so a secret)
+    remote_browser_max_run_s: int = 120  # per-run time cap: the remote session is closed after this many seconds
+    remote_browser_daily_sessions: int = 20  # daily cap on remote sessions
+    remote_browser_daily_inr: float = 50.0  # daily cap on the INR ESTIMATE
+    remote_browser_inr_per_min: float = 1.0  # GUESS, INR per started minute: verify on the provider's pricing page
+    browserbase_api_key: SecretStr | None = Field(default=None, validation_alias=_alias("BROWSERBASE_API_KEY", "FRIDAY_BROWSERBASE_API_KEY"))
+    browserbase_project_id: str | None = Field(default=None, validation_alias=_alias("BROWSERBASE_PROJECT_ID", "FRIDAY_BROWSERBASE_PROJECT_ID"))
+    steel_api_key: SecretStr | None = Field(default=None, validation_alias=_alias("STEEL_API_KEY", "FRIDAY_STEEL_API_KEY"))
     approach_web_model: str | None = None  # None: openai_default_purpose_model
     # general browser agent (docs/BROWSER_AGENT_DESIGN.md): tasks on ANY site, asks the user where needed. ALL OFF. Chat wording PENDING.
     browser_agent_enabled: bool = False  # FRIDAY_BROWSER_AGENT_ENABLED

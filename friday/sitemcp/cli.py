@@ -42,11 +42,24 @@ def _kb(site: str) -> dict[str, Any] | None:
     return load_knowledge().get(site)
 
 
-def _prereq() -> str:
-    from friday.sitemcp.chromium import SharedChromium
-    from friday.sitemcp.doctor import INSTALL
+def _factory() -> Any:
+    from friday.core.config import Settings
+    from friday.sitemcp.remote import make_factory
 
-    return "" if SharedChromium.available() else f"Playwright or Chromium is missing. {INSTALL}"
+    return make_factory(Settings())  # local Chromium, or the remote browser when FRIDAY_REMOTE_BROWSER_ENABLED
+
+
+def _prereq() -> str:
+    from friday.core.config import Settings
+    from friday.sitemcp.doctor import INSTALL
+    from friday.sitemcp.remote import is_remote
+
+    f = _factory()
+    if f.available():
+        return ""
+    if is_remote(Settings()):
+        return "The remote browser is not configured: see docs/REMOTE_BROWSER.md (provider key or CDP URL, and Playwright)."
+    return f"Playwright or Chromium is missing. {INSTALL}"
 
 
 def run_command(args: argparse.Namespace) -> int:
@@ -79,7 +92,6 @@ def run_command(args: argparse.Namespace) -> int:
 
 
 async def _run(cmd: str, kb: dict[str, Any], args: argparse.Namespace) -> int:
-    from friday.sitemcp.chromium import SharedChromium
     from friday.sitemcp.guard import MemoryGuard, RobotsPolicy
     from friday.sitemcp.probestore import ProbeStore
 
@@ -87,7 +99,7 @@ async def _run(cmd: str, kb: dict[str, Any], args: argparse.Namespace) -> int:
         from friday.sitemcp.live import run_live
 
         store = ProbeStore(Path(args.out))
-        r = await run_live(kb, SharedChromium(), store, query=args.query, pincode=args.pincode, robots=RobotsPolicy(), memory=MemoryGuard())
+        r = await run_live(kb, _factory(), store, query=args.query, pincode=args.pincode, robots=RobotsPolicy(), memory=MemoryGuard())
         print(f"{r['site']}: overall={r['overall']} items={r['items_found']} priced={r['priced']} screenshot={'saved' if r['screenshot'] else 'none'}")
         for s in r["steps"]:
             print(f"  {s['step']}: {s['status']} ({s['ms']} ms) {s['detail']}")
@@ -95,7 +107,7 @@ async def _run(cmd: str, kb: dict[str, Any], args: argparse.Namespace) -> int:
     if cmd == "probe":
         from friday.sitemcp.probe import render, run_drift
 
-        rep = await run_drift(kb, SharedChromium(), ProbeStore(Path(args.out)), robots=RobotsPolicy(), memory=MemoryGuard())
+        rep = await run_drift(kb, _factory(), ProbeStore(Path(args.out)), robots=RobotsPolicy(), memory=MemoryGuard())
         print(render(rep))
         return 0 if rep["status"] == "ok" else 1
     # serve over stdio (the MCP stdio transport): one site, one local user; cookies would be encrypted under var/sitemcp/vault
