@@ -16,7 +16,7 @@ We never ask for: proxy, residential IP, stealth, anti-detection, fingerprint, c
 ## Setup in 4 steps (non-technical)
 1. Make an account at the provider (Browserbase or Steel) and read its privacy policy and pricing page. Copy the API key (and for Browserbase the project id).
 2. On the server, as root, store the key (names only, you type the value hidden): `bash /opt/friday/deploy/set-key.sh BROWSERBASE_API_KEY` and `... BROWSERBASE_PROJECT_ID` (or `STEEL_API_KEY`). For any other provider that gives you a ready websocket address, `FRIDAY_REMOTE_BROWSER_CDP_URL` instead.
-3. Choose the provider and switch on, using the settings helper you already use (`deploy/setenv.sh`): `FRIDAY_REMOTE_BROWSER_PROVIDER=browserbase` (or `steel` or `cdp`) and `FRIDAY_REMOTE_BROWSER_ENABLED=true`. Note: re-running `deploy/enable-web-test.sh` writes `FRIDAY_REMOTE_BROWSER_ENABLED=false` again on purpose; set it after that script.
+3. Choose the provider and switch on, by running `bash /opt/friday/deploy/enable-remote-browser.sh` (sets provider browserbase, daily cap 6, enabled true, restarts friday; `... off` undoes it). Other providers: edit the provider name by hand. Note: re-running `deploy/enable-web-test.sh` writes `FRIDAY_REMOTE_BROWSER_ENABLED=false` again on purpose; set it after that script.
 4. Restart Friday, wait for the probe (or run `friday sitemcp report`) and open `/ops-status/<token>/probe`. The control line for example.com should say `browser=remote:<provider>` and `ok`. `friday doctor` shows today's sessions and the estimated INR.
 
 ## Cost (VERIFY on the provider's pricing page)
