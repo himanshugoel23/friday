@@ -869,6 +869,16 @@ class InboundPipeline:
             await self.notifier.notify_user(user.id, "Started the browser check. Send 'browser status' in about 2 minutes.", buttons=[], task_id=None)
             return True
         report = render_report(store_for(st))
+        if getattr(st, "remote_browser_enabled", False):
+            from pathlib import Path
+
+            from friday.sitemcp.remote import RemoteBudget
+
+            b = RemoteBudget(Path(st.site_mcp_dir) / "remote_usage.json", max_sessions=int(st.remote_browser_daily_sessions),
+                             max_inr=float(st.remote_browser_daily_inr), inr_per_min=float(st.remote_browser_inr_per_min))
+            u = b.usage()
+            report += f"\nRemote browser today: {u['sessions']} of {b.max_sessions} sessions used (about Rs {u['inr']:.0f} of Rs {b.max_inr:.0f})."
+            report += f" Blocked now: {b.allow() or 'no'}.\n"
         await self.notifier.notify_user(user.id, report[:3500], buttons=[], task_id=None)
         return True
 

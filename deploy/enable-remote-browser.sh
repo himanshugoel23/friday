@@ -18,10 +18,10 @@ setv() {  # replace the key in place or append it; the values here are fixed, no
   if grep -q "^$1=" "$ENVF"; then sed -i "s|^$1=.*|$1=$2|" "$ENVF"; else printf '%s=%s\n' "$1" "$2" >> "$ENVF"; fi
 }
 setv FRIDAY_REMOTE_BROWSER_PROVIDER browserbase
-setv FRIDAY_REMOTE_BROWSER_DAILY_SESSIONS 6
+setv FRIDAY_REMOTE_BROWSER_DAILY_SESSIONS 15
 setv FRIDAY_REMOTE_BROWSER_ENABLED "$ENABLED"
 for k in BROWSERBASE_API_KEY BROWSERBASE_PROJECT_ID; do
   if grep -q "^$k=." "$ENVF"; then echo "$k: set"; else echo "$k: MISSING (run deploy/set-key.sh $k)"; fi
 done
-echo "FRIDAY_REMOTE_BROWSER_ENABLED=$ENABLED  FRIDAY_REMOTE_BROWSER_PROVIDER=browserbase  FRIDAY_REMOTE_BROWSER_DAILY_SESSIONS=6"
+echo "FRIDAY_REMOTE_BROWSER_ENABLED=$ENABLED  FRIDAY_REMOTE_BROWSER_PROVIDER=browserbase  FRIDAY_REMOTE_BROWSER_DAILY_SESSIONS=15"
 if [ -z "${FRIDAY_ENV_FILE:-}" ]; then systemctl restart friday && echo "friday restarted"; fi
