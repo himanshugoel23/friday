@@ -107,7 +107,7 @@ async def run_control(factory: BrowserFactory, store: ProbeStore | None, *, now:
         code = getattr(sess, "last_status", None)
         ok = "Example Domain" in text
         result["steps"].append({"step": "open example.com", "status": "ok" if ok else "changed", "ms": int((mono() - t0) * 1000),
-                                "detail": f"http={code} page_text={'Example Domain' if ok else 'not the expected page'}"})
+                                "detail": f"http={code} page_text={'Example Domain' if ok else 'not the expected page: ' + ' '.join(text.split())[:80]!r}"})
         if not ok:
             result["overall"] = "changed"
         shot = await sess.screenshot()

@@ -852,7 +852,7 @@ class InboundPipeline:
         counts and timings, no keys, cookies or personal data (friday/sitemcp/live.render_report)."""
         st = self.settings
         text = " ".join((msg.text or "").lower().split())
-        if msg.kind != MessageKind.TEXT or text not in {"browser status", "probe status", "browser check"}:
+        if msg.kind != MessageKind.TEXT or text not in {"browser status", "probe status", "browser check", "run browser check"}:
             return False
         owners = {*(st.admin_phones or []), *list(st.pilot_allowed_numbers)[:1]}
         if not st.site_mcp_probe_enabled or user.phone not in owners:
@@ -860,6 +860,14 @@ class InboundPipeline:
         from friday.sitemcp.live import render_report
         from friday.sitemcp.wiring import store_for
 
+        if text == "run browser check":  # run the probe now (the scheduled one skips when a result is recent)
+            import asyncio
+
+            from friday.sitemcp.scheduler import ProbeJob
+
+            self._probe_task = asyncio.create_task(ProbeJob(st, store_for(st)).run_all())
+            await self.notifier.notify_user(user.id, "Started the browser check. Send 'browser status' in about 2 minutes.", buttons=[], task_id=None)
+            return True
         report = render_report(store_for(st))
         await self.notifier.notify_user(user.id, report[:3500], buttons=[], task_id=None)
         return True
