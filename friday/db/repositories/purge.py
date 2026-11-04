@@ -49,6 +49,7 @@ from friday.receptionist.dbmodel import purge_user_receptionist
 from friday.refunds.dbmodel import purge_user_refunds
 from friday.savings.dbmodel import BillRow, SavingsLedgerRow, WalletCardRow
 from friday.trips.dbmodel import purge_user_trips
+from friday.robin.dbmodel import purge_user_robin
 from friday.urgent.dbmodel import purge_user_urgent
 
 
@@ -121,6 +122,7 @@ class DataPurger(Repo):
             counts.update(await purge_user_evidence(s, user_id))  # proof items + claims
             counts.update(await purge_user_documents(s, user_id))  # understood documents
             counts.update(await purge_user_urgent(s, user_id))  # urgent-call escalation state
+            counts.update(await purge_user_robin(s, user_id))  # Robin family, members, consents, records
             counts.update(await purge_user_family_drive(s, user_id))  # Drive links, folders, shares
             counts.update(await purge_user_trips(s, user_id))  # trips, legs, tasks, nudges
             counts.update(await purge_user_refunds(s, user_id))  # refund cases, evidence, nudges

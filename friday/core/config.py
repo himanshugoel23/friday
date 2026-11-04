@@ -598,6 +598,25 @@ class Settings(BaseSettings):
     urgent_escalation_stale_minutes: int = Field(default=30, ge=1)  # never ring about a stale alert
     urgent_escalation_retention_days: int = Field(default=30, ge=1)  # finished rows are deleted
     urgent_escalation_tick_s: int = Field(default=20, ge=1)  # scheduler poll
+    # ------------------------------------------------ Robin: parents' security and care (robin/)
+    # docs/ROBIN_FAMILY_CORE.md. OFF. Every spoken line is PENDING_FOUNDER_APPROVAL: the real dial refuses
+    # while pending. brand_name is the ONE place the product name lives (the Robin pilot sets 'Robin').
+    brand_name: str = Field(default="Friday", min_length=1, max_length=24)  # FRIDAY_BRAND_NAME
+    robin_enabled: bool = False  # FRIDAY_ROBIN_ENABLED
+    robin_tick_s: int = Field(default=30, ge=1)  # scheduler poll
+    robin_checkin_retries: int = Field(default=2, ge=0, le=2)  # retries after the first try (hard max 2)
+    robin_checkin_retry_minutes: int = Field(default=20, ge=5, le=120)
+    robin_safe_word_enabled: bool = False  # FRIDAY_ROBIN_SAFE_WORD_ENABLED: founder 2026-11-04, OFF; optional per family later
+    robin_screen_unknown_enabled: bool = False  # FRIDAY_ROBIN_SCREEN_UNKNOWN_ENABLED: stub only (robin/screening.py)
+    robin_listen_in_enabled: bool = False  # FRIDAY_ROBIN_LISTEN_IN_ENABLED: stub only (robin/screening.py)
+    robin_call_audio_retention_days: int = Field(default=0, ge=0, le=30)  # listening cues only; 0 = keep nothing
+    robin_authority_calls_enabled: bool = False  # FRIDAY_ROBIN_AUTHORITY_CALLS_ENABLED: policy-gated 112/1930 module; OFF
+    robin_authority_dry_run: bool = True  # FRIDAY_ROBIN_AUTHORITY_DRY_RUN: only LOG the script it would speak (no live adapter exists)
+    robin_authority_countdown_s: int = Field(default=60, ge=10, le=180)  # the 'I am fine' cancel window
+    robin_missed_ring_minutes: int = Field(default=3, ge=1, le=30)  # urgent missed call: ring again every N minutes
+    robin_missed_ring_max: int = Field(default=6, ge=1, le=6)  # ... at most this many tries
+    robin_refill_days: int = Field(default=5, ge=1, le=30)  # refill alert to the child N days before stock ends
+    robin_audit_retention_days: int = Field(default=30, ge=1)  # 'what Robin did' rows are deleted after this
     # ------------------------------------------------ family Google Drive (familydrive/)
     # docs/FAMILY_DRIVE.md. OFF: no Drive scope is requested and nothing is filed. Family documents
     # live ONLY in the family's own Drive (scope drive.file); we keep a file-id pointer and minimal

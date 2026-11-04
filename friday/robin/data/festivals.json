@@ -1,0 +1,22 @@
+{
+  "note": "Festival calendar for Robin greetings. Names are PENDING founder approval like every line. 'verified': false means the date has NOT been checked against an authoritative calendar: such a festival is never sent until a human sets verified to true. Fixed civil dates use month_day (MM-DD); lunar festivals need a dated entry per year (dates below are from the builder's memory, UNVERIFIED). Regions: 'all' or a state/community tag; a family with regions set only gets matching festivals.",
+  "festivals": [
+    {"id": "new_year", "month_day": "01-01", "verified": true, "regions": ["all"], "name": {"en": "New Year", "hinglish": "Naya Saal", "hi": "नया साल"}},
+    {"id": "sankranti_pongal", "month_day": "01-14", "verified": true, "regions": ["all"], "name": {"en": "Makar Sankranti and Pongal", "hinglish": "Makar Sankranti aur Pongal", "hi": "मकर संक्रांति और पोंगल"}},
+    {"id": "republic_day", "month_day": "01-26", "verified": true, "regions": ["all"], "name": {"en": "Republic Day", "hinglish": "Ganatantra Diwas", "hi": "गणतंत्र दिवस"}},
+    {"id": "baisakhi", "month_day": "04-14", "verified": true, "regions": ["punjab", "north"], "name": {"en": "Baisakhi", "hinglish": "Baisakhi", "hi": "बैसाखी"}},
+    {"id": "independence_day", "month_day": "08-15", "verified": true, "regions": ["all"], "name": {"en": "Independence Day", "hinglish": "Swatantrata Diwas", "hi": "स्वतंत्रता दिवस"}},
+    {"id": "gandhi_jayanti", "month_day": "10-02", "verified": true, "regions": ["all"], "name": {"en": "Gandhi Jayanti", "hinglish": "Gandhi Jayanti", "hi": "गांधी जयंती"}},
+    {"id": "christmas", "month_day": "12-25", "verified": true, "regions": ["all"], "name": {"en": "Christmas", "hinglish": "Christmas", "hi": "क्रिसमस"}},
+    {"id": "ugadi", "date": "2026-03-19", "verified": false, "regions": ["karnataka", "andhra", "telangana"], "name": {"en": "Ugadi", "hinglish": "Ugadi", "hi": "उगादी"}},
+    {"id": "holi", "date": "2026-03-04", "verified": false, "regions": ["all"], "name": {"en": "Holi", "hinglish": "Holi", "hi": "होली"}},
+    {"id": "eid_ul_fitr", "date": "2026-03-20", "verified": false, "regions": ["all"], "name": {"en": "Eid", "hinglish": "Eid", "hi": "ईद"}},
+    {"id": "onam", "date": "2026-08-26", "verified": false, "regions": ["kerala"], "name": {"en": "Onam", "hinglish": "Onam", "hi": "ओणम"}},
+    {"id": "raksha_bandhan", "date": "2026-08-28", "verified": false, "regions": ["all"], "name": {"en": "Raksha Bandhan", "hinglish": "Raksha Bandhan", "hi": "रक्षा बंधन"}},
+    {"id": "ganesh_chaturthi", "date": "2026-09-14", "verified": false, "regions": ["maharashtra", "all"], "name": {"en": "Ganesh Chaturthi", "hinglish": "Ganesh Chaturthi", "hi": "गणेश चतुर्थी"}},
+    {"id": "navratri", "date": "2026-10-11", "verified": false, "regions": ["all"], "name": {"en": "Navratri", "hinglish": "Navratri", "hi": "नवरात्रि"}},
+    {"id": "dussehra", "date": "2026-10-20", "verified": false, "regions": ["all"], "name": {"en": "Dussehra", "hinglish": "Dussehra", "hi": "दशहरा"}},
+    {"id": "diwali", "date": "2026-11-08", "verified": false, "regions": ["all"], "name": {"en": "Diwali", "hinglish": "Diwali", "hi": "दिवाली"}},
+    {"id": "guru_nanak_jayanti", "date": "2026-11-24", "verified": false, "regions": ["punjab", "north", "sikh"], "name": {"en": "Guru Nanak Jayanti", "hinglish": "Guru Nanak Jayanti", "hi": "गुरु नानक जयंती"}}
+  ]
+}

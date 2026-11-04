@@ -146,6 +146,9 @@ class Runtime:
             consumer = self.pipeline.consumer()
             if consumer is not None:  # run_due / recover_stale / purge_expired / calendar sync
                 self._tasks.append(asyncio.create_task(consumer.loop(), name="friday-consumer"))
+            robin = getattr(self.pipeline, "robin", None)
+            if robin is not None:  # Robin scheduler: check-ins, medicine reminders, alert ladder, greetings
+                self._tasks.append(asyncio.create_task(robin.loop(), name="friday-robin"))
             rcp = self.callbacks.receptionist()
             if rcp is not None:  # morning digest of missed calls + purge of old snippets
                 self._tasks.append(asyncio.create_task(rcp.loop(), name="friday-receptionist"))
