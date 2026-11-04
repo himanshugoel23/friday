@@ -719,8 +719,6 @@ CREATE TABLE messages_new (
 
 CREATE TABLE messages_new_pdefault PARTITION OF messages_new DEFAULT;
 
-CREATE TABLE IF NOT EXISTS messages_new_p2026_10 PARTITION OF messages_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-
 CREATE TABLE IF NOT EXISTS messages_new_p2026_11 PARTITION OF messages_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
 
 CREATE TABLE IF NOT EXISTS messages_new_p2026_12 PARTITION OF messages_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
@@ -742,6 +740,8 @@ CREATE TABLE IF NOT EXISTS messages_new_p2027_07 PARTITION OF messages_new FOR V
 CREATE TABLE IF NOT EXISTS messages_new_p2027_08 PARTITION OF messages_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
 
 CREATE TABLE IF NOT EXISTS messages_new_p2027_09 PARTITION OF messages_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+CREATE TABLE IF NOT EXISTS messages_new_p2027_10 PARTITION OF messages_new FOR VALUES FROM ('2027-10-01') TO ('2027-11-01');
 
 INSERT INTO messages_new (user_id, person_id, business_id, direction, channel, kind, phone, phone_hmac, text, buttons, button_id, template, media_url, location, provider_message_id, task_id, nudge_id, question_id, ok, error, at, id) SELECT user_id, person_id, business_id, direction, channel, kind, phone, phone_hmac, text, buttons, button_id, template, media_url, location, provider_message_id, task_id, nudge_id, question_id, ok, error, at, id FROM messages;
 
@@ -775,8 +775,6 @@ CREATE TABLE call_turns_new (
 
 CREATE TABLE call_turns_new_pdefault PARTITION OF call_turns_new DEFAULT;
 
-CREATE TABLE IF NOT EXISTS call_turns_new_p2026_10 PARTITION OF call_turns_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-
 CREATE TABLE IF NOT EXISTS call_turns_new_p2026_11 PARTITION OF call_turns_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
 
 CREATE TABLE IF NOT EXISTS call_turns_new_p2026_12 PARTITION OF call_turns_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
@@ -798,6 +796,8 @@ CREATE TABLE IF NOT EXISTS call_turns_new_p2027_07 PARTITION OF call_turns_new F
 CREATE TABLE IF NOT EXISTS call_turns_new_p2027_08 PARTITION OF call_turns_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
 
 CREATE TABLE IF NOT EXISTS call_turns_new_p2027_09 PARTITION OF call_turns_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+CREATE TABLE IF NOT EXISTS call_turns_new_p2027_10 PARTITION OF call_turns_new FOR VALUES FROM ('2027-10-01') TO ('2027-11-01');
 
 INSERT INTO call_turns_new (id, call_id, seq, speaker, text, language, confidence, at) SELECT id, call_id, seq, speaker, text, language, confidence, at FROM call_turns;
 
@@ -824,8 +824,6 @@ CREATE TABLE audit_log_new (
 
 CREATE TABLE audit_log_new_pdefault PARTITION OF audit_log_new DEFAULT;
 
-CREATE TABLE IF NOT EXISTS audit_log_new_p2026_10 PARTITION OF audit_log_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-
 CREATE TABLE IF NOT EXISTS audit_log_new_p2026_11 PARTITION OF audit_log_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
 
 CREATE TABLE IF NOT EXISTS audit_log_new_p2026_12 PARTITION OF audit_log_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
@@ -847,6 +845,8 @@ CREATE TABLE IF NOT EXISTS audit_log_new_p2027_07 PARTITION OF audit_log_new FOR
 CREATE TABLE IF NOT EXISTS audit_log_new_p2027_08 PARTITION OF audit_log_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
 
 CREATE TABLE IF NOT EXISTS audit_log_new_p2027_09 PARTITION OF audit_log_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+CREATE TABLE IF NOT EXISTS audit_log_new_p2027_10 PARTITION OF audit_log_new FOR VALUES FROM ('2027-10-01') TO ('2027-11-01');
 
 INSERT INTO audit_log_new (user_id, actor, action, subject_id, detail, at, id) SELECT user_id, actor, action, subject_id, detail, at, id FROM audit_log;
 
@@ -871,8 +871,6 @@ CREATE TABLE cost_entries_new (
 
 CREATE TABLE cost_entries_new_pdefault PARTITION OF cost_entries_new DEFAULT;
 
-CREATE TABLE IF NOT EXISTS cost_entries_new_p2026_10 PARTITION OF cost_entries_new FOR VALUES FROM ('2026-10-01') TO ('2026-11-01');
-
 CREATE TABLE IF NOT EXISTS cost_entries_new_p2026_11 PARTITION OF cost_entries_new FOR VALUES FROM ('2026-11-01') TO ('2026-12-01');
 
 CREATE TABLE IF NOT EXISTS cost_entries_new_p2026_12 PARTITION OF cost_entries_new FOR VALUES FROM ('2026-12-01') TO ('2027-01-01');
@@ -894,6 +892,8 @@ CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_07 PARTITION OF cost_entries_n
 CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_08 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-08-01') TO ('2027-09-01');
 
 CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_09 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-09-01') TO ('2027-10-01');
+
+CREATE TABLE IF NOT EXISTS cost_entries_new_p2027_10 PARTITION OF cost_entries_new FOR VALUES FROM ('2027-10-01') TO ('2027-11-01');
 
 INSERT INTO cost_entries_new (user_id, task_id, call_id, kind, amount_inr, at, id) SELECT user_id, task_id, call_id, kind, amount_inr, at, id FROM cost_entries;
 
@@ -1789,6 +1789,14 @@ UPDATE alembic_version SET version_num='0017_trips' WHERE alembic_version.versio
 
 -- Running upgrade 0017_trips -> 0018_refunds
 
+DROP TABLE IF EXISTS refund_nudges;
+
+DROP TABLE IF EXISTS refund_evidence;
+
+DROP TABLE IF EXISTS refund_events;
+
+DROP TABLE IF EXISTS refund_cases;
+
 CREATE TABLE refund_cases (
     user_id VARCHAR(32) NOT NULL, 
     state VARCHAR(20) NOT NULL, 
@@ -1882,6 +1890,97 @@ CREATE INDEX ix_refund_nudges_user_id ON refund_nudges (user_id);
 CREATE INDEX ix_refund_nudges_user_sent ON refund_nudges (user_id, sent_at);
 
 UPDATE alembic_version SET version_num='0018_refunds' WHERE alembic_version.version_num = '0017_trips';
+
+-- Running upgrade 0018_refunds -> 0019_robin_family
+
+DROP TABLE IF EXISTS robin_records;
+
+DROP TABLE IF EXISTS robin_consents;
+
+DROP TABLE IF EXISTS robin_members;
+
+DROP TABLE IF EXISTS robin_families;
+
+CREATE TABLE robin_families (
+    user_id VARCHAR(32) NOT NULL, 
+    status VARCHAR(12) NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_families PRIMARY KEY (id), 
+    CONSTRAINT fk_robin_families_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_robin_families_user_id ON robin_families (user_id);
+
+CREATE TABLE robin_members (
+    user_id VARCHAR(32) NOT NULL, 
+    family_id VARCHAR(32) NOT NULL, 
+    role VARCHAR(16) NOT NULL, 
+    phone_hash VARCHAR(64) NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_members PRIMARY KEY (id), 
+    CONSTRAINT fk_robin_members_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_robin_members_family_id_robin_families FOREIGN KEY(family_id) REFERENCES robin_families (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_robin_members_user_id ON robin_members (user_id);
+
+CREATE INDEX ix_robin_members_family_id ON robin_members (family_id);
+
+CREATE INDEX ix_robin_members_phone_hash ON robin_members (phone_hash);
+
+CREATE TABLE robin_consents (
+    user_id VARCHAR(32) NOT NULL, 
+    family_id VARCHAR(32) NOT NULL, 
+    member_id VARCHAR(32) NOT NULL, 
+    item VARCHAR(32) NOT NULL, 
+    given_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    source VARCHAR(12) NOT NULL, 
+    withdrawn_at TIMESTAMP WITH TIME ZONE, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_consents PRIMARY KEY (id), 
+    CONSTRAINT fk_robin_consents_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_robin_consents_family_id_robin_families FOREIGN KEY(family_id) REFERENCES robin_families (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_robin_consents_member_id_robin_members FOREIGN KEY(member_id) REFERENCES robin_members (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_robin_consents_member_item UNIQUE (member_id, item)
+);
+
+CREATE INDEX ix_robin_consents_user_id ON robin_consents (user_id);
+
+CREATE INDEX ix_robin_consents_family_id ON robin_consents (family_id);
+
+CREATE TABLE robin_records (
+    user_id VARCHAR(32) NOT NULL, 
+    family_id VARCHAR(32) NOT NULL, 
+    kind VARCHAR(16) NOT NULL, 
+    key VARCHAR(64), 
+    status VARCHAR(16) NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    due_at TIMESTAMP WITH TIME ZONE, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_records PRIMARY KEY (id), 
+    CONSTRAINT fk_robin_records_user_id_users FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, 
+    CONSTRAINT fk_robin_records_family_id_robin_families FOREIGN KEY(family_id) REFERENCES robin_families (id) ON DELETE CASCADE, 
+    CONSTRAINT uq_robin_records_family_kind_key UNIQUE (family_id, kind, key)
+);
+
+CREATE INDEX ix_robin_records_user_id ON robin_records (user_id);
+
+CREATE INDEX ix_robin_records_due ON robin_records (kind, status, due_at);
+
+CREATE INDEX ix_robin_records_family_kind ON robin_records (family_id, kind, at);
+
+UPDATE alembic_version SET version_num='0019_robin_family' WHERE alembic_version.version_num = '0018_refunds';
 
 COMMIT;
 

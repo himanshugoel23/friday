@@ -91,6 +91,7 @@ ALWAYS_OFF = [
     "FRIDAY_REMOTE_BROWSER_ENABLED",  # managed remote browser (docs/REMOTE_BROWSER.md): page content goes to a third party; the founder turns it on by hand after pasting a key
     "FRIDAY_ROBIN_DEVICE_ENABLED",  # Robin parent-phone device API (docs/ROBIN_ANDROID_APP.md): KEPT OFF until the family ports are wired and wording is approved
     "FRIDAY_TEAM_DRIFT_ENABLED",  # live site probes (duplicates SITE_MCP_PROBE): switched on by hand only
+    "FRIDAY_ROBIN_ENABLED", "FRIDAY_ROBIN_SAFE_WORD_ENABLED", "FRIDAY_ROBIN_SCREEN_UNKNOWN_ENABLED", "FRIDAY_ROBIN_LISTEN_IN_ENABLED",  # Robin parent care (docs/ROBIN_FAMILY_CORE.md): KEPT OFF, the founder turns it on; spoken lines PENDING
 ]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]
 

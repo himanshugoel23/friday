@@ -213,6 +213,11 @@ class InboundPipeline:
         # trip timeline, refunds, family Drive (api/features.py): None while all are off
         self.planner: Any = None  # approach planner (friday/planner): None unless its switch is on
         self.features: Any = None
+        self.robin: Any = None  # Robin family care (friday/robin): None unless FRIDAY_ROBIN_ENABLED
+        try:
+            self.robin = self.c.get("robin")
+        except Exception:  # noqa: BLE001 - never stop the app from booting
+            log.exception("robin failed to build; continuing without it")
         try:
             from friday.api.features import build_live_features
 
@@ -929,6 +934,9 @@ class InboundPipeline:
 
         if self.chatbot is not None and await self.chatbot.pre(user, msg):
             return  # chatbot pilot: menu/help/stop/human/delete, captures, onboarding answers
+
+        if self.robin is not None and await self.robin.handle(user, msg):
+            return  # Robin: setup, parent commands, alert buttons (child = admin)
 
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
