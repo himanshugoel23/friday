@@ -766,6 +766,7 @@ class Settings(BaseSettings):
     robin_waitlist_enabled: bool = False  # FRIDAY_ROBIN_WAITLIST_ENABLED: public /robin waitlist page (docs/ROBIN_WAITLIST.md)
     robin_waitlist_dir: str = "var/robin_waitlist"  # FRIDAY_ROBIN_WAITLIST_DIR
     robin_waitlist_contact: str | None = None  # FRIDAY_ROBIN_WAITLIST_CONTACT: how to ask for deletion, shown on the privacy page
+    robin_waitlist_variants: str | None = None  # FRIDAY_ROBIN_WAITLIST_VARIANTS: comma list of page variants in the A/B test, e.g. "a,b,c" (default: all that exist)
     browserbase_api_key: SecretStr | None = Field(default=None, validation_alias=_alias("BROWSERBASE_API_KEY", "FRIDAY_BROWSERBASE_API_KEY"))
     browserbase_project_id: str | None = Field(default=None, validation_alias=_alias("BROWSERBASE_PROJECT_ID", "FRIDAY_BROWSERBASE_PROJECT_ID"))
     steel_api_key: SecretStr | None = Field(default=None, validation_alias=_alias("STEEL_API_KEY", "FRIDAY_STEEL_API_KEY"))

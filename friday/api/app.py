@@ -135,7 +135,7 @@ def create_app(
         from friday.robinwaitlist.router import waitlist_router
         from friday.robinwaitlist.wiring import store_for as _waitlist_store
 
-        app.include_router(waitlist_router(_waitlist_store(c.settings), contact=c.settings.robin_waitlist_contact or ""), prefix="/robin")
+        app.include_router(waitlist_router(_waitlist_store(c.settings), contact=c.settings.robin_waitlist_contact or "", variant_ids=[x.strip() for x in (c.settings.robin_waitlist_variants or "").split(",") if x.strip()] or None), prefix="/robin")
     if web is not None:
         mount_web(app, web, runtime)
 

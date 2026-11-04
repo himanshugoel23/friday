@@ -166,7 +166,7 @@ const errs={en:{name:"Please enter your name.",phone:"Please enter a valid Whats
 const rv=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("on");rv.unobserve(e.target)}}),{threshold:.15});document.querySelectorAll(".rv").forEach(e=>rv.observe(e));
 const io=new IntersectionObserver(es=>{document.getElementById("sticky").style.opacity=es[0].isIntersecting?"0":"1";document.getElementById("sticky").style.pointerEvents=es[0].isIntersecting?"none":"auto"});io.observe(document.getElementById("join"));
 document.getElementById("f").addEventListener("submit",async ev=>{ev.preventDefault();const err=document.getElementById("err");err.textContent="";
-const g=id=>document.getElementById(id).value.trim();const body={name:g("name"),phone:g("phone"),website:g("website"),src:src,consent:true};const E=errs[cur];
+const g=id=>document.getElementById(id).value.trim();const body={name:g("name"),phone:g("phone"),website:g("website"),src:src,v:"{{VARIANT}}",consent:true};const E=errs[cur];
 if(!body.name){err.textContent=E.name;return}if(body.phone.replace(/\D/g,"").length<8){err.textContent=E.phone;return}
 const b=document.getElementById("go");b.disabled=true;
 try{const r=await fetch("join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok){const j=await r.json().catch(()=>({}));err.textContent=(E[j.field]||E.busy);b.disabled=false;return}

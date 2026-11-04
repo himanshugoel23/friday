@@ -157,3 +157,36 @@ def test_switch_defaults_off_and_script_exists():
     from friday.core.config import Settings
     assert Settings().robin_waitlist_enabled is False
     assert (Path(__file__).parents[2] / "deploy" / "enable-robin-waitlist.sh").exists()
+
+
+def test_ab_harness_redirects_keeps_the_variant_and_reports_join_rate(tmp_path, monkeypatch):
+    from friday.robinwaitlist import variants
+
+    pages = {"a": '<html><body>PAGE A <script>v="{{VARIANT}}"</script></body></html>', "b": '<html><body>PAGE B <script>v="{{VARIANT}}"</script></body></html>'}
+    monkeypatch.setattr(variants, "available", lambda: ["a", "b"])
+    monkeypatch.setattr(variants, "load", lambda v: pages[v].replace("{{VARIANT}}", v) if v in pages else None)
+    store = WaitlistStore(tmp_path / "wl", now=lambda: datetime(2026, 11, 4, 12, 0, tzinfo=UTC))
+    app = FastAPI()
+    app.include_router(waitlist_router(store), prefix="/robin")
+    client = TestClient(app, follow_redirects=False)
+    r = client.get("/robin?src=family")
+    assert r.status_code == 302 and "v=" in r.headers["location"] and "src=family" in r.headers["location"]
+    ra = client.get("/robin?v=a&src=family")
+    assert ra.status_code == 200 and "PAGE A" in ra.text and 'v="a"' in ra.text
+    assert "PAGE B" in client.get("/robin?v=b").text
+    assert client.get("/robin?v=zz").status_code == 200  # unknown variant: the default page, never an error
+    client.post("/robin/join", json={**GOOD, "v": "a"})
+    s = store.summary()
+    assert "By page variant:" in s and "a=1 of 1 views (100.0%)" in s and "b=0 of 1 views" in s
+    assert store._rows()[0]["v"] == "a" and ',"a",' in store.csv().splitlines()[1]
+
+
+def test_variant_ids_can_be_restricted(tmp_path, monkeypatch):
+    from friday.robinwaitlist import variants
+
+    monkeypatch.setattr(variants, "available", lambda: ["a", "b", "c"])
+    monkeypatch.setattr(variants, "load", lambda v: f"<html>PAGE {v}</html>")
+    app = FastAPI()
+    app.include_router(waitlist_router(WaitlistStore(tmp_path / "wl"), variant_ids=["b"]), prefix="/robin")
+    client = TestClient(app, follow_redirects=False)
+    assert all("v=b" in client.get("/robin").headers["location"] for _ in range(5))

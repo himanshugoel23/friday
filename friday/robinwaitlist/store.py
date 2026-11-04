@@ -32,6 +32,11 @@ def clean_src(raw: str | None) -> str:
     return s if SRC_RE.match(s) else "direct"
 
 
+def clean_v(raw: str | None) -> str:
+    s = (raw or "").strip().lower()
+    return s if re.match(r"^[a-z]{1,2}$", s) or s == "legacy" else ""
+
+
 def mask(phone: str) -> str:
     return "*" * max(0, len(phone) - 2) + phone[-2:]
 
@@ -76,7 +81,7 @@ class WaitlistStore:
         return [r for r in out if r]
 
     # ------------------------------------------------------------------ sign-ups
-    def add(self, *, name: str, phone: str, city: str, lang: str, whom: str, worries: list[str], src: str) -> tuple[str, bool]:
+    def add(self, *, name: str, phone: str, city: str, lang: str, whom: str, worries: list[str], src: str, v: str = "") -> tuple[str, bool]:
         """Returns (id, created). The same phone twice is idempotent (created=False)."""
         with self._lock:
             rows = self._rows()
@@ -84,7 +89,7 @@ class WaitlistStore:
                 if r.get("phone") == phone:
                     return str(r["id"]), False
             row = {"id": secrets.token_hex(4), "ts": self.now().isoformat(timespec="seconds"), "name": name[:40], "phone": phone,
-                   "city": city[:60], "lang": lang, "whom": whom, "worries": worries, "src": clean_src(src), "consent": CONSENT_VERSION}
+                   "city": city[:60], "lang": lang, "whom": whom, "worries": worries, "src": clean_src(src), "v": clean_v(v), "consent": CONSENT_VERSION}
             with self._path("signups.jsonl").open("a", encoding="utf-8") as f:
                 f.write(self._seal(row) + "\n")
             os.chmod(self.root / "signups.jsonl", 0o600)
@@ -111,7 +116,7 @@ class WaitlistStore:
                 (self.root / n).unlink(missing_ok=True)
 
     # ------------------------------------------------------------------ views
-    def view(self, src: str) -> None:
+    def view(self, src: str, v: str = "") -> None:
         with self._lock:
             p = self._path("views.json")
             try:
@@ -119,7 +124,7 @@ class WaitlistStore:
             except ValueError:
                 data = {}
             day = self.now().date().isoformat()
-            key = f"{day}|{clean_src(src)}"
+            key = f"{day}|{clean_src(src)}|{clean_v(v)}"
             data[key] = int(data.get(key, 0)) + 1
             tmp = p.with_suffix(".tmp")
             tmp.write_text(json.dumps(data), encoding="utf-8")
@@ -143,14 +148,21 @@ class WaitlistStore:
         days = [(today - timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
         per_day = Counter(str(r["ts"])[:10] for r in rows)
         by_src, v_src = Counter(r.get("src", "direct") for r in rows), Counter()
+        v_var = Counter()
         for k, n in views.items():
-            v_src[k.split("|", 1)[1]] += n
+            parts = k.split("|")
+            v_src[parts[1]] += n
+            if len(parts) > 2 and parts[2]:
+                v_var[parts[2]] += n
         total_views = sum(views.values())
         out = [f"Robin waitlist: {len(rows)} sign-ups, {total_views} page views"
                + (f" ({100 * len(rows) / total_views:.1f}% joined)" if total_views else "")]
         out.append("Last 7 days: " + ", ".join(f"{d[5:]}={per_day.get(d, 0)}" for d in days))
         if by_src:
             out.append("By source: " + ", ".join(f"{s}={n} of {v_src.get(s, 0)} views" for s, n in by_src.most_common(8)))
+        by_var = Counter(r.get("v", "") for r in rows if r.get("v"))
+        if by_var or v_var:
+            out.append("By page variant: " + ", ".join(f"{k}={by_var.get(k, 0)} of {v_var.get(k, 0)} views" + (f" ({100 * by_var.get(k, 0) / v_var[k]:.1f}%)" if v_var.get(k) else "") for k in sorted(set(by_var) | set(v_var))))
         for label, key in (("Cities", "city"), ("Parent language", "lang"), ("For", "whom")):
             c = Counter(str(r.get(key, "")).strip().title() for r in rows if r.get(key))
             if c:
@@ -167,9 +179,9 @@ class WaitlistStore:
         def q(v: Any) -> str:
             s = str(v).replace('"', '""')
             return f'"{s}"'
-        head = "id,time,name,phone,city,parent_language,for,worries,src,consent"
+        head = "id,time,name,phone,city,parent_language,for,worries,src,variant,consent"
         lines = [head]
         for r in self._rows():
             lines.append(",".join(q(r.get(k, "")) if k != "worries" else q(";".join(r.get(k, [])))
-                                  for k in ("id", "ts", "name", "phone", "city", "lang", "whom", "worries", "src", "consent")))
+                                  for k in ("id", "ts", "name", "phone", "city", "lang", "whom", "worries", "src", "v", "consent")))
         return "\n".join(lines) + "\n"

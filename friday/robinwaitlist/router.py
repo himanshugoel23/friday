@@ -4,17 +4,18 @@
 from __future__ import annotations
 
 import hashlib
+import secrets
 import time
 from collections import defaultdict, deque
 from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from friday.core.models import normalize_phone
-from friday.robinwaitlist import page
-from friday.robinwaitlist.store import FOR, LANGS, WORRIES, WaitlistStore
+from friday.robinwaitlist import page, variants
+from friday.robinwaitlist.store import FOR, LANGS, WORRIES, WaitlistStore, clean_v
 
 MAX_PER_HOUR_PER_IP = 8
 MAX_PER_DAY_TOTAL = 3000
@@ -31,6 +32,7 @@ class JoinIn(BaseModel):
     consent: bool = False
     website: str = ""  # honeypot
     src: str = Field(default="", max_length=32)
+    v: str = Field(default="", max_length=8)  # page variant (A/B test)
 
 
 def _ip_key(request: Request) -> str:
@@ -39,7 +41,7 @@ def _ip_key(request: Request) -> str:
     return hashlib.sha256(ip.encode()).hexdigest()[:16]  # kept in memory only, never stored
 
 
-def waitlist_router(store: WaitlistStore, *, contact: str = "", clock: Any = time.time) -> APIRouter:
+def waitlist_router(store: WaitlistStore, *, contact: str = "", clock: Any = time.time, variant_ids: list[str] | None = None) -> APIRouter:
     router = APIRouter()
     hits: dict[str, deque[float]] = defaultdict(deque)
     day = {"d": "", "n": 0}
@@ -55,9 +57,16 @@ def waitlist_router(store: WaitlistStore, *, contact: str = "", clock: Any = tim
         return False
 
     @router.get("", response_class=HTMLResponse)
-    def home(request: Request, src: str = "") -> HTMLResponse:
-        store.view(src)
-        return HTMLResponse(page.PAGE, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+    def home(request: Request, src: str = "", v: str = ""):  # noqa: ANN202
+        have = variants.available()
+        wanted = [x for x in (variant_ids or have) if x in have]
+        if not v and wanted:  # no variant in the link: pick one at random and keep it in the URL, so shares keep the same page
+            query = f"v={secrets.choice(wanted)}" + (f"&src={src}" if src else "")
+            return RedirectResponse(f"{request.url.path}?{query}", status_code=302, headers={"Cache-Control": "no-store"})
+        html = variants.load(v) if v else None
+        shown = clean_v(v) if html else "legacy"
+        store.view(src, shown)
+        return HTMLResponse(html or page.PAGE.replace("{{VARIANT}}", "legacy"), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
     @router.get("/privacy", response_class=HTMLResponse)
     def privacy() -> HTMLResponse:
@@ -91,7 +100,7 @@ def waitlist_router(store: WaitlistStore, *, contact: str = "", clock: Any = tim
         whom = body.whom if body.whom in FOR else "other"
         lang = body.lang if body.lang in LANGS else "other"
         worries = [w for w in body.worries if w in WORRIES]
-        _, created = store.add(name=name, phone=phone, city=city, lang=lang, whom=whom, worries=worries, src=body.src)
+        _, created = store.add(name=name, phone=phone, city=city, lang=lang, whom=whom, worries=worries, src=body.src, v=body.v)
         if created:
             day["n"] += 1
         return JSONResponse({"ok": True})
