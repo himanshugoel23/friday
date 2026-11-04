@@ -1,0 +1,257 @@
+# Invented call dialogues (no real people, numbers or scripts from real victims) for the conversation-pattern analyzer.
+# c = caller, p = parent. context: unknown_number / international / first_contact.
+# min / max = allowed range of the FINAL tier (NONE < INFO < WATCH < HIGH).
+dialogues:
+  # ---------------------------------------------------------------- scams (English)
+  - id: en_digital_arrest_cbi
+    context: [unknown_number, first_contact]
+    min: HIGH
+    turns:
+      - "c: This is Inspector Sharma from the CBI cyber crime branch."
+      - "p: Yes? Who is this?"
+      - "c: Your Aadhaar is linked to a parcel with drugs and there is an arrest warrant against you."
+      - "p: What? I did not send anything."
+      - "c: Stay on the line, do not tell anyone, and join the video call now."
+  - id: en_trai_number_block
+    context: [unknown_number, international]
+    min: HIGH
+    turns:
+      - "c: This is TRAI. Your number will be disconnected in two hours for illegal activity."
+      - "c: Press 9 to speak to the police officer. Do not hang up."
+      - "c: You must transfer the verification amount immediately or we will arrest you."
+  - id: en_bank_kyc_otp
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: Sir I am calling from the bank. Your KYC is expiring today."
+      - "c: Please share the OTP you just received immediately."
+      - "c: Quickly, the account will be blocked in ten minutes. Tell me the OTP right now."
+  - id: en_remote_app_support
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: I am from the customer care team, there is a problem with your account."
+      - "c: Please download AnyDesk and open it, then tell me the nine digit code."
+  - id: en_relative_accident
+    context: [unknown_number, first_contact]
+    min: HIGH
+    turns:
+      - "c: Papa, it is me. I have had an accident, I am in the hospital."
+      - "c: Please send 50000 rupees urgently to this account, do not tell mummy."
+  - id: en_police_son_jail
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: I am from the police station. Your son has been arrested in a case."
+      - "c: To settle it you must deposit 80000 rupees now. Do not tell anyone in the family."
+  - id: en_prize_fee
+    context: [unknown_number, international]
+    min: INFO
+    turns:
+      - "c: Congratulations, you have won a lottery of 25 lakh."
+      - "c: To claim it, click the link and pay the processing fee urgently."
+  - id: en_safe_account
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: I am from the RBI. Your account is under investigation."
+      - "c: Please transfer your savings to the RBI verification account. Do not disconnect the call."
+  - id: en_urgency_ramp_bank
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: This is your bank. We need to verify something immediately."
+      - "c: It is urgent, please tell me the OTP right now."
+      - "c: Hurry, only five minutes left, share the PIN immediately."
+  - id: en_parent_complies
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: Sir I am from the bank, share your OTP urgently."
+      - "p: ok I am sending the OTP now"
+      - "c: Good, now install QuickSupport and share the code immediately."
+  # ---------------------------------------------------------------- scams (Roman Hinglish)
+  - id: hg_digital_arrest
+    context: [unknown_number, first_contact]
+    min: HIGH
+    turns:
+      - "c: Main CBI se bol raha hoon. Aapke naam par ek parcel mein drugs mile hain."
+      - "c: Aapke khilaf arrest warrant hai. Video call par rahiye, kisi ko mat batana."
+  - id: hg_beta_accident
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: Papa main bol raha hoon, mera accident ho gaya, hospital mein hoon."
+      - "c: Jaldi 40000 rupaye bhej do, kisi ko mat batana."
+  - id: hg_kyc_otp
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: Sir bank se bol raha hoon, aapka KYC abhi band ho jayega."
+      - "c: Turant OTP bata dijiye, jaldi kijiye."
+  - id: hg_anydesk
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: Main customer care se hoon. Aap AnyDesk install karo aur code bata do."
+  - id: hg_court_notice
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: Court ka notice hai, aapke naam par case registered hai."
+      - "c: Phone mat kaatna, abhi jamanat ke liye paise transfer karo, kisi ko mat batana."
+  - id: hg_pension_otp
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: Aapki pension band ho jayegi, jeevan pramaan update karna hai."
+      - "c: Abhi OTP bhejiye warna pension ruk jayegi."
+  - id: hg_collect_refund
+    context: [unknown_number]
+    min: INFO
+    turns:
+      - "c: Aapka refund aa raha hai, QR code scan kariye."
+      - "c: Jaldi kariye, PIN enter karna hoga."
+  # ---------------------------------------------------------------- scams (Devanagari)
+  - id: hi_digital_arrest
+    context: [unknown_number, first_contact]
+    min: HIGH
+    turns:
+      - "c: मैं सीबीआई से बोल रहा हूँ। आपके नाम पर पार्सल में ड्रग्स मिले हैं।"
+      - "c: आपके खिलाफ वारंट है। वीडियो कॉल पर रहिए, किसी को मत बताना।"
+  - id: hi_beta_hospital
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: पापा मैं बोल रहा हूँ, मेरा हादसा हो गया है, मैं अस्पताल में हूँ।"
+      - "c: जल्दी 50000 रुपये भेज दो, किसी को मत बताना।"
+  - id: hi_otp_ask
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: मैं बैंक से बोल रहा हूँ, आपका खाता अभी बंद हो जाएगा।"
+      - "c: तुरंत ओटीपी बताइए, जल्दी कीजिए।"
+  - id: hi_police_threat
+    context: [unknown_number]
+    min: HIGH
+    turns:
+      - "c: मैं पुलिस इंस्पेक्टर बोल रहा हूँ। आपके नाम पर केस दर्ज है।"
+      - "c: कॉल मत काटिए, किसी को मत बताना, अभी 30000 रुपये जमा कीजिए।"
+  - id: hi_remote_app
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: मैं कस्टमर केयर से हूँ। एनीडेस्क डाउनलोड कीजिए और कोड बताइए।"
+  # ---------------------------------------------------------------- benign
+  - id: ok_relative_small_loan
+    context: []
+    max: INFO
+    turns:
+      - "c: Beta, ek chhoti si madad chahiye, 2000 rupaye bhej do, shaam ko wapas kar dunga."
+      - "p: Haan theek hai, kal bhej deta hoon."
+  - id: ok_genuine_bank_call
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Hello, this is Example Bank customer care. We noticed a card transaction of rupees 4500, was it you?"
+      - "p: Yes it was me."
+      - "c: Thank you. We will never ask for your OTP or PIN. Have a nice day."
+  - id: ok_delivery_call
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Hello, I am the delivery boy. I am at your gate with the parcel."
+      - "p: Ok, I am coming down."
+  - id: ok_doctor_reminder
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Namaste, this is Dr Mehta's clinic. Your appointment is tomorrow at 10:30."
+      - "p: Ok, thank you."
+  - id: ok_grandson_chat
+    context: []
+    max: NONE
+    turns:
+      - "c: Dadi, how are you? I will come on Sunday and bring sweets."
+      - "p: Come soon beta."
+  - id: ok_son_hospital_visit
+    context: []
+    max: INFO
+    turns:
+      - "c: Papa, I am taking mummy to the hospital for her checkup today. We will be back by evening."
+      - "p: Ok beta, take care."
+  - id: ok_neighbour_pay_milk
+    context: []
+    max: INFO
+    turns:
+      - "c: Uncle, please pay 500 rupees for the milk bill when you can."
+      - "p: Sure, I will give it tomorrow."
+  - id: ok_bank_otp_warning
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Sir, this is a reminder call from the bank. Please do not share your OTP with anyone."
+  - id: ok_hinglish_family_plan
+    context: []
+    max: NONE
+    turns:
+      - "c: Papa kal shaam ko hum sab khana khane chalenge, taiyar rehna."
+      - "p: Theek hai beta."
+  - id: ok_hindi_family_plan
+    context: []
+    max: NONE
+    turns:
+      - "c: पापा कल मैं आपको डॉक्टर के पास ले चलूँगा, ग्यारह बजे तैयार रहिएगा।"
+      - "p: ठीक है बेटा।"
+  - id: ok_courier_otp_delivery
+    context: [unknown_number]
+    max: INFO
+    turns:
+      - "c: Delivery from the courier. You will get an OTP on your phone when I arrive."
+      - "p: Ok."
+  - id: ok_insurance_renewal
+    context: [unknown_number]
+    max: INFO
+    turns:
+      - "c: Hello, your health insurance renewal is due next month. Please visit our branch or call our office."
+  - id: ok_wrong_number
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Hello? Is this Ramesh? Sorry, wrong number."
+  - id: ok_daughter_money_for_fees
+    context: []
+    max: INFO
+    turns:
+      - "c: Papa, college fees are due. Can you send 25000 rupees this week?"
+      - "p: Yes, I will do it from my bank tomorrow."
+  - id: ok_police_verification_visit
+    context: [unknown_number]
+    max: INFO
+    turns:
+      - "c: Hello sir, police station here. A constable will come tomorrow for the routine tenant verification form."
+  - id: ok_news_discussion
+    context: []
+    max: INFO
+    turns:
+      - "c: Did you see the news? The CBI arrested some people in a digital arrest scam. Be careful, never believe such calls."
+  - id: ok_hindi_bank_awareness
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: बैंक की तरफ से सूचना है। कृपया अपना ओटीपी किसी को न बताएं।"
+  - id: ok_hinglish_bank_balance
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Namaste, main bank se bol raha hoon. Aapka naya passbook aa gaya hai, branch se le lijiye."
+  - id: ok_electrician_visit
+    context: [unknown_number]
+    max: NONE
+    turns:
+      - "c: Sir, main electrician bol raha hoon, kal subah 10 baje aa jaunga."
+  - id: ok_relative_wedding_invite
+    context: []
+    max: NONE
+    turns:
+      - "c: Namaste Mausi ji, shaadi ka card WhatsApp kar diya hai, zaroor aaiyega."

@@ -1,0 +1,191 @@
+# Robin scenario rules S1-S8 (docs/PARENT_CARE_PHASE1_SPEC.md section 3). DATA, not code: windows, weights,
+# thresholds, cooldowns. Every number here is a design guess until pilot shadow-mode data tunes it.
+#
+#   unverified: true      -> shown in the shadow report and `friday` ops output; flip only after a pilot review
+#   signals[].predicate   -> a named check implemented in engine.py (PREDICATES); params are its inputs
+#   signals[].weight      -> added to the score when the check matches (may be negative)
+#   signals[].required    -> the scenario cannot fire unless this one matches
+#   signals[].why         -> fragment of the 'why' line, built only from signal types and numbers;
+#                            empty = not shown. {placeholders} come from the predicate.
+#   tiers[]               -> highest tier whose min_score (+ sensitivity shift when shiftable) is reached wins
+#   tiers[].prompt        -> key in copy.py (the parent's nudge); absent = no nudge for the parent
+#   tiers[].child_alert   -> call AlertPort (INFO = digest only)
+#   money: true           -> a HIGH of this scenario may nudge the parent in quiet hours
+#   suppressible          -> 'this was fine' may teach a trusted number / lower repeats (never for money or remote access)
+#   shadow_exempt         -> true = alerts even in shadow week (all false: the founder's rule is log-only first)
+version: 1
+unverified: true
+
+defaults:
+  shadow_days: 7
+  nudges_per_hour: 2
+  quiet_hours: {start: "22:00", end: "07:00"}   # IST
+  payment_threshold_paise: 1000000               # Rs 10,000 until the child sets one
+  prompt_max_age_min: 15                         # do not nudge the parent about something older than this
+  prompt_ttl_min: 360
+  retention_h: 48
+  night_hours: {start: "22:00", end: "06:00"}    # payment night rule (IST)
+
+sensitivity:
+  calm:     {threshold_shift: 1,  duration_scale: 1.25}
+  balanced: {threshold_shift: 0,  duration_scale: 1.0}
+  careful:  {threshold_shift: -1, duration_scale: 0.8}
+
+scenarios:
+  - id: S1
+    name: digital_arrest
+    priority: 10
+    window_min: 90
+    cooldown_min: 45
+    shiftable: true
+    suppressible: true
+    shadow_exempt: false
+    money: false
+    signals:
+      - {id: long_call, predicate: unknown_call_min, params: {min_minutes: 10}, weight: 2, required: true, why: "unknown caller {minutes} minutes"}
+      - {id: very_long_call, predicate: unknown_call_min, params: {min_minutes: 20, active_or_recent_min: 15}, weight: 2, why: ""}
+      - {id: camera, predicate: camera_during_call, weight: 2, why: "camera on"}
+      - {id: risky_class, predicate: call_class, params: {classes: [international, voip_like, shortcode]}, weight: 1, why: "{call_class} number"}
+    tiers:
+      - {tier: WATCH, min_score: 3, prompt: s1_watch, child_alert: true}
+      - {tier: HIGH, min_score: 6, prompt: s1_high, child_alert: true, full_screen: true}
+
+  - id: S2
+    name: remote_access
+    priority: 20
+    window_min: 120
+    cooldown_min: 60
+    shiftable: false
+    suppressible: false
+    shadow_exempt: false
+    money: false
+    signals:
+      - {id: opened, predicate: remote_app_opened, weight: 5, why: "remote-control app {app} opened"}
+      - {id: installed, predicate: remote_app_installed, weight: 2, why: "remote-control app {app} installed"}
+      - {id: with_call, predicate: remote_app_near_call, params: {within_min: 30}, weight: 2, why: "unknown call {minutes} minutes"}
+    tiers:
+      - {tier: WATCH, min_score: 2, prompt: s2_watch, child_alert: true}
+      - {tier: HIGH, min_score: 5, prompt: s2_high, child_alert: true, full_screen: true}
+
+  - id: S3
+    name: kyc_otp_call
+    priority: 30
+    window_min: 60
+    cooldown_min: 30
+    shiftable: true
+    suppressible: false
+    shadow_exempt: false
+    money: true
+    signals:
+      - {id: payment_app_after_call, predicate: payment_app_after_call, params: {within_min: 15, ended_within_min: 5}, weight: 3, required: true, why: "{app} opened {gap_min} min after unknown call started"}
+      - {id: call_over_5, predicate: unknown_call_min, params: {min_minutes: 5}, weight: 2, why: "call {minutes} minutes"}
+    tiers:
+      - {tier: WATCH, min_score: 3, prompt: s3_watch, child_alert: true}
+      - {tier: HIGH, min_score: 5, prompt: s3_high, child_alert: true}
+
+  - id: S4
+    name: voice_clone_panic
+    priority: 40
+    window_min: 60
+    cooldown_min: 30
+    shiftable: true
+    suppressible: false
+    shadow_exempt: false
+    money: true
+    unless_events: [call_pattern]   # when a transcript source exists, S4P decides instead
+    signals:
+      - {id: short_call, predicate: short_unknown_call, params: {max_minutes: 3}, weight: 1, required: true, why: "short unknown call {minutes} min"}
+      - {id: payment_app, predicate: payment_app_after_call, params: {within_min: 10, ended_within_min: 10}, weight: 2, why: "{app} opened soon after"}
+      - {id: debit_new_payee, predicate: recent_debit_new_payee, params: {within_min: 15}, weight: 3, why: "debit to a {payee_kind} payee"}
+    tiers:
+      - {tier: WATCH, min_score: 3, prompt: s4_watch, child_alert: true}
+      - {tier: HIGH, min_score: 6, prompt: s4_high, child_alert: true}
+
+  # S4P: the same voice-clone scenario, driven by the conversation-pattern analyzer (callpattern.py) when the
+  # family package supplies a transcript (screen-first / listen-in calls). Founder: no safe word.
+  - id: S4P
+    name: voice_clone_pattern
+    priority: 41
+    window_min: 60
+    cooldown_min: 30
+    shiftable: true
+    suppressible: false
+    shadow_exempt: false
+    money: true
+    needs_consent: [call_pattern]
+    signals:
+      - {id: pattern_watch, predicate: call_pattern_tier, params: {tier: WATCH}, weight: 3, required: true, why: "call conversation pattern {cues}"}
+      - {id: pattern_high, predicate: call_pattern_tier, params: {tier: HIGH}, weight: 3, why: ""}
+      - {id: payment_app, predicate: payment_app_after_call, params: {within_min: 15, ended_within_min: 10}, weight: 2, why: "{app} opened soon after"}
+    tiers:
+      - {tier: WATCH, min_score: 3, prompt: s4_watch, child_alert: true}
+      - {tier: HIGH, min_score: 6, prompt: s4_high, child_alert: true, full_screen: true}
+
+  - id: S5
+    name: large_payment
+    priority: 5
+    anchor: payment_notification
+    window_min: 60
+    cooldown_min: 0          # every payment is its own incident (a series of debits is exactly the risk)
+    shiftable: false
+    suppressible: false
+    shadow_exempt: false
+    money: true
+    signals:
+      - {id: debit, predicate: payment_debit, params: {min_amount_paise: 50000}, weight: 1, required: true, why: "debit {amount} at {time}"}
+      - {id: over_limit, predicate: payment_over_threshold, weight: 3, why: "above the limit"}
+      - {id: payee, predicate: payment_payee, params: {kinds: [new, unknown]}, weight: 2, why: "{payee_kind} payee"}
+      - {id: night, predicate: payment_night, params: {kinds: [new, unknown]}, weight: 2, why: "night time"}
+      - {id: after_risk, predicate: payment_after_risk, params: {within_min: 60, call_min_minutes: 5}, weight: 3, why: "{risk}"}
+    tiers:
+      - {tier: INFO, min_score: 3, child_alert: true}
+      - {tier: WATCH, min_score: 4, child_alert: true}
+      - {tier: HIGH, min_score: 5, prompt: s5_high, child_alert: true, full_screen: true}
+
+  - id: S6
+    name: night_camera
+    priority: 60
+    window_min: 30
+    cooldown_min: 240
+    shiftable: true
+    suppressible: true
+    shadow_exempt: false
+    money: false
+    signals:
+      - {id: camera_night, predicate: camera_at_night, params: {start: "23:00", end: "05:00"}, weight: 2, required: true, why: "camera on at night"}
+    tiers:
+      - {tier: WATCH, min_score: 2, prompt: s6_watch, child_alert: true, defer_quiet: true, digest: true}
+
+  - id: S7
+    name: unreachable
+    priority: 15
+    window_min: 1440
+    cooldown_min: 360
+    shiftable: false
+    suppressible: false
+    shadow_exempt: false
+    money: false
+    needs_consent: [heartbeat]
+    signals:
+      - {id: gap6, predicate: heartbeat_gap_hours, params: {min_hours: 6, awake_only: true}, weight: 2, required: true, why: "no phone signal for {hours} hours"}
+      - {id: gap12, predicate: heartbeat_gap_hours, params: {min_hours: 12, awake_only: true}, weight: 1, why: ""}
+      - {id: checkin, predicate: checkin_unanswered, weight: 2, why: "daily check-in unanswered"}
+      - {id: battery, predicate: battery_was_low, weight: -1, why: "battery was low at last signal"}
+    tiers:
+      - {tier: WATCH, min_score: 2, child_alert: true}
+      - {tier: HIGH, min_score: 4, child_alert: true}
+
+  - id: S8
+    name: pension_season
+    priority: 90
+    window_min: 60
+    cooldown_min: 10080
+    shiftable: false
+    suppressible: false
+    shadow_exempt: false
+    money: false
+    applies_if_tag: pensioner     # unknown tags (None) = applies to everyone
+    signals:
+      - {id: season, predicate: calendar_window, params: {start: "10-15", end: "11-30"}, weight: 1, required: true, why: "pension and life-certificate season"}
+    tiers:
+      - {tier: INFO, min_score: 1, prompt: s8_info, child_alert: true, defer_quiet: true, digest: true}
