@@ -25,17 +25,21 @@ def env(tmp_path):
     return TestClient(app), store
 
 
-def test_page_tells_a_story_with_real_sources_and_asks_only_name_and_number(env):
+def test_page_is_visual_short_and_honest_and_asks_only_name_and_number(env):
+    import re
+
     client, store = env
     r = client.get("/robin?src=wa-group")
     assert r.status_code == 200 and "Robin is not live yet" in r.text and "not an emergency service" in r.text
     assert r.headers["x-robots-tag"] == "noindex" and "testimonial" not in r.text.lower()
     assert "Hinglish" in r.text  # language toggle is present
-    assert "Your mother is alone at home" in r.text and "if she falls at 3 in the morning" in r.text
+    assert "Mom is alone" in r.text and "At 3 am, who finds out first?" in r.text and "Robin can." in r.text
+    assert "<svg" in r.text and r.text.count('class="ph') >= 3  # the design carries the story: illustration + phone mock-ups
     for url in ("tribuneindia.com/news/chandigarh", "freepressjournal.in/amp/mumbai", "freepressjournal.in/indore"):
         assert url in r.text  # every news card links to the publisher's own page
-    import re
-
+    body = re.sub(r"<(script|style|svg)\b.*?</\1>", " ", r.text, flags=re.S)
+    words = len(re.sub(r"<[^>]+>", " ", body).split())
+    assert words < 360, words  # includes phone mock-up text, the hidden thank-you block and legal lines; the story itself is a few words per screen
     visible = re.findall(r'<input[^>]*type="(text|tel|checkbox|email)"', r.text)
     assert visible.count("text") == 2 and visible.count("tel") == 1 and "checkbox" not in visible  # name, honeypot, number only
     assert "1 page views" in store.summary()

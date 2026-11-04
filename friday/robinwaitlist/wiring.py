@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Build the store for these settings (encrypted lines when the process field cipher exists)."""
 
 from __future__ import annotations
