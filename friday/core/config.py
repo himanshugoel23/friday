@@ -696,6 +696,8 @@ class Settings(BaseSettings):
     parity_status: bool = False  # FRIDAY_PARITY_STATUS: status reply with ETA after 60 s
     # approach planner (docs/APPROACH_PLANNER.md): the PM picks answer/web/app/call/ask first.
     # OFF: every request keeps the old bucket x category flow. Chat wording PENDING.
+    # Robin device side (docs/ROBIN_ANDROID_APP.md): device API under /robin/device/*. OFF; wording PENDING.
+    robin_device_enabled: bool = False  # FRIDAY_ROBIN_DEVICE_ENABLED
     approach_planner_enabled: bool = False  # FRIDAY_APPROACH_PLANNER_ENABLED
     # proactive intents (docs/PROACTIVE_INTENTS.md): honest "needs a connection" replies, interview /
     # birthday / trip / bill / exam / meeting playbooks, one-word follow-ups. Chat wording PENDING.

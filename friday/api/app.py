@@ -134,6 +134,11 @@ def create_app(
     if web is not None:
         mount_web(app, web, runtime)
 
+    # ------------------------------------------------------------------ Robin device API (OFF; needs the family ports)
+    from friday.robindevice.wiring import maybe_mount as _mount_robin_device
+
+    _mount_robin_device(app, c)
+
     # ------------------------------------------------------------------ connector watch pages
     from friday.api.admin import admin_token as _admin_token
     from friday.api.connectors_watch import watch_router

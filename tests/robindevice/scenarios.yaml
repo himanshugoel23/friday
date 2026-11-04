@@ -1,0 +1,204 @@
+# Timelines for scenarios S1-S8 (invented). `at` = minutes after `start` (IST). Each step ingests ONE event at that
+# time, as the phone would. Run in LIVE mode (shadow_days 0) and in SHADOW mode (7 days) by test_scenarios.py.
+#   logged: [scenario, highest tier the engine logs for it]      (null = must not appear)
+#   alerts: ordered child-alert tiers for that scenario (live only)
+#   prompt: copy key of the parent nudge the live run must create (null = none)
+cases:
+  - id: s1_digital_arrest_progression
+    scenario: S1
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: international}
+      - {at: 3, type: camera_in_use_start}
+      - {at: 5, type: call_state_offhook, call_id: c1, duration_s: 300, ongoing: true}
+      - {at: 10, type: call_state_offhook, call_id: c1, duration_s: 600, ongoing: true}
+      - {at: 20, type: call_state_offhook, call_id: c1, duration_s: 1200, ongoing: true}
+    logged: HIGH
+    alerts: [WATCH, HIGH]
+    prompt: s1_high
+  - id: s1_calm_video_call_with_grandchild_is_quiet
+    scenario: S1
+    start: "2026-09-09T14:00"
+    sensitivity: calm
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 3, type: camera_in_use_start}
+      - {at: 5, type: call_state_offhook, call_id: c1, duration_s: 300, ongoing: true}
+      - {at: 10, type: call_state_offhook, call_id: c1, duration_s: 600, ongoing: true}
+    logged: null
+    alerts: []
+  - id: s1_careful_long_call_alone_is_watch
+    scenario: S1
+    start: "2026-09-09T14:00"
+    sensitivity: careful
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 5, type: call_state_offhook, call_id: c1, duration_s: 300, ongoing: true}
+      - {at: 9, type: call_state_offhook, call_id: c1, duration_s: 540, ongoing: true}
+    logged: WATCH
+    alerts: [WATCH]
+  - id: s2_remote_access_opened
+    scenario: S2
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: remote_access_app_opened, app: anydesk}
+    logged: HIGH
+    alerts: [HIGH]
+    prompt: s2_high
+  - id: s2_install_only_is_watch
+    scenario: S2
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: remote_access_app_installed, app: teamviewer}
+    logged: WATCH
+    alerts: [WATCH]
+    prompt: s2_watch
+  - id: s3_payment_app_during_long_call
+    scenario: S3
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 5, type: call_state_offhook, call_id: c1, duration_s: 300, ongoing: true}
+      - {at: 6, type: payment_app_foreground, app: phonepe}
+    logged: HIGH
+    alerts: [HIGH]
+    prompt: s3_high
+  - id: s3_payment_app_after_short_call_is_watch
+    scenario: S3
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 1, type: call_state_offhook, call_id: c1, duration_s: 60, ongoing: true}
+      - {at: 3, type: payment_app_foreground, app: gpay}
+    logged: WATCH
+    alerts: [WATCH]
+    prompt: s3_watch
+  - id: s3_payment_app_opened_alone_is_quiet
+    scenario: S3
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: payment_app_foreground, app: gpay}
+    logged: null
+    alerts: []
+  - id: s4_short_call_then_payment_app
+    scenario: S4
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 1, type: call_state_offhook, call_id: c1, duration_s: 60, ongoing: true}
+      - {at: 2, type: unknown_call_ended, call_id: c1, duration_s: 120, answered: true}
+      - {at: 5, type: payment_app_foreground, app: paytm}
+    logged: WATCH
+  - id: s4p_pattern_driven
+    scenario: S4P
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 2, call_pattern: HIGH, call_id: c1}
+      - {at: 4, type: payment_app_foreground, app: gpay}
+    logged: HIGH
+    alerts: [HIGH]
+    prompt: s4_high
+  - id: s5_large_new_payee_debit
+    scenario: S5
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: payment_notification, app: gpay, direction: debit, amount_paise: 5000000, payee_kind: new}
+    logged: HIGH
+    alerts: [HIGH]
+    prompt: s5_high
+  - id: s5_large_known_payee_is_watch_no_nudge
+    scenario: S5
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: payment_notification, app: hdfc, direction: debit, amount_paise: 2000000, payee_kind: known}
+    logged: WATCH
+    alerts: [WATCH]
+    prompt: null
+  - id: s5_night_small_new_payee_is_high
+    scenario: S5
+    start: "2026-09-09T02:00"
+    steps:
+      - {at: 0, type: payment_notification, app: phonepe, direction: debit, amount_paise: 60000, payee_kind: new}
+    logged: HIGH
+    alerts: [HIGH]
+    prompt: s5_high
+  - id: s5_small_day_merchant_is_quiet
+    scenario: S5
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: payment_notification, app: gpay, direction: debit, amount_paise: 25000, payee_kind: merchant}
+    logged: null
+    alerts: []
+  - id: s5_credit_is_ignored
+    scenario: S5
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: payment_notification, app: gpay, direction: credit, amount_paise: 9000000, payee_kind: unknown}
+    logged: null
+    alerts: []
+  - id: s5_small_new_payee_after_long_call_is_high
+    scenario: S5
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 6, type: call_state_offhook, call_id: c1, duration_s: 360, ongoing: true}
+      - {at: 8, type: payment_notification, app: gpay, direction: debit, amount_paise: 100000, payee_kind: new}
+    logged: HIGH
+    prompt: s5_high
+  - id: s6_night_camera
+    scenario: S6
+    start: "2026-09-09T23:30"
+    steps:
+      - {at: 0, type: camera_in_use_start}
+    logged: WATCH
+    alerts: [WATCH]
+    prompt: s6_watch
+    prompt_deferred: true
+  - id: s6_daytime_camera_is_quiet
+    scenario: S6
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: camera_in_use_start}
+    logged: null
+    alerts: []
+  - id: s7_unreachable_awake_hours
+    scenario: S7
+    start: "2026-09-09T08:00"
+    steps:
+      - {at: 420, sweep: true}
+    logged: WATCH
+    alerts: [WATCH]
+    prompt: null
+  - id: s7_unreachable_with_unanswered_checkin
+    scenario: S7
+    start: "2026-09-09T08:00"
+    steps:
+      - {at: 400, external: checkin_unanswered}
+      - {at: 420, sweep: true}
+    logged: HIGH
+    alerts: [HIGH]
+  - id: s7_overnight_silence_is_quiet
+    scenario: S7
+    start: "2026-09-09T21:00"
+    steps:
+      - {at: 600, sweep: true}
+    logged: null
+    alerts: []
+  - id: s8_pension_season
+    scenario: S8
+    start: "2026-11-04T11:00"
+    tags: [pensioner]
+    steps:
+      - {at: 0, sweep: true}
+    logged: INFO
+    alerts: [INFO]
+    prompt: s8_info
+  - id: s8_outside_season_is_quiet
+    scenario: S8
+    start: "2026-08-04T11:00"
+    tags: [pensioner]
+    steps:
+      - {at: 0, sweep: true}
+    logged: null
+    alerts: []
