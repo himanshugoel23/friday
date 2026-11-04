@@ -933,6 +933,9 @@ class InboundPipeline:
         if self.features is not None and await self.features.handle(user, msg):
             return  # trip thread / refund tracking / family Drive commands and buttons
 
+        if await self._ops_waitlist_command(user, msg):
+            return  # founder-only 'waitlist' / 'waitlist delete <number>' (Robin waitlist, docs/ROBIN_WAITLIST.md)
+
         if await self._ops_probe_command(user, msg):
             return  # founder-only 'browser status': the site probe report (statuses/timings only) in the chat
 
@@ -946,6 +949,32 @@ class InboundPipeline:
             await self.intents.route(user, msg, self._team_or_after)
             return
         await self._team_or_after(user, msg)
+
+    async def _ops_waitlist_command(self, user: User, msg: InboundMessage) -> bool:
+        """'waitlist' shows the Robin waitlist summary in the chat; 'waitlist delete +91...' removes one sign-up.
+        Founder only (first allow-listed number or an admin phone); only while the waitlist switch is on."""
+        st = self.settings
+        text = " ".join((msg.text or "").split())
+        low = text.lower()
+        if msg.kind != MessageKind.TEXT or not (low == "waitlist" or low.startswith("waitlist delete ")):
+            return False
+        owners = {*(st.admin_phones or []), *list(st.pilot_allowed_numbers)[:1]}
+        if not st.robin_waitlist_enabled or user.phone not in owners:
+            return False
+        from friday.core.models import normalize_phone
+        from friday.robinwaitlist.wiring import store_for
+
+        store = store_for(st)
+        if low == "waitlist":
+            reply = store.summary()
+        else:
+            try:
+                n = store.delete_phone(normalize_phone(text[len("waitlist delete "):]))
+                reply = f"Deleted {n} sign-up(s)."
+            except ValueError:
+                reply = "That is not a phone number. Use: waitlist delete +91XXXXXXXXXX"
+        await self.notifier.notify_user(user.id, reply[:3500], buttons=[], task_id=None)
+        return True
 
     async def _ops_probe_command(self, user: User, msg: InboundMessage) -> bool:
         """'browser status' (or 'probe status'): the founder reads the site probe report in the chat instead of

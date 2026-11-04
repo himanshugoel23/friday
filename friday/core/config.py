@@ -742,6 +742,9 @@ class Settings(BaseSettings):
     remote_browser_daily_sessions: int = 20  # daily cap on remote sessions
     remote_browser_daily_inr: float = 50.0  # daily cap on the INR ESTIMATE
     remote_browser_inr_per_min: float = 1.0  # GUESS, INR per started minute: verify on the provider's pricing page
+    robin_waitlist_enabled: bool = False  # FRIDAY_ROBIN_WAITLIST_ENABLED: public /robin waitlist page (docs/ROBIN_WAITLIST.md)
+    robin_waitlist_dir: str = "var/robin_waitlist"  # FRIDAY_ROBIN_WAITLIST_DIR
+    robin_waitlist_contact: str | None = None  # FRIDAY_ROBIN_WAITLIST_CONTACT: how to ask for deletion, shown on the privacy page
     browserbase_api_key: SecretStr | None = Field(default=None, validation_alias=_alias("BROWSERBASE_API_KEY", "FRIDAY_BROWSERBASE_API_KEY"))
     browserbase_project_id: str | None = Field(default=None, validation_alias=_alias("BROWSERBASE_PROJECT_ID", "FRIDAY_BROWSERBASE_PROJECT_ID"))
     steel_api_key: SecretStr | None = Field(default=None, validation_alias=_alias("STEEL_API_KEY", "FRIDAY_STEEL_API_KEY"))

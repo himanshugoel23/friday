@@ -72,6 +72,25 @@ def ops_status_router() -> APIRouter:
             raise HTTPException(status_code=404, detail="Not Found")
         return _read(Path(bench_ops.report_path()))
 
+    def _waitlist(request: Request) -> object:
+        st = request.app.state.container.settings
+        if not st.robin_waitlist_enabled:
+            raise HTTPException(status_code=404, detail="Not Found")
+        from friday.robinwaitlist.wiring import store_for
+
+        return store_for(st)
+
+    @router.get("/{token}/waitlist", response_class=PlainTextResponse)
+    def waitlist(token: str, request: Request) -> PlainTextResponse:
+        _authorised(token)
+        return PlainTextResponse(_waitlist(request).summary())  # type: ignore[attr-defined]
+
+    @router.get("/{token}/waitlist.csv", response_class=PlainTextResponse)
+    def waitlist_csv(token: str, request: Request) -> PlainTextResponse:
+        _authorised(token)
+        headers = {"Content-Disposition": 'attachment; filename="robin_waitlist.csv"', "Cache-Control": "no-store"}
+        return PlainTextResponse(_waitlist(request).csv(), media_type="text/csv", headers=headers)  # type: ignore[attr-defined]
+
     def _probe_store(request: Request) -> object | None:
         """The site MCP probe store, or None while the probe switch is off (routes 404)."""
         st = request.app.state.container.settings

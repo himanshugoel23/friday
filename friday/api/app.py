@@ -131,6 +131,11 @@ def create_app(
         app.include_router(_sim_router(c, runtime), prefix="/sim")
     app.include_router(admin_router(c), prefix="/admin")
     app.include_router(ops_status_router(), prefix="/ops-status")
+    if c.settings.robin_waitlist_enabled:  # public 'about to launch' page (docs/ROBIN_WAITLIST.md)
+        from friday.robinwaitlist.router import waitlist_router
+        from friday.robinwaitlist.wiring import store_for as _waitlist_store
+
+        app.include_router(waitlist_router(_waitlist_store(c.settings), contact=c.settings.robin_waitlist_contact or ""), prefix="/robin")
     if web is not None:
         mount_web(app, web, runtime)
 
