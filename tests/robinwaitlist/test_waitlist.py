@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from friday.robinwaitlist.router import waitlist_router
 from friday.robinwaitlist.store import WaitlistStore, clean_src
 
-GOOD = {"name": "Asha", "phone": "98765 43210", "whom": "father", "city": "Sonipat", "lang": "hindi", "worries": ["scam_calls", "bogus"], "consent": True, "src": "wa-group"}
+GOOD = {"name": "Asha", "phone": "98765 43210", "consent": True, "src": "wa-group"}
 
 
 @pytest.fixture
@@ -25,12 +25,19 @@ def env(tmp_path):
     return TestClient(app), store
 
 
-def test_page_is_honest_noindex_and_counts_views(env):
+def test_page_tells_a_story_with_real_sources_and_asks_only_name_and_number(env):
     client, store = env
     r = client.get("/robin?src=wa-group")
     assert r.status_code == 200 and "Robin is not live yet" in r.text and "not an emergency service" in r.text
     assert r.headers["x-robots-tag"] == "noindex" and "testimonial" not in r.text.lower()
-    assert "hindi" in r.text.lower() or "Hinglish" in r.text  # language toggle is present
+    assert "Hinglish" in r.text  # language toggle is present
+    assert "Your mother is alone at home" in r.text and "if she falls at 3 in the morning" in r.text
+    for url in ("tribuneindia.com/news/chandigarh", "freepressjournal.in/amp/mumbai", "freepressjournal.in/indore"):
+        assert url in r.text  # every news card links to the publisher's own page
+    import re
+
+    visible = re.findall(r'<input[^>]*type="(text|tel|checkbox|email)"', r.text)
+    assert visible.count("text") == 2 and visible.count("tel") == 1 and "checkbox" not in visible  # name, honeypot, number only
     assert "1 page views" in store.summary()
 
 
@@ -46,10 +53,10 @@ def test_valid_signup_is_stored_and_idempotent(env):
     assert client.post("/robin/join", json=GOOD).json() == {"ok": True}
     assert store.count() == 1
     row = store._rows()[0]
-    assert row["phone"] == "+919876543210" and row["src"] == "wa-group" and row["worries"] == ["scam_calls"] and row["consent"]
+    assert row["phone"] == "+919876543210" and row["src"] == "wa-group" and row["city"] == "" and row["consent"]
 
 
-@pytest.mark.parametrize("patch,field", [({"consent": False}, "consent"), ({"name": "  "}, "name"), ({"city": ""}, "city"), ({"phone": "123"}, "phone"), ({"phone": "+91 98765"}, "phone"), ({"phone": "abc"}, "phone")])
+@pytest.mark.parametrize("patch,field", [({"consent": False}, "consent"), ({"name": "  "}, "name"), ({"phone": "123"}, "phone"), ({"phone": "+91 98765"}, "phone"), ({"phone": "abc"}, "phone")])
 def test_invalid_inputs_are_rejected_with_the_field(env, patch, field):
     client, store = env
     r = client.post("/robin/join", json={**GOOD, **patch})
@@ -102,7 +109,7 @@ def test_summary_masks_phones_and_csv_has_full_numbers(env):
     client, store = env
     client.post("/robin/join", json=GOOD)
     s = store.summary()
-    assert "1 sign-ups" in s and "Sonipat" in s and "wa-group" in s and "+919876543210" not in s and "10" in s
+    assert "1 sign-ups" in s and "wa-group" in s and "+919876543210" not in s and "10" in s
     assert "+919876543210" in store.csv() and store.csv().splitlines()[0].startswith("id,time,name,phone")
 
 

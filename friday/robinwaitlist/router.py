@@ -79,8 +79,6 @@ def waitlist_router(store: WaitlistStore, *, contact: str = "", clock: Any = tim
         city = " ".join(body.city.split())
         if not name:
             return JSONResponse({"ok": False, "field": "name"}, status_code=422)
-        if not city:
-            return JSONResponse({"ok": False, "field": "city"}, status_code=422)
         if not body.consent:
             return JSONResponse({"ok": False, "field": "consent"}, status_code=422)
         try:
