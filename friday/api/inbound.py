@@ -31,6 +31,7 @@ from friday.api.costs import AbuseLimiter, CostTracker
 from friday.api.onboarding import OnboardingFlow
 from friday.api.security import PinCheck, PinHasher, PinService, extract_pin
 from friday.api.state import SLOW_DOWN, InboundThrottle, PendingAction, UserState
+from friday.care.service import CareService
 from friday.core.clock import format_ist
 from friday.core.container import ComponentNotAvailable
 from friday.core.events import MessageReceived, TaskStatusChanged, UserAnswerReceived
@@ -258,6 +259,15 @@ class InboundPipeline:
         cache = self._opt("cache")
         self.state = UserState(cache)
         self.throttle = InboundThrottle(cache)
+        # care protocol (docs/CARE_PROTOCOL.md): ALWAYS ON, runs before everything else. State lives
+        # in the shared cache; the proactive engine finds this same service as component "care".
+        self.care_call_hook: Any = None  # async (user_id) -> bool: call the user's OWN number; None: never offered
+        self.care = CareService(
+            self.state.cache, self.clock, settings=self.settings,
+            sender=self._care_send, call_allowed=self._care_call_allowed,
+            place_call=self._care_place_call, pause_work=self._care_pause_work,
+        )
+        c.override("care", self.care)
 
     # ------------------------------------------------------------------ optional components
     def _opt(self, name: str) -> Any:
@@ -485,6 +495,8 @@ class InboundPipeline:
                 return
             if await self._from_business(msg):
                 return
+            if await self._care_unknown(msg):
+                return  # someone we do not know yet writes about hurting themselves: the lines, no state
             if self.chatbot is not None and await self.chatbot.handle_unknown(msg):
                 return  # pilot onboarding (consent first); False == the invite-code onboarding
             await self._new_user(msg)
@@ -497,6 +509,8 @@ class InboundPipeline:
             if (msg.text or "").lower() in FREEZE_SIGNALS:
                 await self.freeze_sensitive_actions(user, reason=(msg.text or "").lower())
             return
+        if await self._care(user, msg):
+            return  # care protocol: distress / self-harm risk, or an active episode (never the brain)
         if await self._chat_secret(user, msg):
             return  # a login code / a refused secret typed in chat: stored redacted, never the LLM
         sender = phone_index(msg.from_phone)
@@ -525,6 +539,93 @@ class InboundPipeline:
             await self.onboarding.handle(user, msg)
             return
         await self._active(user, msg)
+
+    # ------------------------------------------------------------------ care protocol
+    async def _care(self, user: User, msg: InboundMessage) -> bool:
+        """True when the care protocol consumed the message. The stored copy is replaced by a
+        placeholder; the text never reaches the brain, the reply log, evidence or a log line."""
+        is_text = msg.kind in (MessageKind.TEXT, MessageKind.VOICE_NOTE) and bool(msg.text)
+        try:
+            turn = await self.care.screen(user.id, msg.text if is_text else None, is_text=is_text)
+        except Exception:  # noqa: BLE001 - never echo the text; fall through to the normal flow
+            log.exception("care screening failed")
+            return False
+        if turn is None:
+            return False
+        await self._log_inbound(user, msg, redact=True)
+        for text in turn.replies:
+            await self.reply(user, text)
+        return True
+
+    async def try_care(self, msg: InboundMessage) -> bool:
+        """Webhook path, BEFORE the message is queued (the queue would keep the raw text): True when
+        a distress message was dealt with right here."""
+        from friday.care.detect import Tier, assess
+
+        if not self.care.enabled or msg.kind != MessageKind.TEXT or not msg.text:
+            return False
+        if assess(msg.text).tier == Tier.NONE:
+            return False
+        try:
+            phone = normalize_phone(msg.from_phone, self.settings.default_country_code)
+        except ValueError:
+            return False
+        user = await self.repos.users.get_by_phone(phone)
+        if user is None or user.status in (UserStatus.SUSPENDED, UserStatus.DELETED):
+            return False
+        msg.from_phone, msg.user_id = phone, user.id
+        locks = self.__dict__.setdefault("_sender_locks", {})
+        async with locks.setdefault(msg.from_phone, asyncio.Lock()):
+            return await self._care(user, msg)
+
+    async def _care_unknown(self, msg: InboundMessage) -> bool:
+        from friday.care import copy as care_copy
+        from friday.care.detect import Tier, assess
+
+        if not self.care.enabled or msg.kind != MessageKind.TEXT or not msg.text:
+            return False
+        a = assess(msg.text)
+        if a.tier != Tier.HIGH:
+            return False
+        messaging = self._opt("messaging")
+        if messaging is None:
+            return False
+        log.info("care_tier=high user=unknown")
+        try:
+            await messaging.send(OutboundMessage(channel=messaging.channel, to_phone=msg.from_phone, text=care_copy.line("high_first", a.lang)))
+        except Exception as e:  # noqa: BLE001
+            log.info("care line not delivered: %s", type(e).__name__)
+        return True
+
+    async def _care_send(self, user_id: str, text: str) -> None:
+        await self.notifier.notify_user(user_id, text)
+
+    async def _care_call_allowed(self, user_id: str) -> bool:
+        """Offer a call to the user's OWN number only under the existing call rules: an allow-listed
+        number, not dial-blocked, and a wired call hook (none is wired by default)."""
+        if self.care_call_hook is None:
+            return False
+        user = await self.repos.users.get(user_id)
+        s = self.settings
+        if user is None or user.phone not in set(s.pilot_allowed_numbers or []):
+            return False
+        blocked = getattr(s, "pilot_dial_blocked", None)
+        return not (callable(blocked) and blocked(user.phone))
+
+    async def _care_place_call(self, user_id: str) -> bool:
+        if self.care_call_hook is None:
+            return False
+        return bool(await self.care_call_hook(user_id))
+
+    async def _care_pause_work(self, user_id: str) -> bool:
+        """An open request waiting for the user (an approval, a choice, a missing detail) stays
+        paused because the gate keeps the answer from reaching it; a pending confirmation is
+        cleared so a later 'yes' cannot confirm it. True when there was open work."""
+        await self.state.clear_pending(user_id)
+        open_tasks = [t for t in await self.repos.tasks.list_for_user(user_id, open_only=True) if not t.status.is_terminal]
+        for t in open_tasks:
+            await self._engine_call(("pause", "hold"), t.id)
+        return bool(open_tasks)
 
     async def _chat_secret(self, user: User, msg: InboundMessage) -> bool:
         """Private browser, login code in chat (FRIDAY_BROWSER_LOGIN_OTP_IN_CHAT, default OFF):
@@ -1426,6 +1527,10 @@ class InboundPipeline:
                 await self.browser_agent.forget_user(user.id)
             except Exception:  # noqa: BLE001
                 log.exception("browser agent forget failed during delete everything")
+        try:  # care protocol state (tier, flags, timestamps)
+            await self.care.forget(user.id)
+        except Exception:  # noqa: BLE001 - never block the purge
+            log.exception("care state erase failed during delete everything")
         try:  # the tester reply-log records (a local file); erased even when the switch is off
             from friday.replywriter.log import ReplyLog
 

@@ -309,6 +309,8 @@ class Runtime:
             return False
         if await self.pipeline.try_chat_secret(msg):
             return True  # a login code typed in chat: handled now, never written to the queue
+        if await self.pipeline.try_care(msg):
+            return True  # distress / self-harm risk: handled now, the raw text is never written to the queue
         queue = self._component("job_queue")
         if queue is None:  # no queue available: process in-line (degraded)
             await self.handle(msg)

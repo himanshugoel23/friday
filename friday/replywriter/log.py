@@ -166,6 +166,10 @@ class ReplyLog:
     # ------------------------------------------------------------------ writing
     def record(self, user_id: str, inp: ReplyInput, out: ReplyOutput, *, name: str | None = None) -> str:
         """One record per writer call. Returns its id."""
+        from friday.care.detect import is_distress  # care protocol: distress words are never kept
+
+        if is_distress(json.dumps(inp.model_dump(mode="json", exclude_none=True), ensure_ascii=False)) or is_distress(" ".join(out.messages)):
+            return ""
         rid = hashlib.sha256(f"{user_id}{self._now().isoformat()}{os.urandom(4).hex()}".encode()).hexdigest()[:16]
         name = name or inp.facts.name
         rec = {

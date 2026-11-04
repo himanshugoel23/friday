@@ -317,6 +317,12 @@ class ProactiveEngine:
             self._created = []
             await self._mark_ignored(now)
             await self.retention.run_daily(now)
+            care = self._opt("care")
+            if care is not None:  # check-ins after a HIGH message (same day, next morning), then stop
+                try:
+                    await care.tick(now, owns=self.owns)
+                except Exception:  # noqa: BLE001
+                    log.exception("care check-ins failed")
             await self._send_scheduled(now)
             users = await call_opt(repo(self.repos, "users"), "list_active", default=[]) or []
             for user in users:
@@ -395,7 +401,21 @@ class ProactiveEngine:
         async with self.locks.hold(f"nudges:{cand.user_id}", timeout_s=60):
             return await self._process_locked(cand)
 
+    async def _care_blocked(self, user_id: str) -> bool:
+        """Care protocol gate (docs/CARE_PROTOCOL.md): while a HIGH episode is active for the user no
+        nudge, reminder, briefing or proactive suggestion of any kind is created or sent."""
+        care = self._opt("care")
+        if care is None:
+            return False
+        try:
+            return bool(await care.blocked(user_id))
+        except Exception:  # noqa: BLE001 - never stop the proactive loop
+            log.exception("care gate failed")
+            return False
+
     async def _process_locked(self, cand: NudgeCandidate) -> Nudge | None:
+        if await self._care_blocked(cand.user_id):
+            return None  # nothing at all while the user is in a care episode
         if await self.nudges.exists(cand.user_id, cand.dedupe_key):
             return None
         verdict = await self._guard(cand)
@@ -618,6 +638,11 @@ class ProactiveEngine:
             fresh = await self._get(n.id) or n
             if fresh.status != NudgeStatus.SCHEDULED:
                 return None  # another worker already sent it
+            if await self._care_blocked(n.user_id):
+                fresh.status = NudgeStatus.SUPPRESSED
+                fresh.reason = "care protocol active"
+                await self._store(fresh)
+                return None
             now = self.clock.now()
             cand = NudgeCandidate(
                 user_id=n.user_id,
