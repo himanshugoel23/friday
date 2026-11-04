@@ -102,6 +102,7 @@ FACTORIES: dict[str, dict[str, str]] = {
     "urgent_escalation": {"*": "friday.urgent.wiring:build_urgent"},
     # --- Robin family care (friday/robin): None unless FRIDAY_ROBIN_ENABLED
     "robin": {"*": "friday.robin.wiring:build_robin"},
+    "robin_device_ports": {"*": "friday.robin.wiring:build_device_ports"},  # device API ports backed by friday/robin
     # --- caller-ID reputation & rotation (Backend B)
     "number_pool": {"*": "friday.tasks.number_pool:build_number_pool"},
     # --- scale-out (core memory impls; durable impls by Backend A in friday/db/)

@@ -188,7 +188,6 @@ def build_robin(c: Any) -> RobinHub | None:
     from friday.calls.settings import CallsSettings
     from friday.pause import is_paused
     from friday.robin.gate import RobinGate
-    from friday.robin.ports import care_active_fn
     from friday.robin.store import RobinStore
     from friday.robin.telephony import TelephonyParentCaller
 
@@ -207,7 +206,90 @@ def build_robin(c: Any) -> RobinHub | None:
     def paused() -> bool:
         return is_paused(s)
 
-    ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=care_active_fn(), paused=paused)
+    ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=_care_gate(c), paused=paused)
     hub = RobinHub(ctx, retries=int(s.robin_checkin_retries), retry_minutes=int(s.robin_checkin_retry_minutes), retention_days=int(s.robin_audit_retention_days), tick_s=float(s.robin_tick_s))
     alerts_mod.set_default_engine(hub.alerts)
     return hub
+
+
+def _care_gate(c: Any) -> Any:
+    """The care protocol's ``is_active`` from the container's "care" component, resolved lazily (the pipeline registers it
+    after the container is built). Absent or broken -> inactive."""
+    from friday.robin.ports import care_active_fn
+
+    fallback = care_active_fn()
+
+    async def active(user_id: str) -> bool:
+        try:
+            svc = c.get("care")
+            return bool(await svc.is_active(user_id))
+        except Exception:  # noqa: BLE001 - never block a family call because the care module is missing
+            res = fallback(user_id)
+            return bool(await res) if hasattr(res, "__await__") else bool(res)
+
+    return active
+
+
+# device item (friday/robindevice/ports.py CONSENT_ITEMS) -> family consent item (friday/robin/models.py ConsentItem)
+DEVICE_TO_FAMILY_CONSENT = {
+    "calls": "device_signals", "camera": "device_signals", "remote_access": "device_signals", "payment_app": "device_signals",
+    "unknown_sources": "device_signals", "heartbeat": "device_signals", "payment_notifications": "payment_alerts",
+    "share_check": "scam_check", "share_alert_child": "share_summary_with_child", "location": "location",
+    "voice_messages": "scam_check", "call_pattern": "call_listening",
+}
+
+
+class _DeviceAlerts:
+    def __init__(self, hub: Any) -> None:
+        self.hub = hub
+
+    async def raise_alert(self, parent_id: str, tier: str, scenario: str, why: str, details: dict[str, Any]) -> None:
+        from friday.robin import alerts as alerts_mod
+
+        d = details or {}
+        await alerts_mod.raise_alert(alerts_mod.RobinAlert(
+            parent_member_id=parent_id, tier=tier, scenario=scenario, why=why, money=bool(d.get("money")),
+            dedupe_key=d.get("dedupe_key"), amount_text=d.get("amount_text"), signals=tuple(d.get("signals", ()) or ()),
+        ))  # type: ignore[arg-type]
+
+
+class _DeviceConsent:
+    """The family package owns consent. The phone can only read it and WITHDRAW; a grant from the phone is ignored."""
+
+    def __init__(self, hub: Any) -> None:
+        self.hub = hub
+
+    async def has(self, parent_id: str, item: str) -> bool:
+        member = await self.hub.ctx.store.get_member(parent_id)
+        mapped = DEVICE_TO_FAMILY_CONSENT.get(item)
+        if member is None or mapped is None or getattr(member, "paused", False):
+            return False
+        return await self.hub.ctx.has_consent(member, mapped)
+
+    async def set(self, parent_id: str, item: str, granted: bool, source: str = "app") -> None:  # noqa: ARG002
+        mapped = DEVICE_TO_FAMILY_CONSENT.get(item)
+        if granted or mapped is None:
+            return  # only the admin (child) grants, in the family package
+        await self.hub.fam.withdraw_consent(parent_id, mapped, tell_child=True)
+
+
+class _DeviceParents:
+    def __init__(self, hub: Any) -> None:
+        self.hub = hub
+
+    async def get(self, parent_id: str) -> Any:
+        from friday.robindevice.ports import ParentInfo
+
+        member = await self.hub.ctx.store.get_member(parent_id)
+        if member is None:
+            return None
+        lang = member.language if member.language in ("en", "hinglish", "hi") else "hinglish"
+        return ParentInfo(parent_id=parent_id, language=lang)  # type: ignore[arg-type]
+
+
+def build_device_ports(c: Any) -> dict[str, Any] | None:
+    """Ports for the Android device API (friday/robindevice): alerts, consent and parent lookup backed by the family package."""
+    hub = c.get("robin")
+    if hub is None:
+        return None
+    return {"alerts": _DeviceAlerts(hub), "consent": _DeviceConsent(hub), "parents": _DeviceParents(hub)}

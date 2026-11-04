@@ -24,6 +24,9 @@ def maybe_mount(app: Any, container: Any) -> Any | None:
     except Exception:  # noqa: BLE001 - not wired yet
         log.warning("FRIDAY_ROBIN_DEVICE_ENABLED is on but robin_device_ports is not wired; device API not mounted")
         return None
+    if not ports:
+        log.warning("FRIDAY_ROBIN_DEVICE_ENABLED is on but the family package is off (FRIDAY_ROBIN_ENABLED); device API not mounted")
+        return None
     from friday.robindevice.api import mount_robin_device
     from friday.robindevice.service import DeviceService
 
