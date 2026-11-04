@@ -684,6 +684,9 @@ class Settings(BaseSettings):
     guardrails_rate_limit: bool = False  # FRIDAY_GUARDRAILS_RATE_LIMIT
     guardrails_output_filter: bool = False  # FRIDAY_GUARDRAILS_OUTPUT_FILTER
     guardrails_login_otp_in_chat: bool = False  # FRIDAY_GUARDRAILS_LOGIN_OTP_IN_CHAT
+    # care protocol (docs/CARE_PROTOCOL.md): ALWAYS ON, no feature switch can turn it off. This ops
+    # kill switch exists for tests only and is honoured only when FRIDAY_ENV is dev or test.
+    care_kill_switch: bool = False  # FRIDAY_CARE_KILL_SWITCH
     # the order of the first-win buttons (any of card, day, call; at most 3 are shown)
     chatbot_first_wins: CsvList = Field(default_factory=lambda: ["card", "day", "call"])
     # True: every onboarding step repeats a one-line "assistant, never payments/OTP/PIN" footer

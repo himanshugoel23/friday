@@ -219,6 +219,12 @@ def from_user_text(
 ) -> list[EvidenceItem]:
     """A confirmation SMS/email the user forwarded: ``user_supplied``. The text is scrubbed and
     cut; the optional ``ref`` (extracted by code, not by a model) becomes a reference item."""
+    from friday.care.detect import (
+        is_distress,  # care protocol: distress words never enter the ledger
+    )
+
+    if is_distress(text):
+        text, ref = "[withheld]", None
     out = [
         _item(
             task,
