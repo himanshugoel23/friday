@@ -279,3 +279,6 @@ Good-morning digest (text built in robin/greetings.py), festival graphics (needs
 - SOS for a family not yet ACTIVE/PAUSED (onboarding, no consent) is still refused (`family_not_active`): founder decision needed whether SOS should ring the child anyway.
 - Device THREAT still goes through the consent check (same as family-side); device package does not emit THREAT today.
 - scenarios.yaml has no EMERGENCY tier; only device SOS emits it.
+
+### T20 HIGH alerts ring the child at night (founder decision 2026-11-06)
+- Any HIGH (and above) alert rings the child regardless of the calling window; quiet hours only affect non-urgent nudges. Typed "I have it"/"Mark safe" during an open care episode stops the alert. Second-contact WhatsApp sender wired (xfail test from T04 must pass). Tests in tests/e2e/robin. Depends on T05, T06 merged. Status: TODO.
