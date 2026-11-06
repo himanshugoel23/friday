@@ -1,0 +1,62 @@
+{
+  "name": "prompts",
+  "note": "",
+  "setup": [
+    "prompt"
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/robin/device/prompts",
+    "auth": true
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "prompts": [
+        {
+          "prompt_id": "Rz4s3EUoCPqh",
+          "scenario": "S2",
+          "tier": "HIGH",
+          "full_screen": true,
+          "read_aloud": true,
+          "not_before_ms": 1788942600000,
+          "expires_ms": 1788964200000,
+          "text": {
+            "en": "An app that lets someone control your phone is open. If someone asked you to open it, please close it now and call your son or daughter.",
+            "hinglish": "Ek aisa app khula hai jisse koi aapka phone control kar sakta hai. Agar kisi ne kholne ko kaha ho to ise abhi band kijiye aur apne bete ya beti ko call kijiye.",
+            "hi": "एक ऐसा ऐप खुला है जिससे कोई आपका फ़ोन चला सकता है। अगर किसी ने खोलने को कहा हो तो इसे अभी बंद करें और अपने बेटे या बेटी को कॉल करें।"
+          },
+          "language": "hinglish",
+          "actions": [
+            {
+              "ack": "this_was_fine",
+              "label": {
+                "en": "This was fine",
+                "hinglish": "Ye theek tha",
+                "hi": "यह ठीक था"
+              }
+            },
+            {
+              "ack": "call_son_tapped",
+              "label": {
+                "en": "Call family",
+                "hinglish": "Ghar par call karo",
+                "hi": "परिवार को कॉल करें"
+              }
+            },
+            {
+              "ack": "dismissed",
+              "label": {
+                "en": "OK",
+                "hinglish": "Theek hai",
+                "hi": "ठीक है"
+              }
+            }
+          ],
+          "status": "PENDING founder approval"
+        }
+      ]
+    }
+  },
+  "open": []
+}

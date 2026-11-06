@@ -1,0 +1,22 @@
+{
+  "name": "err_pair_wrong_code",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/pair",
+    "auth": false,
+    "json": {
+      "code": "ZZZZZZZZ",
+      "app_version": "1.0.0",
+      "os_sdk": 34
+    }
+  },
+  "response": {
+    "status": 404,
+    "json": {
+      "detail": "Not Found"
+    }
+  },
+  "open": []
+}

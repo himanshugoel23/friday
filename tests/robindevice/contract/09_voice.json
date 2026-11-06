@@ -1,0 +1,23 @@
+{
+  "name": "voice",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/voice",
+    "auth": true,
+    "headers": {
+      "Content-Type": "audio/ogg",
+      "X-Duration-S": "3"
+    },
+    "body_ascii": "OggS-fake-audio-bytes"
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "accepted": true,
+      "reply_text": null
+    }
+  },
+  "open": []
+}

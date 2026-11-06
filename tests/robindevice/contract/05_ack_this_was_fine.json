@@ -1,0 +1,24 @@
+{
+  "name": "ack_this_was_fine",
+  "note": "",
+  "setup": [
+    "prompt"
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/ack",
+    "auth": true,
+    "json": {
+      "kind": "this_was_fine",
+      "prompt_id": "Rz4s3EUoCPqh"
+    }
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "ok": true,
+      "message": "Shukriya. Main ye yaad rakhungi."
+    }
+  },
+  "open": []
+}

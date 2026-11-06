@@ -1,0 +1,22 @@
+{
+  "name": "consent_grant_refused",
+  "note": "the phone can never grant consent",
+  "setup": [],
+  "request": {
+    "method": "PUT",
+    "path": "/robin/device/consent",
+    "auth": true,
+    "json": {
+      "items": {
+        "camera": true
+      }
+    }
+  },
+  "response": {
+    "status": 403,
+    "json": {
+      "error": "consent_given_by_family_admin"
+    }
+  },
+  "open": []
+}

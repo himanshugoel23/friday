@@ -1,0 +1,79 @@
+{
+  "name": "transparency",
+  "note": "",
+  "setup": [
+    "prompt"
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/robin/device/transparency",
+    "auth": true
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "collected": [
+        "unknown call started/ended: number class, duration, a one-way hash of the number (made on your phone)",
+        "camera in use: on/off times only (no picture, no app name)",
+        "remote-control app opened/installed: which one from a fixed list",
+        "bank/UPI app brought to the front: which one from a fixed list",
+        "payment notification: app, debit/credit, amount, payee kind (new/known/merchant). Never the message text",
+        "phone seen: time of last contact and whether the battery was low"
+      ],
+      "never_collected": [
+        "messages or SMS",
+        "call recordings or audio",
+        "contacts or names",
+        "your screen",
+        "the call log"
+      ],
+      "counters": {
+        "accepted:remote_access_app_opened": 1,
+        "consent_withdrawn": 1,
+        "fine:S2": 1,
+        "heartbeats": 1,
+        "invalid": 1,
+        "share:SCAM_LIKELY": 1,
+        "sos": 1,
+        "voice_messages": 1
+      },
+      "told_child": [
+        {
+          "ts_ms": 1788942600000,
+          "tier": "HIGH",
+          "scenario": "S2",
+          "why": "remote-control app anydesk opened",
+          "details": {
+            "scenario_name": "remote_access",
+            "score": 5.0
+          }
+        }
+      ],
+      "paused": false,
+      "consent": {
+        "calls": true,
+        "camera": false,
+        "remote_access": true,
+        "payment_app": true,
+        "payment_notifications": true,
+        "unknown_sources": true,
+        "heartbeat": true,
+        "share_check": true,
+        "share_alert_child": true,
+        "location": true,
+        "voice_messages": true,
+        "call_pattern": true
+      },
+      "learning_mode": {
+        "active": false,
+        "days_left": 0,
+        "meaning": "During learning mode nothing is sent to your family; Robin only checks its own accuracy."
+      },
+      "status": "PENDING founder approval"
+    }
+  },
+  "open": [
+    "counters",
+    "told_child[].details"
+  ]
+}

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Thin app (first Play ship): INTERNET and RECORD_AUDIO only.
+  Deliberately absent: foreground service, background microphone, notification access, call screening, phone state,
+  accessibility, SMS, contacts, call log, location, camera, analytics, ads, Firebase, WorkManager.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Asked only when the parent first presses the voice-note button; used only while the button is held. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <application
+        android:name=".RobinApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Only the two big buttons (SOS, voice note) and Call 112; the rest of the app is NOT shown over the lock screen. -->
+        <activity
+            android:name=".QuickActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true" />
+
+        <receiver
+            android:name=".RobinWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/robin_widget_info" />
+        </receiver>
+    </application>
+</manifest>

@@ -1,0 +1,42 @@
+{
+  "name": "heartbeat",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/heartbeat",
+    "auth": true,
+    "json": {
+      "app_version": "1.0.0",
+      "os_sdk": 34,
+      "ts_ms": 1788942600000,
+      "battery_low": false,
+      "roles": {
+        "post_notifications": true
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "server_time_ms": 1788942600000,
+      "paused": false,
+      "consent": {
+        "calls": true,
+        "camera": true,
+        "remote_access": true,
+        "payment_app": true,
+        "payment_notifications": true,
+        "unknown_sources": true,
+        "heartbeat": true,
+        "share_check": true,
+        "share_alert_child": true,
+        "location": true,
+        "voice_messages": true,
+        "call_pattern": true
+      },
+      "prompts": []
+    }
+  },
+  "open": []
+}

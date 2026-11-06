@@ -1,0 +1,19 @@
+{
+  "name": "sos",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/sos",
+    "auth": true,
+    "json": {}
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "ok": true,
+      "message": "Maine apne bete ya beti ko bata diya hai. Agar ambulance ya police chahiye to 112 call dabaiye."
+    }
+  },
+  "open": []
+}

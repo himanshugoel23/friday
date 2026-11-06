@@ -1,0 +1,44 @@
+{
+  "name": "pair",
+  "note": "token value in the fixture is an example; the live test checks the rbn_ prefix and shape only",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/pair",
+    "auth": false,
+    "json": {
+      "code": "K7M2QX9A",
+      "app_version": "1.0.0",
+      "os_sdk": 34
+    }
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "device_token": "rbn_EXAMPLE_not_a_real_token_0123456789abcdefghijklmnop",
+      "parent_id": "p1",
+      "language": "hinglish",
+      "brand": "Robin",
+      "consent_items": [
+        "calls",
+        "camera",
+        "remote_access",
+        "payment_app",
+        "payment_notifications",
+        "unknown_sources",
+        "heartbeat",
+        "share_check",
+        "share_alert_child",
+        "location",
+        "voice_messages",
+        "call_pattern"
+      ],
+      "server_time_ms": 1788942600000,
+      "limits": {
+        "max_batch": 100,
+        "max_body_bytes": 65536
+      }
+    }
+  },
+  "open": []
+}

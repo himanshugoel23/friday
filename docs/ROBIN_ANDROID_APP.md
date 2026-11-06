@@ -1,6 +1,6 @@
 # Robin Android app: contract for the app builder (2026-11-04)
 
-Server side: `friday/robindevice` (device API under `/robin/device/*`, scenario engine S1-S8 plus S4P, scam-check engine, call-pattern analyzer). Default OFF: `FRIDAY_ROBIN_DEVICE_ENABLED`. **No Android code is in this repo.** Every line the app shows or reads aloud comes from the server in three languages (English, Roman Hinglish, Devanagari) and is **PENDING founder approval** (hear-before-change). The product name comes from the server (`brand` in the pair reply; setting `brand_name` / env `FRIDAY_BRAND_NAME`, pilot value "Robin").
+Server side: `friday/robindevice` (device API under `/robin/device/*`, scenario engine S1-S8 plus S4P, scam-check engine, call-pattern analyzer). Default OFF: `FRIDAY_ROBIN_DEVICE_ENABLED`. **Android code now lives in `android/robin-app` (thin app only, see the status section at the end).** Every line the app shows or reads aloud comes from the server in three languages (English, Roman Hinglish, Devanagari) and is **PENDING founder approval** (hear-before-change). The product name comes from the server (`brand` in the pair reply; setting `brand_name` / env `FRIDAY_BRAND_NAME`, pilot value "Robin").
 
 Evidence tags: **[S]** seen in docs/research, **[U]** unverified, needs a real-phone or Play Console check, **[A]** my assessment.
 
@@ -138,3 +138,31 @@ Run each on at least one phone per carrier and per Android version (11, 12, 13, 
 - DPDP read of `admin_on_behalf` consent with parent notification; the exact notification wording on WhatsApp (family package).
 - All thresholds and weights (shadow week exists to tune them); the pension-season window (15 Oct to 30 Nov) is a design guess.
 - Server persistence: device state is in memory in this build; the lead must back it with tables before a multi-instance deploy.
+
+## 7. Status of the Android code (T14, 2026-11-06, branch work, not pushed)
+**Scope built = Level 1 thin app only** (founder decision D4: the first Play ship is the thin widget; no protection pack, no sensor fall detector, no notification access, no call screening). All user-facing strings are **PENDING founder approval** (`app/src/main/res/values/strings.xml`, Hindi placeholders in `values-hi`).
+
+| Part | Where | State |
+|---|---|---|
+| Pure Kotlin modules (`:core`, JVM only) | `android/robin-app/core` | built, 50 JUnit tests pass |
+| `ApiClient` (all `/robin/device/*` calls, bearer token, strict writer and reader) | `ApiClient.kt`, `Models.kt` | tests pass; matches the shared fixtures |
+| `PairingFlow`, `ConsentView` (withdraw only, no grant function), `SosGesture` (2 s hold) + `SosSender` (retry every 10 s for 2 min), `VoiceNoteGesture`, `PromptQueue`, `TransparencyScreenModel` | `core/src/main/kotlin/app/robin/core` | tests pass |
+| Android layer: `MainActivity` (pairing, home, "what is on", consent list), `QuickActivity` (SOS + voice + Call 112, shown over the lock screen), `RobinWidget` (two big buttons), Keystore token store, `HttpsURLConnection` transport | `android/robin-app/app` | **compiles; debug APK builds; never run** |
+| Shared contract fixtures | `tests/robindevice/contract/*.json` | read by `tests/robindevice/test_contract_fixtures.py` (replays each against the real server) and by `ContractFixturesTest.kt` |
+| Build | `scripts/build-android.sh`, `.github/workflows/android.yml` | script run here; workflow not run (needs GitHub) |
+
+**Build properties** (`android/robin-app/gradle.properties`, override with `-P` or the script's `ROBIN_*` env vars): `robin.applicationId` (placeholder `app.robin.parent`), `robin.brandName` (app label, default Robin), `robin.baseUrl` (placeholder `https://robin-server.invalid`, so an unconfigured build cannot reach anything), `robin.versionName`, `robin.versionCode`. minSdk 26, target/compile 34.
+
+**Commands that were run in the sandbox:** SDK install via `sdkmanager` (platform 34, build-tools 34.0.0), `./gradlew test assembleDebug` (BUILD SUCCESSFUL, 50 tests), build with overridden id and brand (aapt2 shows the new package and label), `pytest tests/robindevice/test_contract_fixtures.py`.
+
+**Design choices to know about**
+- The widget cannot detect a 2-second hold, so each widget button opens `QuickActivity`, where the hold happens. This also stops a pocket tap from sending an SOS.
+- Permissions: `INTERNET` and `RECORD_AUDIO` only. No foreground service, no WorkManager, no notifications, no location, no analytics, no Firebase, `allowBackup=false`, cleartext off. The heartbeat is sent when the app opens (no background job), so prompts reach the parent when the app or widget is opened; there is no push.
+- SOS is sent without a location (no location permission in the thin build). The reply line says "call 112"; the app always shows a Call 112 button (dialer only). A "Call family" button is NOT built because the API does not supply the child's number (open product decision).
+- The voice file is deleted after every upload attempt (success or failure) and at every app start; a failed send means record again.
+- Reply parsing is a strict reader of the keys the app uses and ignores extra keys (so a server that adds a field does not break old phones); the writer sends only schema fields and refuses locally anything the server schema would refuse.
+- The phone cannot grant consent: `ConsentView` and `ApiClient` have only `withdrawConsent`; a `true` is not expressible.
+
+**NOT verified (no device, no emulator, no Play):** installation; the widget on a real launcher; `QuickActivity` over the lock screen (`showWhenLocked`); the microphone permission flow and recording quality (AAC/MP4 16 kHz) and that the server's speech-to-text accepts that audio; hold timing and haptics on real touch input; Keystore behaviour across OEMs, reboots and restores; Hindi rendering; text-to-speech read-aloud; battery and OEM background kills; behaviour on Android 8 to 15; TalkBack accessibility; the GitHub Actions workflow itself.
+
+**Gaps against the plan:** no 15-minute WorkManager heartbeat; no offline signal queue (nothing queues in the thin build); no location with SOS; no "Call family" button; no erase UI (the API exists; the child owns delete-everything); no release signing; placeholder icon; UI strings and Hindi are placeholders; `signals` and `share` exist in `ApiClient` (contract complete) but have no screen.

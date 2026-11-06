@@ -1,0 +1,26 @@
+{
+  "name": "err_invalid",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/pause",
+    "auth": true,
+    "json": {
+      "minutes": 1
+    }
+  },
+  "response": {
+    "status": 422,
+    "json": {
+      "error": "invalid",
+      "fields": [
+        {
+          "field": "minutes",
+          "rule": "greater_than_equal"
+        }
+      ]
+    }
+  },
+  "open": []
+}

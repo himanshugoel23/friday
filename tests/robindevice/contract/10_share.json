@@ -1,0 +1,40 @@
+{
+  "name": "share",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/share",
+    "auth": true,
+    "json": {
+      "kind": "text",
+      "value": "Sir apna OTP bata dijiye abhi, warna khata band"
+    }
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "kind": "text",
+      "verdict": "SCAM_LIKELY",
+      "headline": "Ye bahut risky lag raha hai.",
+      "reason": "Ismein OTP, PIN ya password maanga ja raha hai. Asli bank ya daftar ye kabhi nahi maangta.",
+      "next_step": "OTP ya PIN kisi ko kabhi mat bataiye.",
+      "next_steps": [
+        "OTP ya PIN kisi ko kabhi mat bataiye.",
+        "Phone kaat dijiye. Kuch mat dabaiye, kuch install mat kijiye.",
+        "Kuch bhi karne se pehle apne bete ya beti ko unke purane number par call kijiye."
+      ],
+      "alert_child": true,
+      "categories": [
+        "otp_pin",
+        "urgency_secrecy"
+      ],
+      "score": 7,
+      "language": "hinglish",
+      "source": "rules",
+      "status": "PENDING founder approval",
+      "child_told": true
+    }
+  },
+  "open": []
+}
