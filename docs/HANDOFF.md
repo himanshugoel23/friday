@@ -1520,3 +1520,6 @@ Founder asked (via the lead): implement ticket T02 of docs/ROBIN_PHASE1_BACKLOG.
 - Consent and "delete everything" are the CHILD's responsibility; the parent only gives a soft approval (informed, can stop). T03 scope is reframed accordingly: child-driven erase/consent, parent soft approval only, no heavy parent-side consent flow.
 - Founder asked for an engineering manager and a new developer agent to brainstorm "fault detection" (read as scam/fraud detection, plus product-fault/false-alarm handling; docs only, no code).
 - T01 and T02 merged (T02 = persisted device state, migration 0020_robin_device).
+
+## 2026-11-06: correction, it is FALL detection (not fault)
+Founder clarified: "fall, F-A-L-L". The fault/fraud brainstorm agents were stopped. New brainstorm: fall detection for the parent (Android sensors, widget, false alarms, SOS escalation, Play policy, privacy). Docs only (EM plan + developer design).
