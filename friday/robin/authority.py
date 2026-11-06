@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Protocol, runtime_checkable
 
-from friday.core.logging import get_logger
+from friday.core.logging import get_logger, mask_phone
 from friday.robin import answers as ans
 from friday.robin.context import Ctx
 from friday.robin.models import CallOutcome, CallResult, ConsentItem, Family, Member, Step
@@ -193,7 +193,8 @@ class AuthorityService:
         out = await self.caller.place(kind=kind, script=script, bridge_with=bridge, dedupe_key=f"{incident_id}:authority")
         await c.store.cas(auth.id, "placing", status="dry_run" if self._dry() else "placed", data={**auth.data, "result": out.detail, "kind": kind})
         mode = "DRY RUN (nothing dialled): would have contacted" if self._dry() else "Contacted"
-        await c.audit(family, "authority", f"{mode} {kind}. Script: {script}", kind=kind, dry_run=self._dry(), incident_id=incident_id)
+        shown = script.replace(child.phone, mask_phone(child.phone)) if child is not None and child.phone else script  # the stored log keeps no full number (the caller's own dry-run list has the whole script)
+        await c.audit(family, "authority", f"{mode} {kind}. Script: {shown}", kind=kind, dry_run=self._dry(), incident_id=incident_id)
         who = "112 (police, ambulance, fire)" if kind == "112" else "the cyber-fraud helpline 1930 (you, connected by conference)"
         await c.tell_child(family, c.say("authority.dry_run", await c.chat_lang(family), parent=family.parent_label, who=who))
         return "dry_run" if self._dry() else "placed"

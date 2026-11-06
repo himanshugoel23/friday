@@ -170,7 +170,7 @@ class MedicineService:
             await self.store.delete_record(old.id)  # same name again = replace
         rec, _ = await self.store.put(Record(family_id=family.id, user_id=family.owner_user_id, kind="medicine", key=key, status=status, at=self.ctx.clock.now(), data=med.model_dump(mode="json")))
         if status == "active":
-            await self.ctx.audit(family, "medicine", f"Saved the medicine {med.name} at {', '.join(med.times)}.")
+            await self.ctx.audit(family, "medicine", f"Saved a medicine at {', '.join(med.times)}.")
         return rec
 
     async def find(self, family: Family, name: str) -> tuple[Record, Medicine] | None:
@@ -185,7 +185,7 @@ class MedicineService:
         if hit is None:
             return None
         await self.store.delete_record(hit[0].id)
-        await self.ctx.audit(family, "medicine", f"Removed the medicine {hit[1].name}.")
+        await self.ctx.audit(family, "medicine", "Removed a medicine.")
         return hit[1].name
 
     async def set_count(self, family: Family, name: str, pills: int) -> bool:
@@ -195,7 +195,7 @@ class MedicineService:
         rec, med = hit
         med.stock_adjust, med.stock_counted_at = float(pills), self.ctx.clock.now()
         await self.store.set_data(rec.id, med.model_dump(mode="json"))
-        await self.ctx.audit(family, "medicine", f"Updated the pill count of {med.name}.")
+        await self.ctx.audit(family, "medicine", "Updated a pill count.")
         return True
 
     # ------------------------------------------------------------------ prescription photo -> child confirms
@@ -305,7 +305,7 @@ class MedicineService:
                 if said is False:
                     await self.store.cas(r.id, "calling", status="missed", due_at=None, data={**r.data, "attempts": r.data["attempts"] + 1})
                     await c.tell_child(fam, c.say("med.missed", lang, parent=fam.parent_label, medicine=r.data["name"], time=r.data["slot"]))
-                    await c.audit(fam, "dose", f"{fam.parent_label} did not take {r.data['name']} ({r.data['slot']}).")
+                    await c.audit(fam, "dose", f"{fam.parent_label} did not take a dose ({r.data['slot']}).")
                 elif said is True:
                     await self.store.cas(r.id, "calling", status="taken", due_at=None, data={**r.data, "attempts": r.data["attempts"] + 1, "source": "voice"})
                 else:
@@ -345,7 +345,7 @@ class MedicineService:
                 _, created = await self.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="digest", key=key, status="sent", at=c.clock.now(), data={"med": med.name, "days": left}))
                 if created:
                     await c.tell_child(fam, c.say("med.refill", lang, medicine=med.name, days=left))
-                    await c.audit(fam, "refill", f"Told you that {med.name} has about {left} days left.")
+                    await c.audit(fam, "refill", f"Told you that a medicine has about {left} days left.")
                     n += 1
                 break
         return n

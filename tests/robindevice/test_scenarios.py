@@ -93,7 +93,8 @@ async def test_s5_alert_details_are_amount_direction_time_payee_only(rig):
     case = next(c for c in CASES if c["id"] == "s5_large_new_payee_debit")
     await _play(rig, case, shadow=False)
     (a,) = [x for x in rig.alerts.of("p1") if x["scenario"] == "S5"]
-    assert set(a["details"]) == {"amount_paise", "direction", "ts_ms", "payee_kind"}
+    assert set(a["details"]) == {"amount_paise", "direction", "ts_ms", "payee_kind", "money", "dedupe_key"}  # money = the scenario flag; dedupe_key = scenario + the phone's opaque event id + tier
+    assert a["details"]["money"] is True and a["details"]["dedupe_key"].startswith("S5:evt-") and a["details"]["dedupe_key"].endswith(":HIGH")
     assert a["details"]["amount_paise"] == 5_000_000 and a["details"]["payee_kind"] == "new"
     assert "50,000" in a["why"] and "new payee" in a["why"]
 
