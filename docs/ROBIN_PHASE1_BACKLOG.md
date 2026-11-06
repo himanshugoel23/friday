@@ -281,4 +281,4 @@ Good-morning digest (text built in robin/greetings.py), festival graphics (needs
 - scenarios.yaml has no EMERGENCY tier; only device SOS emits it.
 
 ### T20 HIGH alerts ring the child at night (founder decision 2026-11-06)
-- Any HIGH (and above) alert rings the child regardless of the calling window; quiet hours only affect non-urgent nudges. Typed "I have it"/"Mark safe" during an open care episode stops the alert. Second-contact WhatsApp sender wired (xfail test from T04 must pass). Tests in tests/e2e/robin. Depends on T05, T06 merged. Status: TODO.
+- RULE: security paths (HIGH, EMERGENCY, SOS, fall, urgent missed-call rings) never consult the calling window or quiet hours; add a table test over every scenario/tier asserting this and that WATCH/INFO still respect quiet hours. Any HIGH (and above) alert rings the child regardless of the calling window; quiet hours only affect non-urgent nudges. Typed "I have it"/"Mark safe" during an open care episode stops the alert. Second-contact WhatsApp sender wired (xfail test from T04 must pass). Tests in tests/e2e/robin. Depends on T05, T06 merged. Status: TODO.

@@ -1545,3 +1545,6 @@ Founder asked (via the lead): implement T04 of docs/ROBIN_PHASE1_BACKLOG.md (T01
 
 ## 2026-11-06: founder decision on night alerts
 Any HIGH alert (money or non-money, any risky thing) must ring the child by call, including at night: "the child will get alerted anyway through call". The T04 gap (non-money HIGH at night only gets WhatsApp because of the calling window) is to be fixed in a follow-up ticket T20 after T05/T06 merge (files: friday/robin/alerts.py, gate/calling-window logic). Open: typed "I have it"/"Mark safe" during a care episode (default: allow it to stop an alert).
+
+## 2026-11-06: founder principle: security alerts ignore time of day
+"It is about security, so security things should not take timing into consideration." Rule: every security/safety path (HIGH, EMERGENCY, SOS, fall, urgent missed calls, authority dry-run) ignores calling windows and quiet hours, day or night; only anti-flood caps and the parent's own pause apply. Quiet hours/calling windows remain only for non-security items (WATCH nudges, INFO, good-morning, reminders, check-in timing). T20 scope widened to enforce this everywhere with a table test over all scenarios.
