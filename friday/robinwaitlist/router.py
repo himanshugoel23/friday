@@ -66,7 +66,10 @@ def waitlist_router(store: WaitlistStore, *, contact: str = "", clock: Any = tim
         html = variants.load(v) if v else None
         shown = clean_v(v) if html else "legacy"
         store.view(src, shown)
-        return HTMLResponse(html or page.PAGE.replace("{{VARIANT}}", "legacy"), headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+        body = html or page.PAGE.replace("{{VARIANT}}", "legacy")
+        base = request.url.path.rstrip("/")  # the page lives at /robin (no trailing slash): make 'join' and 'privacy' absolute
+        body = body.replace('fetch("join"', f'fetch("{base}/join"').replace('href="privacy"', f'href="{base}/privacy"')
+        return HTMLResponse(body, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
 
     @router.get("/privacy", response_class=HTMLResponse)
     def privacy() -> HTMLResponse:

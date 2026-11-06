@@ -29,7 +29,7 @@ def test_page_is_visual_short_and_honest_and_asks_only_name_and_number(env):
     import re
 
     client, store = env
-    r = client.get("/robin?src=wa-group")
+    r = client.get("/robin?src=wa-group&v=legacy")
     assert r.status_code == 200 and "Robin is not live yet" in r.text and "not an emergency service" in r.text
     assert r.headers["x-robots-tag"] == "noindex" and "testimonial" not in r.text.lower()
     assert "Hinglish" in r.text  # language toggle is present
@@ -190,3 +190,9 @@ def test_variant_ids_can_be_restricted(tmp_path, monkeypatch):
     app.include_router(waitlist_router(WaitlistStore(tmp_path / "wl"), variant_ids=["b"]), prefix="/robin")
     client = TestClient(app, follow_redirects=False)
     assert all("v=b" in client.get("/robin").headers["location"] for _ in range(5))
+
+
+def test_join_and_privacy_urls_are_absolute_under_the_mount(env):
+    client, _ = env
+    r = client.get("/robin?v=legacy")
+    assert 'fetch("/robin/join"' in r.text and 'href="/robin/privacy"' in r.text
