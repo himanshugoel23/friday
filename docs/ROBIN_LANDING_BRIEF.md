@@ -1,162 +1,173 @@
-# Robin landing page: creative brief (2026-11-04)
+# Robin landing page: creative brief, revision 2 (2026-11-06)
 
-Author: product lead. Audience of this doc: design agent, then UX agent, then the founder. Replaces the copy and story of `friday/robinwaitlist/page.py` ("Mom is alone. You are far." is RETIRED). Form fields, `?src=` tracking, noindex, honest footer and the publisher links stay as in docs/ROBIN_WAITLIST.md. All copy is PENDING founder approval and a lawyer's read. Evidence tags: **[S]** seen in a source this session, **[U]** unverified, **[A]** my judgement.
+Author: product lead. For: design agent, then UX agent, then the founder. Replaces the copy and story of `friday/robinwaitlist/page.py`. Form fields (name + WhatsApp number), `?src=` tracking, `noindex`, honest footer and privacy link stay as in docs/ROBIN_WAITLIST.md. All copy is PENDING founder approval and a lawyer's read. Tags: **[S]** seen in a source, **[U]** unverified, **[A]** my judgement.
 
-## 1. Audience and the real insight
+Revision 2 follows founder feedback of 2026-11-06: English only (no Hinglish, no language toggle; the parent's language appears only inside product mock-ups, in Devanagari); security-led (safety first, check-in and medicines supporting); real incidents as the sourced "why"; credible fintech or security look, not cartoonish. Directions A, B, C of revision 1 are RETIRED (they were a "we ask your parents how they are" page). "Mom is alone. You are far." stays retired.
 
-**Who reads the page.** The adult child, 28-45, metro India or abroad, who will set Robin up and pay later. They arrive from a WhatsApp forward (family group, friend), so the page is read on a phone, in a hurry, by someone who is already a little protective and a little tired. **[A]**
+## 1. Audience and insight
 
-**What this person feels and does today.** They already "manage" their parents from a distance: a call in the evening, a WhatsApp good morning, a pharmacy reorder, a "did you eat?", a forwarded "this is a scam" message. The feeling is not terror, it is low-grade background worry plus the effort of keeping up a routine. They do not want to be told they are failing. They want one less thing to remember, and to stay on good terms with their parents. **[A, from docs/PARENT_CARE_RESEARCH.md sections 4, 10, 11; to be tested in interviews]**
+**Reader.** The adult child, 28-45, metro India or abroad, reading proper English on a phone, usually via a WhatsApp forward. They will set Robin up and pay later. **[A]**
 
-**What the parent feels.** Parents resist devices that "monitor" them; the research doc records this as the known adoption barrier **[S, vendor guide, docs/PARENT_CARE_RESEARCH.md section 4]**. Fresh evidence: a July 2026 Future of Privacy Forum AgeTech report (March 2026 surveys of 1,000 older adults 55+ and caregivers) found caregivers consistently more positive about monitoring tools than the older adults themselves, with the widest gap for cameras **[S, search summary only, not fetched: https://fpf.org/wp-content/uploads/2026/07/FPF-AgeTech-Sector-Report.pdf]**. Older studies find older adults accept monitoring more readily when it protects independence, and worry that family will use data to interfere with their choices **[S, search summaries: https://pmc.ncbi.nlm.nih.gov/articles/PMC3604979 ; https://journal.gerontechnology.org/currentIssueContent.aspx?aid=1816]**. Implication: the page must speak to the child but be written so a parent reading over their shoulder feels respected, not watched.
+**What they feel and do.** They already hold the safety job from a distance: "never share your OTP" messages, calls to check on a strange call, remembering the pharmacy. They want a second line of defence they do not have to run by hand, and they judge a new service on whether it feels like a serious, honest company. **[A, to test in interviews]**
 
-**What makes a child trust a new service with their parents.** In order **[A]**: (1) honesty about what it is (an AI, not live yet, not an emergency service); (2) the parent can say no or stop, and is told openly; (3) clear limits (does not read chats, does not record calls); (4) a calm tone with no pressure; (5) a real, checkable company behind it (real domain, privacy page, contact). Proof by testimonial is not available and we will not fake it.
+**What the parent feels.** Parents resist devices that "monitor" them (docs/PARENT_CARE_RESEARCH.md section 4 **[S, vendor guide]**). A July 2026 Future of Privacy Forum AgeTech report (March 2026 surveys of 1,000 people 55+ and caregivers) found caregivers more positive about monitoring than the older adults themselves **[S, search summary only: https://fpf.org/wp-content/uploads/2026/07/FPF-AgeTech-Sector-Report.pdf]**; older studies find older adults accept support more readily when it protects independence and worry family will interfere **[S, search summaries: https://pmc.ncbi.nlm.nih.gov/articles/PMC3604979 ; https://journal.gerontechnology.org/currentIssueContent.aspx?aid=1816]**. So: security-led for the child, written so a parent reading over a shoulder sees help they control. One trust line on every variant: "Your parents are told, can stop it any time, and Robin does not read their chats or record their phone calls."
 
-**What comparables promise (landing-page positioning, none fetched in full):**
-- Truecaller Family Protection (India, March 2026): "built into Truecaller", one family member manages scam-blocking for up to five, admin gets alerts and can end suspect calls on Android; family members cannot see each other's call logs or messages; base free **[S, search summary: https://www.tribuneindia.com/news/business/truecaller-launches-family-protection-to-protect-the-whole-family-from-phone-scams]**. Lesson: a big player owns "scam protection for the family"; Robin must not lead with scam blocking. Our difference is daily care plus a conversational parent experience in WhatsApp, with the parent in control.
-- Emoha (Age Care Labs): services grouped as Emergency, Health, Safety, Convenience, Engagement; NRI offering; founder frames it as doing what an adult child would do; Series B1 of Rs 85 crore reported July 2026 **[S, search summaries: https://yourstory.com/2019/08/startup-eldercare-emoha-senior-citizens-army-gurugram ; https://yourstory.com/2026/07/age-care-labs-raises-85-crore-to-expand-elder-care-platform]**. Homepage wording not verified. Lesson: incumbents sell human response and emergency; Robin must not imply that.
-- Khyaal, Haal Chaal, HealthSarathi, Samarth: see docs/PARENT_CARE_RESEARCH.md section 4 (Khyaal sells plans with human services; Haal Chaal is a free iPhone check-in and SOS app with no scam help) **[S, as recorded there]**. Their landing wording was not re-checked: **[U]**.
-- US AI check-in calls (Joy Calls, ElderDial, Sentinel and others): families pay for a daily AI call; positioning is companionship plus "family notified if no answer" **[S, vendor press, docs/PARENT_CARE_RESEARCH.md section 4]**. Lesson: "daily hello, and you hear if it goes unanswered" is a proven, calm promise.
+**What makes a child trust it.** Honesty about what it is (AI, not live yet, not an emergency service), clear limits, parent can stop it, real sources for the "why", a real domain and privacy page. No testimonials exist, none will be faked.
 
-**The insight (one line).** The child does not need more fear; they need a way to look after their parents that the parents are happy to accept. So the product is a helpful friend the parent talks to, not a camera on the parent. **[A]**
+**Competitive context.** Truecaller Family Protection (India, March 2026): built into Truecaller, one family member manages scam blocking for up to five, admin alerts and remote call end on Android, base free **[S, search summary: https://www.tribuneindia.com/news/business/truecaller-launches-family-protection-to-protect-the-whole-family-from-phone-scams]**. Google ships on-device scam-call detection in India **[S, research doc]**. So "scam call blocking" is not our differentiator. What we can credibly show that they do not: a parent forwards anything doubtful and gets a plain answer in their language, a voice agent answers calls the parent cannot take and sends a summary, urgent missed calls are highlighted for the child, SOS and alerts reach the child on WhatsApp, and the parent stays in control. Emoha sells human emergency response and care membership **[S, search summaries: https://yourstory.com/2026/07/age-care-labs-raises-85-crore-to-expand-elder-care-platform]**; we must not imply a human desk. Homepage wording of Emoha, Khyaal and Haal Chaal: **[U]**.
 
-## 2. Positioning and messaging pillars
+## 2. Positioning, pillars, promise
 
-**Positioning statement.** For adult children who look after their parents from afar, Robin is an AI assistant that keeps up a friendly daily connection with your parents on WhatsApp, in their own language and by voice note: check-ins, medicine reminders, help with doubtful messages and calls, and an SOS button. You set it up and stay in charge; they can stop it any time. Unlike a monitoring gadget, it works with your parents, not around them.
+**Positioning.** For adult children with ageing parents, Robin is an AI safety assistant on WhatsApp that helps protect parents from phone scams and emergencies: it helps spot doubtful messages and calls, answers calls your parent cannot take, highlights urgent missed calls, and alerts you when something looks risky. Daily check-ins and medicine reminders support it. You set it up and stay in charge; they can stop it any time.
 
-**Pillars (use in this order on every variant).**
-1. **Calm, daily connection.** A friendly check-in and medicine reminders, so you hear how they are.
-2. **They stay in charge.** Told openly, own language, can stop it by saying so. Robin does not read their chats or record their calls.
-3. **Help at the doubtful moment.** Forward a strange message, link or number and get a plain answer; you are told when something looks risky. Robin never calls a money request "safe".
+**Pillars (in this order).**
+1. **Helps spot scams.** Forward any message, link or number and get a plain answer; Robin never calls a money request "safe". With the optional Android app, risky-call and payment alerts.
+2. **Never miss what is urgent.** Urgent missed calls are highlighted; when your parent cannot pick up, Robin answers and sends a summary (set up once). SOS reaches you.
+3. **Parents stay in charge.** Told openly, can stop it any time, no chat reading, no call recording on their phone.
 
-**One-sentence promise.** EN: "Robin keeps in touch with your parents every day, on WhatsApp, in their language, and they stay in charge." HI: "Robin roz aapke parents se WhatsApp par, unki bhasha mein, haal-chaal leta hai, aur kaman unhi ke haath mein rehti hai."
+**One-sentence promise.** "Robin helps protect your parents from phone scams and emergencies, and alerts you when something looks wrong; they stay in charge."
 
 ## 3. Claims policy
 
 **DO**
-- Say plainly what Robin is: an AI assistant, set up by the child, not live yet (waitlist), not an emergency service ("emergency: call 112").
-- Describe only launch features: daily check-in, medicine reminders and refill heads-up, scam help (forward and get an answer), alerts to you when something looks risky, SOS button, missed-call messages between parent and child.
-- Say what Robin does not do: does not read your parent's chats, does not record their phone calls, no human desk at launch, no price announced yet.
-- Show the parent as capable: they choose, they can say "Robin, band karo", they see the same "what Robin did today" page as you.
-- Use "may", "helps", "tells you when something looks risky". Use real product behaviour in demos (voice note in, short reply out).
-- Put scam news low on the page as a small "why", factual, linking to the publisher (The Tribune, Free Press Journal), no rupee figure as a headline.
-- Offer WhatsApp in English and Roman Hinglish; keep the language toggle.
-- Neutral religion: no deity, temple or ritual imagery; greetings such as "Namaste" are fine, festival content only as a later opt-in feature.
-- Keep the form to name + WhatsApp number; state use of the number; offer deletion.
+- Lead with the protection promise and honest verbs: helps spot, helps protect, alerts you, flags, answers, summarises, reminds.
+- Name the real incident types (digital-arrest calls, fake KYC with remote-access apps, calls showing a bank's name, voice-clone calls) only as the sourced "why": small factual cards, outlet, publication date and the headline as the outlet printed it, link to the publisher. Cards sit below the product explanation, never in the hero.
+- State the calls story with its limit: "set up once" call forwarding; the child's urgent missed calls are highlighted; Robin answers for a parent who cannot pick up and sends a summary; Robin says it is an AI assistant first.
+- Label optional features: "with the optional Android app" for risky-call alerts and payment alerts.
+- Always show: AI not a person, not an emergency service (call 112), not live yet (waitlist), no price announced, no human desk at launch.
+- Trust line on every variant (section 2). Parent shown as capable and in control; Devanagari only inside mock-ups, with the English meaning beside it.
+- Scam answers shown in UI as "Looks like a known scam pattern" or "No scam signs found. Still never share OTP or PIN." Never "safe".
 
 **DON'T**
-- No fear or guilt hook: no "alone", "far", "3 am", "scared", "before it is too late", no "what if" about falls or death, no sad-elder imagery, no clocks or countdowns.
-- No statistic or news item as the hook or in the first screens; no crore figures as large display numbers.
-- No fake scarcity ("only 100 spots", "closing soon"), no counts of sign-ups, no invented or composite testimonials, no logos of banks, police or government.
-- No "24/7", "round the clock", "someone is always watching", no "guaranteed", "100% safe", "never fooled", "protects from all scams", "never alone with a stranger".
-- No claim that Robin detects falls, sees call length or who called, listens to calls, blocks numbers, or contacts police or banks (not launch features; the old "22 minutes with a stranger" alert and "fall in the night" tile are removed).
-- No medical claims: no "monitors health", "detects emergencies", dosage or diagnosis words. Say "reminders" and "ask the doctor".
-- Do not say Robin is a person, a "caregiver" or a "companion who cares"; say "AI assistant". Do not give Robin a human face or a human name story.
-- Do not say or imply the parent consented to the form; the parent is told when you set it up (that happens after launch).
-- No price promise beyond "none announced yet". No comparison claims against Truecaller or others.
+- No countdowns, clocks, "before it is too late", "alone", "scared", "far", "what if", sad-elder imagery, sensational words (shocking, victim, drained, wiped out) in our own copy.
+- No statistic or rupee figure in the hero; no aggregate national totals (sources conflict, research doc section 2). Amounts appear only inside the three cards, exactly as the linked headlines state them.
+- No "stops", "blocks", "prevents", "guarantees", "100%", "never fooled", "24/7", "someone is always watching", "round the clock", "never alone with a stranger".
+- No claims of fall detection, health monitoring, medical advice, calling police, banks or 112 for the user, blocking numbers, or recording or listening to calls. Do not say Robin "sees" who is calling or call length except under "with the optional Android app".
+- No fake scarcity, counts, testimonials, composite quotes, logos of banks, police or government, comparisons against Truecaller or others.
+- No religion imagery. No claim the parent agreed to the form; say "told when you set it up".
+- No Hinglish or language toggle on the page. No price promise beyond "none announced yet".
 
-## 4. Three creative directions
+**Feature-truth check before launch (page must not run ahead of the product).** The page copy assumes these exist at waitlist-open date, else soften or cut: missed-call forwarding and urgent highlight (wiring of forwarded caller ID with the provider is unverified, docs/ROBIN_FAMILY_CORE.md sections 13 and 14); risky-call and payment alerts (Android pack not built; Play review of call-screening and notification-access is a risk, research doc section 5); SOS; WhatsApp delivery (Meta token blocked today); consent basis (admin on behalf, legal review flagged). The page says "waitlist", so claims describe the planned launch product.
 
-Shared constants for all three: brand "Robin"; footer line (EN) "Robin is an AI assistant, not a person. It is not an emergency service: in an emergency call 112. Robin is not live yet." (HI) "Robin ek AI assistant hai, insaan nahi. Ye emergency service nahi hai: emergency mein 112 par call karein. Robin abhi live nahi hai."; privacy link; language toggle.
+## 4. Shared copy (identical in S1, S2, S3 unless a variant overrides)
 
-Shared form microcopy (variants only change the button, the sticky text and the thank-you).
-- Labels. EN: "Your name" / "Your WhatsApp number" (placeholder "98765 43210 or +1 415 555 0100"). HI: "Aapka naam" / "Aapka WhatsApp number".
-- Consent notice under button. EN: "We will WhatsApp you about the launch, nothing else. Your number is not sold or shared for ads. Ask us to delete it any time." HI: "Hum aapko sirf launch ke baare mein WhatsApp karenge. Aapka number bechte ya ads ke liye share nahi karte. Kabhi bhi delete karwa sakte hain." (A lawyer may require an explicit tick; see section 7.)
-- Errors. Name: EN "Please add your name." HI "Apna naam likhiye." Number: EN "That number does not look right. Add your WhatsApp number with country code if you are abroad." HI "Ye number sahi nahi lag raha. Videsh mein hain to country code ke saath WhatsApp number likhiye." Busy: EN "That did not go through. Please try again in a minute." HI "Ye nahi ho paya. Ek minute baad dobara try karein."
-- Under the form (all): EN "No payment. No price announced yet." HI "Koi payment nahi. Price abhi announce nahi hua."
+**Footer line.** "Robin is an AI assistant, not a person. It is not an emergency service: in an emergency call 112. Robin is not live yet."
 
----
+**Incident cards (3, sourced).** Fetched headlines and dates **[S, fetched 2026-11-06]**. Cards show: tag, headline exactly as printed, outlet, date, link, then the Robin line (variant-specific wording below). Add a note under the cards: "News reports, linked in full. Robin is not mentioned in them."
 
-### Direction A: "Peace of mind, calmly" (benefit-led relief)
+| # | Tag | Headline as printed | Outlet, date | Link |
+|---|---|---|---|---|
+| 1 | Digital-arrest call | "Chandigarh's elderly woman loses Rs 2.5 crore in digital arrest fraud" | The Tribune, 4 Jun 2025 | https://www.tribuneindia.com/news/chandigarh/sector-10-elderly-woman-loses-2-5-crore-in-digital-arrest-fraud |
+| 2 | Fake KYC and a remote-access app | "Mumbai: Senior citizen loses Rs 3.95 lakh to KYC fraud after downloading AnyDesk app" | Free Press Journal, 12 Jan 2022 | https://www.freepressjournal.in/amp/mumbai/mumbai-senior-citizen-loses-rs-395-lakh-to-kyc-fraud-after-downloading-anydesk-app |
+| 3 | Call showing a bank's name | "UPI Limit Scam Costs Pensioner Couple Nearly ₹6 Lakh In Indore" | Free Press Journal, 30 Sep 2026 | https://www.freepressjournal.in/indore/upi-limit-scam-costs-pensioner-couple-nearly-6-lakh-in-indore |
 
-Angle: the benefit is a lighter mind, not a threat removed. Tone: steady, kind, quiet confidence.
+Card facts allowed (from the articles): card 1, an 82-year-old woman, callers posing as officials; card 2, a 65-year-old woman, a caller posing as telecom customer care asked her to install screen-sharing software; card 3, a retired couple, the caller's phone displayed a Bank of India customer-care logo (the report does not say whether the bank was involved). Corrections to the old page: the Mumbai victim was a woman, not "him", the caller posed as telecom customer care, and the report is from 2022, so it must show its date.
+**Voice-clone calls (fourth incident type the founder wants named): NO linked news report yet.** Candidate leads from the research doc, unverified: https://incidentdatabase.ai/entities/scammers-in-india/ and https://dailypioneer.com/news/when-your-voice-is-no-longer-proof. Until a primary publisher report is fetched and read, show voice clone only as plain text in the protections list ("calls that sound like a family member asking for money"), not as a card, and without a figure.
 
-- **Headline.** EN: "Know how your parents are doing." (6) HI: "Parents ka haal, roz pata rahe." (6)
-- **Subhead.** EN: "Robin says hello to your parents on WhatsApp every day, and tells you if something looks off." (18) HI: "Robin roz WhatsApp par aapke parents ko hello bolta hai, aur kuch theek na lage to aapko batata hai." (19)
-- **Proof moments.** EN: "A daily hello, by voice note" (6) / "Medicine reminders, refill heads-up" (4) / "Doubtful message? They ask Robin" (5). HI: "Roz ka hello, voice note mein" (6) / "Dawai ke reminder, refill ki khabar" (6) / "Shak ho to Robin se poochein" (6)
-- **How it works.** EN: "1 You set it up" / "2 They chat by voice note" / "3 You get a calm summary". HI: "1 Aap set up karte hain" / "2 Wo voice note mein baat karte hain" (6) / "3 Aapko shaant summary milti hai".
-- **Scam context line (optional, small, low on page).** EN: "Why scam help? Calls and messages that pressure seniors into sending money keep appearing in the news, for example in The Tribune and Free Press Journal." HI: "Scam help kyun? Seniors par paise bhejne ka dabav daalne wali calls aur messages khabron mein aate rehte hain, jaise The Tribune aur Free Press Journal mein." (links to the two existing publisher reports)
-- **FAQ.**
-  1. Is Robin a person? EN: "No. Robin is an AI assistant. There is no human desk at launch, and Robin never pretends to be a person." HI: "Nahi. Robin ek AI assistant hai. Launch par koi human desk nahi hai, aur Robin insaan hone ka dikhawa nahi karta."
-  2. Does Robin listen to calls? EN: "No. Robin does not read your parent's chats and does not record their phone calls." HI: "Nahi. Robin aapke parent ki chats nahi padhta aur unki phone calls record nahi karta."
-  3. Can my parent say no? EN: "Yes. Robin introduces itself to them when you set it up, and they can stop it any time by saying so." HI: "Haan. Set up ke time Robin unhe apna parichay deta hai, aur wo kabhi bhi bol kar ise rok sakte hain."
-  4. What does it cost? EN: "Joining the waitlist is free. No price is announced yet." HI: "Waitlist free hai. Price abhi announce nahi hua."
-  5. Is it an emergency service? EN: "No. In an emergency call 112. Robin has an SOS button that alerts you, but it is not a rescue service." HI: "Nahi. Emergency mein 112 par call karein. Robin ke SOS button se aapko alert jata hai, par ye rescue service nahi hai."
-  Number question (all variants, shown as the one-line consent notice under the form, not a sixth FAQ): "What do you do with my number?" EN: "We WhatsApp you about the launch only. We do not sell it. Ask us and we delete it." HI: "Hum sirf launch ke baare mein WhatsApp karte hain. Bechte nahi. Kehne par delete kar dete hain."
-- **Button / sticky.** EN: "Join the waitlist" / sticky "Join the waitlist, it is free". HI: "Waitlist mein judiye" / sticky "Waitlist mein judiye, free hai".
-- **Thank-you.** EN: "You are on the list. We will message you on WhatsApp when your spot opens. One small thing for today: pick a time of day your parents like to chat, so you can set it as their daily hello." HI: "Aap list mein hain. Spot khulte hi hum WhatsApp par batayenge. Aaj ke liye ek chhoti baat: socho aapke parents ko din mein kab baat karna pasand hai, wahi unke daily hello ka time hoga."
-- **Visual direction.** Mood: morning light, exhale, ease. Palette: warm cream base, soft sage and deep teal (trust), marigold accent for warmth, a touch of terracotta; no red, no night-blue panels. Imagery: a bright kitchen counter with a phone, chai, a pill organiser, a hand writing a voice note; adult child at a desk with a small smile; no sad faces. Type: friendly humanist serif for headlines, clean sans for body, large and generous; Devanagari-capable fallback. Motion: low; slow fade-in, one gentle morning-light gradient shift. First screen: headline, subhead, one WhatsApp chat mock-up showing Robin's morning hello and a parent's voice-note reply (cheerful, ordinary), join button, language toggle.
+**Form microcopy (all variants).** Labels: "Your name" / "Your WhatsApp number" (placeholder "98765 43210 or +1 415 555 0100"). Consent notice under the button: "We will WhatsApp you about the launch, nothing else. Your number is not sold or shared for ads, and we delete it on request." Line under the form: "No payment. No price announced yet." Errors: name "Please add your name."; number "That number does not look right. If you are abroad, add the country code."; busy "That did not go through. Please try again in a minute." Link: "How we use your details". (A lawyer may require an explicit tick; question 4.)
+
+**Parent-language demo strings (for mock-ups only; Hindi for native review, hear-before-change applies to anything spoken).** Parent forwards a doubtful message; Robin replies "यह स्कैम जैसा लगता है। OTP या PIN किसी को न बताएं। पहले अपने बेटे से बात करें।" with English caption "Looks like a scam. Do not share your OTP or PIN. Talk to your son first." Morning check-in: "नमस्ते! आज दवाई ली?" caption "Good morning! Did you take your medicine today?"
 
 ---
 
-### Direction B: "They stay in charge" (dignity and independence)
+## 5. Direction S1: "The safety layer for your parents" (authority; the protections list)
 
-Angle: the strongest answer to the child's real objection ("my parents will hate this") and to the parent over their shoulder. Positions Robin as support that respects, which differentiates from monitoring tools.
+Angle: calm authority. A clear list of what Robin protects against, what you get, and who stays in control. Closest to a premium security product page.
 
-- **Headline.** EN: "Support that lets them stay in charge." (7) HI: "Madad aisi, ki kaman unke haath mein." (7)
-- **Subhead.** EN: "Robin is a helper your parents can talk to, in their language, and stop whenever they like." (18) HI: "Robin aisa saathi hai jisse parents apni bhasha mein baat kar sakte hain, aur jab chahein rok sakte hain." (18)
-- **Proof moments.** EN: "They can say stop, anytime" (5) / "Voice notes in their language" (5) / "They see what you see" (5). HI: "Wo kabhi bhi 'band karo' bol sakte hain" (6) / "Unki apni bhasha, voice note mein" (6) / "Jo aap dekhen, wo bhi dekhein" (5)
-- **How it works.** EN: "1 You invite Robin for them" (5) / "2 Robin introduces itself, openly" (5) / "3 They keep the final say" (5). HI: "1 Aap unke liye Robin bulate hain" (6) / "2 Robin khud apna parichay deta hai" (6) / "3 Aakhri faisla unka rehta hai" (5)
-- **Scam context line.** EN: "Good judgement still gets pressured by callers who sound official. News examples: The Tribune, Free Press Journal. Robin gives a second opinion, they decide." HI: "Achhi samajh waale log bhi official lagne wale callers ke dabav mein aa jaate hain. Khabar: The Tribune, Free Press Journal. Robin doosri raay deta hai, faisla unka." (same two links)
-- **FAQ.**
-  1. Will my parent feel watched? EN: "Robin tells them who set it up and what it does. It does not read their chats or record their calls, and they can stop it by saying so." HI: "Robin unhe batata hai ki kisne set up kiya aur ye kya karta hai. Ye unki chats nahi padhta, calls record nahi karta, aur wo bol kar ise rok sakte hain."
-  2. Is Robin a person? EN: "No, an AI assistant. No human desk at launch." HI: "Nahi, ek AI assistant. Launch par koi human desk nahi."
-  3. Can my parent say no? EN: "Yes, at any time, by voice note, text or on a call. Robin then tells you, so you can talk to them." HI: "Haan, kabhi bhi, voice note, text ya call par. Phir Robin aapko batata hai, taaki aap unse baat kar sakein."
-  4. What does it cost? EN: "Waitlist is free. No price announced yet." HI: "Waitlist free hai. Price abhi announce nahi hua."
-  5. Is it an emergency service? EN: "No. Call 112 in an emergency. The SOS button alerts you; it does not replace emergency help." HI: "Nahi. Emergency mein 112. SOS button aapko alert karta hai; ye emergency madad ki jagah nahi leta."
-- **Button / sticky.** EN: "Get on the waitlist" / sticky "Get on the waitlist". HI: "Waitlist mein naam likhwayiye" / sticky "Waitlist mein judiye".
-- **Thank-you.** EN: "You are on the list. We will message you when it opens. Today, try asking your parent one open question: what part of the day would you like a little help with? Their answer is the best setup guide." HI: "Aap list mein hain. Khulte hi message karenge. Aaj apne parent se ek khula sawal poochiye: din ke kis hisse mein thodi madad achhi lagegi? Unka jawab hi sabse achha setup guide hai."
-- **Visual direction.** Mood: respect, warmth, agency; the parent is the protagonist. Palette: deep teal and warm saffron-gold, ivory, soft clay; fresh and modern, not medical. Imagery: parent holding their own phone, recording a voice note with confidence, laughing; a simple "pause" control shown as a friendly big button the parent owns; avoid walkers, canes, hospital blue, grey hair as a signal of frailty. Type: confident sans with warm rounded details; big body text. Motion: low to medium; a voice-note waveform animates when the parent "speaks", a toggle slides to "On / Paused" under the parent's thumb. First screen: headline plus a phone mock-up with the parent's voice note and a visible "Stop Robin" option, caption "Their phone. Their call."; join button.
+- **Headline.** "Help protect your parents from phone scams and emergencies" (9)
+- **Subhead.** "Robin helps spot scams, answers calls your parents cannot take, and alerts you on WhatsApp when something looks wrong." (20)
+- **Proof moments (4).** "Forward anything doubtful, get an answer" (6) / "Urgent missed calls, highlighted for you" (6) / "Risky call alerts, optional Android app" (6) / "SOS button reaches you fast" (5)
+- **Supporting line (below the four).** "Plus a friendly daily check-in and medicine reminders."
+- **How it works (3).** "You set it up, once" (5) / "Your parent is told, and chooses" (6) / "Robin helps; you get alerts" (5)
+- **Incident cards, with the "what Robin does at this moment" line.**
+  1. Digital-arrest call: "Your parent forwards the number or message. Robin explains it matches a known scam pattern and alerts you."
+  2. Fake KYC and remote-access app: "With the optional Android app, Robin can flag a remote-access app being opened and alert you."
+  3. Bank-name call: "Robin never calls a money request safe. It tells your parent to hang up and call the number on the card, and alerts you."
+- **FAQ (6).**
+  1. Is Robin a person? "No. Robin is an AI assistant. There is no human desk at launch."
+  2. Is this surveillance? "No. Your parent is told when you set it up, and can stop it any time by saying so. Robin does not read their chats or record their calls. You get alerts and summaries, not their messages."
+  3. Does Robin listen to calls? "Robin does not record your parent's phone calls. It only takes part in a call that is forwarded to Robin's own line, and it says it is an AI assistant first."
+  4. Can my parent say no? "Yes, at any time, by voice note, message or on a call. Robin then tells you, so you can talk to them."
+  5. What does it cost? "Joining the waitlist is free. No price is announced yet."
+  6. Is it an emergency service? "No. In an emergency call 112. The SOS button alerts you and your named contact; it does not replace emergency help."
+- **Button / sticky.** "Join the waitlist" / "Join the waitlist, it is free".
+- **Thank-you.** "You are on the list. We will message you on WhatsApp when your spot opens. One useful thing today: save 1930, India's cybercrime helpline, and cybercrime.gov.in, and share them with your parents." (research doc, **[S]**)
+- **Visual direction.** Mood: quiet confidence, a premium private-bank or security-software feel. Palette: ink (near-black with a green-blue cast), warm ivory, graphite, a restrained copper-brass accent, signal green only for "OK" states and amber for "check this"; no hospital blue, no shield icons. Imagery: refined product UI, not illustration: a phone showing the WhatsApp reply in Devanagari with English caption, and a second phone showing an alert to the child with a [Call parent] button; fine linework icons for the protections list; no people photography on the first screen. Type: strong editorial serif or high-contrast grotesk for the headline, clean sans for body, tight grid. Motion: low; subtle card lift and a single message-typing animation; reduced-motion safe. First screen: headline, subhead, the two phone UIs (a forwarded message answered, the alert on your phone), join button, trust line.
 
----
+## 6. Direction S2: "What happened to others, and what Robin does" (incident-led)
 
-### Direction C: "Show, don't tell" (product-first demo, a day in three moments)
+Angle: each real incident is paired with Robin's response moment shown as UI, so the sources earn the claim. Editorial and factual; lowest hype.
 
-Angle: the design is the explanation; minimal words; builds trust by showing exactly what Robin does and does not do. Lowest emotional pressure, highest clarity.
+- **Headline.** "These scams happened. Here is how Robin helps." (8)
+- **Subhead.** "Robin helps protect your parents from phone scams and emergencies. See three reported cases and what Robin does at each moment." (22)
+- **Proof moments (4).** "Spots known scam patterns in forwards" (6) / "Alerts you when money is involved" (6) / "Highlights urgent missed calls" (4) / "Answers when your parent cannot" (5)
+- **How it works (3).** "Forward it to Robin" (4) / "Robin explains, in their language" (5) / "You are alerted if it matters" (6)
+- **Incident cards (the centrepiece; each card pairs the news with a UI frame).**
+  1. Digital-arrest call: "Moment: the caller says an 'arrest' is under way. Your parent forwards the number to Robin; Robin replies that no agency arrests anyone on a phone or video call, and alerts you."
+  2. Fake KYC and remote-access app: "Moment: a caller asks to install a screen-sharing app. With the optional Android app, Robin flags it and alerts you with a [Call parent] button."
+  3. Bank-name call: "Moment: the screen shows a bank's name. Robin never calls a money request safe; it advises hanging up and calling the number on the card, and alerts you."
+- **Below the cards.** "Calls your parent cannot take: set up call forwarding once, and Robin answers as an AI assistant and sends a summary. If it sounds urgent, your missed call is highlighted."
+- **FAQ (6).**
+  1. Do these cases mean Robin would have prevented them? "No one can promise that. Robin helps spot warning signs and tells you early; your parent still decides."
+  2. Is this surveillance? "No. Parents are told, can stop it any time, and Robin does not read chats or record calls. You see alerts and summaries, not messages."
+  3. Is Robin a person? "No, an AI assistant. No human desk at launch."
+  4. Can my parent say no? "Yes, at any time. Robin then tells you."
+  5. What does it cost? "Waitlist is free. No price is announced yet."
+  6. Is it an emergency service? "No. Call 112 in an emergency. The SOS button alerts you; it does not replace emergency help."
+- **Button / sticky.** "Join the waitlist" / "See how Robin responds: join the waitlist".
+- **Thank-you.** "You are on the list. Know a sibling who looks after the same parents? Send them this page if you think it would help." Button: "Share on WhatsApp" (`?src=share`).
+- **Visual direction.** Mood: serious, journalistic, trustworthy. Palette: paper white and deep charcoal, one oxblood or muted copper accent for the case tag, soft green for Robin's response frames. Imagery: three horizontal two-part cards: left a restrained "report" card (outlet name, date, headline in its own type, link arrow), right a precise UI frame (the forwarded message and Robin's reply, or the alert) joined by a thin line. No photos of victims, no red alerts, no dramatisation. Type: sharp serif for headlines and report headlines, a neutral sans for UI. Motion: low to medium; the Robin frame types in when the card scrolls into view. First screen: headline, subhead, the first pairing (digital-arrest report card plus Robin's reply UI) peeking above the fold, join button.
 
-- **Headline.** EN: "A day with Robin, in three moments." (7) HI: "Robin ke saath ek din, teen pal." (6)
-- **Subhead.** EN: "Real WhatsApp, real voice notes. See what your parents get, and what you get." (14) HI: "Asli WhatsApp, asli voice note. Dekhiye parents ko kya milta hai, aur aapko kya." (13) (screens are illustrations of the planned product; label them "Preview")
-- **Proof moments (the three moments).** EN: "Morning: hello and medicine nudge" (5) / "Afternoon: forward a doubtful link" (5) / "Evening: your short summary" (4). HI: "Subah: hello aur dawai ki yaad" (6) / "Dopahar: shaky link Robin ko bhejein" (6) / "Shaam: aapko chhota summary" (5)
-  Demo content (design to storyboard): AM, Robin voice note "Namaste! Dawai li?", parent replies "Haan". PM, parent forwards a link; Robin replies in two plain lines that it looks like a trap and not to share OTP or PIN; never "this is safe" for money. Evening, child's phone: "Today: checked in, medicines taken, one message checked" with a "Call" button. Caption under screens: "Preview of how Robin will look."
-- **How it works.** EN: "1 Join the waitlist" (3) / "2 We message you at launch" (5) / "3 You set up, they are told" (6). HI: "1 Waitlist mein judiye" / "2 Launch par hum message karenge" (5) / "3 Aap set up karein, unhe bataya jaye" (6)
-- **Scam context line.** EN: "The second moment exists because pressure calls and fake links are in the news: The Tribune, Free Press Journal." HI: "Doosra pal isliye hai kyunki dabav waali calls aur nakli links khabron mein hain: The Tribune, Free Press Journal." (same two links)
-- **FAQ.**
-  1. Is Robin a person? EN: "No, an AI assistant. The screens above are previews, not real people." HI: "Nahi, AI assistant. Upar ki screens preview hain, asli log nahi."
-  2. Does Robin listen to calls? EN: "No. It does not read your parent's chats or record their calls. It only sees what they send it." HI: "Nahi. Ye chats nahi padhta aur calls record nahi karta. Sirf wahi dekhta hai jo parent use bhejte hain."
-  3. Can my parent say no? EN: "Yes. They are told about Robin when you set it up, and can stop it any time." HI: "Haan. Set up par unhe Robin ke baare mein bataya jata hai, aur wo kabhi bhi rok sakte hain."
-  4. What does it cost? EN: "Waitlist is free. No price announced yet." HI: "Waitlist free hai. Price abhi announce nahi hua."
-  5. Is it an emergency service? EN: "No. For emergencies call 112. Robin cannot send help by itself." HI: "Nahi. Emergency mein 112. Robin khud madad nahi bhej sakta."
-- **Button / sticky.** EN: "Join the waitlist" / sticky "See it first: join the waitlist". HI: "Waitlist mein judiye" / sticky "Pehle dekhiye: waitlist mein judiye".
-- **Thank-you.** EN: "You are on the list. Know a sibling or friend who looks after their parents too? Send them this page, if you think it would help." (button: "Share on WhatsApp", `?src=share`) HI: "Aap list mein hain. Koi bhai-behen ya dost jo apne parents ka khayal rakhta ho? Sahi lage to ye page unhe bhej dijiye." (button: "WhatsApp par bhejiye")
-- **Visual direction.** Mood: clear, modern, quietly delightful, like a good product tour. Palette: warm off-white, deep teal, marigold for Robin's voice, soft lilac or blush for the "you" side to separate the two phones; WhatsApp green only inside the mock-up. Imagery: clean phone mock-ups drawn as illustrations (no stock photos), three horizontal "moment" cards with a sun-path line (sunrise, midday, dusk) instead of any clock. Type: modern geometric sans for UI feel, a warm display weight for headline. Motion: medium and purposeful; scroll-driven reveal of messages typing in, voice-note waveform plays visually, reduced-motion shows static frames. First screen: headline, subhead, the first phone (morning moment) already visible with the join button above the fold.
+## 7. Direction S3: "Every call, handled" (calls-first)
 
-## 5. Visual guardrails (all variants)
-Fixed warm light theme, one calm accent, generous whitespace, big tap targets, 17px+ body, Devanagari-friendly. Avoid: clocks, hourglasses, countdown, sad or lonely elders, a single worried child at night, red alerts as decoration, distance maps ("800 km"), medical crosses and hospital blue, religious icons, shields as the main metaphor (shields signal fear and security-tool). Show diverse, everyday Indian homes and ordinary smiles; show both generations holding their own phones. Words per screen: at most a headline, one line and one visual. Keep `noindex` and the sticky join button on phones; real domain before wide sharing.
+Angle: the calls story. Four call situations, each with what Robin does: an unknown call, a missed call, an urgent call, SOS. Differentiates from caller-ID tools. Avoid "everything covered".
 
-## 6. Success measures and what each variant teaches
+- **Headline.** "Unknown, missed or urgent: Robin helps with the call" (8)
+- **Subhead.** "Robin answers calls your parents cannot take, highlights urgent ones you missed, and alerts you when a call looks risky." (21)
+- **Proof moments (4).** "Parent can't pick up? Robin answers" (6) / "Urgent missed calls, highlighted for you" (6) / "Risky call alerts, optional Android app" (6) / "One-press SOS to you" (5)
+- **How it works (3).** "Set up call forwarding, once" (5) / "Robin answers, sends a summary" (5) / "Urgent ones are highlighted" (4)
+- **The four call moments (UI timeline, between proof and cards).** Unknown call: "Your parent forwards the number or the message; Robin gives a plain answer." Missed call: "You miss your parent's call; if it sounds urgent, Robin highlights it and keeps ringing you on a schedule." Parent cannot pick up: "Robin answers as an AI assistant, asks who is calling and why, and sends your parent a summary." SOS: "Hold the button; you and your named contact are alerted at once."
+- **Incident cards.**
+  1. Digital-arrest call: "Robin's moment: your parent forwards the number or message; Robin explains the pattern and alerts you."
+  2. Fake KYC and remote-access app: "Robin's moment: with the optional Android app, a remote-access app being opened can alert you."
+  3. Bank-name call: "Robin's moment: it never calls a money request safe, and tells you."
+- **FAQ (6).**
+  1. How does Robin answer my parent's calls? "You set up call forwarding on their phone once. When they cannot pick up, Robin answers as an AI assistant, asks who is calling and why, and sends them a summary."
+  2. Is this surveillance? "No. Parents are told, can stop it any time, and Robin does not read chats or record calls on their phone. You see alerts and summaries."
+  3. Is Robin a person? "No, an AI assistant. No human desk at launch."
+  4. Can my parent say no? "Yes, at any time. Robin then tells you."
+  5. What does it cost? "Waitlist is free. No price is announced yet."
+  6. Is it an emergency service? "No. In an emergency call 112. SOS alerts you; it does not replace emergency help."
+- **Button / sticky.** "Join the waitlist" / "Join the waitlist for call help".
+- **Thank-you.** "You are on the list. One useful step today: agree one rule with your parents, that if a caller pressures them about money or arrest, they hang up and call you on the number they already have." (a commonly given advice in the research doc; no guilt)
+- **Visual direction.** Mood: precise, telecom-grade, modern. Dark mode hero is allowed. Palette: charcoal and off-white, signal green for answered, amber for "check this", muted coral for urgent only inside the UI; warm neutral for the rest. Imagery: a vertical call timeline of refined phone UIs (incoming unknown call, missed-call notification with an "Urgent" tag, a call summary card, the SOS alert); a line-drawn waveform as the only decoration. Type: geometric grotesk with strong numerals, tabular figures in the UI. Motion: medium and purposeful; the timeline advances on scroll; static frames for reduced motion. First screen: headline, subhead, the first two states of the timeline (unknown call, missed urgent call) and the join button.
 
-Setup: split cold-start traffic evenly across A, B, C using separate links (`/robin?src=...&v=a|b|c`, needs a small page change by the dev owner; the current report splits by `src` only). Same audience and sources per variant. Run until each variant has at least a few hundred views before comparing; with small numbers treat differences as directional **[A]**.
+## 8. Visual guardrails (all variants)
+Credible, calm, premium: restrained illustration at most, real-looking product UI first; fixed light or dark theme chosen per variant; one accent; generous whitespace; 17px+ body; tap targets 48px. Avoid: cartoon characters, clocks, hourglasses, countdowns, shield-and-padlock clichés, hospital blue, red alarms as decoration, distance maps, sad or lonely elders, religious icons, stock photos of worried faces. Parent shown with their own phone and in control, in everyday Indian homes if people appear at all. Keep sticky join button on phones, `noindex`, and a real domain before wide sharing (sslip.io looks untrustworthy for a security brand).
+
+## 9. Success measures and what each variant teaches
+
+Split cold traffic evenly with separate links (needs a `v=s1|s2|s3` parameter in the page, a dev change; the report splits by `src` only today). Same sources per variant. Compare only after a few hundred views each; treat small differences as directional **[A]**.
 
 | Measure | How | Why |
 |---|---|---|
-| Join rate | sign-ups / views per variant and per source | primary metric; warm sources (family and friends groups) above about 10% is a good early signal (docs/ROBIN_WAITLIST.md) |
-| Share rate | clicks on the thank-you share button / sign-ups (`?src=share` arrivals) | measures advocacy; C is expected to lead |
-| Drop-off | scroll depth to the form, form starts vs completions, language-toggle use | locates the confusing section; needs a no-cookie counter (views.json is per day per source today) |
-| Quality of sign-ups | share with an NRI or metro number, reply rate to the first message, answers to "would Rs 299 to 499 a month feel fair?" | joins are cheap; replies and price answers show intent |
-| Trust signals | privacy page opens, FAQ opens | whether the honest copy matters |
+| Join rate | sign-ups / views, per variant and source | primary; warm sources above about 10% is a good early signal (docs/ROBIN_WAITLIST.md) |
+| Share rate | share-button clicks / sign-ups, and `?src=share` arrivals | advocacy; expect S2 to lead |
+| Drop-off | scroll depth to the cards and to the form; form start vs completion | finds the confusing section |
+| Incident card clicks | taps to publisher links / views | do readers want proof; high clicks with low joins signals alarm instead of trust |
+| FAQ opens | "Is this surveillance?" opens per variant | measures parent-dignity worry |
+| Quality | reply rate to the first message; answers to "would Rs 299-499 a month feel fair?" | joins are cheap; replies show intent |
+| Tone check | replies mentioning "scary", "creepy", "spying" | catches security-led copy turning into fear |
 
-What we learn: **A** tests whether plain relief converts; if it wins, the buyer wants simplicity. **B** tests whether the dignity argument removes the "my parents will refuse" objection; if it wins, lead sales conversations with consent and control. **C** tests whether seeing the product beats words; if it wins, the demo becomes the core of onboarding and of the WhatsApp forward. Expected, as a hypothesis only: C leads on share rate, B on quality (reply rate), A on raw join rate. **[A]**
+What we learn: **S1** tests whether a clear protections list converts; the default winner if buyers want authority. **S2** tests whether sourced real cases build belief or alarm (watch card clicks and tone replies). **S3** tests whether the calls story (answering for parents, urgent missed calls) is the true differentiator against Truecaller-style call blocking. Hypothesis only: S1 leads on join rate, S2 on share rate, S3 on reply quality **[A]**.
 
-## 7. Open questions for the founder (max 5)
-1. Consent tick: do you want an explicit checkbox for WhatsApp contact (lawyer may require it under DPDP), accepting a lower join rate?
-2. Is "tells you if something looks off" acceptable when device signals (unusual calls or payments) are optional and not all live at launch, or should the page say only "tells you when your parent asks for help or does not answer"?
-3. Do you allow the statement "no price announced yet, and we will tell you before you are asked to pay"? It is a promise to keep.
-4. May the page show illustrated phone previews labelled "Preview" (Direction C) before the real Hinglish voice notes exist (hear-before-change applies to any spoken sample)?
-5. Do we split-test all three at once on cold traffic, or run B vs C first on warm family-group links, given small early numbers?
+## 10. Open questions for the founder (max 5)
+1. Voice-clone calls: do you want a fourth card? I have no linked news report; I need either your source or my fetching and reading a primary publisher report first. Until then it is plain text only.
+2. Payment alerts and risky-call alerts depend on the optional Android app (notification access and call screening, not built; Play review risk). Do we say "with the optional Android app" at waitlist time, or hold those lines until it exists?
+3. The Mumbai card is from January 2022 (and a woman, aged 65). Is an older dated case acceptable beside the 2025 and 2026 ones, or should we find a recent KYC and remote-access report?
+4. Explicit consent tick for WhatsApp contact (a lawyer may require it), accepting a lower join rate?
+5. Split-test all three at once on cold traffic, or run S1 against S3 first on warm family-group links?
 
-## 8. What was removed from the current page, and why (3 riskiest claims avoided)
-1. "Mom is alone. You are far." with "She is 68. She is scared." and "At 3 am, who finds out first?": a fear and guilt hook that treats the parent as helpless and implies night-time watching and fall detection (a fall tile; fall detection is not in Phase 1).
-2. The alert "Maa has been on a call with a stranger for 22 minutes": implies Robin sees call length and caller identity, which depends on optional, not-yet-built device signals and on the parent's consent; it also reads as surveillance and as a guarantee.
-3. Big rupee figures from news (Rs 2.5 crore and others) as the third screen: a statistic as the hook; the figures are also contested across sources (docs/PARENT_CARE_RESEARCH.md section 2). News now appears only as a small, sourced "why" line.
-
-Also avoided: the research doc's one-liner "never alone with a stranger on the phone ... tells you the moment something looks wrong" (guarantee and speed claim), "24/7" and any human-desk language.
+## 11. What changed in revision 2 and the riskiest claims avoided
+Removed: Hinglish and the toggle; the check-in-led story; the fear hero; the 22-minute stranger-call alert and the fall tile; big rupee figures as display numbers. Added: sourced cards with dates; the calls story; "set up once"; "optional Android app" labels.
+Riskiest claims avoided now: (1) "stops", "prevents" or "guarantees" scam losses, since cases like those in the cards could still happen; (2) implying Robin sees call content, call length or caller identity without the optional app, or records calls; (3) implying a human desk, 24/7 response, or that Robin contacts police, banks or 112, which is not launch scope.
