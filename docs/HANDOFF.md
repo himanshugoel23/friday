@@ -1506,3 +1506,6 @@ Founder ask: protected care protocol for distress/self-harm (HIGH/ELEVATED, Hing
 
 ## 2026-11-06: security-led landing pages built (s1, s2, s3)
 Revised brief (docs/ROBIN_LANDING_BRIEF.md) implemented: variants s1/s2/s3 replace a/b/c (English only, no toggle, sourced incident cards with dates, calls story, 6 FAQs). `clean_v` and variant id regex now accept `s1..s3`. Defaults used for open questions: no voice-clone card, Android-app lines labelled optional, 2022 card kept with date, no consent tick yet, all three split-tested. Hindi strings in the mock-ups need native review. Waitlist stays OFF until the founder approves copy. Developer tickets T01-T03 still wait for the founder's go.
+
+## 2026-11-06 (developer agent): T01 fix the device-to-family alert contract (tier/scenario/SOS)
+Founder asked (via the lead): implement ticket T01 of docs/ROBIN_PHASE1_BACKLOG.md. Plan: grep all `raise_alert(` callers; add a tolerant Tier/scenario parser in robin/models.py; normalise at `_DeviceAlerts.raise_alert` (robin/wiring.py) and make `AlertEngine.raise_alert` defensive (unknown tier -> HIGH, never lower; SOS -> `sos`, THREAT -> `threat`); document the enum in robindevice/ports.py; fix the baked-in `== "HIGH"` assertion; add tests/robin/test_alert_contract.py. Fakes only. No spoken line changed (LINE_STATUS untouched), all switches stay OFF, not pushed.
