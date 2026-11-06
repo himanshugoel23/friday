@@ -101,10 +101,10 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
     router = APIRouter()
     lim = limiter or RateLimiter()
 
-    def authed(request: Request, route: str) -> ParentState:
+    async def authed(request: Request, route: str) -> ParentState:
         header = request.headers.get("authorization", "")
         token = header[7:].strip() if header[:7].lower() == "bearer " else ""
-        st = service.authenticate(token) if token else None
+        st = await service.authenticate(token) if token else None
         if st is None:
             raise HTTPException(status_code=404, detail="Not Found")
         if not lim.allow(st.parent_id, route):
@@ -126,7 +126,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/heartbeat")
     async def heartbeat(request: Request) -> JSONResponse:
-        st = authed(request, "heartbeat")
+        st = await authed(request, "heartbeat")
         body = await _model(request, HeartbeatIn)
         if isinstance(body, JSONResponse):
             return body
@@ -134,7 +134,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/signals")
     async def signals(request: Request) -> JSONResponse:
-        st = authed(request, "signals")
+        st = await authed(request, "signals")
         body = await _model(request, SignalBatchIn)
         if isinstance(body, JSONResponse):
             return body
@@ -142,7 +142,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/share")
     async def share(request: Request) -> JSONResponse:
-        st = authed(request, "share")
+        st = await authed(request, "share")
         body = await _model(request, ShareIn)
         if isinstance(body, JSONResponse):
             return body
@@ -155,7 +155,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/ack")
     async def ack(request: Request) -> JSONResponse:
-        st = authed(request, "ack")
+        st = await authed(request, "ack")
         body = await _model(request, AckIn)
         if isinstance(body, JSONResponse):
             return body
@@ -164,7 +164,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/sos")
     async def sos(request: Request) -> JSONResponse:
-        st = authed(request, "sos")
+        st = await authed(request, "sos")
         raw = await _read(request, MAX_BODY)
         loc = None
         if raw.strip() not in (b"", b"{}"):
@@ -177,7 +177,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
     @router.post("/voice")
     async def voice(request: Request) -> JSONResponse:
         """Press-to-talk: raw audio body, ``Content-Type: audio/*``, ``X-Duration-S``. Not stored."""
-        st = authed(request, "voice")
+        st = await authed(request, "voice")
         mime = request.headers.get("content-type", "").split(";")[0].strip().lower()
         dur = request.headers.get("x-duration-s", "")
         if mime not in VOICE_MIMES or not dur.isdigit() or not 1 <= int(dur) <= MAX_VOICE_SECONDS:
@@ -194,18 +194,18 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.get("/prompts")
     async def prompts(request: Request) -> JSONResponse:
-        st = authed(request, "prompts")
+        st = await authed(request, "prompts")
         return _json({"prompts": await service.pending_prompts(st)})
 
     @router.get("/consent")
     async def get_consent(request: Request) -> JSONResponse:
-        st = authed(request, "consent")
+        st = await authed(request, "consent")
         return _json(await service.consent_view(st))
 
     @router.put("/consent")
     async def put_consent(request: Request) -> JSONResponse:
         """The phone can only WITHDRAW consent; the family admin grants it (admin_on_behalf)."""
-        st = authed(request, "consent")
+        st = await authed(request, "consent")
         body = await _model(request, ConsentIn)
         if isinstance(body, JSONResponse):
             return body
@@ -218,7 +218,7 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/pause")
     async def pause(request: Request) -> JSONResponse:
-        st = authed(request, "pause")
+        st = await authed(request, "pause")
         body = await _model(request, PauseIn)
         if isinstance(body, JSONResponse):
             return body
@@ -226,22 +226,22 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
 
     @router.post("/stop")
     async def stop(request: Request) -> JSONResponse:
-        st = authed(request, "stop")
+        st = await authed(request, "stop")
         return _json(await service.stop(st))
 
     @router.post("/resume")
     async def resume(request: Request) -> JSONResponse:
-        st = authed(request, "resume")
+        st = await authed(request, "resume")
         return _json(await service.resume(st))
 
     @router.get("/transparency")
     async def transparency(request: Request) -> JSONResponse:
-        st = authed(request, "transparency")
+        st = await authed(request, "transparency")
         return _json(await service.transparency(st))
 
     @router.delete("/erase")
     async def erase(request: Request) -> JSONResponse:
-        st = authed(request, "erase")
+        st = await authed(request, "erase")
         return _json(await service.erase(st))
 
     return router

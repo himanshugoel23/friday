@@ -14,7 +14,7 @@ allow-list). The care protocol is imported defensively (``ports.care_active_fn``
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
@@ -69,6 +69,7 @@ class RobinHub:
         self.commands = RobinCommands(ctx, self.fam, self.intro, self.checkin, self.meds, self.alerts, safe_word_switch=bool(getattr(ctx.settings, "robin_safe_word_enabled", False)))
         ctx.on_reached = self.checkin.note_reached
         self.retention_days, self.tick_s, self._ticks = retention_days, tick_s, 0
+        self._device_sweep: Callable[[], Awaitable[int]] | None = None
 
     # ------------------------------------------------------------------ the child's chat
     async def handle(self, user: User, msg: InboundMessage) -> bool:
@@ -141,9 +142,16 @@ class RobinHub:
         return self.ctx.say("med.confirm", lang, list="; ".join(f"{m.name} {m.dose_text} at {', '.join(m.times)}" for m in meds))
 
     # ------------------------------------------------------------------ scheduler
+    def attach_device_sweep(self, sweep: Callable[[], Awaitable[int]]) -> None:
+        """The device package registers ``DeviceService.sweep`` (time-based scenarios S7/S8) when it is mounted."""
+        self._device_sweep = sweep
+
+    async def _device_tick(self) -> int:
+        return int(await self._device_sweep() or 0) if self._device_sweep is not None else 0
+
     async def tick(self) -> int:
         n = 0
-        for step in (self.intro.retry_due, self.authority.tick, self.checkin.tick, self.meds.tick, self.greetings.tick, self._monthly):
+        for step in (self.intro.retry_due, self.authority.tick, self.checkin.tick, self.meds.tick, self.greetings.tick, self._monthly, self._device_tick):
             try:
                 n += int(await step() or 0)
             except Exception:  # noqa: BLE001 - one failing step never stops the others

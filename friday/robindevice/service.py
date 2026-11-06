@@ -9,6 +9,7 @@ what the parent explicitly shares for a scam check, and that is not stored (only
 from __future__ import annotations
 
 import asyncio
+import functools
 import secrets
 import time
 from collections.abc import Callable
@@ -42,6 +43,7 @@ from friday.robindevice.store import (
     PAIR_CODE_TTL_S,
     Device,
     DeviceStore,
+    DeviceStorePort,
     Event,
     ParentState,
     new_device_token,
@@ -55,6 +57,20 @@ STALE_FUTURE_MS = 5 * MIN
 MAX_BATCH = 100
 _INTERNAL_PREFIXES = ("_",)
 FOREVER_MS = 4_102_444_800_000
+
+
+def _persisted(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """After the operation, write the touched parent back to the store (a no-op for the in-memory store).
+    The first argument after ``self`` is the ``ParentState`` or the parent id."""
+
+    @functools.wraps(fn)
+    async def wrapper(self: DeviceService, who: Any, *a: Any, **k: Any) -> Any:
+        try:
+            return await fn(self, who, *a, **k)
+        finally:
+            await self.store.save(who if isinstance(who, str) else who.parent_id)
+
+    return wrapper
 
 # What the "what my son sees" screen lists as collected (static, shown next to the live counters).
 COLLECTED = [
@@ -76,7 +92,7 @@ class DeviceService:
         consent: ConsentPort,
         parents: ParentLookup,
         rules: Rules | None = None,
-        store: DeviceStore | None = None,
+        store: DeviceStorePort | None = None,
         now_ms: Callable[[], int] | None = None,
         llm: LLMClient | None = None,
         brand: str = "Friday",
@@ -86,7 +102,7 @@ class DeviceService:
         self.voice = voice
         self.alerts, self.consent, self.parents = alerts, consent, parents
         self.rules = rules or load(known_predicates=known_predicates())
-        self.store = store or DeviceStore()
+        self.store: DeviceStorePort = store or DeviceStore()
         self.now_ms = now_ms or (lambda: int(time.time() * 1000))
         self.llm = llm
         self.brand = brand
@@ -103,13 +119,15 @@ class DeviceService:
         """Called by the family side (the child sets the parent up). 8 chars, 15 minutes, single use."""
         if await self.parents.get(parent_id) is None:
             raise KeyError("unknown parent")
+        await self.store.ensure_loaded()
         code = new_pair_code()
-        self.store.put_code(parent_id, code, self.now_ms() + PAIR_CODE_TTL_S * 1000)
+        await self.store.put_code(parent_id, code, self.now_ms() + PAIR_CODE_TTL_S * 1000)
         return code
 
     async def pair(self, body: PairIn) -> dict[str, Any] | None:
         now = self.now_ms()
-        parent_id = self.store.take_code(body.code, now)
+        await self.store.ensure_loaded()
+        parent_id = await self.store.take_code(body.code, now)
         if parent_id is None:
             return None
         info = await self.parents.get(parent_id)
@@ -125,6 +143,7 @@ class DeviceService:
             st.shadow_start_ms = now
         st.paused_until_ms = 0
         self.store.bind_token(parent_id, th)
+        await self.store.save(parent_id)
         return {
             "device_token": token,
             "parent_id": parent_id,
@@ -135,16 +154,18 @@ class DeviceService:
             "limits": {"max_batch": MAX_BATCH, "max_body_bytes": 65_536},
         }
 
-    def authenticate(self, token: str) -> ParentState | None:
-        st = self.store.parent_for_token(token)
+    async def authenticate(self, token: str) -> ParentState | None:
+        st = await self.store.parent_for_token(token)
         return st if st is not None and st.device is not None else None
 
     async def revoke(self, parent_id: str) -> bool:
+        await self.store.ensure_loaded()
         st = self.store.peek(parent_id)
         if st is None or st.device is None:
             return False
         self.store.unbind_token(st.device.token_hash)
         st.device = None
+        await self.store.save(parent_id)
         return True
 
     # ------------------------------------------------------------------ preferences (family side)
@@ -172,12 +193,15 @@ class DeviceService:
             st.shadow_days = shadow_days
         if support_window_minutes is not None:
             st.support_window_until_ms = self.now_ms() + max(0, support_window_minutes) * MIN
+        self.store.touch(parent_id)  # written by the next save (needs a loaded store: after the first async call)
 
     def note_external(self, parent_id: str, name: str) -> None:
         """A fact from the family package, e.g. 'checkin_unanswered'."""
         self.store.state(parent_id).external[name] = self.now_ms()
+        self.store.touch(parent_id)
 
     # ------------------------------------------------------------------ heartbeat
+    @_persisted
     async def heartbeat(self, st: ParentState, body: HeartbeatIn) -> dict[str, Any]:
         now = self.now_ms()
         dev = st.device
@@ -206,6 +230,7 @@ class DeviceService:
         }
 
     # ------------------------------------------------------------------ signals
+    @_persisted
     async def ingest(self, st: ParentState, raw_events: list[Any]) -> dict[str, Any]:
         now = self.now_ms()
         if st.device:
@@ -256,23 +281,30 @@ class DeviceService:
         return await self.engine.run(st, self.now_ms(), info)
 
     async def sweep(self) -> int:
-        """Periodic tick (the lead wires a scheduler): time-based scenarios (S7 unreachable, S8 season)."""
+        """Periodic tick (``RobinHub.tick`` calls it): time-based scenarios (S7 unreachable, S8 season)."""
         n = 0
+        await self.store.ensure_loaded()
         for pid in self.store.parent_ids():
-            st = self.store.peek(pid)
-            if st is None or st.device is None:
-                continue
             async with self._lock(pid):
-                res = await self._run(st)
-                n += res.alerts
+                st = await self.store.refresh(pid)  # another process may have fired already: never alert twice
+                if st is None or st.device is None:
+                    continue
+                try:
+                    res = await self._run(st)
+                    n += res.alerts
+                finally:
+                    await self.store.save(pid)
+        await self.store.save_dirty()
         return n
 
     # ------------------------------------------------------------------ call transcripts (family package)
+    @_persisted
     async def feed_call_turn(
         self, parent_id: str, call_id: str, speaker: str, text: str, t: float = 0.0,
         context: dict[str, bool] | None = None,
     ) -> dict[str, Any]:
         """Score one transcript turn. The text is scored and dropped; only cues/tier/time are kept."""
+        await self.store.ensure_loaded()
         st = self.store.state(parent_id)
         if not await self.consent.has(parent_id, "call_pattern"):
             st.bump("dropped_no_consent:call_pattern")
@@ -297,6 +329,7 @@ class DeviceService:
         return an.finish(self.now_ms()) if an else None
 
     # ------------------------------------------------------------------ share intake
+    @_persisted
     async def share(self, st: ParentState, kind: str, value: str) -> dict[str, Any]:
         if not await self.consent.has(st.parent_id, "share_check"):
             st.bump("dropped_no_consent:share")
@@ -325,6 +358,7 @@ class DeviceService:
         return {**res.to_dict(), "child_told": told}
 
     # ------------------------------------------------------------------ SOS and voice (always allowed)
+    @_persisted
     async def sos(self, st: ParentState, location: Any = None) -> dict[str, Any]:
         """Works when paused or stopped, in the learning week, and without any consent item."""
         info = await self.parents.get(st.parent_id)
@@ -339,6 +373,7 @@ class DeviceService:
         st.bump("sos")
         return {"ok": True, "message": C.pick(C.PROMPTS, "sos_ack", lang)}
 
+    @_persisted
     async def voice_message(self, st: ParentState, audio: bytes, mime: str, duration_s: int) -> dict[str, Any]:
         """The press-to-talk button. Explicit parent action, so it also works while paused. Audio is passed to
         the family-side intake (speech-to-text, then deleted) and never stored here."""
@@ -355,6 +390,7 @@ class DeviceService:
         return {"accepted": res.ok, "reply_text": res.reply_text}
 
     # ------------------------------------------------------------------ acks
+    @_persisted
     async def ack(self, st: ParentState, body: AckIn) -> dict[str, Any]:
         now = self.now_ms()
         info = await self.parents.get(st.parent_id)
@@ -396,6 +432,7 @@ class DeviceService:
     async def _consent_map(self, parent_id: str) -> dict[str, bool]:
         return {i: await self.consent.has(parent_id, i) for i in CONSENT_ITEMS}
 
+    @_persisted
     async def sync_consent(self, st: ParentState, items: dict[str, bool]) -> dict[str, Any]:
         """From the PARENT'S device: it may only WITHDRAW. Consent is given by the family admin on the parent's
         behalf (consent_basis 'admin_on_behalf'); a grant attempt from the phone is refused."""
@@ -417,11 +454,13 @@ class DeviceService:
                 st.events = [e for e in st.events if e.type not in types]  # withdrawal erases what it allowed
             st.bump("consent_withdrawn", len(names))
 
+    @_persisted
     async def admin_set_consent(self, parent_id: str, items: dict[str, bool]) -> None:
         """Family side (the child, admin_on_behalf). The parent is told by the family package on WhatsApp."""
         bad = [k for k in items if k not in CONSENT_ITEMS]
         if bad:
             raise ValueError("unknown consent item")
+        await self.store.ensure_loaded()
         st = self.store.state(parent_id)
         for item, granted in items.items():
             if granted:
@@ -432,12 +471,14 @@ class DeviceService:
         return {"consent_basis": st.consent_basis, "items": await self._consent_map(st.parent_id)}
 
     # ------------------------------------------------------------------ pause / erase
+    @_persisted
     async def pause(self, st: ParentState, minutes: int) -> dict[str, Any]:
         now = self.now_ms()
         st.paused_until_ms = now + minutes * MIN
         await self._tell_child(st, "INFO", "PAUSE", f"parent paused monitoring for {minutes} minutes", {"minutes": minutes})
         return {"paused": True, "until_ms": st.paused_until_ms}
 
+    @_persisted
     async def stop(self, st: ParentState) -> dict[str, Any]:
         """The parent's STOP: every sensitive signal type is dropped until the PARENT resumes. SOS and the
         voice button keep working. There is no family-side resume on purpose."""
@@ -446,6 +487,7 @@ class DeviceService:
         await self._tell_child(st, "WATCH", "STOP", "parent stopped Robin from the phone", {})
         return {"stopped": True, "paused": True}
 
+    @_persisted
     async def resume(self, st: ParentState) -> dict[str, Any]:
         was = st.paused_until_ms > self.now_ms()
         st.paused_until_ms = 0
@@ -458,7 +500,7 @@ class DeviceService:
         n_events = len(st.events)
         pid = st.parent_id
         await self._tell_child(st, "INFO", "ERASE", "parent erased the data stored about this phone", {})
-        self.store.drop(pid)
+        await self.store.drop(pid)
         for key in [k for k in self._analyzers if k[0] == pid]:
             del self._analyzers[key]
         return {"erased": True, "events_deleted": n_events}

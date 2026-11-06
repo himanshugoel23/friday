@@ -56,7 +56,7 @@ def test_the_switches_read_the_documented_env_names(monkeypatch):
 def test_the_migration_is_the_head_the_doctor_expects():
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0019_robin_family"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0020_robin_device"
     assert "0010_chatbot" in DOC
 
 

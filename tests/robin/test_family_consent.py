@@ -114,7 +114,7 @@ async def test_safe_word_off_by_default_and_hashed_when_on(w):
 def test_migration_0019_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0019_robin_family"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0020_robin_device"
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
     migrate.upgrade(url)
     eng = create_engine(f"sqlite:///{tmp_path}/m.db")
@@ -147,7 +147,7 @@ def test_sql_files_carry_the_tables():
     for t in ("robin_families", "robin_members", "robin_consents", "robin_records"):
         assert f"CREATE TABLE {t}" in schema
         assert f"ALTER TABLE public.{t} ENABLE ROW LEVEL SECURITY;" in rls
-    assert "'0019_robin_family'" in schema
+    assert "'0019_robin_family'" in schema and "'0020_robin_device'" in schema
 
 
 _ = (at, CallOutcome)

@@ -52,8 +52,9 @@ TITLES = {
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
 # -> 0015_urgent_escalation -> 0016_family_drive -> 0017_trips -> 0018_refunds -> 0019_robin_family
+# -> 0020_robin_device
 # must be in the code
-EXPECTED_HEAD_CHAIN = "0019_robin_family"
+EXPECTED_HEAD_CHAIN = "0020_robin_device"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -722,7 +723,9 @@ def _check_browser(settings: Settings) -> Section:
 
     for status, msg in site_mcp_check(settings):
         sec.add({"ok": OK, "warn": WARN, "fail": FAIL}[status], msg)
-    from friday.browser_agent.doctor import check as browser_agent_check  # general browser agent (docs/BROWSER_AGENT_DESIGN.md)
+    from friday.browser_agent.doctor import (
+        check as browser_agent_check,  # general browser agent (docs/BROWSER_AGENT_DESIGN.md)
+    )
 
     for status, msg in browser_agent_check(settings):
         sec.add({"ok": OK, "warn": WARN, "fail": FAIL}[status], msg)

@@ -1941,6 +1941,7 @@ CREATE TABLE robin_consents (
     item VARCHAR(32) NOT NULL, 
     given_at TIMESTAMP WITH TIME ZONE NOT NULL, 
     source VARCHAR(12) NOT NULL, 
+    given_by VARCHAR(16) NOT NULL, 
     withdrawn_at TIMESTAMP WITH TIME ZONE, 
     id VARCHAR(32) NOT NULL, 
     created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
@@ -1981,6 +1982,42 @@ CREATE INDEX ix_robin_records_due ON robin_records (kind, status, due_at);
 CREATE INDEX ix_robin_records_family_kind ON robin_records (family_id, kind, at);
 
 UPDATE alembic_version SET version_num='0019_robin_family' WHERE alembic_version.version_num = '0018_refunds';
+
+-- Running upgrade 0019_robin_family -> 0020_robin_device
+
+DROP TABLE IF EXISTS robin_device_codes;
+
+DROP TABLE IF EXISTS robin_device_states;
+
+CREATE TABLE robin_device_states (
+    parent_id VARCHAR(32) NOT NULL, 
+    token_hash VARCHAR(64), 
+    version INTEGER NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_device_states PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX ix_robin_device_states_parent_id ON robin_device_states (parent_id);
+
+CREATE INDEX ix_robin_device_states_token_hash ON robin_device_states (token_hash);
+
+CREATE TABLE robin_device_codes (
+    code_hash VARCHAR(64) NOT NULL, 
+    parent_id VARCHAR(32) NOT NULL, 
+    expires_ms BIGINT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_device_codes PRIMARY KEY (id), 
+    CONSTRAINT uq_robin_device_codes_code_hash UNIQUE (code_hash)
+);
+
+CREATE INDEX ix_robin_device_codes_parent_id ON robin_device_codes (parent_id);
+
+UPDATE alembic_version SET version_num='0020_robin_device' WHERE alembic_version.version_num = '0019_robin_family';
 
 COMMIT;
 

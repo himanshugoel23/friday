@@ -21,7 +21,7 @@ TABLES = {"drive_links", "drive_folders", "drive_shares"}
 def test_migration_0016_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0019_robin_family"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0020_robin_device"
     assert "0014_documents" in doctor.known_revisions()
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
     migrate.upgrade(url)

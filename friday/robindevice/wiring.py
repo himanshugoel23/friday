@@ -33,6 +33,34 @@ def maybe_mount(app: Any, container: Any) -> Any | None:
     service = DeviceService(
         alerts=ports["alerts"], consent=ports["consent"], parents=ports["parents"],
         voice=ports.get("voice"), llm=ports.get("llm"), brand=brand_name(settings),
+        store=_build_store(container),
     )
     mount_robin_device(app, service)
+    _attach_sweep(container, service)
     return service
+
+
+def _build_store(container: Any) -> Any:
+    """DB-backed store (migration 0020_robin_device) when the container has a database; else in memory."""
+    from friday.robindevice.store import InMemoryDeviceStore
+
+    try:
+        db = container.get("repos").db
+    except Exception:  # noqa: BLE001 - no database wired
+        db = None
+    if db is None:
+        log.warning("robin device: no database, device state is kept in memory only (a restart forgets pairings)")
+        return InMemoryDeviceStore()
+    from friday.robindevice.dbmodel import DbDeviceStore
+
+    return DbDeviceStore(db)
+
+
+def _attach_sweep(container: Any, service: Any) -> None:
+    """Let the Robin scheduler (``RobinHub.tick``) run ``DeviceService.sweep`` (S7 unreachable, S8 season)."""
+    try:
+        hub = container.get("robin")
+    except Exception:  # noqa: BLE001
+        hub = None
+    if hub is not None and hasattr(hub, "attach_device_sweep"):
+        hub.attach_device_sweep(service.sweep)
