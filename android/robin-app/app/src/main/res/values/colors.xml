@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="robin_bg">#FFFFFF</color>
+    <color name="robin_ink">#1B1B1B</color>
+    <color name="robin_sos">#B3261E</color>
+    <color name="robin_voice">#0B57D0</color>
+    <color name="robin_launcher_bg">#0B57D0</color>
+</resources>

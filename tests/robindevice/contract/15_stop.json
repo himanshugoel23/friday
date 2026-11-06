@@ -1,0 +1,18 @@
+{
+  "name": "stop",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/stop",
+    "auth": true
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "stopped": true,
+      "paused": true
+    }
+  },
+  "open": []
+}

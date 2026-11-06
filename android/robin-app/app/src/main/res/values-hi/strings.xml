@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HINDI PLACEHOLDERS: ALL PENDING FOUNDER APPROVAL (hear-before-change). Working text only, not final copy.
+  They must be reviewed by a native speaker and approved before any Play release.
+-->
+<resources>
+    <string name="pairing_title">परिवार से मिला कोड डालें</string>
+    <string name="pairing_hint">8 अक्षरों का कोड</string>
+    <string name="pairing_button">जोड़ें</string>
+    <string name="pairing_err_format">यह कोड सही नहीं लग रहा। इसमें 8 अक्षर और अंक होते हैं।</string>
+    <string name="pairing_err_wrong">कोड गलत है या पुराना हो गया है। परिवार से नया कोड मांगें।</string>
+    <string name="pairing_err_network">कनेक्शन नहीं है। दोबारा कोशिश करें।</string>
+    <string name="pairing_err_rate">बहुत कोशिशें हो गईं। एक मिनट रुकें।</string>
+    <string name="pairing_err_server">कुछ गड़बड़ हुई। बाद में कोशिश करें।</string>
+    <string name="pairing_unpaired">यह फ़ोन अब जुड़ा नहीं है। नया कोड डालें।</string>
+    <string name="pairing_not_configured">इस ऐप में सर्वर का पता नहीं है।</string>
+
+    <string name="home_sos">SOS</string>
+    <string name="home_sos_hold">दबाकर रखें</string>
+    <string name="home_voice">आवाज़ संदेश</string>
+    <string name="home_voice_hold">दबाकर बोलें, फिर छोड़ें</string>
+    <string name="home_call_112">112 पर कॉल करें</string>
+    <string name="home_stop">रोकें</string>
+    <string name="home_start_again">फिर शुरू करें</string>
+    <string name="home_paused_banner">रुका हुआ है। SOS और आवाज़ संदेश चलते रहेंगे।</string>
+    <string name="home_what_is_on">क्या चालू है</string>
+    <string name="home_consent">परिवार ने क्या अनुमति दी</string>
+
+    <string name="sos_sending">भेज रहे हैं</string>
+    <string name="sos_sent">भेज दिया</string>
+    <string name="sos_not_sent">नहीं भेज पाए। कृपया 112 पर कॉल करें।</string>
+    <string name="voice_recording">रिकॉर्ड हो रहा है। भेजने के लिए छोड़ें।</string>
+    <string name="voice_too_short">बहुत छोटा। थोड़ा और देर दबाएं।</string>
+    <string name="voice_sending">भेज रहे हैं</string>
+    <string name="voice_sent">भेज दिया</string>
+    <string name="voice_failed">नहीं भेज पाए। दोबारा कोशिश करें।</string>
+    <string name="voice_no_consent">परिवार ने आवाज़ संदेश चालू नहीं किए हैं।</string>
+    <string name="voice_mic_needed">आवाज़ संदेश के लिए माइक्रोफ़ोन चाहिए। यह सिर्फ़ तब चलता है जब आप बटन दबाए रखते हैं।</string>
+    <string name="voice_no_mic">यह फ़ोन रिकॉर्ड नहीं कर सकता।</string>
+
+    <string name="whatson_title">क्या चालू है</string>
+    <string name="whatson_paused">रुका हुआ</string>
+    <string name="whatson_learning">सीखने का हफ़्ता: %1$d दिन बाकी</string>
+    <string name="whatson_collected">क्या जमा होता है</string>
+    <string name="whatson_never">क्या कभी जमा नहीं होता</string>
+    <string name="whatson_told">परिवार को क्या बताया गया</string>
+    <string name="whatson_told_none">अभी कुछ नहीं</string>
+    <string name="whatson_nothing_on">कुछ भी जमा नहीं हो रहा</string>
+    <string name="whatson_allowed">परिवार ने अनुमति दी</string>
+    <string name="whatson_withdrawn">बंद</string>
+    <string name="whatson_load_failed">लोड नहीं हुआ। दोबारा कोशिश करें।</string>
+
+    <string name="consent_title">परिवार ने क्या अनुमति दी</string>
+    <string name="consent_note">ये परिवार ने चुने हैं। आप इनमें से कोई भी यहां बंद कर सकते हैं।</string>
+    <string name="consent_withdraw">बंद करें</string>
+    <string name="consent_off">बंद</string>
+    <string name="consent_on">चालू</string>
+    <string name="back">वापस</string>
+
+    <string name="item_calls">अनजान नंबर से कॉल</string>
+    <string name="item_camera">कैमरा चालू होना</string>
+    <string name="item_remote_access">रिमोट कंट्रोल ऐप</string>
+    <string name="item_payment_app">बैंक या UPI ऐप खुलना</string>
+    <string name="item_payment_notifications">भुगतान की रकम</string>
+    <string name="item_unknown_sources">स्टोर के बाहर से ऐप</string>
+    <string name="item_heartbeat">फ़ोन हाल में दिखा</string>
+    <string name="item_share_check">आप जो भेजें उसकी जांच</string>
+    <string name="item_share_alert_child">जोखिम वाली चीज़ परिवार को बताना</string>
+    <string name="item_location">SOS के साथ जगह</string>
+    <string name="item_voice_messages">आवाज़ संदेश</string>
+    <string name="item_call_pattern">कॉल की बातचीत की जांच</string>
+    <string name="item_other">अन्य</string>
+
+    <string name="widget_sos">SOS</string>
+    <string name="widget_voice">आवाज़</string>
+    <string name="widget_description">SOS और आवाज़ संदेश के बटन</string>
+</resources>

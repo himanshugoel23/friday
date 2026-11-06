@@ -1,0 +1,31 @@
+{
+  "name": "consent_get",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "GET",
+    "path": "/robin/device/consent",
+    "auth": true
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "consent_basis": "admin_on_behalf",
+      "items": {
+        "calls": true,
+        "camera": true,
+        "remote_access": true,
+        "payment_app": true,
+        "payment_notifications": true,
+        "unknown_sources": true,
+        "heartbeat": true,
+        "share_check": true,
+        "share_alert_child": true,
+        "location": true,
+        "voice_messages": true,
+        "call_pattern": true
+      }
+    }
+  },
+  "open": []
+}

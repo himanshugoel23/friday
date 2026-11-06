@@ -1,0 +1,24 @@
+{
+  "name": "err_voice_no_consent",
+  "note": "",
+  "setup": [
+    "no_voice_consent"
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/voice",
+    "auth": true,
+    "headers": {
+      "Content-Type": "audio/ogg",
+      "X-Duration-S": "3"
+    },
+    "body_ascii": "OggS-fake-audio-bytes"
+  },
+  "response": {
+    "status": 403,
+    "json": {
+      "error": "no_consent"
+    }
+  },
+  "open": []
+}

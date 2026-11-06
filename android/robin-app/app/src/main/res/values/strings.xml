@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ALL USER-FACING STRINGS IN THIS FILE ARE PENDING FOUNDER APPROVAL (hear-before-change).
+  They are neutral working placeholders so the screens can be built and tested; none is final copy.
+  Do not ship to Play until each line (English here, Hindi in values-hi) has been approved.
+  The app name ("app_name") is generated at build time from the build property robin.brandName.
+  Lines that come from the server (prompts, SOS reply, transparency lists) are server-side and also PENDING there.
+-->
+<resources>
+    <string name="copy_status" translatable="false">PENDING founder approval</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">Enter the code from your family</string>
+    <string name="pairing_hint">8-character code</string>
+    <string name="pairing_button">Connect</string>
+    <string name="pairing_err_format">That code does not look right. It has 8 letters and numbers.</string>
+    <string name="pairing_err_wrong">This code is wrong or has expired. Ask your family for a new one.</string>
+    <string name="pairing_err_network">No connection. Please try again.</string>
+    <string name="pairing_err_rate">Too many tries. Please wait a minute.</string>
+    <string name="pairing_err_server">Something went wrong. Please try again later.</string>
+    <string name="pairing_unpaired">This phone is not connected any more. Enter a new code.</string>
+    <string name="pairing_not_configured">This build has no server address.</string>
+
+    <!-- Home -->
+    <string name="home_sos">SOS</string>
+    <string name="home_sos_hold">Press and hold</string>
+    <string name="home_voice">Voice message</string>
+    <string name="home_voice_hold">Hold, speak, let go</string>
+    <string name="home_call_112">Call 112</string>
+    <string name="home_stop">Stop</string>
+    <string name="home_start_again">Start again</string>
+    <string name="home_paused_banner">Paused. SOS and voice messages still work.</string>
+    <string name="home_what_is_on">What is on</string>
+    <string name="home_consent">What my family allowed</string>
+
+    <!-- SOS and voice -->
+    <string name="sos_sending">Sending</string>
+    <string name="sos_sent">Sent</string>
+    <string name="sos_not_sent">Could not send. Please call 112.</string>
+    <string name="voice_recording">Recording. Let go to send.</string>
+    <string name="voice_too_short">Too short. Hold longer.</string>
+    <string name="voice_sending">Sending</string>
+    <string name="voice_sent">Sent</string>
+    <string name="voice_failed">Could not send. Please try again.</string>
+    <string name="voice_no_consent">Your family has not turned on voice messages.</string>
+    <string name="voice_mic_needed">The microphone is needed for voice messages. It is used only while you hold the button.</string>
+    <string name="voice_no_mic">This phone cannot record.</string>
+
+    <!-- What is on -->
+    <string name="whatson_title">What is on</string>
+    <string name="whatson_paused">Paused</string>
+    <string name="whatson_learning">Learning week: %1$d days left</string>
+    <string name="whatson_collected">What is collected</string>
+    <string name="whatson_never">What is never collected</string>
+    <string name="whatson_told">What your family was told</string>
+    <string name="whatson_told_none">Nothing yet</string>
+    <string name="whatson_nothing_on">Nothing is being collected</string>
+    <string name="whatson_allowed">Allowed by your family</string>
+    <string name="whatson_withdrawn">Turned off</string>
+    <string name="whatson_load_failed">Could not load. Please try again.</string>
+
+    <!-- Consent (read only; withdraw only) -->
+    <string name="consent_title">What my family allowed</string>
+    <string name="consent_note">Your family chose these. You can turn any of them off here.</string>
+    <string name="consent_withdraw">Turn off</string>
+    <string name="consent_off">Off</string>
+    <string name="consent_on">On</string>
+    <string name="back">Back</string>
+
+    <!-- Consent item names -->
+    <string name="item_calls">Calls from unknown numbers</string>
+    <string name="item_camera">Camera in use</string>
+    <string name="item_remote_access">Remote-control apps</string>
+    <string name="item_payment_app">Bank or UPI app opened</string>
+    <string name="item_payment_notifications">Payment amounts</string>
+    <string name="item_unknown_sources">Apps from outside the store</string>
+    <string name="item_heartbeat">Phone seen recently</string>
+    <string name="item_share_check">Checking things you share</string>
+    <string name="item_share_alert_child">Telling your family about risky shares</string>
+    <string name="item_location">Location with SOS</string>
+    <string name="item_voice_messages">Voice messages</string>
+    <string name="item_call_pattern">Call conversation check</string>
+    <string name="item_other">Other</string>
+
+    <!-- Widget -->
+    <string name="widget_sos">SOS</string>
+    <string name="widget_voice">Voice</string>
+    <string name="widget_description">SOS and voice message buttons</string>
+</resources>

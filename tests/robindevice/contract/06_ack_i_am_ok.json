@@ -1,0 +1,21 @@
+{
+  "name": "ack_i_am_ok",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/ack",
+    "auth": true,
+    "json": {
+      "kind": "i_am_ok"
+    }
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "ok": true,
+      "message": "Shukriya. Maine apne bete ya beti ko bata diya hai ki aap theek hain."
+    }
+  },
+  "open": []
+}

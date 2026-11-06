@@ -1,0 +1,21 @@
+{
+  "name": "pause",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/pause",
+    "auth": true,
+    "json": {
+      "minutes": 30
+    }
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "paused": true,
+      "until_ms": 1788944400000
+    }
+  },
+  "open": []
+}

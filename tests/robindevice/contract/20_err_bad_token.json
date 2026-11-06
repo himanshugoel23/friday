@@ -1,0 +1,19 @@
+{
+  "name": "err_bad_token",
+  "note": "",
+  "setup": [
+    "bad_token"
+  ],
+  "request": {
+    "method": "GET",
+    "path": "/robin/device/consent",
+    "auth": true
+  },
+  "response": {
+    "status": 404,
+    "json": {
+      "detail": "Not Found"
+    }
+  },
+  "open": []
+}

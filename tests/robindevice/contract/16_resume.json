@@ -1,0 +1,17 @@
+{
+  "name": "resume",
+  "note": "",
+  "setup": [],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/resume",
+    "auth": true
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "paused": false
+    }
+  },
+  "open": []
+}
