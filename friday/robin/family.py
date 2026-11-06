@@ -30,6 +30,7 @@ from friday.robin.models import (
     Role,
     Sensitivity,
 )
+from friday.robin.ports import run_erase_hooks
 from friday.robin.store import Record
 
 log = get_logger(__name__)
@@ -121,10 +122,12 @@ class FamilyService:
             return None  # the basis and the source must agree
         c = await self.store.save_consent(Consent(family_id=family.id, member_id=member.id, item=item, given_at=self.ctx.clock.now(), source=source, given_by=given_by), family.owner_user_id)
         if family.status == FamilyStatus.ONBOARDING:
-            await self.set_status(family, FamilyStatus.ACTIVE)
+            # the admin can never undo a parent's STOP: a parent who paused during setup keeps the family PAUSED
+            await self.set_status(family, FamilyStatus.PAUSED if member.paused else FamilyStatus.ACTIVE)
+        actor = "guardian" if given_by == "admin_on_behalf" and family.settings.guardian_basis else given_by
         who = family.parent_label if given_by == "user" else "the admin, on their behalf"
         flag = " Legal-review flag." if given_by == "admin_on_behalf" and item in SENSITIVE_ITEMS else ""
-        await self.ctx.audit(family, "consent", f"{who} agreed to {ITEM_LABEL[item][0]} ({source.value}).{flag}", item=item, source=source.value, given_by=given_by)
+        await self.ctx.audit(family, "consent", f"{who} agreed to {ITEM_LABEL[item][0]} ({source.value}).{flag}", item=item, source=source.value, given_by=given_by, actor=actor, at=c.given_at.isoformat())
         return c
 
     async def request_consent(self, family: Family, item: str) -> str:
@@ -133,7 +136,7 @@ class FamilyService:
             return "unknown_item"
         key = f"req:{item}"
         await self.store.put(Record(family_id=family.id, user_id=family.owner_user_id, kind="pending", key=key, status="requested", at=self.ctx.clock.now(), data={"item": item}))
-        await self.ctx.audit(family, "consent_request", f"The admin asked for {ITEM_LABEL[item][0]}; waiting for {family.parent_label}.", item=item)
+        await self.ctx.audit(family, "consent_request", f"The admin asked for {ITEM_LABEL[item][0]}; waiting for {family.parent_label}.", item=item, actor="admin_on_behalf", source="admin_chat", at=self.ctx.clock.now().isoformat())
         return "requested" if item in SENSITIVE_ITEMS else "not_sensitive"
 
     async def set_guardian(self, family: Family, basis: str) -> bool:
@@ -183,7 +186,8 @@ class FamilyService:
         await self.ctx.audit(family, "notify", f"Reminded {family.parent_label} of what is switched on.")
         return True
 
-    async def withdraw_consent(self, member_id: str, item: str, *, tell_child: bool = True) -> bool:
+    async def withdraw_consent(self, member_id: str, item: str, *, tell_child: bool = True, actor: str = "user", source: str = "voice") -> bool:
+        """``actor``: user (the parent), admin_on_behalf (the child) or guardian; ``source``: voice / app / parent_device / admin_chat."""
         member = await self.store.get_member(member_id)
         if member is None:
             return False
@@ -192,19 +196,20 @@ class FamilyService:
             return False
         ok = await self.store.withdraw(member.id, item, self.ctx.clock.now())
         if ok:
-            await self.ctx.audit(family, "consent", f"{family.parent_label} withdrew consent for {ITEM_LABEL.get(item, (item,))[0]}.", item=item)
+            who = family.parent_label if actor == "user" else "the admin, on their behalf"
+            await self.ctx.audit(family, "consent", f"{who} withdrew consent for {ITEM_LABEL.get(item, (item,))[0]} ({source}).", item=item, source=source, actor=actor, at=self.ctx.clock.now().isoformat())
             if tell_child:
                 lang = await self.ctx.chat_lang(family)
                 await self.ctx.tell_child(family, self.ctx.say("consent.withdrawn", lang, parent=family.parent_label, item=ITEM_LABEL.get(item, (item, item))[0 if lang == "en" else 1]))
         return ok
 
-    async def withdraw_all(self, member_id: str) -> int:
+    async def withdraw_all(self, member_id: str, *, actor: str = "user", source: str = "voice") -> int:
         member = await self.store.get_member(member_id)
         if member is None:
             return 0
         n = 0
         for c in await self.store.consents(member.family_id, member.id):
-            if c.active and await self.withdraw_consent(member.id, c.item, tell_child=False):
+            if c.active and await self.withdraw_consent(member.id, c.item, tell_child=False, actor=actor, source=source):
                 n += 1
         return n
 
@@ -218,21 +223,26 @@ class FamilyService:
         await self.store.save_member(m, fam.owner_user_id)
         if fam.status == FamilyStatus.ACTIVE:
             await self.set_status(fam, FamilyStatus.PAUSED)
-        await self.ctx.audit(fam, "pause", f"{fam.parent_label} paused {self.ctx.brand} ({source}).")
+        await self.ctx.audit(fam, "pause", f"{fam.parent_label} paused {self.ctx.brand} ({source}).", actor="user", source=source, at=self.ctx.clock.now().isoformat())
         lang = await self.ctx.chat_lang(fam)
         await self.ctx.tell_child(fam, self.ctx.say("pause.parent", lang, parent=fam.parent_label))
         return True
 
-    async def resume(self, parent_member_id: str, source: str = "voice") -> bool:
+    async def resume(self, parent_member_id: str, source: str = "voice", actor: str = "user") -> bool:
+        """Only the PARENT resumes after a parent pause. Any other actor (the admin, a guardian) is refused and audited."""
         m = await self.store.get_member(parent_member_id)
         fam = await self.store.get_family(m.family_id) if m else None
         if m is None or fam is None or m.role != Role.PARENT or fam.status == FamilyStatus.DELETED:
+            return False
+        if actor != "user":
+            if m.paused:
+                await self.ctx.audit(fam, "resume_refused", f"The admin tried to resume {self.ctx.brand} after {fam.parent_label} paused it; refused, only {fam.parent_label} can resume.", actor=actor, source=source, at=self.ctx.clock.now().isoformat())
             return False
         m.paused, m.paused_at = False, None
         await self.store.save_member(m, fam.owner_user_id)
         if fam.status == FamilyStatus.PAUSED:
             await self.set_status(fam, FamilyStatus.ACTIVE)
-        await self.ctx.audit(fam, "resume", f"{fam.parent_label} resumed {self.ctx.brand} ({source}).")
+        await self.ctx.audit(fam, "resume", f"{fam.parent_label} resumed {self.ctx.brand} ({source}).", actor="user", source=source, at=self.ctx.clock.now().isoformat())
         lang = await self.ctx.chat_lang(fam)
         await self.ctx.tell_child(fam, self.ctx.say("resume.parent", lang, parent=fam.parent_label))
         return True
@@ -331,9 +341,25 @@ class FamilyService:
         return out
 
     # ------------------------------------------------------------------ delete everything
-    async def erase(self, family: Family) -> dict[str, int]:
+    async def erase(self, family: Family, *, actor: str = "admin_on_behalf", source: str = "admin_chat", tell_child: bool = False) -> dict[str, int]:
+        """'Delete everything' for one family: the CHILD (admin) owns this. Removes the family rows AND, through the erase
+        hooks, everything the device package holds for the parents (rows, pairing codes, live analyzers, token cache), so the
+        phone's token stops working. Audited without personal data (counts only, kept in the core audit log because the family's
+        own log is erased too). ``tell_child``: send ``cmd.delete_done`` once (the chat command replies itself, so it passes False)."""
+        parents = [m.id for m in await self.store.members(family.id, Role.PARENT)]
+        owner_id, label = family.owner_user_id, family.parent_label
+        lang = await self.ctx.chat_lang(family)
         counts = await self.store.erase_family(family.id)
+        counts.update(await run_erase_hooks(parents))
         log.info("robin: family erased (%s)", ",".join(f"{k}={v}" for k, v in counts.items()))
+        sink = self.ctx.audit_sink
+        if sink is not None:
+            try:
+                await sink("robin.family_erased", owner_id, actor=actor, source=source, counts=counts)
+            except Exception as e:  # noqa: BLE001 - the erase already happened
+                log.error("robin: erase audit failed (%s)", type(e).__name__)
+        if tell_child:
+            await self.ctx.send(owner_id, self.ctx.say("cmd.delete_done", lang, parent=label), [])
         return counts
 
     # ------------------------------------------------------------------ lookup by phone (inbound parent call, app)

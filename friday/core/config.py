@@ -617,6 +617,7 @@ class Settings(BaseSettings):
     robin_missed_ring_max: int = Field(default=6, ge=1, le=6)  # ... at most this many tries
     robin_refill_days: int = Field(default=5, ge=1, le=30)  # refill alert to the child N days before stock ends
     robin_audit_retention_days: int = Field(default=30, ge=1)  # 'what Robin did' rows are deleted after this
+    robin_incident_retention_days: int = Field(default=90, ge=1)  # CLOSED incident records are deleted after this (proposed default, founder to confirm)
     # ------------------------------------------------ family Google Drive (familydrive/)
     # docs/FAMILY_DRIVE.md. OFF: no Drive scope is requested and nothing is filed. Family documents
     # live ONLY in the family's own Drive (scope drive.file); we keep a file-id pointer and minimal

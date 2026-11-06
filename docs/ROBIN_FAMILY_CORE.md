@@ -26,6 +26,7 @@ in this repo places or simulates a real 112 call; the SOS flow itself still only
 | `FRIDAY_ROBIN_REFILL_DAYS` | 5 | refill alert to the child N days before stock ends (also at 2 days) |
 | `FRIDAY_ROBIN_CALL_AUDIO_RETENTION_DAYS` | 0 | listening cues only; nothing kept by default |
 | `FRIDAY_ROBIN_AUDIT_RETENTION_DAYS` / `_TICK_S` | 30 / 30 | audit rows are deleted after this; scheduler poll |
+| `FRIDAY_ROBIN_INCIDENT_RETENTION_DAYS` | 90 | closed/exhausted incident records are deleted after this (proposed default; an open incident is never deleted) |
 
 Per family (admin chat): check-in time, quiet hours (default 22:00 to 07:00), sensitivity Calm/Balanced/Careful, refill days, `good_morning`, `festival_graphics`
 (both default off), safe-word on/off, guardian basis.
@@ -133,3 +134,11 @@ founder's explicit approval. Preconditions, each audited when it refuses: (1) sw
 (sent even with the switch off, it is text, and says Robin filed nothing); DISTRESS -> never a call, handed to the care protocol (not built) and the child is told; (5) the parent's name and address from the profile (`parent name ...`, `address ...` by the admin), a fixed calm script (what, where, who, callback = the child's number), see `authority.script_112`;
 (6) a 60-second "I am fine" cancel window with a spoken countdown (`authority.countdown`), skipped only when the parent does not answer; "I am fine", "cancel", "Mark safe" or "I have it" cancel it; (7) a hard cap of one authority call per incident and an audit record. Tests (`tests/robin/test_desk_missed.py`) check every refusal, the cap, that fraud never reaches 112 and that no authority number is ever passed to the dialler.
 Unverified: whether an automated call to 112/1930 is lawful or accepted (legal review needed before any live adapter), forwarding/conference to 1930, and the wording of every `authority.*`, `missed.*` line (PENDING).
+
+
+## T03: consent, erase, SOS, retention (2026-11-06)
+- **Owner of consent and erase is the child (admin).** `FamilyService.erase` and `DataPurger.purge_user` also erase the device package's rows (`robin_device_states`, `robin_device_codes`, keyed by the parent's member id) and, through the hook registry in `robin/ports.py` (`register_erase_hook`, no import cycle), `DeviceService.erase_parent` drops the token cache and live analyzers. The device token is rejected afterwards (the device API answers a plain 404 to any bad token). A family erase is audited in the core audit log (counts only).
+- **SOS always works.** Before the family is ACTIVE (setup unfinished, no consent, no `call_ok`) an SOS still messages and rings the child (up to 3 rings); no second contact and no authority step in that minimal plan. With no child contact it logs an error and answers `no_child_contact`. Every other scenario is still `family_not_active`.
+- **Consent audit:** every grant, withdrawal, pause, resume (and refused resume) carries `actor` (`admin_on_behalf` / `user` / `guardian`), `source` and `at`. Only the parent resumes after a parent pause (`FamilyService.resume(..., actor=)` refuses any other actor); the admin's consent never un-pauses a parent who stopped during setup.
+- **Retention (scheduler, `RobinHub.tick`):** audit 30 d, closed incidents 90 d, device events 7 d (the engine also trims to 48 h), call-pattern cues `call_text_retain_days` (1 day when 0).
+- Guards: `tests/security/test_robin_at_rest.py` (every Robin column encrypted or allow-listed), `tests/security/test_no_secrets_in_repo.py` (+ `secrets_allowlist.txt`).

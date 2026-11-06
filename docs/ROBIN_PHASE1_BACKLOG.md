@@ -64,7 +64,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 |---|---|---|---|---|
 | T01 | Fix the device-to-family alert contract (tier/scenario/SOS) | fakes only | none | DONE 2026-11-06 |
 | T02 | Persist device, pairing and call-pattern state (encrypted DB) + sweep scheduler | fakes only (SQLite; Postgres opt-in) | none | DONE 2026-11-06 |
-| T03 | Consent and delete-everything integrity, retention jobs, encryption-at-rest check, secrets scan | fakes only | none | TODO |
+| T03 | Consent and delete-everything integrity, retention jobs, encryption-at-rest check, secrets scan | fakes only | none | DONE 2026-11-06 |
 | T04 | End-to-end safety harness with fakes (child chat -> consent notice -> check-in -> alert -> escalation) + PII-free log gate | fakes only | none | TODO |
 | T05 | Observability without PII: doctor lines, ops-status counts, `deploy/enable-robin.sh` | fakes only | none | TODO |
 | T06 | Authority-call lock (dry-run proofs), rate limits, pairing brute-force defence, abuse tests | fakes only | none | TODO |

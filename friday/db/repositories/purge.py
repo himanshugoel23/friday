@@ -47,9 +47,11 @@ from friday.quality.models import QualityCallRow
 from friday.quotes.dbmodel import QuoteConversationRow
 from friday.receptionist.dbmodel import purge_user_receptionist
 from friday.refunds.dbmodel import purge_user_refunds
+from friday.robin.dbmodel import RobinMemberRow, purge_user_robin
+from friday.robin.ports import run_erase_hooks
+from friday.robindevice.dbmodel import purge_user_robin_device
 from friday.savings.dbmodel import BillRow, SavingsLedgerRow, WalletCardRow
 from friday.trips.dbmodel import purge_user_trips
-from friday.robin.dbmodel import purge_user_robin
 from friday.urgent.dbmodel import purge_user_urgent
 
 
@@ -122,6 +124,17 @@ class DataPurger(Repo):
             counts.update(await purge_user_evidence(s, user_id))  # proof items + claims
             counts.update(await purge_user_documents(s, user_id))  # understood documents
             counts.update(await purge_user_urgent(s, user_id))  # urgent-call escalation state
+            parent_ids = list(
+                (
+                    await s.execute(
+                        select(RobinMemberRow.id).where(
+                            RobinMemberRow.user_id == user_id, RobinMemberRow.role == "parent"
+                        )
+                    )
+                ).scalars()
+            )
+            # device state + pairing codes (keyed by the parent's member id)
+            counts.update(await purge_user_robin_device(s, parent_ids))
             counts.update(await purge_user_robin(s, user_id))  # Robin family, members, consents, records
             counts.update(await purge_user_family_drive(s, user_id))  # Drive links, folders, shares
             counts.update(await purge_user_trips(s, user_id))  # trips, legs, tasks, nudges
@@ -188,4 +201,6 @@ class DataPurger(Repo):
                     updated_at=self.now(),
                 )
             )
+        if parent_ids:  # live in-memory device state (analyzers, token cache); the rows are already gone
+            counts.update(await run_erase_hooks(parent_ids))
         return counts

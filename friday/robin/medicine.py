@@ -163,7 +163,8 @@ class MedicineService:
         return out
 
     async def add(self, family: Family, med: Medicine, *, status: str = "active") -> Record:
-        key = (("p:" if status == "proposed" else "") + re.sub(r"\W+", "", med.name.lower()))[:64]
+        # the unique key is a KEYED HASH of the name: a medicine name is health data and must not sit in a plaintext column
+        key = ("p:" if status == "proposed" else "") + self.store.hasher.cipher.blind_index(re.sub(r"\W+", "", med.name.lower()), label="robin_medicine")[:60]
         old = await self.store.by_key(family.id, "medicine", key)
         if old is not None:
             await self.store.delete_record(old.id)  # same name again = replace

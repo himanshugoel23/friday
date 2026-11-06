@@ -37,6 +37,9 @@ def maybe_mount(app: Any, container: Any) -> Any | None:
     )
     mount_robin_device(app, service)
     _attach_sweep(container, service)
+    from friday.robin.ports import register_erase_hook
+
+    register_erase_hook("robindevice", service.erase_parent)  # 'delete everything' drops device rows, token cache and analyzers
     return service
 
 

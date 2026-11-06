@@ -206,3 +206,15 @@ class DbDeviceStore:
         async with self.db.session() as s:
             await s.execute(delete(RobinDeviceStateRow).where(RobinDeviceStateRow.parent_id == parent_id))
             await s.execute(delete(RobinDeviceCodeRow).where(RobinDeviceCodeRow.parent_id == parent_id))
+
+
+async def purge_user_robin_device(s, parent_ids: list[str]) -> dict[str, int]:  # noqa: ANN001
+    """Used by ``DataPurger.purge_user`` (inside its session): the device rows of the given parent member ids
+    (``robin_members.id``; these tables carry no user id). Idempotent."""
+    out = {RobinDeviceStateRow.__tablename__: 0, RobinDeviceCodeRow.__tablename__: 0}
+    if not parent_ids:
+        return out
+    for table in (RobinDeviceStateRow, RobinDeviceCodeRow):
+        res = await s.execute(delete(table).where(table.parent_id.in_(list(parent_ids))))
+        out[table.__tablename__] = int(res.rowcount or 0)
+    return out

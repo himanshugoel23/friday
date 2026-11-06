@@ -181,7 +181,7 @@ async def test_raw_columns_hold_no_plaintext_token_code_phone_or_text(rig, db):
     assert len(dump) > 200
     for needle in ("OTP", "bhej", phone, "482913", "28.61234", "77.20987"):
         assert needle not in dump, needle
-    assert not re.search(r"\d{10,}", re.sub(r"\d{13}", "", dump))  # only 13-digit ms timestamps are long numbers
+    assert not re.search(r"\d{10,}", re.sub(r"\d{13}", "", re.sub(r"[0-9a-f]{64}", "", dump)))  # only 13-digit ms timestamps (and 64-hex hashes, which can hold a digit run by chance) are long numbers
 
 
 def test_serialisation_round_trips_every_field():
