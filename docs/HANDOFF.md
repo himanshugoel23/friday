@@ -1529,3 +1529,6 @@ docs/ROBIN_FALL_DETECTION_EM.md (plan, F01-F12) and docs/ROBIN_FALL_DETECTION_DE
 
 ## 2026-11-06: decision D4 (founder)
 The Android safety/protection pack (sensor fall detector, notification access, call-screening) is NOT in the first Play ship: too many Google approvals. First ship = thin widget (SOS, voice note, pairing) plus WhatsApp. Fall detection in the first ship is limited to manual paths (SOS, "I fell", voice) and the inactivity chain (check-in ladder / phone-still); the phone sensor detector and protection pack follow after the thin widget is approved. T15 and fall tickets F05-F07 move behind the thin-widget approval.
+
+## 2026-11-06: founder: "make everything ready to release, build everything"
+First version goes out in the app first, then changes one by one. Plan: run backlog tickets in order (Python tickets one at a time to avoid conflicts; the Android app T14 in parallel because it lives in android/ only), lead reviews/merges/tests/pushes only when green. Release gates only the founder can unblock stay listed in docs/ROBIN_PHASE1_BACKLOG.md section 2 (Meta WhatsApp token, Play account and test phone, line/voice approval, legal review, domain, pilot families).
