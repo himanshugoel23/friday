@@ -1523,3 +1523,6 @@ Founder asked (via the lead): implement ticket T02 of docs/ROBIN_PHASE1_BACKLOG.
 
 ## 2026-11-06: correction, it is FALL detection (not fault)
 Founder clarified: "fall, F-A-L-L". The fault/fraud brainstorm agents were stopped. New brainstorm: fall detection for the parent (Android sensors, widget, false alarms, SOS escalation, Play policy, privacy). Docs only (EM plan + developer design).
+
+## 2026-11-06: fall detection docs delivered
+docs/ROBIN_FALL_DETECTION_EM.md (plan, F01-F12) and docs/ROBIN_FALL_DETECTION_DEV.md (design, F01-F14, signals fall_suspected/fall_cancelled/fall_unanswered/fall_help_requested, scenarios S9/S9N, consent item fall_detection). Founder decisions pending: D1 fall alerts live from day 1 for unanswered/help; D2 auto-promote to EMERGENCY after 5 min unanswered (authority stays dry-run); D3 countdown 30 s (45 s option); D4 Safety pack in first Play build or after thin widget; D5 buy pouch/lanyard/watch for first pilot families. All fall wording/audio PENDING. Next: T03 reshaped (child owns consent/erase, parent soft approval; SOS works before setup is complete).
