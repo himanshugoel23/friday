@@ -549,6 +549,8 @@ class InboundPipeline:
     async def _care(self, user: User, msg: InboundMessage) -> bool:
         """True when the care protocol consumed the message. The stored copy is replaced by a
         placeholder; the text never reaches the brain, the reply log, evidence or a log line."""
+        if msg.kind == MessageKind.BUTTON_REPLY and (msg.button_id or "").startswith("rb:"):
+            return False  # a Robin alert button tap has no words: a care episode must not swallow "Mark safe"
         is_text = msg.kind in (MessageKind.TEXT, MessageKind.VOICE_NOTE) and bool(msg.text)
         try:
             turn = await self.care.screen(user.id, msg.text if is_text else None, is_text=is_text)

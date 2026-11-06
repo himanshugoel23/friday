@@ -665,6 +665,10 @@ class ScenarioEngine:
             details["late"] = True
         if f.tdef.digest:
             details["digest"] = True
+        if f.sc.money and TIER_RANK[f.tier] >= TIER_RANK["HIGH"]:
+            details["money"] = True  # the scenario's rules.yaml flag, which the family side needs for the money note and the quiet-hours / calling-window exception
+        if ":" in f.key:  # an event-anchored finding (S5: one payment = one incident): the family engine must not merge two payments inside its 5-minute bucket
+            details["dedupe_key"] = f"{f.key}:{f.tier}"
         await self.alerts.raise_alert(st.parent_id, f.tier, f.sc.id, f.why or f.sc.name, details)
         st.record_audit({"ts_ms": now, "tier": f.tier, "scenario": f.sc.id, "why": f.why or f.sc.name, "details": details})
         if f.sc.id == "S7":

@@ -176,7 +176,7 @@ class AlertEngine:
         internal = sos or alert.scenario.startswith("checkin")
         if not internal:
             items = await c.active_items(parent)
-            need = {ConsentItem.PAYMENT_ALERTS.value} if alert.money else {ConsentItem.DEVICE_SIGNALS.value, ConsentItem.PAYMENT_ALERTS.value}
+            need = {ConsentItem.DEVICE_SIGNALS.value, ConsentItem.PAYMENT_ALERTS.value}  # either one; the device API already checks the item of each signal, and a money flag must not narrow this (S3 reads the payment APP under device_signals)
             if not (items & need):
                 await c.audit(family, "alert_refused", f"A signal about {family.parent_label} was ignored because they have not agreed to that (consent).", scenario=alert.scenario)
                 return AlertResult(False, "no_consent")
