@@ -35,6 +35,27 @@ class Tier(StrEnum):
 TIER_ORDER = {Tier.INFO: 0, Tier.WATCH: 1, Tier.HIGH: 2, Tier.EMERGENCY: 3}
 
 
+def parse_tier(value: object, default: Tier = Tier.HIGH) -> tuple[Tier, bool]:
+    """Tolerant tier parser for the device/family seam. Case and spaces are ignored ('HIGH', ' emergency ').
+    Returns ``(tier, recognised)``; anything unknown yields ``default`` (HIGH: a garbled tier is never lowered)."""
+    if isinstance(value, Tier):
+        return value, True
+    try:
+        return Tier(str(value).strip().lower()), True
+    except ValueError:
+        return default, False
+
+
+# Scenarios the family package treats specially. The device package sends 'SOS' / 'THREAT'; the family engine tests the lowercase ids.
+_SPECIAL_SCENARIOS = ("sos", "threat", "checkin_unanswered")
+
+
+def normalise_scenario(value: object) -> str:
+    """'SOS' -> 'sos', 'THREAT' -> 'threat'; every other id (S1..S8, SHARE, ...) is kept as sent, only trimmed."""
+    text = str(value or "").strip()
+    return text.lower() if text.lower() in _SPECIAL_SCENARIOS else text
+
+
 class Sensitivity(StrEnum):
     CALM = "calm"
     BALANCED = "balanced"

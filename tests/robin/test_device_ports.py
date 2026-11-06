@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from friday.robin import alerts as alerts_mod
-from friday.robin.models import ConsentSource
+from friday.robin.models import ConsentSource, Tier
 from friday.robin.wiring import (
     DEVICE_TO_FAMILY_CONSENT,
     _DeviceAlerts,
@@ -58,7 +58,7 @@ async def test_a_device_alert_reaches_the_family_engine(w, monkeypatch):
 
     monkeypatch.setattr(alerts_mod, "raise_alert", fake_raise)
     await _DeviceAlerts(w.hub).raise_alert(parent.id, "HIGH", "S1", "unknown caller 22 minutes + camera on", {"money": True, "signals": ["pattern_s1"]})
-    assert seen and seen[0].parent_member_id == parent.id and seen[0].tier == "HIGH" and seen[0].money and seen[0].signals == ("pattern_s1",)
+    assert seen and seen[0].parent_member_id == parent.id and seen[0].tier == Tier.HIGH and seen[0].money and seen[0].signals == ("pattern_s1",)
 
 
 async def test_care_gate_uses_the_container_care_component(w):

@@ -42,7 +42,14 @@ class ParentInfo:
 @runtime_checkable
 class AlertPort(Protocol):
     """Raise an alert to the child. ``details`` holds only enums, ints and the fixed fields documented in
-    the engine (never message text, contact names or numbers). The family package routes it."""
+    the engine (never message text, contact names or numbers). The family package routes it.
+
+    Enum (the contract with the family package, tests/robin/test_alert_contract.py):
+    ``tier`` is one of INFO, WATCH, HIGH, EMERGENCY (the family side accepts any case and treats an unknown
+    value as HIGH, never lower). ``scenario`` is S1..S8, S4P, SHARE or SOS ('SOS' becomes the family 'sos'
+    incident: always rings the child, works while paused and without any consent). ``details`` may carry
+    money (bool), dedupe_key, amount_text, signals (list of ids) and, for SOS only, location {lat, lon}
+    (only when the parent consented to location)."""
 
     async def raise_alert(
         self, parent_id: str, tier: str, scenario: str, why: str, details: dict[str, Any]

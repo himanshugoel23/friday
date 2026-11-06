@@ -33,7 +33,7 @@ from friday.robin.greetings import GreetingService
 from friday.robin.intro import IntroService
 from friday.robin.medicine import MedicineService
 from friday.robin.missedcall import MissedCallService, MissedResult
-from friday.robin.models import Family, Member, Tier
+from friday.robin.models import Family, Member, Tier, normalise_scenario, parse_tier
 from friday.robin.sos import SosResult, SosService
 
 log = get_logger(__name__)
@@ -247,10 +247,15 @@ class _DeviceAlerts:
         from friday.robin import alerts as alerts_mod
 
         d = details or {}
+        tier, known = parse_tier(tier)  # the device package sends 'HIGH'/'EMERGENCY'; unknown -> HIGH, never lower
+        if not known:
+            log.warning("robin: device sent an unknown alert tier, treated as HIGH")
+        loc = d.get("location")
+        location = (float(loc["lat"]), float(loc["lon"])) if isinstance(loc, dict) and "lat" in loc and "lon" in loc else None  # the engine re-checks consent and uses it for SOS only
         await alerts_mod.raise_alert(alerts_mod.RobinAlert(
-            parent_member_id=parent_id, tier=tier, scenario=scenario, why=why, money=bool(d.get("money")),
-            dedupe_key=d.get("dedupe_key"), amount_text=d.get("amount_text"), signals=tuple(d.get("signals", ()) or ()),
-        ))  # type: ignore[arg-type]
+            parent_member_id=parent_id, tier=tier, scenario=normalise_scenario(scenario), why=why, money=bool(d.get("money")),
+            dedupe_key=d.get("dedupe_key"), amount_text=d.get("amount_text"), signals=tuple(d.get("signals", ()) or ()), location=location,
+        ))
 
 
 class _DeviceConsent:

@@ -16,7 +16,7 @@ says they are fine; Robin never blocks a number, never messages a bank or a thir
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
@@ -37,6 +37,8 @@ from friday.robin.models import (
     Sensitivity,
     Step,
     Tier,
+    normalise_scenario,
+    parse_tier,
 )
 from friday.robin.store import Record
 
@@ -145,6 +147,10 @@ class AlertEngine:
     # ------------------------------------------------------------------ the entry point
     async def raise_alert(self, alert: RobinAlert) -> AlertResult:
         c = self.ctx
+        tier_in, known = parse_tier(alert.tier)  # str tiers from other packages: case-insensitive; garbage -> HIGH, never lower
+        if not known:
+            log.warning("robin: unknown alert tier %r treated as HIGH", str(alert.tier)[:20])
+        alert = replace(alert, tier=tier_in, scenario=normalise_scenario(alert.scenario))
         parent = await self.store.get_member(alert.parent_member_id)
         if parent is None or parent.role != Role.PARENT:
             return AlertResult(False, "no_such_parent")
