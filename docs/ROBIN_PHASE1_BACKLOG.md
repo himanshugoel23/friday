@@ -62,7 +62,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 
 | Ticket | Title | Needs real adapter? | Founder input | Status |
 |---|---|---|---|---|
-| T01 | Fix the device-to-family alert contract (tier/scenario/SOS) | fakes only | none | TODO |
+| T01 | Fix the device-to-family alert contract (tier/scenario/SOS) | fakes only | none | DONE 2026-11-06 |
 | T02 | Persist device, pairing and call-pattern state (encrypted DB) + sweep scheduler | fakes only (SQLite; Postgres opt-in) | none | TODO |
 | T03 | Consent and delete-everything integrity, retention jobs, encryption-at-rest check, secrets scan | fakes only | none | TODO |
 | T04 | End-to-end safety harness with fakes (child chat -> consent notice -> check-in -> alert -> escalation) + PII-free log gate | fakes only | none | TODO |
@@ -274,3 +274,8 @@ REPORT (final message, concise): 1) what changed (files), 2) test commands and r
 
 ## 7. Phase 2 (after Phase 1 passes T19; not ticketed yet)
 Good-morning digest (text built in robin/greetings.py), festival graphics (needs PNG renderer, fonts, verified dates, original templates), bill payment (reminder + approved link only; Robin never pays), grocery ordering (official Zepto route), SMS reading (only as default SMS app; notification access is the substitute), sibling plan, document vault with due dates, first-hour recovery playbook automation, human rescue desk (docs/ROBIN_RESCUE_DESK_PILOT.md), bank/insurer partnerships. Each needs its own ticket and the same definition of done.
+
+### Gaps found by T01 (2026-11-06)
+- SOS for a family not yet ACTIVE/PAUSED (onboarding, no consent) is still refused (`family_not_active`): founder decision needed whether SOS should ring the child anyway.
+- Device THREAT still goes through the consent check (same as family-side); device package does not emit THREAT today.
+- scenarios.yaml has no EMERGENCY tier; only device SOS emits it.
