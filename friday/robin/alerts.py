@@ -110,13 +110,15 @@ def effective_tier(tier: Tier, sensitivity: Sensitivity) -> Tier:
     return tier
 
 
-def plan_for(tier: Tier, scenario: str, spacing_s: int) -> list[dict[str, Any]]:
+def plan_for(tier: Tier, scenario: str, spacing_s: int, *, minimal_sos: bool = False) -> list[dict[str, Any]]:
     s = spacing_s
 
     def st(action: str, offset: int) -> dict[str, Any]:
         return {"action": action, "offset_s": offset, "state": "todo", "result": None}
 
-    if scenario == "sos":
+    if scenario == "sos" and minimal_sos:  # family not active yet: only the child (WhatsApp + up to 3 rings), no second contact, no authority
+        steps = [st("wa_child", 0), st("call_child", 0), st("call_child", s), st("call_child", 2 * s)]
+    elif scenario == "sos":
         steps = [st("wa_child", 0), st("wa_second", 0), st("call_child", 0), st("call_child", s), st("call_second", s), st("call_child", 2 * s), st("authority", 3 * s)]
     elif scenario == "checkin_unanswered":
         steps = [st("wa_child", 0), st("call_child", s), st("wa_second", 2 * s), st("call_second", 3 * s)]
@@ -160,7 +162,16 @@ class AlertEngine:
         sos = alert.scenario == "sos"  # an SOS works even after the parent paused Robin: the parent pressed it
         if (parent.paused or family.status == FamilyStatus.PAUSED) and not sos:
             return AlertResult(False, "paused")
-        if family.status not in (FamilyStatus.ACTIVE, FamilyStatus.PAUSED) or (family.status == FamilyStatus.PAUSED and not sos):
+        minimal_sos = False
+        if sos and family.status not in (FamilyStatus.ACTIVE, FamilyStatus.PAUSED):
+            # SOS ALWAYS works (founder, 2026-11-06): setup or consent not complete is no reason to leave the child unwarned.
+            child = await c.child(family)
+            if child is None or not child.phone:
+                log.error("robin: SOS from a family that is not active and has NO child contact; nobody can be told (family %s)", family.id)
+                await c.audit(family, "sos_failed", "An SOS was pressed but there is no contact number for you; nobody could be told.", scenario="sos")
+                return AlertResult(False, "no_child_contact")
+            minimal_sos = True
+        elif family.status not in (FamilyStatus.ACTIVE, FamilyStatus.PAUSED) or (family.status == FamilyStatus.PAUSED and not sos):
             return AlertResult(False, "family_not_active")
         internal = sos or alert.scenario.startswith("checkin")
         if not internal:
@@ -178,7 +189,7 @@ class AlertEngine:
             "tier": tier.value, "scenario": alert.scenario, "why": why, "money": bool(alert.money), "amount_text": alert.amount_text,
             "parent_id": parent.id, "location": list(loc) if loc else None, "occurred_at": (alert.occurred_at or now).isoformat(),
             "category": category_of(alert.scenario, alert.category), "signals": list(alert.signals) + (["sos_button"] if sos else []), "what": "threat" if alert.scenario == "threat" else "unknown",
-            "steps": plan_for(tier, alert.scenario, family.settings.call_spacing_min * 60), "calls": {}, "child_reached": False, "closed_by": None,
+            "steps": plan_for(tier, alert.scenario, family.settings.call_spacing_min * 60, minimal_sos=minimal_sos), "calls": {}, "child_reached": False, "closed_by": None,
         }  # fmt: skip
         status = "closed" if tier == Tier.INFO else "open"
         rec, created = await self.store.put(Record(family_id=family.id, user_id=family.owner_user_id, kind="incident", key=key[:64], status=status, at=now, due_at=now if status == "open" else None, data=data))
@@ -272,7 +283,7 @@ class AlertEngine:
                 return "skipped"
             slots = await c.slots(family)
             line = "child.ring_sos" if sos else "child.ring_unreached" if d["scenario"] == "checkin_unanswered" else "child.ring"
-            out = await c.call(family, child, "escalation_child", [Step(line=line, slots=slots)], dedupe_key=f"{rec.id}:child:{self._calls(d, 'child') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=urgent)
+            out = await c.call(family, child, "escalation_child", [Step(line=line, slots=slots)], dedupe_key=f"{rec.id}:child:{self._calls(d, 'child') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=urgent, sos=sos)
             self._count(d, "child", out.result)
             if out.result == CallResult.ANSWERED:
                 d["child_reached"] = True

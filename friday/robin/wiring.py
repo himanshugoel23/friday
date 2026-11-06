@@ -54,7 +54,7 @@ class WidgetHooks(Protocol):
 
 
 class RobinHub:
-    def __init__(self, ctx: Ctx, *, retries: int = 2, retry_minutes: int = 20, retention_days: int = 30, tick_s: float = 30.0) -> None:
+    def __init__(self, ctx: Ctx, *, retries: int = 2, retry_minutes: int = 20, retention_days: int = 30, incident_retention_days: int = 90, tick_s: float = 30.0) -> None:
         self.ctx = ctx
         self.fam = FamilyService(ctx)
         self.meds = MedicineService(ctx, self.fam)
@@ -68,7 +68,7 @@ class RobinHub:
         self.missed = MissedCallService(ctx, self.fam, self.alerts)
         self.commands = RobinCommands(ctx, self.fam, self.intro, self.checkin, self.meds, self.alerts, safe_word_switch=bool(getattr(ctx.settings, "robin_safe_word_enabled", False)))
         ctx.on_reached = self.checkin.note_reached
-        self.retention_days, self.tick_s, self._ticks = retention_days, tick_s, 0
+        self.retention_days, self.incident_retention_days, self.tick_s, self._ticks = retention_days, incident_retention_days, tick_s, 0
         self._device_sweep: Callable[[], Awaitable[int]] | None = None
 
     # ------------------------------------------------------------------ the child's chat
@@ -158,9 +158,22 @@ class RobinHub:
                 log.exception("robin: tick step failed")
         self._ticks += 1
         if self._ticks % PURGE_EVERY_TICKS == 0:
-            cutoff = self.ctx.clock.now() - timedelta(days=self.retention_days)
-            await self.ctx.store.purge_before("audit", cutoff)
+            try:
+                await self.retention()
+            except Exception:  # noqa: BLE001
+                log.exception("robin: retention failed")
         return n
+
+    async def retention(self) -> dict[str, int]:
+        """Scheduled deletion (every ``PURGE_EVERY_TICKS`` ticks): audit rows after ``retention_days`` (30), finished incident
+        records after ``incident_retention_days`` (90; an open incident is never deleted). Device events and call-pattern cues
+        are cleaned by ``DeviceService.sweep`` in the same tick. Returns counts (no PII)."""
+        now = self.ctx.clock.now()
+        store = self.ctx.store
+        return {
+            "audit": await store.purge_before("audit", now - timedelta(days=self.retention_days)),
+            "incident": await store.purge_before("incident", now - timedelta(days=self.incident_retention_days), ("closed", "exhausted")),
+        }
 
     async def _monthly(self) -> int:
         n = 0
@@ -177,7 +190,12 @@ class RobinHub:
             await asyncio.sleep(self.tick_s)
 
     async def forget_user(self, user_id: str) -> None:
+        from friday.robin.models import Role
+        from friday.robin.ports import run_erase_hooks
+
+        parents = [m.id for f in await self.ctx.store.families_for_owner(user_id) for m in await self.ctx.store.members(f.id, Role.PARENT)]
         await self.ctx.store.erase_owner(user_id)
+        await run_erase_hooks(parents)
 
     async def family(self, user_id: str) -> Family | None:
         return await self.fam.family_of_owner(user_id)
@@ -214,8 +232,11 @@ def build_robin(c: Any) -> RobinHub | None:
     def paused() -> bool:
         return is_paused(s)
 
-    ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=_care_gate(c), paused=paused)
-    hub = RobinHub(ctx, retries=int(s.robin_checkin_retries), retry_minutes=int(s.robin_checkin_retry_minutes), retention_days=int(s.robin_audit_retention_days), tick_s=float(s.robin_tick_s))
+    async def audit_sink(action: str, user_id: str, *, actor: str, source: str, counts: dict[str, int]) -> None:
+        await repos.audit.log(action, user_id=user_id, actor="user", by=actor, source=source, counts=counts)  # counts only, no PII
+
+    ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=_care_gate(c), paused=paused, audit_sink=audit_sink)
+    hub = RobinHub(ctx, retries=int(s.robin_checkin_retries), retry_minutes=int(s.robin_checkin_retry_minutes), retention_days=int(s.robin_audit_retention_days), incident_retention_days=int(s.robin_incident_retention_days), tick_s=float(s.robin_tick_s))
     alerts_mod.set_default_engine(hub.alerts)
     return hub
 
@@ -283,7 +304,7 @@ class _DeviceConsent:
         mapped = DEVICE_TO_FAMILY_CONSENT.get(item)
         if granted or mapped is None:
             return  # only the admin (child) grants, in the family package
-        await self.hub.fam.withdraw_consent(parent_id, mapped, tell_child=True)
+        await self.hub.fam.withdraw_consent(parent_id, mapped, tell_child=True, actor="user", source="parent_device")
 
 
 class _DeviceParents:

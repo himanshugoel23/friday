@@ -293,7 +293,7 @@ class RobinCommands:
         mm = re.match(r"^(disable|switch off|turn off)\s+(.+)$", t)
         if mm and _ITEM_WORDS.get(mm.group(2).strip()) and parent is not None:
             item = _ITEM_WORDS[mm.group(2).strip()]
-            await self.fam.withdraw_consent(parent.id, item, tell_child=False)
+            await self.fam.withdraw_consent(parent.id, item, tell_child=False, actor="admin_on_behalf", source="admin_chat")
             return await self._text(user, f"OK: {ITEM_LABEL[item][0]} off")
         mm = re.match(r"^(good morning|festival greetings?) (on|off)$", t)
         if mm:

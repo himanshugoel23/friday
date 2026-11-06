@@ -163,3 +163,34 @@ class FakeParentChannel:
     async def send_template(self, member: Member, template: str, params: dict[str, str], media: bytes | None = None, media_mime: str | None = None) -> bool:
         self.templates.append((member.id, template, params, media_mime))
         return True
+
+
+# ---------------------------------------------------------------------------- erase hooks (no import cycle)
+# "Delete everything" must also drop what OTHER Robin packages hold for a parent (friday/robindevice: its encrypted
+# state rows, the pairing codes, the live in-memory analyzers and token cache). The family package never imports
+# them: they register an async hook here when they are mounted, and ``FamilyService.erase`` /
+# ``DataPurger.purge_user`` call ``run_erase_hooks`` with the parent member ids. A failing hook never stops the erase.
+EraseHook = Callable[[str], Awaitable[dict[str, int]]]  # (parent member id) -> counts of what was removed
+_ERASE_HOOKS: dict[str, EraseHook] = {}
+
+
+def register_erase_hook(name: str, hook: EraseHook) -> None:
+    _ERASE_HOOKS[name] = hook  # same name replaces (a re-mounted app does not stack hooks)
+
+
+def unregister_erase_hook(name: str) -> None:
+    _ERASE_HOOKS.pop(name, None)
+
+
+async def run_erase_hooks(parent_ids: Sequence[str]) -> dict[str, int]:
+    from friday.core.logging import get_logger
+
+    out: dict[str, int] = {}
+    for name, hook in list(_ERASE_HOOKS.items()):
+        for pid in parent_ids:
+            try:
+                for k, v in (await hook(pid) or {}).items():
+                    out[f"{name}.{k}"] = out.get(f"{name}.{k}", 0) + int(v)
+            except Exception as e:  # noqa: BLE001 - one broken hook never blocks erasure
+                get_logger(__name__).error("robin: erase hook %s failed (%s)", name, type(e).__name__)
+    return out

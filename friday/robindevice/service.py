@@ -57,6 +57,8 @@ STALE_FUTURE_MS = 5 * MIN
 MAX_BATCH = 100
 _INTERNAL_PREFIXES = ("_",)
 FOREVER_MS = 4_102_444_800_000
+DAY_MS = 86_400_000
+EVENT_RETAIN_DAYS = 7  # device events (signals) are kept at most this long (founder-proposed default, a constant for now)
 
 
 def _persisted(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -110,6 +112,7 @@ class DeviceService:
         self.engine = ScenarioEngine(self.rules, alerts, consent, parents, brand=brand)
         self._locks: dict[str, asyncio.Lock] = {}
         self._analyzers: dict[tuple[str, str], CallPatternAnalyzer] = {}
+        self._analyzer_ms: dict[tuple[str, str], int] = {}  # when each analyzer was created (retention)
 
     def _lock(self, parent_id: str) -> asyncio.Lock:
         return self._locks.setdefault(parent_id, asyncio.Lock())
@@ -284,6 +287,10 @@ class DeviceService:
         """Periodic tick (``RobinHub.tick`` calls it): time-based scenarios (S7 unreachable, S8 season)."""
         n = 0
         await self.store.ensure_loaded()
+        try:
+            await self.retention()
+        except Exception:  # noqa: BLE001 - retention never stops the safety scenarios
+            log.exception("robin device: retention failed")
         for pid in self.store.parent_ids():
             async with self._lock(pid):
                 st = await self.store.refresh(pid)  # another process may have fired already: never alert twice
@@ -313,6 +320,7 @@ class DeviceService:
         an = self._analyzers.get(key)
         if an is None:
             an = self._analyzers[key] = CallPatternAnalyzer(context=context, retain_days=self.call_text_retain_days)
+            self._analyzer_ms[key] = self.now_ms()
         state = await an.turn_with_llm(speaker, text, t, self.llm)
         now = self.now_ms()
         async with self._lock(parent_id):
@@ -325,6 +333,7 @@ class DeviceService:
         return state.summary()
 
     def finish_call(self, parent_id: str, call_id: str) -> dict[str, Any] | None:
+        self._analyzer_ms.pop((parent_id, call_id), None)
         an = self._analyzers.pop((parent_id, call_id), None)
         return an.finish(self.now_ms()) if an else None
 
@@ -497,13 +506,56 @@ class DeviceService:
         return {"paused": False}
 
     async def erase(self, st: ParentState) -> dict[str, Any]:
+        """The PARENT erases what is stored about their phone (device API). The child is told once."""
         n_events = len(st.events)
         pid = st.parent_id
         await self._tell_child(st, "INFO", "ERASE", "parent erased the data stored about this phone", {})
-        await self.store.drop(pid)
-        for key in [k for k in self._analyzers if k[0] == pid]:
-            del self._analyzers[key]
+        await self.erase_parent(pid)
         return {"erased": True, "events_deleted": n_events}
+
+    async def erase_parent(self, parent_id: str) -> dict[str, int]:
+        """Drop everything held for one parent: the DB rows (state + pairing codes), the token cache and the live
+        in-memory analyzers. Called by 'delete everything' (family side, through the erase-hook registry) and by ``erase``.
+        Silent (the family side tells the child); idempotent. The device token stops authenticating at once."""
+        await self.store.ensure_loaded()
+        st = self.store.peek(parent_id)
+        n_events = len(st.events) if st else 0
+        n_analyzers = 0
+        for key in [k for k in self._analyzers if k[0] == parent_id]:
+            del self._analyzers[key]
+            self._analyzer_ms.pop(key, None)
+            n_analyzers += 1
+        await self.store.drop(parent_id)  # rows, codes, token binding, cached state
+        self._locks.pop(parent_id, None)
+        return {"events": n_events, "analyzers": n_analyzers, "state": 1 if st else 0}
+
+    # ------------------------------------------------------------------ retention (called from sweep, i.e. from the Robin scheduler)
+    async def retention(self) -> int:
+        """Device events older than ``EVENT_RETAIN_DAYS`` (7), call-pattern cues older than ``call_text_retain_days`` (1 day
+        when that is 0, they are only needed during and just after the call), and retained call text in live analyzers. Returns rows dropped."""
+        now = self.now_ms()
+        n = 0
+        events_cut = now - EVENT_RETAIN_DAYS * DAY_MS
+        cues_cut = now - max(self.call_text_retain_days, 1) * DAY_MS
+        await self.store.ensure_loaded()
+        for pid in self.store.parent_ids():
+            st = self.store.peek(pid)
+            if st is None:
+                continue
+            keep = [e for e in st.events if e.ts_ms >= (cues_cut if e.type == "call_pattern" else events_cut)]
+            if len(keep) != len(st.events):
+                n += len(st.events) - len(keep)
+                st.events = keep
+                await self.store.save(pid)
+        for key, born in list(self._analyzer_ms.items()):  # an abandoned call never finished: drop its analyzer and any kept text
+            if born < cues_cut and key in self._analyzers:
+                del self._analyzers[key]
+                n += 1
+            if key not in self._analyzers:
+                self._analyzer_ms.pop(key, None)
+        for an in self._analyzers.values():
+            an.purge(now)
+        return n
 
     # ------------------------------------------------------------------ reads
     async def pending_prompts(self, st: ParentState) -> list[dict[str, Any]]:

@@ -241,9 +241,12 @@ class RobinStore:
         async with self.db.session() as s:
             await s.execute(delete(RobinRecordRow).where(RobinRecordRow.id == rec_id))
 
-    async def purge_before(self, kind: str, before: datetime) -> int:
+    async def purge_before(self, kind: str, before: datetime, statuses: tuple[str, ...] | None = None) -> int:
         async with self.db.session() as s:
-            res = await s.execute(delete(RobinRecordRow).where(RobinRecordRow.kind == kind, RobinRecordRow.at < before))
+            q = delete(RobinRecordRow).where(RobinRecordRow.kind == kind, RobinRecordRow.at < before)
+            if statuses is not None:
+                q = q.where(RobinRecordRow.status.in_(list(statuses)))
+            res = await s.execute(q)
             return int(res.rowcount or 0)
 
     # ------------------------------------------------------------------ erasure

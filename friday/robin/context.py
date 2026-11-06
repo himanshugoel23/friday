@@ -64,6 +64,7 @@ class Ctx:
     extra_senders: dict[str, Any] = field(default_factory=dict)
     parent_channel: Any = None  # ports.ParentChannel (WhatsApp, voice-note first); None = outbox only
     on_reached: Any = None  # async (family, parent) called after an answered call to the parent
+    audit_sink: Any = None  # async (action, user_id, *, actor, source, counts): the core audit log (kept after 'delete everything'; counts only, no PII)
 
     # ------------------------------------------------------------------ brand and lines
     @property
@@ -188,7 +189,7 @@ class Ctx:
 
     async def call(
         self, family: Family, member: Member, purpose: str, steps: list[Step], *, dedupe_key: str, emergency: bool = False, money: bool = False,
-        incident_id: str | None = None, max_seconds: int = 180, bypass_care: bool = False,
+        incident_id: str | None = None, max_seconds: int = 180, bypass_care: bool = False, sos: bool = False,
     ) -> CallOutcome:  # fmt: skip
         now = self.clock.now()
         who = {Role.PARENT: family.parent_label, Role.CHILD: "you", Role.SECOND_CONTACT: "the second contact", Role.CO_ADMIN: "you"}[member.role]
@@ -211,7 +212,7 @@ class Ctx:
             need = CONSENT_FOR.get(purpose, (ConsentItem.DEVICE_SIGNALS,))
             if need is not None and not (set(i.value for i in need) & await self.active_items(member)):
                 return await refuse("no_consent")
-        elif not member.call_ok:
+        elif not member.call_ok and not (sos and member.role == Role.CHILD):  # an SOS may ring the admin who set Robin up even before call_ok was recorded
             return await refuse("not_agreed_to_calls")
         if not member.phone:
             return await refuse("no_number")
