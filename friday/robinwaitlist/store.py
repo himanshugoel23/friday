@@ -34,7 +34,7 @@ def clean_src(raw: str | None) -> str:
 
 def clean_v(raw: str | None) -> str:
     s = (raw or "").strip().lower()
-    return s if re.match(r"^[a-z]{1,2}$", s) or s == "legacy" else ""
+    return s if re.match(r"^[a-z][a-z0-9]?$", s) or s == "legacy" else ""
 
 
 def mask(phone: str) -> str:
