@@ -44,7 +44,7 @@ PURGE_EVERY_TICKS = 120
 @dataclass
 class ParentReply:
     text: str
-    action: str  # paused | resumed | sos | fine | hello
+    action: str  # paused | resumed | sos | fine | hello | care
 
 
 class WidgetHooks(Protocol):
@@ -73,6 +73,7 @@ class RobinHub:
         self._device_sweep: Callable[[], Awaitable[int]] | None = None
         self.device_service: Any = None
         self.last_tick_at: datetime | None = None  # T05: ops counts only (an age in seconds), never shown to anyone
+        self.parent_route: Any = None  # channel.ParentInbound (T07), set by build_robin; None = parents are not routed (tests that build a bare hub)
 
     # ------------------------------------------------------------------ the child's chat
     async def handle(self, user: User, msg: InboundMessage) -> bool:
@@ -80,6 +81,17 @@ class RobinHub:
             return await self.commands.handle(user, msg)
         except Exception:  # noqa: BLE001 - a failure here never blocks the normal chat
             log.exception("robin: chat command failed")
+            return False
+
+    # ------------------------------------------------------------------ the parent's door (T07): the pipeline's ONE early hook
+    async def parent_inbound(self, msg: InboundMessage) -> bool:
+        """True when the sender is a Robin PARENT: the message is consumed here and never reaches the general assistant."""
+        if self.parent_route is None:
+            return False
+        try:
+            return bool(await self.parent_route.handle(msg))
+        except Exception:  # noqa: BLE001 - never block the normal chat for a non-parent
+            log.exception("robin: parent route failed")
             return False
 
     # ------------------------------------------------------------------ the parent's words (voice note already transcribed, or text)
@@ -93,6 +105,8 @@ class RobinHub:
         if ans.is_stop(text) or (c.brand.lower() in text.lower() and ans.is_stop(text.lower().replace(c.brand.lower(), ""))):
             await self.fam.pause(parent.id, via)  # stops everything; tells the child; only the PARENT can resume the sensitive items
             reply = ParentReply(c.say("pause.ack", parent.language, **await c.slots(fam)), "paused")
+        elif (care := await self._parent_care(fam, parent, text)) is not None:
+            reply = care
         elif ans.is_start(text) and parent.paused:
             await self.fam.resume(parent.id, via)
             reply = ParentReply(c.say("resume.ack", parent.language, **await c.slots(fam)), "resumed")
@@ -112,9 +126,28 @@ class RobinHub:
         if not parent.paused:
             await self.checkin.note_reached(fam, parent)  # any word from the parent ends an 'unanswered' ladder
         if reply is not None and c.parent_channel is not None and via != "call":
+            await c.parent_channel.send_voice_note(parent, reply.text, parent.language)  # voice note first, then the same words as text
             await c.parent_channel.send_text(parent, reply.text)
-            await c.parent_channel.send_voice_note(parent, reply.text, parent.language)
         return reply
+
+    async def _parent_care(self, fam: Family, parent: Member, text: str) -> ParentReply | None:
+        """The parent's own words pass the care protocol (docs/CARE_PROTOCOL.md): HIGH distress -> the care lines to the parent, in their
+        language; the child is told ONLY with the parent's ``share_summary_with_child`` consent (``authority.distress`` line), and never with the words (no content kept).
+        Stop always wins (checked before this), a physical threat/help is handled by the SOS branches below only when this is not HIGH."""
+        from friday.care import copy as care_copy
+        from friday.care.detect import Tier as CareTier
+        from friday.care.detect import assess
+
+        a = assess(text)
+        if a.tier != CareTier.HIGH:
+            return None
+        c = self.ctx
+        lang = parent.language if parent.language in ("en", "hinglish", "hi") else "hinglish"
+        log.info("robin: care tier=high from a parent (member %s)", parent.id)
+        if await c.has_consent(parent, "share_summary_with_child"):  # a plain message to the child at any hour (security paths ignore time of day); no words, no alert-engine consent gate
+            await c.tell_child(fam, c.say("authority.distress", await c.chat_lang(fam), parent=fam.parent_label))
+            await c.audit(fam, "parent_distress", f"{fam.parent_label} may be in distress; the care protocol line was sent to them and you were told.")
+        return ParentReply(care_copy.line("high_first", lang, elder=True), "care")
 
     # ------------------------------------------------------------------ missed calls, either direction (the voice front door calls this)
     async def on_missed_call(self, missed_phone: str, caller_phone: str | None, answers: list[Any]) -> MissedResult | None:
@@ -243,14 +276,48 @@ def build_robin(c: Any) -> RobinHub | None:
     async def audit_sink(action: str, user_id: str, *, actor: str, source: str, counts: dict[str, int]) -> None:
         await repos.audit.log(action, user_id=user_id, actor="user", by=actor, source=source, counts=counts)  # counts only, no PII
 
-    ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=_care_gate(c), paused=paused, audit_sink=audit_sink)
+    parent_channel = build_parent_channel(c)  # None unless FRIDAY_ROBIN_PARENT_WHATSAPP_ENABLED and the cloud WhatsApp channel is configured
+    ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=_care_gate(c), paused=paused, audit_sink=audit_sink, parent_channel=parent_channel)
     ctx.extra_senders["second"] = make_second_sender(lambda: c.get("notifier"))  # T20: the second contact's alert line (WhatsApp); the "ops" sender is NOT wired (no founder channel exists)
     hub = RobinHub(ctx, retries=int(s.robin_checkin_retries), retry_minutes=int(s.robin_checkin_retry_minutes), retention_days=int(s.robin_audit_retention_days), incident_retention_days=int(s.robin_incident_retention_days), tick_s=float(s.robin_tick_s))
     alerts_mod.set_default_engine(hub.alerts)
     from friday.care.service import register_passthrough
 
     register_passthrough("robin", hub.commands.is_open_ack)  # T20: the child's typed "I have it" / "Mark safe" passes a care episode while an alert is open
+    hub.parent_route = _parent_route(c, hub)
     return hub
+
+
+def _opt_component(c: Any, name: str) -> Any:
+    try:
+        return c.get(name)
+    except Exception:  # noqa: BLE001 - not configured
+        return None
+
+
+def _parent_route(c: Any, hub: RobinHub) -> Any:
+    """Inbound route for Robin parents (T07). Always built with Robin: a parent's message must never fall through to the general assistant,
+    whether or not the outbound channel is configured."""
+    from friday.robin.channel import ParentInbound
+
+    return ParentInbound(hub, messaging=lambda: _opt_component(c, "messaging"), stt=lambda: _opt_component(c, "stt"), cache=lambda: _opt_component(c, "cache"))
+
+
+def build_parent_channel(c: Any) -> Any:
+    """``WhatsAppParentChannel`` over the container's WhatsApp channel, only when the switch is on AND the cloud channel is configured
+    (token + phone number id). Otherwise None: lines wait in the app outbox. Real Meta sending is blocked; nothing here has run against Meta."""
+    s = c.settings
+    if not getattr(s, "robin_parent_whatsapp_enabled", False) or s.resolve_whatsapp() != "cloud" or not s.whatsapp_access_token or not s.whatsapp_phone_number_id:
+        return None
+    wa = _opt_component(c, "messaging")
+    if wa is None or not all(callable(getattr(wa, n, None)) for n in ("send", "upload_media", "send_audio")):
+        return None
+    from friday.chatbot_media.convert import FfmpegConverter
+    from friday.db.repositories._base import phone_index
+    from friday.robin.channel import CacheWindow, WhatsAppParentChannel
+
+    window = CacheWindow(c.get("cache"), phone_index, int(s.whatsapp_session_window_h) * 3600)
+    return WhatsAppParentChannel(wa, tts=lambda: _opt_component(c, "tts"), converter=FfmpegConverter(), clock=c.clock, window=window, window_h=int(s.whatsapp_session_window_h))
 
 
 def make_second_sender(get_notifier: Callable[[], Any]) -> Callable[[Member, str], Awaitable[None]]:

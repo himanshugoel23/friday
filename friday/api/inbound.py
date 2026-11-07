@@ -489,6 +489,8 @@ class InboundPipeline:
             msg.provider_message_id
         ):
             return  # provider retry
+        if self.robin is not None and await self.robin.parent_inbound(msg):
+            return  # a Robin PARENT (voice note first): its own route, never the general assistant (friday/robin/channel.py)
         if msg.kind == MessageKind.VOICE_NOTE and not msg.text:
             msg.text = await self._transcribe(msg)
 

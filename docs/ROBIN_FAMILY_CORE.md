@@ -17,6 +17,7 @@ in this repo places or simulates a real 112 call; the SOS flow itself still only
 |---|---|---|
 | `FRIDAY_BRAND_NAME` | `Friday` | the ONE place the product name lives; the Robin pilot sets `Robin`. Every line takes `{brand}` from it (a test fails if a line types a name) |
 | `FRIDAY_ROBIN_ENABLED` | false | builds the `robin` component (container), the chat hook in `InboundPipeline._active`, the scheduler task `friday-robin` |
+| `FRIDAY_ROBIN_PARENT_WHATSAPP_ENABLED` | false | T07: builds `ctx.parent_channel` (`channel.WhatsAppParentChannel`) in `build_robin`, only together with the cloud WhatsApp channel configured (token + phone number id); otherwise lines wait in the app outbox. The inbound parent route is always on with Robin |
 | `FRIDAY_ROBIN_SAFE_WORD_ENABLED` | false | founder 2026-11-04: NO safe word by default (see 8); the code stays, optional per family |
 | `FRIDAY_ROBIN_AUTHORITY_CALLS_ENABLED` / `_AUTHORITY_DRY_RUN` / `_AUTHORITY_COUNTDOWN_S` | false / true / 60 | the emergency desk's authority module (section 14); even when on it only LOGS the script (no live adapter) |
 | `FRIDAY_ROBIN_MISSED_RING_MINUTES` / `_MISSED_RING_MAX` | 3 / 6 | urgent missed call: ring again every N minutes, at most this many tries |
@@ -99,11 +100,34 @@ works only when `FRIDAY_ROBIN_SAFE_WORD_ENABLED` and the family's `safe_word_ena
 * **Listen-in:** the parent adds Robin to a live 3-way call (needs the `call_listening` consent). Robin's first words are an audible disclosure (`listen.disclose`), it listens, and whispers `listen.warn` to the parent only. Not recording; `FRIDAY_ROBIN_CALL_AUDIO_RETENTION_DAYS=0` means only verdict cues are kept.
 * Call audio rule: listening happens only on calls routed through Robin's own line, with an audible disclosure at the start; recording is not built.
 
-## 10. WhatsApp-first parent channel, widget, templates (design; interfaces built, no adapter)
-The parent's primary channel is WhatsApp, voice-note first. `ports.ParentChannel` (`send_text`, `send_voice_note` = text + TTS voice note, `send_template` with media) has only a fake. Inbound voice notes go through the existing media/speech path and arrive as text in
-`RobinHub.parent_said(phone, text, via)` (stop / resume / help = SOS / "I am fine"; any word from the parent ends an "unanswered" ladder). Opt-in: the child saves Robin's number on the parent's phone and the parent (or the child on their phone) sends "Hi" once, which opens the 24 h window; outside it only
-pre-approved templates may be sent. **Templates needed (design only, none submitted):** `robin_intro_notice` (the notification), `robin_monthly_reminder`, `robin_good_morning`, `robin_good_morning_festival` (image header), `robin_checkin_missed_child` (to the child outside the window),
-`robin_alert_child`, `robin_medicine_reminder`. Meta's token is blocked; the web chat is the working channel for the child meanwhile.
+## 10. WhatsApp-first parent channel, widget, templates (T07: adapter + fakes built; real Meta send BLOCKED, never exercised)
+The parent's primary channel is WhatsApp, voice-note first; the parent never types and never sees the generic Friday menu. Code: `friday/robin/channel.py`.
+
+**Outbound.** `WhatsAppParentChannel` implements `ports.ParentChannel` over `channels/whatsapp.py` (`send`, `upload_media`, `send_audio`) and the existing voice stack
+(`TTSProvider.synthesize` in the parent's language -> `chatbot_media.convert` Ogg/Opus). Inside the 24 h window: voice note first, then the same words as text. Outside it
+(or when Meta answers 131047): the pre-approved TEMPLATE `robin_parent_message_v1` carries the line (a voice note cannot open a conversation); a voice note + text of one line send ONE
+template. Every method returns False on failure and never raises; the callers (intro, missed call, greetings) leave the line in the app outbox (`pending` record), which the T08 drain retries.
+The window marker (`WindowTracker`, shared cache keyed by the blind index of the phone) is set by the inbound route; with an in-process cache a restart reads as "closed" and the template is used (always valid).
+`ports.FakeParentChannel` has the same behaviour (`window_open`, `fail`) and `channel.FakeWhatsApp` stands in for the Cloud channel in tests.
+
+**Inbound.** `InboundPipeline._handle` has ONE early hook (after the provider-retry check, before transcription and user resolution): `RobinHub.parent_inbound(msg)` -> `channel.ParentInbound.handle`.
+If the sender's phone belongs to a Robin PARENT member the message is consumed there; any other number (including the child's) continues down the old path unchanged.
+Voice note -> fetch media -> STT (language hint from the parent) -> the audio is dropped (never written to disk or the database, never logged; the provider copy is deleted best-effort with `delete_media`) -> `RobinHub.parent_said(phone, text, via="voice")`
+(stop / start / help = SOS / threat / "I am fine"; any word ends an "unanswered" ladder). A control word typed as text (stop, help, I am fine) is treated the same, because stopping must always work.
+Other text, links, forwarded messages, screenshots, documents -> `ScamIntake` = **T13 STUB** (`UnbuiltScamIntake`: analyses and stores nothing; the parent gets the short `inbound.hello` line). Nothing from a parent reaches the general assistant.
+Unreadable audio gets the same hello (never silence). With no channel configured the reply waits in the outbox.
+**Care protocol:** `RobinHub.parent_said` screens the parent's words with `friday.care.detect.assess` (after "stop", before the other branches): HIGH -> the care protocol's own line in the parent's language (voice + text);
+the family is told only if the parent's `share_summary_with_child` consent is on (the `authority.distress` chat line, no words in it, any hour); the words are never stored or logged.
+
+**WhatsApp templates to submit to Meta (all wording PENDING founder approval; none submitted; `{brand}` is filled from `FRIDAY_BRAND_NAME` at submission; category UTILITY; languages en and hi):**
+
+| Name | Parameters (in order) | Body (PENDING) | When |
+|---|---|---|---|
+| `robin_parent_message_v1` | `{{1}}` the line to say, in the parent's language | `{brand}: {{1}}` | any parent line while the 24 h window is closed (voice note cannot open it) |
+| `robin_parent_reopen_v1` | `{{1}}` how the family calls the parent, `{{2}}` the child's name | `{brand} is the assistant {{2}} set up for {{1}}. Send any voice note or say hello so {brand} can reply.` | T08 outbox drain, to reopen the window before queued lines follow |
+
+Meta may refuse a body that is only a variable; if it does, the wording of `robin_parent_message_v1` gets a fixed sentence around `{{1}}` (founder to approve). Still design-only for the child side (outside the window): `robin_alert_child`, `robin_checkin_missed_child` (Notifier templates).
+Meta's token is blocked; the web chat is the working channel for the child meanwhile. Opt-in: the child saves Robin's number on the parent's phone and the parent (or the child) sends "Hi" once, which opens the window.
 **Widget hooks** (thin Android widget: press-to-talk mic and SOS press-and-hold): `RobinHub.widget_voice(parent_member_id, transcript)` and `RobinHub.widget_sos(parent_member_id, location)` (the `WidgetHooks` Protocol). The voice upload endpoint can reuse the device API of `friday/robindevice` later; STT happens before `widget_voice`.
 `FamilyService.take_app_notifications` is the outbox the app polls (nudges, monthly reminder, good morning when no channel).
 
