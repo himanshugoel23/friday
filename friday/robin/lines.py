@@ -367,10 +367,25 @@ _s("missed.emergency_ring",
    "Hello {parent}, this is {brand}. {who} called and says it is an emergency. Please call {who} now.",
    "Hello {parent}, main {brand} bol rahi hoon. {who} ne phone kiya aur kehte hain ki emergency hai. Kripya abhi {who} ko phone kijiye.",
    "हैलो {parent}, मैं {brand} बोल रही हूँ। {who} ने फ़ोन किया और कहते हैं कि इमरजेंसी है। कृपया अभी {who} को फ़ोन कीजिए।")
+_s("missed.caller_told",
+   "{missed} has been told that you called and what you said.",
+   "{missed} ko bata diya gaya hai ki aapne phone kiya tha aur aapne kya kaha.",
+   "{missed} को बता दिया गया है कि आपने फ़ोन किया था और आपने क्या कहा।")
+_s("missed.caller_told_urgent",
+   "{missed} has been told that you called and that it is urgent. {brand} keeps trying to reach them.",
+   "{missed} ko bata diya gaya hai ki aapne phone kiya aur yeh zaroori hai. {brand} unse sampark karti rahegi.",
+   "{missed} को बता दिया गया है कि आपने फ़ोन किया और यह ज़रूरी है। {brand} उनसे संपर्क करती रहेगी।")
 _c("missed.child_note", "{who} called you but you missed it ({time}). They said: {summary}.", "{who} ne aapko phone kiya par aap utha nahi paye ({time}). Unhone kaha: {summary}.")
 _c("missed.child_note_urgent", "URGENT: {who} called you ({time}) and says it is an emergency. They said: {summary}. I am ringing you every {minutes} minutes (up to {tries} tries) until you answer.", "ZAROORI: {who} ne aapko phone kiya ({time}) aur kehte hain emergency hai. Unhone kaha: {summary}. Main aapko har {minutes} minute mein phone kar rahi hoon (zyada se zyada {tries} baar) jab tak aap na uthayein.")
 _c("missed.unknown_caller", "an unknown caller", "ek anjaan caller")
 _c("missed.no_summary", "nothing clear", "kuch saaf nahi")
+
+# --- missed-call forwarding setup in the child's chat (T10). Codes come from friday/receptionist/carriers.py; [U] = unverified on a real SIM
+_c("forward.ask", "Optional: let {brand} answer when {who} cannot pick up. It needs call forwarding on the phone. Reply 'forwarding jio', 'forwarding airtel' or 'forwarding vi' for the steps.", "Optional: jab {who} phone na utha payein to {brand} jawab de. Iske liye phone par call forwarding chahiye. Steps ke liye likhiye 'forwarding jio', 'forwarding airtel' ya 'forwarding vi'.")
+_c("forward.codes", "Forwarding for {who} on {carrier} (dial these on {who}'s phone, one at a time; the codes are standard but NOT verified on a real SIM [U]):\n{codes}\nTo check: {status}. To undo everything: {cancel}.\n{notes}\nThen use 'test forwarding' to try it.", "{carrier} par {who} ke phone ke liye forwarding (ye codes {who} ke phone se ek ek karke dial karein; codes standard hain par asli SIM par VERIFIED NAHI [U]):\n{codes}\nCheck karne ke liye: {status}. Sab band karne ke liye: {cancel}.\n{notes}\nPhir 'test forwarding' likhiye.")
+_c("forward.unknown_carrier", "I know Jio, Airtel and Vi. Which one is it?", "Main Jio, Airtel aur Vi jaanti hoon. Kaun sa hai?")
+_c("forward.unavailable", "The number that answers forwarded calls is not set up yet, so I cannot give you codes. I have told the team.", "Forwarded calls ka number abhi set nahi hai, isliye codes nahi de sakti. Team ko bata diya hai.")
+_c("forward.test", "To test forwarding (this is a supervised step, only with the founder's number during the pilot): 1) from another phone, ring {who}'s phone; 2) do not pick up; 3) after about {seconds} seconds {brand} should answer and ask who is calling; 4) say a name and 'no' to urgent; 5) {who} or you should get a message within a minute. Nothing is dialled by {brand} for this test.", "Forwarding test (supervised step, pilot mein sirf founder ke number par): 1) kisi doosre phone se {who} ke phone par call karein; 2) uthaiye mat; 3) lagbhag {seconds} second baad {brand} uthaye aur poochhe kaun bol raha hai; 4) naam boliye aur urgent par 'nahi'; 5) {who} ya aapko ek minute mein message milna chahiye. Is test mein {brand} khud koi call nahi karti.")
 
 # --- authority module (policy-gated; DRY-RUN logs these scripts, nothing is dialled)
 _s("authority.countdown",

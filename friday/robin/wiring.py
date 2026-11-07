@@ -31,6 +31,7 @@ from friday.robin.commands import RobinCommands
 from friday.robin.context import Ctx
 from friday.robin.delivery import ChildInbox, OutboxDrain
 from friday.robin.family import FamilyService
+from friday.robin.forwarded import ForwardedCalls
 from friday.robin.greetings import GreetingService
 from friday.robin.intro import IntroService
 from friday.robin.medicine import MedicineService
@@ -68,6 +69,7 @@ class RobinHub:
         self.authority = AuthorityService(ctx)
         self.alerts.authority = self.authority
         self.missed = MissedCallService(ctx, self.fam, self.alerts)
+        self.forwarded = ForwardedCalls(ctx, self.missed, telephony=lambda: None)  # T10: a forwarded call from a Robin member's phone (switch FRIDAY_ROBIN_FORWARDED_CALLS_ENABLED)
         self.commands = RobinCommands(ctx, self.fam, self.intro, self.checkin, self.meds, self.alerts, safe_word_switch=bool(getattr(ctx.settings, "robin_safe_word_enabled", False)))
         ctx.on_reached = self.checkin.note_reached
         self.inbox = ctx.inbox if ctx.inbox is not None else ChildInbox(ctx)  # T08: where a message the child's phone could not receive waits
@@ -157,6 +159,10 @@ class RobinHub:
     # ------------------------------------------------------------------ missed calls, either direction (the voice front door calls this)
     async def on_missed_call(self, missed_phone: str, caller_phone: str | None, answers: list[Any]) -> MissedResult | None:
         return await self.missed.on_missed(missed_phone, caller_phone, answers)
+
+    async def forwarded_call(self, event: Any) -> bool:
+        """T10: True when the forwarded call was Robin's (api/callbacks.py then skips the receptionist). Never raises into the call path."""
+        return await self.forwarded.handle(event)
 
     # ------------------------------------------------------------------ widget hooks (interface; transport later)
     async def widget_voice(self, parent_member_id: str, transcript: str) -> ParentReply | None:
@@ -296,6 +302,7 @@ def build_robin(c: Any) -> RobinHub | None:
 
     register_passthrough("robin", hub.commands.is_open_ack)  # T20: the child's typed "I have it" / "Mark safe" passes a care episode while an alert is open
     hub.parent_route = _parent_route(c, hub)
+    hub.forwarded._telephony = lambda: c.telephony  # noqa: SLF001 - T10: the parked leg of a forwarded call comes from the telephony component
     return hub
 
 

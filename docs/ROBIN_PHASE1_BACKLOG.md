@@ -71,7 +71,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T07 | Parent WhatsApp channel: inbound routing, voice-note STT/TTS, adapter + fake + template interface | fake now; real adapter behind Meta | template wording approval (later) | DONE 2026-11-07 |
 | T08 | Child-side delivery: pairing command, alert delivery with fallback, second-contact sender, outbox drain | fake now; uses Notifier | none | DONE 2026-11-07 |
 | T09 | Device voice/SOS intake into the family package (STT port, SosService path) | fakes only | none | DONE 2026-11-07 |
-| T10 | Missed-call forwarding integration (callbacks -> Robin) both directions | fake telephony; real needs Vobiz | none | TODO |
+| T10 | Missed-call forwarding integration (callbacks -> Robin) both directions | fake telephony; real needs Vobiz | none | DONE 2026-11-07 |
 | T11 | Live telephony readiness for check-in/alert calls (supervised, founder number only) | real adapter, one supervised call | audio approval + go-ahead | TODO |
 | T12 | Medicine: prescription doc type, doc sink to Robin, refill flow to the child | fakes only (vision reader fake) | none | DONE 2026-11-07 |
 | T13 | Scam check by WhatsApp forward (text, link, screenshot) with voice-note verdict | fake now | none | TODO |

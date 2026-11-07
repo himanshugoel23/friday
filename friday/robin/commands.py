@@ -42,6 +42,8 @@ _SETUP_HI = re.compile(r"^\s*(?P<rel>[a-z]{2,10})\s+ke\s+liye\s+\w+\s+set\s*up(?
 _HINGLISH = re.compile(r"\b(ke|liye|karo|kya|hai|mera|meri|papa|mummy|haan|nahi|kripya)\b|[ऀ-ॿ]", re.I)
 _ITEM_WORDS = {"device signals": "device_signals", "phone signals": "device_signals", "payment alerts": "payment_alerts", "location": "location", "call listening": "call_listening", "authority calls": "authority_calls", "emergency desk": "authority_calls", "scam check": "scam_check", "daily check-in": "daily_checkin_calls", "check-in calls": "daily_checkin_calls", "medicine reminders": "medicine_reminders", "share summary": "share_summary_with_child"}
 _PAIR = re.compile(r"^(?:please\s+)?pair\s+(?:the\s+|a\s+|my\s+)?(?:phone|app|device)(?:\s+(?:for|of)\s+(?:my\s+)?[a-z ]{2,24})?$|^pair\s+[a-z]{2,12}(?:'s|s)?\s+(?:phone|app)$|^[a-z]{2,12}\s+ka\s+phone\s+(?:jodo|pair\s+karo|connect\s+karo)$", re.I)
+_FORWARD = re.compile(r"^(?:set\s*up\s+)?forward(?:ing)?\s+(?:on\s+)?([a-z ]{2,24}?)(?:\s+for\s+(me|my phone|mine))?$", re.I)
+_FORWARD_TEST = re.compile(r"^test\s+(?:the\s+)?forward(?:ing)?$|^forward(?:ing)?\s+test$", re.I)
 _WHAT_ON = re.compile(r"^what(?:'s|s| is| are)\s+(?:switched\s+|turned\s+)?on(?:\s+for\s+\w+)?\??$|^kya\s+kya\s+chalu\s+hai\??$", re.I)
 _WHAT_TODAY = re.compile(r"^what\s+(?:did\s+\w+\s+do|\w+\s+did)(?:\s+today)?\??$|^aaj\s+\w+\s+ne\s+kya\s+kiya\??$", re.I)
 _STEPS = ("phone", "language", "time", "quiet", "second", "sens", "childcall")
@@ -134,6 +136,21 @@ class RobinCommands:
 
         await self.ctx.audit(fam, "pair_code", f"Made a one-time code to connect {fam.parent_label}'s phone (the code itself is not kept in this log).")
         return await self._reply(user, "pair.steps", lang, code=code, link=f"robin://pair?code={code}", minutes=PAIR_CODE_TTL_S // 60, **slots)
+
+    async def _forward(self, user: User, fam: Family, carrier_text: str, for_child: bool, lang: str) -> bool:
+        """"forwarding jio": the per-carrier codes (all [U], unverified on a real SIM) for the parent's phone, or the child's own with 'for me'."""
+        from friday.robin.forwarded import forwarding_text, known_carrier
+
+        key = known_carrier(carrier_text)
+        if key is None:
+            return await self._reply(user, "forward.unknown_carrier", lang)
+        child = await self.ctx.child(fam)
+        who = ((child.name if child else "") or "you") if for_child else fam.parent_label
+        text = forwarding_text(self.ctx, key, who=who, lang=lang)
+        if text is None:
+            return await self._reply(user, "forward.unavailable", lang)
+        await self.ctx.audit(fam, "forwarding_help", f"Showed the call-forwarding steps for {'your phone' if for_child else fam.parent_label + chr(39) + 's phone'}.")
+        return await self._text(user, text)
 
     async def _show_held(self, fam: Family) -> None:
         inbox = self.ctx.inbox
@@ -239,6 +256,8 @@ class RobinCommands:
             await self.fam.give_consent(parent.id, item.value, ConsentSource.ADMIN_CHAT, given_by="admin_on_behalf")
         slots = {"parent": fam.parent_label}
         await self._reply(user, "setup.done", lang, **slots)
+        if getattr(self.ctx.settings, "robin_forwarded_calls_enabled", False):  # T10: offer the missed-call forwarding steps (per carrier)
+            await self._reply(user, "forward.ask", lang, who=fam.parent_label)
         await self.intro.notify_parent(fam)
         status = await self.intro.start(fam)  # the optional introduction call; refused while lines are PENDING / number not allow-listed
         if status.startswith("refused"):
@@ -256,6 +275,12 @@ class RobinCommands:
             return await self._status(user, fam, lang)
         if _PAIR.match(text):
             return await self._pair(user, fam, parent, lang)
+        if getattr(c.settings, "robin_forwarded_calls_enabled", False):  # T10: missed-call forwarding setup text; switch off = these words are not ours
+            if _FORWARD_TEST.match(text.strip()):
+                return await self._reply(user, "forward.test", lang, who=fam.parent_label, seconds=int(c.settings.robin_forwarded_call_max_s))
+            mf = _FORWARD.match(text.strip())
+            if mf:
+                return await self._forward(user, fam, mf.group(1), bool(mf.group(2)), lang)
         if _WHAT_ON.match(text):
             return await self._text(user, await self.fam.render_view(fam, "on"))
         if _WHAT_TODAY.match(text):

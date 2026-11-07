@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **507** (225 spoken, 282 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **523** (231 spoken, 292 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -211,6 +211,12 @@ Total lines: **507** (225 spoken, 282 chat). Status of each: PENDING_FOUNDER_APP
 | robin.missed.emergency_ring.en | en | Hello {parent}, this is {brand}. {who} called and says it is an emergency. Please call {who} now. | PENDING |
 | robin.missed.emergency_ring.hinglish | hinglish | Hello {parent}, main {brand} bol rahi hoon. {who} ne phone kiya aur kehte hain ki emergency hai. Kripya abhi {who} ko phone kijiye. | PENDING |
 | robin.missed.emergency_ring.hi | hi | हैलो {parent}, मैं {brand} बोल रही हूँ। {who} ने फ़ोन किया और कहते हैं कि इमरजेंसी है। कृपया अभी {who} को फ़ोन कीजिए। | PENDING |
+| robin.missed.caller_told.en | en | {missed} has been told that you called and what you said. | PENDING |
+| robin.missed.caller_told.hinglish | hinglish | {missed} ko bata diya gaya hai ki aapne phone kiya tha aur aapne kya kaha. | PENDING |
+| robin.missed.caller_told.hi | hi | {missed} को बता दिया गया है कि आपने फ़ोन किया था और आपने क्या कहा। | PENDING |
+| robin.missed.caller_told_urgent.en | en | {missed} has been told that you called and that it is urgent. {brand} keeps trying to reach them. | PENDING |
+| robin.missed.caller_told_urgent.hinglish | hinglish | {missed} ko bata diya gaya hai ki aapne phone kiya aur yeh zaroori hai. {brand} unse sampark karti rahegi. | PENDING |
+| robin.missed.caller_told_urgent.hi | hi | {missed} को बता दिया गया है कि आपने फ़ोन किया और यह ज़रूरी है। {brand} उनसे संपर्क करती रहेगी। | PENDING |
 | robin.authority.countdown.en | en | {parent}, I am about to ask for emergency help for you in one minute. If you are fine, say 'I am fine' now. | PENDING |
 | robin.authority.countdown.hinglish | hinglish | {parent}, main ek minute mein aapke liye emergency madad maangne wali hoon. Agar aap theek hain to abhi 'main theek hoon' boliye. | PENDING |
 | robin.authority.countdown.hi | hi | {parent}, मैं एक मिनट में आपके लिए इमरजेंसी मदद माँगने वाली हूँ। अगर आप ठीक हैं तो अभी 'मैं ठीक हूँ' बोलिए। | PENDING |
@@ -487,6 +493,24 @@ Total lines: **507** (225 spoken, 282 chat). Status of each: PENDING_FOUNDER_APP
 | robin.missed.unknown_caller.hinglish | hinglish | ek anjaan caller | PENDING |
 | robin.missed.no_summary.en | en | nothing clear | PENDING |
 | robin.missed.no_summary.hinglish | hinglish | kuch saaf nahi | PENDING |
+| robin.forward.ask.en | en | Optional: let {brand} answer when {who} cannot pick up. It needs call forwarding on the phone. Reply 'forwarding jio', 'forwarding airtel' or 'forwarding vi' for the steps. | PENDING |
+| robin.forward.ask.hinglish | hinglish | Optional: jab {who} phone na utha payein to {brand} jawab de. Iske liye phone par call forwarding chahiye. Steps ke liye likhiye 'forwarding jio', 'forwarding airtel' ya 'forwarding vi'. | PENDING |
+| robin.forward.codes.en | en | Forwarding for {who} on {carrier} (dial these on {who}'s phone, one at a time; the codes are standard but NOT verified on a real SIM [U]):
+{codes}
+To check: {status}. To undo everything: {cancel}.
+{notes}
+Then use 'test forwarding' to try it. | PENDING |
+| robin.forward.codes.hinglish | hinglish | {carrier} par {who} ke phone ke liye forwarding (ye codes {who} ke phone se ek ek karke dial karein; codes standard hain par asli SIM par VERIFIED NAHI [U]):
+{codes}
+Check karne ke liye: {status}. Sab band karne ke liye: {cancel}.
+{notes}
+Phir 'test forwarding' likhiye. | PENDING |
+| robin.forward.unknown_carrier.en | en | I know Jio, Airtel and Vi. Which one is it? | PENDING |
+| robin.forward.unknown_carrier.hinglish | hinglish | Main Jio, Airtel aur Vi jaanti hoon. Kaun sa hai? | PENDING |
+| robin.forward.unavailable.en | en | The number that answers forwarded calls is not set up yet, so I cannot give you codes. I have told the team. | PENDING |
+| robin.forward.unavailable.hinglish | hinglish | Forwarded calls ka number abhi set nahi hai, isliye codes nahi de sakti. Team ko bata diya hai. | PENDING |
+| robin.forward.test.en | en | To test forwarding (this is a supervised step, only with the founder's number during the pilot): 1) from another phone, ring {who}'s phone; 2) do not pick up; 3) after about {seconds} seconds {brand} should answer and ask who is calling; 4) say a name and 'no' to urgent; 5) {who} or you should get a message within a minute. Nothing is dialled by {brand} for this test. | PENDING |
+| robin.forward.test.hinglish | hinglish | Forwarding test (supervised step, pilot mein sirf founder ke number par): 1) kisi doosre phone se {who} ke phone par call karein; 2) uthaiye mat; 3) lagbhag {seconds} second baad {brand} uthaye aur poochhe kaun bol raha hai; 4) naam boliye aur urgent par 'nahi'; 5) {who} ya aapko ek minute mein message milna chahiye. Is test mein {brand} khud koi call nahi karti. | PENDING |
 | robin.authority.complaint.en | en | Draft for cybercrime.gov.in (check every fact before you submit it yourself): On {when}, {parent} may have been defrauded. What happened: {why}. Amount: {amount}. Please also call 1930 now and ask your bank to freeze the transaction. {brand} did not file anything and cannot. | PENDING |
 | robin.authority.complaint.hinglish | hinglish | cybercrime.gov.in ke liye draft (khud submit karne se pehle har baat check kijiye): {when} ko {parent} ke saath dhokha hua ho sakta hai. Kya hua: {why}. Rakam: {amount}. Kripya abhi 1930 par phone kijiye aur bank se transaction freeze karne ko kahiye. {brand} ne kuch file nahi kiya aur nahi kar sakti. | PENDING |
 | robin.authority.dry_run.en | en | DRY RUN (nothing was dialled): for {parent} the emergency desk would have called {who}. | PENDING |

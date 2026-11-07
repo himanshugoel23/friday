@@ -8,7 +8,8 @@
   keeps RINGING the missed person: every 3 minutes, at most 6 tries, stopping on pickup, acknowledgement ('Mark safe', 'I have it') or
   'I am fine'. Quiet hours do not apply to this. A danger word also marks the incident PHYSICAL for the emergency desk (authority.py).
 
-Wiring of the forwarded call into this service (the voice front door) is NOT done; ``RobinHub.on_missed_call`` is the function to call.
+The forwarded call itself (answer, ask, cap, "X has been told") is ``friday/robin/forwarded.py`` (T10), hooked from api/callbacks.py; it ends in
+``RobinHub.on_missed_call``, which is also what tests call directly.
 """
 
 from __future__ import annotations
@@ -37,8 +38,11 @@ class MissedCallService:
     def __init__(self, ctx: Ctx, fam: FamilyService, alerts: AlertEngine) -> None:
         self.ctx, self.fam, self.alerts = ctx, fam, alerts
 
-    async def steps_for(self, family: Family) -> list[Step]:
+    async def steps_for(self, family: Family, missed: Member | None = None) -> list[Step]:
+        """The two questions. ``{parent}`` in the lines is the person who could not pick up: for a missed CHILD it is the child's name."""
         slots = await self.ctx.slots(family)
+        if missed is not None and missed.role == Role.CHILD:
+            slots = {**slots, "parent": missed.name or "ji"}
         return [Step(line="missed.ask_who", slots=slots, expect="free"), Step(line="missed.ask_urgent", slots=slots, expect="yesno", on_yes="missed.urgent_ack", on_no="missed.normal_ack")]
 
     async def _resolve(self, phone: str) -> tuple[Family, Member] | None:
