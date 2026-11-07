@@ -317,8 +317,16 @@ def _parent_route(c: Any, hub: RobinHub) -> Any:
     """Inbound route for Robin parents (T07). Always built with Robin: a parent's message must never fall through to the general assistant,
     whether or not the outbound channel is configured."""
     from friday.robin.channel import ParentInbound
+    from friday.robin.scamintake import ScamForward
 
-    return ParentInbound(hub, messaging=lambda: _opt_component(c, "messaging"), stt=lambda: _opt_component(c, "stt"), cache=lambda: _opt_component(c, "cache"))
+    def vision() -> Any:  # T13: the existing document-reader port (provider "none" -> unavailable -> 'I could not read this')
+        from friday.docunderstand.ports import build_vision
+
+        return build_vision(c.settings.docs_vision_provider, c.settings)
+
+    llm = (lambda: _LazyLLM(c)) if getattr(c.settings, "robin_device_scam_llm_enabled", False) else None  # OFF by default; can only RAISE a verdict
+    scam = ScamForward(hub, messaging=lambda: _opt_component(c, "messaging"), vision=vision, llm=llm)
+    return ParentInbound(hub, messaging=lambda: _opt_component(c, "messaging"), stt=lambda: _opt_component(c, "stt"), cache=lambda: _opt_component(c, "cache"), scam=scam)
 
 
 def build_parent_channel(c: Any) -> Any:
@@ -430,14 +438,16 @@ class _DeviceConsent:
     async def has(self, parent_id: str, item: str) -> bool:
         member = await self.hub.ctx.store.get_member(parent_id)
         mapped = DEVICE_TO_FAMILY_CONSENT.get(item)
+        if item == "voice_messages":
+            return member is not None  # T13: the parent's own tap on the mic is the soft approval; help words must always be heard (paused or not). Only FORWARDED scam-check content needs `scam_check` (friday/robin/scamintake.py)
         if member is None or mapped is None or (getattr(member, "paused", False) and item not in PARENT_ACTION_ITEMS):
             return False
         return await self.hub.ctx.has_consent(member, mapped)
 
     async def set(self, parent_id: str, item: str, granted: bool, source: str = "app") -> None:  # noqa: ARG002
         mapped = DEVICE_TO_FAMILY_CONSENT.get(item)
-        if granted or mapped is None:
-            return  # only the admin (child) grants, in the family package
+        if granted or mapped is None or item == "voice_messages":
+            return  # only the admin (child) grants, in the family package; the mic needs no consent item, so there is nothing to withdraw (T13)
         await self.hub.fam.withdraw_consent(parent_id, mapped, tell_child=True, actor="user", source="parent_device")
 
 

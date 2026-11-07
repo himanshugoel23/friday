@@ -162,7 +162,7 @@ async def test_help_works_while_paused_and_the_reply_still_comes_back(w, rig):
 
 async def test_help_works_before_setup_is_finished(w, container):
     fam, parent = await bare_family(w)
-    await w.hub.fam.give_consent(parent.id, "scam_check", ConsentSource.ADMIN_CHAT)  # the only item that voice needs; nothing else agreed
+    await w.hub.fam.give_consent(parent.id, "scam_check", ConsentSource.ADMIN_CHAT)  # only scam_check agreed; the mic needs no item at all
     await w.hub.fam.set_status(await w.store.get_family(fam.id), FamilyStatus.ONBOARDING)  # setup is not finished
     r = await build(w, container, family=(fam, parent))
     try:
@@ -180,24 +180,40 @@ async def test_security_path_ignores_the_time_of_day(w, rig):
     assert r.status_code == 200 and len(await rig.incidents()) == 1
 
 
-# ------------------------------------------------------------------ no consent, no listening
-async def test_no_voice_consent_is_refused_and_nothing_is_listened_to(w, container):
-    fam, parent = await w.family(consent=False)
+# ------------------------------------------------------------------ the mic tap is the soft approval (T13, lead decision)
+async def test_no_consent_at_all_still_hears_the_mic_and_help_raises_an_sos(w, container):
+    fam, parent = await w.family(consent=False)  # the child agreed to nothing
     r = await build(w, container, family=(fam, parent))
     try:
         resp = await r.say("madad karo")
-        assert resp.status_code == 403 and resp.json() == {"error": "no_consent"}
-        assert r.stt.calls == [] and await r.incidents() == []  # the audio never reached speech-to-text
-        assert not r.service.reply_audio or len(r.service.reply_audio) == 0
+        assert resp.status_code == 200 and "Asha" in resp.json()["reply_text"]  # no 403 any more: the parent tapped the mic herself
+        assert len(r.stt.calls) == 1 and len(await r.incidents()) == 1  # an SOS, with no consent item at all
     finally:
         await r.client.aclose()
 
 
-async def test_withdrawing_the_consent_on_the_phone_stops_voice(w, rig):
+async def test_no_consent_small_talk_is_answered_and_raises_nothing(w, container):
+    fam, parent = await w.family(consent=False)
+    r = await build(w, container, family=(fam, parent))
+    try:
+        resp = await r.say("main theek hoon")
+        assert resp.status_code == 200 and resp.json()["reply_text"] and await r.incidents() == []
+    finally:
+        await r.client.aclose()
+
+
+async def test_withdrawing_voice_messages_on_the_phone_does_not_silence_help(w, rig):
     assert (await rig.say("theek hoon")).status_code == 200
     r = await rig.client.put("/robin/device/consent", headers=rig.h(), json={"items": {"voice_messages": False}})
     assert r.status_code == 200
-    assert (await rig.say("madad karo")).status_code == 403
+    assert await w.hub.ctx.has_consent(rig.parent, "scam_check")  # the mic has no consent item of its own: forwarded scam checks are untouched
+    assert (await rig.say("madad karo")).status_code == 200 and len(await rig.incidents()) == 1
+
+
+async def test_the_scam_check_consent_is_still_withdrawn_by_its_own_item(w, rig):
+    r = await rig.client.put("/robin/device/consent", headers=rig.h(), json={"items": {"share_check": False}})
+    assert r.status_code == 200 and not await w.hub.ctx.has_consent(rig.parent, "scam_check")
+    assert (await rig.say("madad karo")).status_code == 200  # the mic still works
 
 
 # ------------------------------------------------------------------ the rest of the parent's words go through parent_said

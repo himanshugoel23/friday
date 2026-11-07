@@ -272,11 +272,11 @@ async def test_text_and_forwarded_content_go_to_the_t13_stub_not_the_assistant(w
     assert not (await w.store.get_member(parent.id)).paused
 
 
-async def test_default_t13_stub_answers_with_the_short_hello_and_stores_nothing(w, ch):
-    fam, parent = await parent_of(w)
-    await w.hub.parent_inbound(text_msg("hello what is the weather in Pune", mid="c"))
+async def test_a_plain_greeting_gets_the_short_hello_and_stores_nothing(w, ch):
+    fam, parent = await parent_of(w)  # T13 replaced the stub: real content is judged (tests/robin/test_scam_forward.py), a greeting is not
+    await w.hub.parent_inbound(text_msg("hello namaste", mid="c"))
     assert ch.tts.calls and "Robin" in ch.tts.calls[-1][0]  # the existing PENDING 'inbound.hello' line, brand via {brand}
-    assert "weather" not in json.dumps([r.data for k in ("audit", "pending", "incident") for r in await w.store.list(fam.id, k)], default=str)
+    assert "namaste" not in json.dumps([r.data for k in ("audit", "pending", "incident") for r in await w.store.list(fam.id, k)], default=str)
 
 
 async def test_unreadable_voice_note_gets_hello_never_silence(w, ch):

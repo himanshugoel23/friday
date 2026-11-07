@@ -8,7 +8,8 @@
     inbound    InboundPipeline (ONE early hook, before user resolution) -> ``RobinHub.parent_inbound`` -> ``ParentInbound.handle``
                   voice note: fetch media -> STT -> drop the audio -> ``RobinHub.parent_said(via="voice")``
                   words typed that are a control word (stop / help / I am fine ...) -> ``parent_said(via="text")``
-                  other text, forwarded content, images, documents -> ``ScamIntake`` (T13 STUB below)
+                  other text, forwarded content, images, documents -> ``ScamIntake`` = ``scamintake.ScamForward`` (T13)
+                  (a typed stop / start / fine counts as a command only in a short message; help and threat words always count)
                   everything else -> a short hello. NOTHING from a Robin parent ever reaches the general assistant or its menu.
 
 Privacy: the parent's audio exists only as bytes in memory between the fetch and the transcript. It is never written to disk or to the
@@ -198,7 +199,7 @@ class WhatsAppParentChannel:
             return None
 
 
-# ---------------------------------------------------------------------------- T13 stub
+# ---------------------------------------------------------------------------- T13: scam check by forwarding (friday/robin/scamintake.py)
 @runtime_checkable
 class ScamIntake(Protocol):
     async def handle(self, *, family: Family, parent: Member, msg: Any, text: str | None) -> str | None:
@@ -206,17 +207,8 @@ class ScamIntake(Protocol):
         ...
 
 
-class UnbuiltScamIntake:
-    """T13 STUB (docs/ROBIN_PHASE1_BACKLOG.md T13: scam check by forwarding). Text, links, forwarded messages and screenshots from a
-    parent land here. NOTHING is analysed, stored or logged yet: ``scamcheck`` is wired in T13. Until then the parent gets the existing
-    short hello (PENDING) and the content is dropped. It must never be handed to the general assistant."""
-
-    async def handle(self, *, family: Family, parent: Member, msg: Any, text: str | None) -> str | None:  # noqa: ARG002
-        return None
-
-
 # ---------------------------------------------------------------------------- inbound
-CONTROL_WORDS = (ans.is_stop, ans.is_start, ans.is_help, ans.is_fine, ans.is_threat)
+SHORT_COMMAND_WORDS = 6  # typed stop / start / fine words count as a command only in a message this short
 
 
 @dataclass
@@ -228,8 +220,14 @@ class ParentInbound:
     messaging: Any  # getter -> the WhatsApp channel (fetch_media, delete_media) or None
     stt: Any  # getter -> STTProvider or None
     cache: Any = None  # getter -> shared cache or None (provider-retry de-dupe)
-    scam: ScamIntake = field(default_factory=UnbuiltScamIntake)
+    scam: ScamIntake | None = None  # None = ScamForward over this route's messaging (rules only: no vision, no LLM); build_robin passes the full one
     seen_ttl_s: int = 3600
+
+    def __post_init__(self) -> None:
+        if self.scam is None:
+            from friday.robin.scamintake import ScamForward
+
+            self.scam = ScamForward(self.hub, messaging=self.messaging)
 
     async def handle(self, msg: Any) -> bool:
         hit = await self.hub.fam.parent_by_phone(msg.from_phone)
@@ -272,16 +270,26 @@ class ParentInbound:
                 await self._unclear(fam, parent)  # could not hear it: ask to say it again, never silence (T08; PENDING line inbound.unclear)
             return
         text = (msg.text or "").strip() if kind in (MessageKind.TEXT, MessageKind.BUTTON_REPLY) else ""
-        if text and any(f(text) for f in CONTROL_WORDS):
+        if text and self._is_control(text):
             reply = await self.hub.parent_said(msg.from_phone, text, via="text")  # 'stop' typed still stops
             if reply is None:
                 await self._hello(fam, parent)
             return
-        say = await self.scam.handle(family=fam, parent=parent, msg=msg, text=text or None)  # T13 STUB: text, links, forwards, screenshots
+        assert self.scam is not None
+        caption = (msg.text or "").strip() if kind in (MessageKind.IMAGE, MessageKind.DOCUMENT) else ""  # a picture's caption is judged with the picture
+        say = await self.scam.handle(family=fam, parent=parent, msg=msg, text=text or caption or None)  # T13: text, links, forwards, screenshots (nothing is kept)
         if say:
-            await self._say(fam, parent, say)
+            await self._say(fam, parent, say, line="scam.verdict")
         else:
             await self._hello(fam, parent)
+
+    @staticmethod
+    def _is_control(text: str) -> bool:
+        """A typed command ('Robin stop', 'I am fine', 'madad'). Help and threat words always count (safety first). Stop / start / fine only count in a
+        SHORT message: a long forwarded scam text that happens to contain 'stop' ('your pension will stop...') must be judged, not pause Robin (T13)."""
+        if ans.is_help(text) or ans.is_threat(text):
+            return True
+        return len(text.split()) <= SHORT_COMMAND_WORDS and (ans.is_stop(text) or ans.is_start(text) or ans.is_fine(text))
 
     async def _listen(self, msg: Any, parent: Member) -> str | None:
         """fetch -> STT -> forget. The bytes live only in this frame."""
