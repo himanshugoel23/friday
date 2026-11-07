@@ -5,4 +5,8 @@
     <color name="robin_sos">#B3261E</color>
     <color name="robin_voice">#0B57D0</color>
     <color name="robin_launcher_bg">#0B57D0</color>
+    <color name="robin_listening">#1B7F3B</color>
+    <color name="robin_busy">#44546A</color>
+    <color name="robin_answer">#6A3FA0</color>
+    <color name="robin_problem">#8A5A00</color>
 </resources>

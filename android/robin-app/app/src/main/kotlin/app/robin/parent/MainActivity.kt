@@ -1,6 +1,9 @@
 package app.robin.parent
 
 import android.app.Activity
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -17,6 +20,7 @@ import app.robin.core.ApiError
 import app.robin.core.ApiResult
 import app.robin.core.ConsentView
 import app.robin.core.PairProfile
+import app.robin.core.PairLink
 import app.robin.core.PairingFlow
 import app.robin.core.Prompt
 import app.robin.core.TransparencyScreenModel
@@ -31,17 +35,32 @@ class MainActivity : Activity(), QuickPanel.Host {
     private var paused = false
     private var tts: TextToSpeech? = null
     private val spoken = HashSet<String>()
-    private var screen = Screen.PAIRING
+    private var screen = Screen.WAITING
 
-    private enum class Screen { PAIRING, HOME, WHATSON, CONSENT }
+    private enum class Screen { WAITING, SETUP, HOME, WHATSON, CONSENT }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        route()
+        if (!handleLink(intent)) route()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLink(intent)
+    }
+
+    /** `robin://pair?code=...` (link or QR) only opens the family setup screen with the code filled in; a person still taps Connect. */
+    private fun handleLink(i: Intent?): Boolean {
+        val code = PairLink.parse(i?.dataString) ?: return false
+        i?.data = null
+        showSetup(code, null)
+        return true
     }
 
     override fun onResume() {
         super.onResume()
+        panel?.onResume()
         if (screen == Screen.HOME) refresh()
     }
 
@@ -59,7 +78,7 @@ class MainActivity : Activity(), QuickPanel.Host {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (screen == Screen.WHATSON || screen == Screen.CONSENT) showHome() else super.onBackPressed()
+        if (screen == Screen.WHATSON || screen == Screen.CONSENT) showHome() else if (screen == Screen.SETUP) route() else super.onBackPressed()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -69,13 +88,13 @@ class MainActivity : Activity(), QuickPanel.Host {
 
     override fun onUnpaired() {
         app.pairing.onUnauthorized()
-        showPairing(getString(R.string.pairing_unpaired))
+        showWaiting(getString(R.string.pairing_unpaired))
     }
 
     private fun route() {
         when (app.pairing.restore()) {
             is PairingFlow.State.Paired -> showHome()
-            else -> showPairing(null)
+            else -> showWaiting(null)
         }
     }
 
@@ -120,19 +139,41 @@ class MainActivity : Activity(), QuickPanel.Host {
         return false
     }
 
-    // ------------------------------------------------------------------ pairing
-    private fun showPairing(notice: String?) {
-        screen = Screen.PAIRING
+    // ------------------------------------------------------------------ not set up yet (parent sees no text field)
+    /** The brand name; a long press opens the family setup screen (the only place with a text field). */
+    private fun title(): TextView = text(BuildConfig.BRAND_NAME, 32f, true).apply {
+        contentDescription = BuildConfig.BRAND_NAME
+        setOnLongClickListener { showSetup(null, null); true }
+    }
+
+    private fun showWaiting(notice: String?) {
+        screen = Screen.WAITING
         panel = null
         val col = column()
-        col.addView(text(BuildConfig.BRAND_NAME, 28f, true))
-        col.addView(text(getString(R.string.pairing_title), 22f))
+        col.addView(title())
+        col.addView(text(notice ?: getString(R.string.waiting_message), 28f))
+        if (!app.serverConfigured) col.addView(text(getString(R.string.pairing_not_configured)))
+        col.addView(text(getString(R.string.waiting_family_hint), 16f))
+        col.addView(button(getString(R.string.home_call_112)) {
+            startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:112")))
+        }.apply { minHeight = dp(64) })
+        show(col)
+    }
+
+    // ------------------------------------------------------------------ family setup (for the child)
+    private fun showSetup(prefill: String?, notice: String?) {
+        screen = Screen.SETUP
+        panel = null
+        val col = column()
+        col.addView(text(getString(R.string.setup_title), 26f, true))
+        col.addView(text(getString(R.string.setup_note)))
         val msg = text(notice ?: if (app.serverConfigured) "" else getString(R.string.pairing_not_configured))
         val input = EditText(this).apply {
             hint = getString(R.string.pairing_hint)
             textSize = 28f
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             filters = arrayOf(InputFilter.LengthFilter(14))
+            if (prefill != null) setText(prefill)
         }
         col.addView(input)
         col.addView(msg)
@@ -161,13 +202,26 @@ class MainActivity : Activity(), QuickPanel.Host {
             }
         }
         col.addView(go)
+        col.addView(button(getString(R.string.setup_add_widget)) { pinWidget(msg) })
+        col.addView(button(getString(R.string.back)) { route() })
         show(col)
+    }
+
+    /** Asks the launcher to add the widget (the launcher shows its own confirmation; not every launcher supports it). */
+    private fun pinWidget(msg: TextView) {
+        val m = getSystemService(AppWidgetManager::class.java)
+        if (m != null && m.isRequestPinAppWidgetSupported) {
+            m.requestPinAppWidget(ComponentName(this, RobinWidget::class.java), null, null)
+        } else {
+            msg.text = getString(R.string.setup_widget_manual)
+        }
     }
 
     // ------------------------------------------------------------------ home
     private fun showHome() {
         screen = Screen.HOME
         val col = column()
+        col.addView(title())
         val banner = text(getString(R.string.home_paused_banner), 18f, true).apply {
             setBackgroundColor(0xFFFFE08A.toInt())
             setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -221,7 +275,7 @@ class MainActivity : Activity(), QuickPanel.Host {
 
     private fun findPromptBox(): LinearLayout? {
         val root = (findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
-        return root?.getChildAt(1) as? LinearLayout
+        return root?.getChildAt(2) as? LinearLayout
     }
 
     private fun renderPrompts(box: LinearLayout) {
