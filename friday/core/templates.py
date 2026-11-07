@@ -111,6 +111,25 @@ _SPECS: tuple[TemplateSpec, ...] = (
         "आज {{1}} की ओर से {{2}}, एक AI असिस्टेंट, से बात करने के लिए धन्यवाद।",
         ("Stop messages",),
     ),
+    # Robin (parents' care, friday/robin/channel.py). Wording is PENDING founder approval;
+    # "{brand}" stands for FRIDAY_BRAND_NAME, substituted when submitted to Meta
+    # (docs/ROBIN_FAMILY_CORE.md section 10).
+    TemplateSpec(
+        "robin_parent_message",
+        "robin_parent_message_v1",
+        ("the line to say, in the parent's language (max 900 chars)",),
+        "{brand}: {{1}}",
+        "{brand}: {{1}}",
+    ),
+    TemplateSpec(
+        "robin_parent_reopen",
+        "robin_parent_reopen_v1",
+        ("how the family calls the parent", "the child's name"),
+        "{brand} is the assistant {{2}} set up for {{1}}. "
+        "Send any voice note or say hello so {brand} can reply.",
+        "{brand} वह असिस्टेंट है जिसे {{2}} ने {{1}} के लिए लगाया है। "
+        "कोई भी वॉइस नोट भेजिए या नमस्ते कहिए ताकि {brand} जवाब दे सके।",
+    ),
 )
 
 WHATSAPP_TEMPLATES: dict[str, TemplateSpec] = {s.key: s for s in _SPECS}

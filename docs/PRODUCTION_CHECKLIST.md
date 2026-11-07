@@ -106,6 +106,10 @@ review: use realistic text (for example `{{1}}` = Rahul). Footer on every templa
 | `friday_business_touch` | `hi` | {{3}} के ज़रिए {{1}} की बुकिंग पक्की हुई: {{2}}। Friday एक AI असिस्टेंट है जो ग्राहकों की ओर से बुकिंग करती है। | same as `en` | OK, Stop messages |
 | `friday_business_thanks_v1` | `en` | Thank you for speaking with {{2}}, an AI assistant, on behalf of {{1}} today. | {{1}} = customer name; {{2}} = "Friday" | Stop messages |
 | `friday_business_thanks_v1` | `hi` | आज {{1}} की ओर से {{2}}, एक AI असिस्टेंट, से बात करने के लिए धन्यवाद। | same as `en` | Stop messages |
+| `robin_parent_message_v1` | `en` | {brand}: {{1}} (PENDING founder approval; `{brand}` = `FRIDAY_BRAND_NAME` when submitted) | {{1}} = the line to say, in the parent's language | none |
+| `robin_parent_message_v1` | `hi` | {brand}: {{1}} | same as `en` | none |
+| `robin_parent_reopen_v1` | `en` | {brand} is the assistant {{2}} set up for {{1}}. Send any voice note or say hello so {brand} can reply. (PENDING) | {{1}} = how the family calls the parent; {{2}} = the child's name | none |
+| `robin_parent_reopen_v1` | `hi` | {brand} वह असिस्टेंट है जिसे {{2}} ने {{1}} के लिए लगाया है। कोई भी वॉइस नोट भेजिए या नमस्ते कहिए ताकि {brand} जवाब दे सके। | same as `en` | none |
 
 Which code path sends which template (logical key -> name above):
 
@@ -114,6 +118,7 @@ Which code path sends which template (logical key -> name above):
 - `reengage`: configured, but no sender exists in the code yet.
 - `friday_biz_request`: message to a business that did not answer (name is used as-is; set `FRIDAY_TASKS_BUSINESS_REQUEST_TEMPLATE` only if you rename it in Meta).
 - `beneficiary_optin`: circle-member permission request. `business_booking_declined`, `business_booking_confirmed`, `business_enquiry_thanks`: notes to businesses.
+- `robin_parent_message`, `robin_parent_reopen`: Robin's parent channel outside the 24-hour window (friday/robin/channel.py; Robin is OFF and Meta sending is blocked).
 - The same three business keys also exist as DLT SMS templates with the same variable counts (SMS is off in the beta unless MSG91/DLT is configured).
 
 If you rename a template in Meta, change `FRIDAY_WHATSAPP_TEMPLATES` (JSON, logical key -> name) to match; never change a variable count without changing `friday/core/templates.py` and the code.

@@ -501,6 +501,16 @@ class WhatsAppCloudChannel:
             )
         )
 
+    async def delete_media(self, media_id: str) -> bool:
+        """Best-effort delete of a media item at Meta (voice notes are not kept there). Never raises."""
+        if not MEDIA_ID_RE.fullmatch(media_id or ""):
+            return False
+        try:
+            resp = await self._client.delete(f"/{media_id}")
+        except httpx.HTTPError:
+            return False
+        return resp.status_code < 400
+
     async def aclose(self) -> None:
         await self._client.aclose()
 

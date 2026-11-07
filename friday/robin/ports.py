@@ -137,8 +137,8 @@ def care_active_fn(care: Any = None) -> Callable[[str], Any]:
 
 @runtime_checkable
 class ParentChannel(Protocol):
-    """The parent's PRIMARY channel: WhatsApp, voice-note first (docs/ROBIN_FAMILY_CORE.md section 10). DESIGN ONLY: no real
-    adapter exists yet (Meta is blocked; outside the 24 h window a pre-approved template is needed). Replies are text + a TTS
+    """The parent's PRIMARY channel: WhatsApp, voice-note first (docs/ROBIN_FAMILY_CORE.md section 10). Implemented by
+    ``channel.WhatsAppParentChannel`` (Meta send BLOCKED: tested with fakes only; outside the 24 h window a pre-approved template is used). Replies are text + a TTS
     voice note; inbound voice notes go through the existing media/speech path (STT) and arrive as text in ``parent_said``."""
 
     async def send_text(self, member: Member, text: str) -> bool: ...
@@ -148,19 +148,41 @@ class ParentChannel(Protocol):
 
 @dataclass
 class FakeParentChannel:
+    """Same behaviour as ``channel.WhatsAppParentChannel`` without a network: ``window_open=False`` turns every text and voice note into
+    the pre-approved message template (recorded in ``templates``); ``fail=True`` returns False (the caller then queues the line in the app outbox)."""
+
     texts: list[tuple[str, str]] = field(default_factory=list)  # (member id, text)
     voice_notes: list[tuple[str, str, str]] = field(default_factory=list)
     templates: list[tuple[str, str, dict[str, str], str | None]] = field(default_factory=list)
+    window_open: bool = True
+    fail: bool = False
+    inbound_from: list[str] = field(default_factory=list)  # phones that wrote to us (each opens the window)
+
+    async def note_inbound(self, phone: str) -> None:
+        self.inbound_from.append(phone)
+        self.window_open = True
 
     async def send_text(self, member: Member, text: str) -> bool:
+        if self.fail:
+            return False
+        if not self.window_open:
+            self.templates.append((member.id, "robin_parent_message", {"line": text}, None))
+            return True
         self.texts.append((member.id, text))
         return True
 
     async def send_voice_note(self, member: Member, text: str, language: str) -> bool:
+        if self.fail:
+            return False
+        if not self.window_open:
+            self.templates.append((member.id, "robin_parent_message", {"line": text}, None))
+            return True
         self.voice_notes.append((member.id, text, language))
         return True
 
     async def send_template(self, member: Member, template: str, params: dict[str, str], media: bytes | None = None, media_mime: str | None = None) -> bool:
+        if self.fail:
+            return False
         self.templates.append((member.id, template, params, media_mime))
         return True
 

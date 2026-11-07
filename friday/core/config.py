@@ -603,6 +603,7 @@ class Settings(BaseSettings):
     # while pending. brand_name is the ONE place the product name lives (the Robin pilot sets 'Robin').
     brand_name: str = Field(default="Friday", min_length=1, max_length=24)  # FRIDAY_BRAND_NAME
     robin_enabled: bool = False  # FRIDAY_ROBIN_ENABLED
+    robin_parent_whatsapp_enabled: bool = False  # FRIDAY_ROBIN_PARENT_WHATSAPP_ENABLED: the parent's WhatsApp channel (robin/channel.py); also needs the cloud WhatsApp channel configured
     robin_tick_s: int = Field(default=30, ge=1)  # scheduler poll
     robin_checkin_retries: int = Field(default=2, ge=0, le=2)  # retries after the first try (hard max 2)
     robin_checkin_retry_minutes: int = Field(default=20, ge=5, le=120)
