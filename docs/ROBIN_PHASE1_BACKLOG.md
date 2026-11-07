@@ -280,7 +280,7 @@ Good-morning digest (text built in robin/greetings.py), festival graphics (needs
 - Device THREAT still goes through the consent check (same as family-side); device package does not emit THREAT today.
 - scenarios.yaml has no EMERGENCY tier; only device SOS emits it.
 
-### T20 HIGH alerts ring the child at night (founder decision 2026-11-06)
+### T20 HIGH alerts ring the child at night (founder decision 2026-11-06) (DONE 2026-11-07)
 - RULE: security paths (HIGH, EMERGENCY, SOS, fall, urgent missed-call rings) never consult the calling window or quiet hours; add a table test over every scenario/tier asserting this and that WATCH/INFO still respect quiet hours. Any HIGH (and above) alert rings the child regardless of the calling window; quiet hours only affect non-urgent nudges. Typed "I have it"/"Mark safe" during an open care episode stops the alert. Second-contact WhatsApp sender wired (xfail test from T04 must pass). Tests in tests/e2e/robin. Depends on T05, T06 merged. Status: built on a branch (not merged): `Ctx.call(security=True)`, device-prompt quiet-hours fix, care passthrough for typed "I have it"/"Mark safe", production `second` sender; table test in tests/e2e/robin/test_security_ignores_time.py. The `ops` sender stays unwired (no founder channel exists).
 
 ### T21 Parent voice-first home-screen widget (founder 2026-11-06)
