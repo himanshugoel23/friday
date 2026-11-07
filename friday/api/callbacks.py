@@ -121,6 +121,8 @@ class CallbackService:
                 await rcp0.note_inbound_call(from_phone)
             except Exception:  # noqa: BLE001 - never lose the call to this
                 log.exception("urgent escalation could not note the inbound call")
+        if answered and await self._robin_forwarded(event):  # T10: Robin's own forwarded call
+            return
         if answered:  # a FORWARDED call (user did not pick up): the receptionist, if switched on
             rcp = self.receptionist()
             if rcp is not None:
@@ -145,6 +147,21 @@ class CallbackService:
             fd = self.front_door
             if answered and fd is not None and getattr(fd, "enabled", False):
                 await fd.reject_unparsable(ref)  # cheap fixed message, then hang up
+
+    async def _robin_forwarded(self, event: Event) -> bool:
+        """True when Robin (robin/forwarded.py) took the call; failure = old path."""
+        try:
+            hub = self.c.get("robin")
+        except Exception:  # noqa: BLE001 - Robin off or not buildable: nothing changes
+            return False
+        fn = getattr(hub, "forwarded_call", None)
+        if fn is None:
+            return False
+        try:
+            return bool(await fn(event))
+        except Exception:  # noqa: BLE001 - never lose the call to the new path
+            log.exception("robin forwarded call failed; using the normal path")
+            return False
 
     def receptionist(self) -> Any:
         """The voicemail receptionist (friday/receptionist), or None while its switch is off."""

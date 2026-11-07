@@ -604,6 +604,9 @@ class Settings(BaseSettings):
     brand_name: str = Field(default="Friday", min_length=1, max_length=24)  # FRIDAY_BRAND_NAME
     robin_enabled: bool = False  # FRIDAY_ROBIN_ENABLED
     robin_parent_whatsapp_enabled: bool = False  # FRIDAY_ROBIN_PARENT_WHATSAPP_ENABLED: the parent's WhatsApp channel (robin/channel.py); also needs the cloud WhatsApp channel configured
+    robin_forwarded_calls_enabled: bool = False  # FRIDAY_ROBIN_FORWARDED_CALLS_ENABLED: Robin answers a call forwarded from a Robin member's phone (robin/forwarded.py, T10); OFF = the old receptionist path, unchanged
+    robin_forwarded_call_max_s: int = Field(default=75, ge=60, le=90)  # hard cap of the question loop on a forwarded call
+    robin_forwarded_per_hour: int = Field(default=10, ge=1)  # per family: more forwarded calls than this in an hour can no longer start the urgent ring loop (anti-abuse)
     robin_tick_s: int = Field(default=30, ge=1)  # scheduler poll
     robin_checkin_retries: int = Field(default=2, ge=0, le=2)  # retries after the first try (hard max 2)
     robin_checkin_retry_minutes: int = Field(default=20, ge=5, le=120)
