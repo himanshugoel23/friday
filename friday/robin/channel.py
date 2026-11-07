@@ -248,6 +248,19 @@ class ParentInbound:
             await ch.note_inbound(msg.from_phone)  # their message opens a 24 h window
         if await self._duplicate(msg):
             return
+        try:
+            await self._handle(fam, parent, msg)
+        finally:
+            outbox = getattr(self.hub, "outbox", None)
+            if outbox is not None:  # the window just opened: lines that waited in the app outbox go now (T08; each exactly once; a pause holds them)
+                try:
+                    fresh = await self.hub.ctx.store.get_member(parent.id)
+                    if fresh is not None:
+                        await outbox.drain_member(fam, fresh)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("robin: outbox drain failed (%s)", type(e).__name__)
+
+    async def _handle(self, fam: Family, parent: Member, msg: Any) -> None:
         kind = msg.kind
         if kind == MessageKind.VOICE_NOTE:
             text = await self._listen(msg, parent)
@@ -256,7 +269,7 @@ class ParentInbound:
                 if reply is None:
                     await self._hello(fam, parent)
             else:
-                await self._hello(fam, parent)  # could not hear it: say hello, never silence
+                await self._unclear(fam, parent)  # could not hear it: ask to say it again, never silence (T08; PENDING line inbound.unclear)
             return
         text = (msg.text or "").strip() if kind in (MessageKind.TEXT, MessageKind.BUTTON_REPLY) else ""
         if text and any(f(text) for f in CONTROL_WORDS):
@@ -313,7 +326,11 @@ class ParentInbound:
         c = self.hub.ctx
         await self._say(fam, parent, c.say("inbound.hello", parent.language, **await c.slots(fam)))
 
-    async def _say(self, fam: Family, parent: Member, text: str) -> None:
+    async def _unclear(self, fam: Family, parent: Member) -> None:
+        c = self.hub.ctx
+        await self._say(fam, parent, c.say("inbound.unclear", parent.language, **await c.slots(fam)), line="inbound.unclear")
+
+    async def _say(self, fam: Family, parent: Member, text: str, line: str = "inbound.hello") -> None:
         """Voice note + text to the parent; with no channel (or a failed send) the line waits in the app outbox, like the other Robin lines."""
         c = self.hub.ctx
         ch, sent = c.parent_channel, False
@@ -324,7 +341,7 @@ class ParentInbound:
             except Exception as e:  # noqa: BLE001
                 log.warning("robin: reply to the parent failed (%s)", type(e).__name__)
         if not sent:
-            await c.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="pending", status="queued", at=c.clock.now(), data={"member_id": parent.id, "line": "inbound.hello", "purpose": "reply", "text": text, "incident_id": None}))
+            await c.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="pending", status="queued", at=c.clock.now(), data={"member_id": parent.id, "line": line, "purpose": "reply", "text": text, "incident_id": None}))
 
 
 # ---------------------------------------------------------------------------- fakes (tests and the simulator; nothing leaves the process)

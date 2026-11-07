@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **479** (213 spoken, 266 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **490** (216 spoken, 274 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -127,6 +127,9 @@ Total lines: **479** (213 spoken, 266 chat). Status of each: PENDING_FOUNDER_APP
 | robin.inbound.hello.en | en | Hello {parent}, this is {brand}. I am here. Say 'help' if you need help, or 'stop' to pause me. | PENDING |
 | robin.inbound.hello.hinglish | hinglish | Namaste {parent}, main {brand} hoon. Madad chahiye to 'madad' boliye, ya mujhe rokne ke liye 'ruk jao' boliye. | PENDING |
 | robin.inbound.hello.hi | hi | नमस्ते {parent}, मैं {brand} हूँ। मदद चाहिए तो 'मदद' बोलिए, या मुझे रोकने के लिए 'रुक जाओ' बोलिए। | PENDING |
+| robin.inbound.unclear.en | en | Sorry {parent}, this is {brand}. I could not hear that. Please say it again. | PENDING |
+| robin.inbound.unclear.hinglish | hinglish | Maaf kijiye {parent}, main {brand} hoon. Mujhe woh sunai nahi diya. Kripya dobara boliye. | PENDING |
+| robin.inbound.unclear.hi | hi | माफ़ कीजिए {parent}, मैं {brand} हूँ। मुझे वह सुनाई नहीं दिया। कृपया दोबारा बोलिए। | PENDING |
 | robin.pause.ack.en | en | All right, I have stopped. I will not call you until you tell me to start again. | PENDING |
 | robin.pause.ack.hinglish | hinglish | Theek hai, main ruk gayi. Jab tak aap dobara shuru karne ko na kahein, main phone nahi karungi. | PENDING |
 | robin.pause.ack.hi | hi | ठीक है, मैं रुक गई। जब तक आप दोबारा शुरू करने को न कहें, मैं फ़ोन नहीं करूँगी। | PENDING |
@@ -419,10 +422,18 @@ Total lines: **479** (213 spoken, 266 chat). Status of each: PENDING_FOUNDER_APP
 | robin.cmd.delete_done.hinglish | hinglish | {parent} ke baare mein sab kuch hata diya. | PENDING |
 | robin.cmd.delete_cancelled.en | en | Okay, nothing was deleted. | PENDING |
 | robin.cmd.delete_cancelled.hinglish | hinglish | Theek hai, kuch nahi hata. | PENDING |
-| robin.cmd.help.en | en | {brand} commands: set up {brand} for my father / parent status / call papa / add medicine ... / medicines / remove medicine <name> / check-in time 9am / sensitivity calm/balanced/careful / what does {brand} see / pause reminders 3 days / resume reminders / digest / delete everything for my parent | PENDING |
-| robin.cmd.help.hinglish | hinglish | {brand} ke commands: set up {brand} for my father / parent status / call papa / add medicine ... / medicines / remove medicine <naam> / check-in time 9am / sensitivity calm/balanced/careful / what does {brand} see / pause reminders 3 days / resume reminders / digest / safe word <shabd> / delete everything for my parent | PENDING |
+| robin.cmd.help.en | en | {brand} commands: set up {brand} for my father / parent status / call papa / add medicine ... / medicines / remove medicine <name> / check-in time 9am / sensitivity calm/balanced/careful / what does {brand} see / pause reminders 3 days / resume reminders / digest / pair phone for papa / what is on / what {brand} did today / delete everything for my parent | PENDING |
+| robin.cmd.help.hinglish | hinglish | {brand} ke commands: set up {brand} for my father / parent status / call papa / add medicine ... / medicines / remove medicine <naam> / check-in time 9am / sensitivity calm/balanced/careful / what does {brand} see / pause reminders 3 days / resume reminders / digest / safe word <shabd> / pair phone for papa / what is on / what {brand} did today / delete everything for my parent | PENDING |
 | robin.cmd.care_active.en | en | I am keeping calls and nudges quiet right now. | PENDING |
 | robin.cmd.care_active.hinglish | hinglish | Main abhi calls aur nudges shaant rakh rahi hoon. | PENDING |
+| robin.pair.steps.en | en | To connect {parent}'s phone: 1) install the {brand} app on {parent}'s phone. 2) Open it, press and hold the {brand} name, and enter this code: {code}. Or open this link on {parent}'s phone and tap Connect: {link}. The code works once and expires in {minutes} minutes. {parent} does not have to type anything. Do not share the code with anyone else. | PENDING |
+| robin.pair.steps.hinglish | hinglish | {parent} ka phone jodne ke liye: 1) {parent} ke phone par {brand} app lagayiye. 2) Use kholkar {brand} naam ko dabaye rakhiye aur yeh code daliye: {code}. Ya {parent} ke phone par yeh link kholkar Connect dabaiye: {link}. Code sirf ek baar chalta hai aur {minutes} minute mein khatam ho jata hai. {parent} ko kuch type nahi karna padega. Code kisi aur ko mat dijiye. | PENDING |
+| robin.pair.off.en | en | Phone pairing is not switched on yet, so I cannot make a code. | PENDING |
+| robin.pair.off.hinglish | hinglish | Phone jodna abhi chalu nahi hai, isliye main code nahi bana sakti. | PENDING |
+| robin.pair.not_ready.en | en | First finish setting up {brand} for {parent} (their number is needed), then ask me again. | PENDING |
+| robin.pair.not_ready.hinglish | hinglish | Pehle {parent} ke liye {brand} ka setup poora kijiye (unka number chahiye), phir dobara poochhiye. | PENDING |
+| robin.inbox.head.en | en | {brand} could not reach your phone earlier and held these messages for you: | PENDING |
+| robin.inbox.head.hinglish | hinglish | {brand} pehle aapke phone tak nahi pahunch saki aur ye messages aapke liye rakh liye the: | PENDING |
 | robin.cmd.escalation_unnamed.en | en | No second contact was named, so I will not contact anyone else. | PENDING |
 | robin.cmd.escalation_unnamed.hinglish | hinglish | Koi doosra sampark nahi diya gaya, isliye main kisi aur ko contact nahi karungi. | PENDING |
 | robin.consent.request_sent.en | en | I noted your request for {item}. {parent} asked {brand} to stop, so only {parent} can start it again. | PENDING |

@@ -157,14 +157,27 @@ class FakeParentChannel:
     window_open: bool = True
     fail: bool = False
     inbound_from: list[str] = field(default_factory=list)  # phones that wrote to us (each opens the window)
+    reopens: list[tuple[str, str, str]] = field(default_factory=list)  # (member id, parent label, child name): the "say anything" template (T08 outbox drain)
+    log: list[str] = field(default_factory=list)  # order of calls: "reopen", "voice", "text" (tests check the reopen comes first)
 
     async def note_inbound(self, phone: str) -> None:
         self.inbound_from.append(phone)
         self.window_open = True
 
+    async def in_window(self, phone: str) -> bool:  # noqa: ARG002
+        return self.window_open
+
+    async def reopen(self, member: Member, parent_label: str, child_name: str) -> bool:
+        if self.fail:
+            return False
+        self.reopens.append((member.id, parent_label, child_name))
+        self.log.append("reopen")
+        return True
+
     async def send_text(self, member: Member, text: str) -> bool:
         if self.fail:
             return False
+        self.log.append("text")
         if not self.window_open:
             self.templates.append((member.id, "robin_parent_message", {"line": text}, None))
             return True
@@ -174,6 +187,7 @@ class FakeParentChannel:
     async def send_voice_note(self, member: Member, text: str, language: str) -> bool:
         if self.fail:
             return False
+        self.log.append("voice")
         if not self.window_open:
             self.templates.append((member.id, "robin_parent_message", {"line": text}, None))
             return True

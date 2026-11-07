@@ -280,23 +280,26 @@ class FamilyService:
             "audit_today": [{"at": r.at.isoformat(), "text": r.data.get("text", "")} for r in audit],
         }  # fmt: skip
 
-    async def render_view(self, family: Family) -> str:
+    async def render_view(self, family: Family, part: str = "all") -> str:
+        """``part``: "all" (what the parent sees), "on" (only what is switched on, no log) or "today" (only what Robin did today, all of it)."""
         v = await self.view(family)
         lang = await self.ctx.chat_lang(family)
         child = await self.ctx.child(family)
         slots = {"parent": family.parent_label, "child": (child.name if child and child.name else "you")}
-        out = [self.ctx.say("view.child.head", lang, **slots)]
+        out = [self.ctx.say("view.child.head", lang, **slots)] if part != "today" else []
         idx = 0 if lang == "en" else 1
-        for it in v["items"]:
-            label = ITEM_LABEL[it["item"]][idx]
-            when = (it["withdrawn_at"] or it["given_at"] or "")[:10]
-            key = {"agreed": "view.item.on", "withdrawn": "view.item.withdrawn", "not_agreed": "view.item.off"}[it["state"]]
-            out.append(self.ctx.say(key, lang, item=label, when=when, source=it["source"] or ""))
-        out.append(self.ctx.say("view.shared", lang, child=slots["child"], shared="; ".join(v["shared_with_child"])))
-        out.append(self.ctx.say("view.never", lang))
-        out.append(self.ctx.say("view.audit_head", lang))
-        rows = [f"- {r['text']}" for r in v["audit_today"][-12:]]
-        out.extend(rows or [self.ctx.say("view.audit_empty", lang)])
+        if part != "today":
+            for it in v["items"]:
+                label = ITEM_LABEL[it["item"]][idx]
+                when = (it["withdrawn_at"] or it["given_at"] or "")[:10]
+                key = {"agreed": "view.item.on", "withdrawn": "view.item.withdrawn", "not_agreed": "view.item.off"}[it["state"]]
+                out.append(self.ctx.say(key, lang, item=label, when=when, source=it["source"] or ""))
+            out.append(self.ctx.say("view.shared", lang, child=slots["child"], shared="; ".join(v["shared_with_child"])))
+            out.append(self.ctx.say("view.never", lang))
+        if part != "on":
+            out.append(self.ctx.say("view.audit_head", lang))
+            rows = [f"- {r['text']}" for r in v["audit_today"][-12:]] if part == "all" else [f"- {r['text']}" for r in v["audit_today"][-30:]]
+            out.extend(rows or [self.ctx.say("view.audit_empty", lang)])
         return "\n".join(out)
 
     # ------------------------------------------------------------------ safe word (stored hashed)

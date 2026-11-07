@@ -48,6 +48,7 @@ CONSENT_FOR: dict[str, tuple[ConsentItem, ...] | None] = {
     "nudge": (ConsentItem.DEVICE_SIGNALS, ConsentItem.PAYMENT_ALERTS, ConsentItem.SCAM_CHECK, ConsentItem.DAILY_CHECKIN_CALLS),
 }
 ESCALATION_PURPOSES = ("nudge", "escalation_child", "escalation_second", "bridge")  # emergency_ring has its own ceiling: 6 tries, 3 minutes apart
+INCIDENT_CALL_CAP = 3  # rings per person per incident: the ceiling that stays when SOS/EMERGENCY skip the daily cap
 # purposes that the care protocol silences (Robin goes quiet while the child is in distress)
 CARE_SILENCED = ("checkin", "callnow", "medicine", "nudge", "digest")
 
@@ -67,6 +68,7 @@ class Ctx:
     parent_channel: Any = None  # ports.ParentChannel (WhatsApp, voice-note first); None = outbox only
     on_reached: Any = None  # async (family, parent) called after an answered call to the parent
     audit_sink: Any = None  # async (action, user_id, *, actor, source, counts): the core audit log (kept after 'delete everything'; counts only, no PII)
+    inbox: Any = None  # delivery.ChildInbox (T08): where a message the child's phone could not receive waits (shown in the chat at their next message); None = nowhere
 
     # ------------------------------------------------------------------ brand and lines
     @property
@@ -159,18 +161,23 @@ class Ctx:
 
     # ------------------------------------------------------------------ messages to the child
     async def tell_child(self, family: Family, text: str, buttons: Sequence[ReplyButton] = ()) -> bool:
+        """Send to the child (admin) and the co-admins. True only when the OWNER's send worked. A failed send never stops the ladder: the text
+        waits in the child's chat inbox (T08, shown at their next message) and the caller gets False (the alert engine then escalates earlier)."""
+        ok = False
         try:
             await self.send(family.owner_user_id, text, list(buttons)[:3])
-            for m in await self.store.members(family.id, Role.CO_ADMIN):
-                if m.user_id:
-                    try:
-                        await self.send(m.user_id, text, list(buttons)[:3])
-                    except Exception as e:  # noqa: BLE001
-                        log.warning("robin: message to a co-admin failed (%s)", type(e).__name__)
-            return True
+            ok = True
         except Exception as e:  # noqa: BLE001 - a failed send never stops the ladder
             log.warning("robin: message to the child failed (%s)", type(e).__name__)
-            return False
+        for m in await self.store.members(family.id, Role.CO_ADMIN):
+            if m.user_id:
+                try:
+                    await self.send(m.user_id, text, list(buttons)[:3])
+                except Exception as e:  # noqa: BLE001
+                    log.warning("robin: message to a co-admin failed (%s)", type(e).__name__)
+        if not ok and self.inbox is not None:
+            await self.inbox.hold(family, text)
+        return ok
 
     async def tell_second(self, family: Family, second: Member, text: str) -> bool:
         sender = self.extra_senders.get("second")
@@ -187,7 +194,12 @@ class Ctx:
     async def calls_today(self, family: Family, member: Member, purposes: tuple[str, ...] = ESCALATION_PURPOSES) -> int:
         start, end = ist_day_bounds(self.clock.now())
         rows = await self.store.list(family.id, "audit", since=start, until=end)
-        return sum(1 for r in rows if r.data.get("event") == "call" and r.data.get("member_id") == member.id and r.data.get("purpose") in purposes and r.data.get("result") != CallResult.REFUSED.value)
+        return sum(1 for r in rows if r.data.get("event") == "call" and r.data.get("member_id") == member.id and r.data.get("purpose") in purposes and not r.data.get("exempt") and r.data.get("result") != CallResult.REFUSED.value)  # SOS/EMERGENCY rings are exempt and do not use up the day's cap
+
+    async def calls_for_incident(self, family: Family, member: Member, incident_id: str, purpose: str) -> int:
+        start, end = ist_day_bounds(self.clock.now())
+        rows = await self.store.list(family.id, "audit", since=start - timedelta(days=1), until=end, limit=2000)
+        return sum(1 for r in rows if r.data.get("event") == "call" and r.data.get("incident_id") == incident_id and r.data.get("member_id") == member.id and r.data.get("purpose") == purpose and r.data.get("result") != CallResult.REFUSED.value)
 
     async def call(
         self, family: Family, member: Member, purpose: str, steps: list[Step], *, dedupe_key: str, emergency: bool = False, money: bool = False,
@@ -223,8 +235,12 @@ class Ctx:
             return await refuse("quiet_hours")
         if purpose in CARE_SILENCED and not (emergency or bypass_care) and await self.care_active(family.owner_user_id):
             return await refuse("care_active")
-        if purpose in ESCALATION_PURPOSES and await self.calls_today(family, member) >= family.settings.daily_escalation_cap:
-            return await refuse("daily_cap")
+        if purpose in ESCALATION_PURPOSES:
+            if emergency or sos:  # founder decision (2026-11-07): SOS and EMERGENCY are exempt from the 3-a-day cap; each incident keeps its own ceiling of INCIDENT_CALL_CAP rings per person
+                if incident_id and await self.calls_for_incident(family, member, incident_id, purpose) >= INCIDENT_CALL_CAP:
+                    return await refuse("incident_cap")
+            elif await self.calls_today(family, member) >= family.settings.daily_escalation_cap:
+                return await refuse("daily_cap")
         owner = await self.owner(family)
         if owner is None:
             return await refuse("no_owner")
@@ -232,7 +248,7 @@ class Ctx:
         if not verdict.allowed:
             return await refuse("gate:" + ",".join(verdict.reasons))
         out = await self.caller.converse(member=member, family=family, purpose=purpose, steps=steps, dedupe_key=dedupe_key, brand=self.brand, max_seconds=max_seconds)
-        await self.audit(family, "call", f"Called {who} ({purpose}): {out.result.value}", member_id=member.id, purpose=purpose, result=out.result.value, detail=out.detail, incident_id=incident_id)
+        await self.audit(family, "call", f"Called {who} ({purpose}): {out.result.value}", member_id=member.id, purpose=purpose, result=out.result.value, detail=out.detail, incident_id=incident_id, exempt=bool(emergency or sos))
         if member.role == Role.PARENT and out.result == CallResult.ANSWERED and self.on_reached is not None:
             await self.on_reached(family, member)
         return out

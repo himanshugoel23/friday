@@ -48,7 +48,7 @@ async def test_urgent_missed_call_to_the_parent_rings_every_three_minutes_up_to_
         assert all(c.line_keys == ["missed.emergency_ring"] for c in rings)
         (inc,) = [i for i in await w.incidents() if i.data["scenario"] == "missed_urgent"]
         assert inc.status == "exhausted"
-        assert w.channel.templates == [] and len(w.channel.texts) == n_note + 1  # the message was sent once, not once per ring
+        assert w.channel.templates == [] and len([t for _, t in w.channel.texts if 'doctor ke paas' in t]) == 1  # the message was sent once, not once per ring (the scheduler also drained the monthly reminder, T08)
     finally:
         await w.close()
 

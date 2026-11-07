@@ -151,6 +151,10 @@ _s("inbound.hello",
    "Hello {parent}, this is {brand}. I am here. Say 'help' if you need help, or 'stop' to pause me.",
    "Namaste {parent}, main {brand} hoon. Madad chahiye to 'madad' boliye, ya mujhe rokne ke liye 'ruk jao' boliye.",
    "नमस्ते {parent}, मैं {brand} हूँ। मदद चाहिए तो 'मदद' बोलिए, या मुझे रोकने के लिए 'रुक जाओ' बोलिए।")
+_s("inbound.unclear",
+   "Sorry {parent}, this is {brand}. I could not hear that. Please say it again.",
+   "Maaf kijiye {parent}, main {brand} hoon. Mujhe woh sunai nahi diya. Kripya dobara boliye.",
+   "माफ़ कीजिए {parent}, मैं {brand} हूँ। मुझे वह सुनाई नहीं दिया। कृपया दोबारा बोलिए।")  # PENDING founder approval of wording (T08): unreadable parent audio
 _s("pause.ack",
    "All right, I have stopped. I will not call you until you tell me to start again.",
    "Theek hai, main ruk gayi. Jab tak aap dobara shuru karne ko na kahein, main phone nahi karungi.",
@@ -285,8 +289,14 @@ _c("cmd.sensitivity_set", "Sensitivity is now {level}. This changes how soon I a
 _c("cmd.delete_ask", "This deletes everything {brand} holds about {parent} and the family setup: consents, medicines, check-ins and the log. Reply DELETE to confirm.", "Isse {parent} aur family setup ke baare mein {brand} ke paas jo kuch hai sab hat jayega: sahmatiyan, dawaiyan, check-in aur log. Confirm karne ke liye DELETE likhiye.")
 _c("cmd.delete_done", "Deleted everything about {parent}.", "{parent} ke baare mein sab kuch hata diya.")
 _c("cmd.delete_cancelled", "Okay, nothing was deleted.", "Theek hai, kuch nahi hata.")
-_c("cmd.help", "{brand} commands: set up {brand} for my father | parent status | call papa | add medicine ... | medicines | remove medicine <name> | check-in time 9am | sensitivity calm|balanced|careful | what does {brand} see | pause reminders 3 days | resume reminders | digest | delete everything for my parent", "{brand} ke commands: set up {brand} for my father | parent status | call papa | add medicine ... | medicines | remove medicine <naam> | check-in time 9am | sensitivity calm|balanced|careful | what does {brand} see | pause reminders 3 days | resume reminders | digest | safe word <shabd> | delete everything for my parent")
+_c("cmd.help", "{brand} commands: set up {brand} for my father | parent status | call papa | add medicine ... | medicines | remove medicine <name> | check-in time 9am | sensitivity calm|balanced|careful | what does {brand} see | pause reminders 3 days | resume reminders | digest | pair phone for papa | what is on | what {brand} did today | delete everything for my parent", "{brand} ke commands: set up {brand} for my father | parent status | call papa | add medicine ... | medicines | remove medicine <naam> | check-in time 9am | sensitivity calm|balanced|careful | what does {brand} see | pause reminders 3 days | resume reminders | digest | safe word <shabd> | pair phone for papa | what is on | what {brand} did today | delete everything for my parent")
 _c("cmd.care_active", "I am keeping calls and nudges quiet right now.", "Main abhi calls aur nudges shaant rakh rahi hoon.")
+_c("pair.steps",
+   "To connect {parent}'s phone: 1) install the {brand} app on {parent}'s phone. 2) Open it, press and hold the {brand} name, and enter this code: {code}. Or open this link on {parent}'s phone and tap Connect: {link}. The code works once and expires in {minutes} minutes. {parent} does not have to type anything. Do not share the code with anyone else.",
+   "{parent} ka phone jodne ke liye: 1) {parent} ke phone par {brand} app lagayiye. 2) Use kholkar {brand} naam ko dabaye rakhiye aur yeh code daliye: {code}. Ya {parent} ke phone par yeh link kholkar Connect dabaiye: {link}. Code sirf ek baar chalta hai aur {minutes} minute mein khatam ho jata hai. {parent} ko kuch type nahi karna padega. Code kisi aur ko mat dijiye.")  # PENDING founder approval of wording (T08)
+_c("pair.off", "Phone pairing is not switched on yet, so I cannot make a code.", "Phone jodna abhi chalu nahi hai, isliye main code nahi bana sakti.")
+_c("pair.not_ready", "First finish setting up {brand} for {parent} (their number is needed), then ask me again.", "Pehle {parent} ke liye {brand} ka setup poora kijiye (unka number chahiye), phir dobara poochhiye.")
+_c("inbox.head", "{brand} could not reach your phone earlier and held these messages for you:", "{brand} pehle aapke phone tak nahi pahunch saki aur ye messages aapke liye rakh liye the:")
 _c("cmd.escalation_unnamed", "No second contact was named, so I will not contact anyone else.", "Koi doosra sampark nahi diya gaya, isliye main kisi aur ko contact nahi karungi.")
 
 _s("monthly.reminder",
