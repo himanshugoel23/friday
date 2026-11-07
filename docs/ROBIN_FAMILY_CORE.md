@@ -114,7 +114,8 @@ The window marker (`WindowTracker`, shared cache keyed by the blind index of the
 If the sender's phone belongs to a Robin PARENT member the message is consumed there; any other number (including the child's) continues down the old path unchanged.
 Voice note -> fetch media -> STT (language hint from the parent) -> the audio is dropped (never written to disk or the database, never logged; the provider copy is deleted best-effort with `delete_media`) -> `RobinHub.parent_said(phone, text, via="voice")`
 (stop / start / help = SOS / threat / "I am fine"; any word ends an "unanswered" ladder). A control word typed as text (stop, help, I am fine) is treated the same, because stopping must always work.
-Other text, links, forwarded messages, screenshots, documents -> `ScamIntake` = **T13 STUB** (`UnbuiltScamIntake`: analyses and stores nothing; the parent gets the short `inbound.hello` line). Nothing from a parent reaches the general assistant.
+Other text, links, forwarded messages, screenshots, documents -> `ScamIntake` = `friday/robin/scamintake.py` `ScamForward` (**T13**, see below). Nothing from a parent reaches the general assistant.
+A typed stop / start / "I am fine" counts as a command only in a short message (6 words or fewer), so a long forwarded text containing "stop" is judged, not obeyed; help and threat words always count.
 Unreadable audio gets the same hello (never silence). With no channel configured the reply waits in the outbox.
 **Care protocol:** `RobinHub.parent_said` screens the parent's words with `friday.care.detect.assess` (after "stop", before the other branches): HIGH -> the care protocol's own line in the parent's language (voice + text);
 the family is told only if the parent's `share_summary_with_child` consent is on (the `authority.distress` chat line, no words in it, any hour); the words are never stored or logged.
@@ -181,3 +182,17 @@ Unverified: whether an automated call to 112/1930 is lawful or accepted (legal r
 - **Parent outbox drain** (`delivery.OutboxDrain`, scheduler tick and right after the parent writes): `queued` -> `sending` (claimed) -> `sent`; failures go back to `queued` in order; identical lines are sent once (and not again within 2 hours of delivery); the 24 h window closed -> `channel.reopen` first (at most one per 12 hours), then the lines (templates); the parent's pause holds the outbox; non-essential lines older than 48 h expire (the consent notice never does). A crash between claim and send loses that one line (at most once, never twice).
 - **SOS and EMERGENCY are exempt from the 3-a-day escalation call cap** (founder, 2026-11-07); each incident keeps 3 rings per person (`incident_cap`); their rings do not use up the day's cap for HIGH.
 - **Unreadable parent audio** gets its own line `inbound.unclear` ("could not hear that, please say it again"), PENDING, instead of the hello.
+
+
+## T13: scam check by forwarding (tested with fakes only)
+
+`ScamForward` (friday/robin/scamintake.py) replaces the T07 stub. A text, link, forward or screenshot from a Robin parent:
+1. Short greetings ("namaste ji", 3 words or fewer, no digit or link) get the short hello and are not judged.
+2. No `scam_check` consent: nothing is analysed or sent to any provider; the parent hears `scam.no_consent` (cannot help, show it to the child, do not click or pay) and the child gets `scam.child_no_consent` once per local day. A parent who paused Robin can still forward (her own explicit action, like the mic tap).
+3. Text/link: `scamcheck.check` (rules first; with `FRIDAY_ROBIN_DEVICE_SCAM_LLM_ENABLED` on, a masked second opinion that can only RAISE, never above RISKY alone). A lone link is checked as a link.
+4. Screenshot/PDF: bytes fetched in memory -> the existing `docunderstand` vision port (provider `none` = unavailable) -> text -> same check -> bytes dropped, provider copy deleted. Unreadable = `scam.unreadable` (never "no warning signs").
+5. Verdict lines `scam.high|risky|unsure|nosigns` (PENDING) go back as a voice note + text in the parent's language. Never "safe": the best answer is "no warning signs found" plus "that does not mean everything is fine".
+6. SCAM_LIKELY (HIGH) tells the child when `share_summary_with_child` is on (`scam.child_high`, no content; same category once per 10 minutes). A money category (OTP/PIN, refund, safe account, investment, relative in trouble, prize, KYC, utility, pension, digital arrest, lookalike link, APK, remote access) adds the first-hour playbook text `scam.child_playbook` (bank, 1930, transaction ids, cybercrime.gov.in).
+7. Stored: one audit row (30-day retention): verdict, category, time, and, only if a phone number or link host was found, a keyed HMAC hash of it (`sender_hash`). The same hash seen again within the retention at RISKY or above adds `scam.repeat` for the parent and tells the child (`scam.child_repeat`, count only). Never the text, image, number or link; logs carry member ids and verdict words only.
+
+Widget mic (T09 follow-up): `voice_messages` needs no consent item any more; the parent's tap is the soft approval and spoken help always raises an SOS. Withdrawing `voice_messages` on the phone is a no-op; `share_check` withdraws `scam_check` (forwarded checks).

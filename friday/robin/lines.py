@@ -168,6 +168,48 @@ _s("inbound.unclear",
    "Sorry {parent}, this is {brand}. I could not hear that. Please say it again.",
    "Maaf kijiye {parent}, main {brand} hoon. Mujhe woh sunai nahi diya. Kripya dobara boliye.",
    "माफ़ कीजिए {parent}, मैं {brand} हूँ। मुझे वह सुनाई नहीं दिया। कृपया दोबारा बोलिए।")  # PENDING founder approval of wording (T08): unreadable parent audio
+# T13: the verdict on something the parent forwarded (text, link or screenshot). PENDING founder approval of wording. Never the word "safe":
+# the best answer is "no warning signs found". {verdict} is the scam-check headline (friday/robindevice/copy.py), {why} its one-line reason.
+_s("scam.high",
+   "{verdict} {why} {parent}, please do not click anything, do not pay and do not share any OTP or PIN. Call {child} first.",
+   "{verdict} {why} {parent}, kripya kuch bhi click mat kijiye, paise mat bhejiye aur OTP ya PIN kisi ko mat bataiye. Pehle {child} ko call kijiye.",
+   "{verdict} {why} {parent}, कृपया कुछ भी क्लिक मत कीजिए, पैसे मत भेजिए और OTP या PIN किसी को मत बताइए। पहले {child} को कॉल कीजिए।")
+_s("scam.risky",
+   "{verdict} {why} Please do not click and do not pay. Call {child} before you do anything.",
+   "{verdict} {why} Kripya click mat kijiye aur paise mat bhejiye. Kuch bhi karne se pehle {child} ko call kijiye.",
+   "{verdict} {why} कृपया क्लिक मत कीजिए और पैसे मत भेजिए। कुछ भी करने से पहले {child} को कॉल कीजिए।")
+_s("scam.unsure",
+   "{verdict} Please do not click and do not pay yet. Show it to {child} first.",
+   "{verdict} Kripya abhi click mat kijiye aur paise mat bhejiye. Pehle yeh {child} ko dikhaiye.",
+   "{verdict} कृपया अभी क्लिक मत कीजिए और पैसे मत भेजिए। पहले यह {child} को दिखाइए।")
+_s("scam.nosigns",
+   "{verdict} That does not mean everything is fine. If it asks for money, an OTP or a click, please call {child} first.",
+   "{verdict} Iska matlab yeh nahi ki sab theek hai. Agar isme paise, OTP ya click maanga jaye to pehle {child} ko call kijiye.",
+   "{verdict} इसका मतलब यह नहीं कि सब ठीक है। अगर इसमें पैसे, OTP या क्लिक माँगा जाए तो पहले {child} को कॉल कीजिए।")
+_s("scam.unreadable",
+   "I could not read this. Please do not click and do not pay. Show it to {child}.",
+   "Main ise padh nahi payi. Kripya click mat kijiye aur paise mat bhejiye. Yeh {child} ko dikhaiye.",
+   "मैं इसे पढ़ नहीं पाई। कृपया क्लिक मत कीजिए और पैसे मत भेजिए। यह {child} को दिखाइए।")
+_s("scam.repeat",
+   "This sender has written before. Please do not reply.",
+   "Is bhejne wale ne pehle bhi likha hai. Kripya jawab mat dijiye.",
+   "इस भेजने वाले ने पहले भी लिखा है। कृपया जवाब मत दीजिए।")
+_s("scam.no_consent",
+   "{parent}, I cannot check messages yet, because {child} has not switched this on. Please show it to {child}, and do not click or pay until then.",
+   "{parent}, main abhi messages nahi jaanch sakti, kyunki {child} ne yeh chalu nahi kiya hai. Kripya yeh {child} ko dikhaiye, aur tab tak click mat kijiye aur paise mat bhejiye.",
+   "{parent}, मैं अभी मैसेज नहीं जाँच सकती, क्योंकि {child} ने यह चालू नहीं किया है। कृपया यह {child} को दिखाइए, और तब तक क्लिक मत कीजिए और पैसे मत भेजिए।")
+_c("scam.child_high",
+   "{parent} sent {brand} a message to check, and it looks very risky. {what} I told {parent} not to click, not to pay and to call you. I did not keep the message. Please call {parent} now.",
+   "{parent} ne {brand} ko jaanchne ke liye ek message bheja, aur wo bahut risky lag raha hai. {what} Maine {parent} ko click aur payment na karne aur aapko call karne ko kaha hai. Maine message rakha nahi hai. Kripya abhi {parent} ko call kijiye.")
+_c("scam.child_repeat",
+   "{parent} sent {brand} another message from a sender that has now written {n} times. {what} I told {parent} not to reply. I did not keep the message. Please call {parent}.",
+   "{parent} ne {brand} ko ek aur message bheja, jis bhejne wale ne ab {n} baar likha hai. {what} Maine {parent} ko jawab na dene ko kaha hai. Maine message rakha nahi hai. Kripya {parent} ko call kijiye.")
+_c("scam.child_no_consent",
+   "{parent} tried to send {brand} a message to check, but scam check is not switched on, so I did not look at it. I told {parent} to show it to you. To switch it on, write: enable scam check.",
+   "{parent} ne {brand} ko jaanchne ke liye message bhejna chaha, lekin scam check chalu nahi hai, isliye maine use dekha nahi. Maine {parent} ko aapko dikhane ko kaha hai. Chalu karne ke liye likhiye: enable scam check.")
+_c("scam.child_playbook",
+   "If money was already sent, a code was shared or a link was opened, act in the first hour: 1) call your bank's helpline and ask them to block or freeze the payment; 2) call 1930, the cyber fraud helpline; 3) write down the amount, the time and the transaction ids; 4) file a report at cybercrime.gov.in; 5) be kind to {parent}, this happens to many careful people.",
+   "Agar paise bhej diye gaye hain, code bata diya gaya hai ya link khol liya gaya hai, to pehle ghante mein yeh kijiye: 1) apne bank ki helpline par call karke payment block ya freeze karwayiye; 2) 1930 par call kijiye, yeh cyber fraud helpline hai; 3) rakam, samay aur transaction id likh lijiye; 4) cybercrime.gov.in par report darj kijiye; 5) {parent} se pyaar se baat kijiye, yeh bahut samajhdar logon ke saath bhi hota hai.")
 _s("pause.ack",
    "All right, I have stopped. I will not call you until you tell me to start again.",
    "Theek hai, main ruk gayi. Jab tak aap dobara shuru karne ko na kahein, main phone nahi karungi.",
