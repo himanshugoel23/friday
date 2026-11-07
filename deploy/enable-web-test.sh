@@ -89,10 +89,11 @@ ALWAYS_OFF = [
     "FRIDAY_PARITY_NUDGES", "FRIDAY_PARITY_ESCALATION",
     "FRIDAY_REPLY_WRITER_ENABLED",  # LLM reply writer (docs/REPLY_WRITER.md): off until approved examples exist and it beats the prompt on the bench
     "FRIDAY_REMOTE_BROWSER_ENABLED",  # managed remote browser (docs/REMOTE_BROWSER.md): page content goes to a third party; the founder turns it on by hand after pasting a key
-    "FRIDAY_ROBIN_DEVICE_ENABLED",  # Robin parent-phone device API (docs/ROBIN_ANDROID_APP.md): KEPT OFF until the family ports are wired and wording is approved
     "FRIDAY_TEAM_DRIFT_ENABLED",  # live site probes (duplicates SITE_MCP_PROBE): switched on by hand only
-    "FRIDAY_ROBIN_ENABLED", "FRIDAY_ROBIN_SAFE_WORD_ENABLED", "FRIDAY_ROBIN_SCREEN_UNKNOWN_ENABLED", "FRIDAY_ROBIN_LISTEN_IN_ENABLED",  # Robin parent care (docs/ROBIN_FAMILY_CORE.md): KEPT OFF, the founder turns it on; spoken lines PENDING
+    "FRIDAY_ROBIN_SAFE_WORD_ENABLED", "FRIDAY_ROBIN_SCREEN_UNKNOWN_ENABLED", "FRIDAY_ROBIN_LISTEN_IN_ENABLED",  # Robin parent care (docs/ROBIN_FAMILY_CORE.md): KEPT OFF, the founder turns it on; spoken lines PENDING
 ]
+# Robin's two switches belong to deploy/enable-robin.sh: this script neither turns them on nor off (a web-test rerun must not undo it)
+KEPT = ["FRIDAY_ROBIN_ENABLED", "FRIDAY_ROBIN_DEVICE_ENABLED"]
 CAPS = ["FRIDAY_WEB_MAX_CALLS_PER_DAY", "FRIDAY_WEB_MAX_SPEND_INR", "FRIDAY_WEB_GLOBAL_MAX_SPEND_INR"]
 
 problem = None
@@ -145,7 +146,7 @@ def present(key):
 
 
 print(f"web test: {mode.upper()}  (key names only; no values are printed)")
-for k in ["FRIDAY_WEB_CHANNEL_ENABLED", "FRIDAY_INVITE_ONLY", "FRIDAY_CHATBOT_ONBOARDING", "FRIDAY_PILOT", "FRIDAY_OPS_CALL_REVIEW_ENABLED", "FRIDAY_OPS_BENCH_ENABLED"] + FEATURES_ON + ALWAYS_OFF:
+for k in ["FRIDAY_WEB_CHANNEL_ENABLED", "FRIDAY_INVITE_ONLY", "FRIDAY_CHATBOT_ONBOARDING", "FRIDAY_PILOT", "FRIDAY_OPS_CALL_REVIEW_ENABLED", "FRIDAY_OPS_BENCH_ENABLED"] + FEATURES_ON + ALWAYS_OFF + KEPT:
     print(f"  {k:<40} {onoff(k)}")
 print(f"  {'FRIDAY_PROFILE':<40} {'pilot' if get('FRIDAY_PROFILE') == 'pilot' else 'NOT pilot'}")
 print(f"  {'FRIDAY_DOCS_VISION_PROVIDER':<40} {get('FRIDAY_DOCS_VISION_PROVIDER') or 'none'}")

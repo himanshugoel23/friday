@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """``friday doctor``: one read-only command that proves the foundation works.
 
 It places no call, sends no message and spends no money. Every line is ``[ OK ]``, ``[WARN]``,
@@ -33,7 +34,7 @@ OK, WARN, FAIL, SKIP = "OK", "WARN", "FAIL", "SKIPPED"
 TAGS = {OK: "[ OK ]", WARN: "[WARN]", FAIL: "[FAIL]", SKIP: "[SKIP]"}
 SECTIONS = (
     "settings", "database", "services", "public_url", "providers", "switches", "off_switch",
-    "systemd", "receptionist", "browser", "web", "call_queue",
+    "systemd", "receptionist", "browser", "web", "call_queue", "robin",
 )
 TITLES = {
     "settings": "1. settings",
@@ -48,6 +49,7 @@ TITLES = {
     "browser": "10. private browser",
     "web": "11. web channel (browser chat for named testers)",
     "call_queue": "12. outbound call queue (Friday's own pacing)",
+    "robin": "13. Robin (parents' security and care)",
 }
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
@@ -773,6 +775,65 @@ def _check_call_queue(settings: Settings) -> Section:
     return sec
 
 
+# ----------------------------------------------------------------------------- 13 robin
+def check_robin(settings: Settings, *, now: float | None = None) -> Section:
+    """Robin status without any family data: switches, authority lock, lines, migrations, scheduler. Read-only."""
+    from friday.robin import lines, opscounts
+
+    s = Section("robin")
+    on = bool(settings.robin_enabled)
+    s.add(OK, f"FRIDAY_ROBIN_ENABLED={'on' if on else 'off'}")
+    dev = bool(settings.robin_device_enabled)
+    if dev and not on:
+        s.add(WARN, "FRIDAY_ROBIN_DEVICE_ENABLED=on but FRIDAY_ROBIN_ENABLED is off: the device API is not mounted")
+    else:
+        s.add(OK, f"FRIDAY_ROBIN_DEVICE_ENABLED={'on' if dev else 'off'}")
+    calls, dry = bool(settings.robin_authority_calls_enabled), bool(settings.robin_authority_dry_run)
+    if not dry:
+        s.add(FAIL, "FRIDAY_ROBIN_AUTHORITY_DRY_RUN=false: the authority module is LIVE. No live adapter is approved; "
+                    "set FRIDAY_ROBIN_AUTHORITY_DRY_RUN=true (or remove it) now")
+    elif calls:
+        s.add(WARN, "FRIDAY_ROBIN_AUTHORITY_CALLS_ENABLED=on, dry-run: scripts are only logged, nothing is dialled")
+    else:
+        s.add(OK, "authority calls off, dry-run on (nothing can be dialled to the authorities)")
+    s.add(WARN if settings.robin_listen_in_enabled else OK,
+          f"FRIDAY_ROBIN_LISTEN_IN_ENABLED={'on' if settings.robin_listen_in_enabled else 'off'}"
+          + (" (listen-in must stay off until reviewed)" if settings.robin_listen_in_enabled else ""))
+    s.add(OK, "spoken lines status: " + ("APPROVED" if lines.approved() else "PENDING (the real dial refuses; fakes and the founder QA call only)"))
+    try:
+        revs = known_revisions()
+    except Exception as e:  # noqa: BLE001
+        revs = set()
+        s.add(WARN, f"migration chain could not be read ({_exc(e)})")
+    for rev in ("0019_robin_family", "0020_robin_device"):
+        if rev in revs:
+            s.add(OK, f"migration {rev[:4]} present in this code")
+        elif revs:
+            s.add(FAIL if on else WARN, f"migration {rev} is missing from this code")
+    try:
+        import friday.care.service  # noqa: F401
+
+        s.add(OK, "care protocol component present")
+    except Exception as e:  # noqa: BLE001
+        s.add(FAIL if on else WARN, f"care protocol component missing ({_exc(e)}): Robin blocks calls without it")
+    if not on:
+        s.add(SKIP, "scheduler, parent channel and last tick are checked once FRIDAY_ROBIN_ENABLED is on")
+        return s
+    age = opscounts.tick_age_s(now)
+    limit = max(int(settings.robin_tick_s) * 4, 120)
+    if age is None:
+        s.add(WARN, "scheduler: no tick recorded yet (is the service running with Robin on?)")
+    elif age <= limit:
+        s.add(OK, f"scheduler task running; last tick {age}s ago")
+    else:
+        s.add(WARN, f"scheduler looks stopped: last tick {age}s ago (limit {limit}s); check 'journalctl -u friday'")
+    if settings.whatsapp_access_token and settings.whatsapp_phone_number_id:
+        s.add(OK, "parent channel: WhatsApp is configured (messages to the parent can be sent)")
+    else:
+        s.add(WARN, "parent channel: WhatsApp is not configured; messages to the parent wait in the outbox")
+    return s
+
+
 # ----------------------------------------------------------------------------- driver
 async def run_sections(
     settings: Settings, *, offline: bool = False, only: str | None = None,
@@ -792,6 +853,7 @@ async def run_sections(
         "browser": lambda: _check_browser(settings),
         "web": lambda: _check_web(settings),
         "call_queue": lambda: _check_call_queue(settings),
+        "robin": lambda: check_robin(settings),
     }
     out: list[Section] = []
     for name in [only] if only else SECTIONS:
