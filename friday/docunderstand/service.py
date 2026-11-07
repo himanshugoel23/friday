@@ -62,10 +62,13 @@ class DocumentService:
         retention_days: int = 180,
         bill_sink: BillSink | None = None,
         doc_sink: Callable[[str, Document], Awaitable[str | None]] | None = None,
+        prescription_sink: Callable[[str, Document], Awaitable[DocReply | None]] | None = None,
     ) -> None:
         self.pipeline, self.store, self.clock = pipeline, store, clock
         self.retention_days, self.bill_sink = retention_days, bill_sink
         self.doc_sink = doc_sink  # a confirmed ticket or hotel builds a trip (api/features)
+        # Robin (T12): a prescription is handed over at read time, before anything is stored here
+        self.prescription_sink = prescription_sink
 
     # ------------------------------------------------------------------ a file arrives
     async def handle_media(self, user_id: str, language: str, data: bytes, mime: str) -> DocReply:
@@ -73,6 +76,15 @@ class DocumentService:
         if out.kind != "extracted" or out.document is None:
             return DocReply(copy.t(f"refuse.{out.kind}", language))
         doc = out.document
+        if doc.doc_type == DocType.PRESCRIPTION:
+            # never stored here: names live only in Robin's encrypted store
+            routed = None
+            if self.prescription_sink is not None:
+                try:
+                    routed = await self.prescription_sink(user_id, doc)
+                except Exception as e:  # noqa: BLE001
+                    log.info("prescription sink failed: %s", type(e).__name__)
+            return routed or DocReply(copy.t("refuse.prescription", language))
         await self.store.save(doc)
         return DocReply(summary_text(doc, out.issues, language), reply_buttons(doc, language))
 

@@ -166,21 +166,25 @@ class RobinHub:
     async def widget_sos(self, parent_member_id: str, location: tuple[float, float] | None = None) -> SosResult:
         return await self.sos.trigger(parent_member_id, "app", location)
 
-    # ------------------------------------------------------------------ prescription photo (document reader)
-    async def on_document_confirmed(self, user_id: str, doc: Any) -> str | None:
-        """Called by the document service when the child confirmed a document. Only a 'prescription' type is used; the child then
-        confirms the medicines (yes/no) before anything is saved. NOTE: docunderstand has no PRESCRIPTION type yet (unverified)."""
-        if getattr(getattr(doc, "doc_type", None), "value", "") != "prescription":
-            return None
+    # ------------------------------------------------------------------ prescription photo (document reader, T12)
+    async def on_prescription_read(self, user_id: str, doc: Any) -> Any:
+        """The document service hands over a READ prescription (before it stores anything) when the sender is a Robin admin; None for anyone else
+        (the service then refuses and keeps nothing). The medicines become a PROPOSAL; nothing is reminded about until the child says yes."""
+        from friday.docunderstand.service import DocReply
+
         fam = await self.fam.family_of_owner(user_id)
         if fam is None:
             return None
-        texts = [f.value for f in getattr(doc, "fields", {}).values() if getattr(f, "value", "")]
-        meds = await self.meds.from_document_lines(fam, texts)
-        if not meds:
-            return None
+        meds, unread = await self.meds.from_prescription(fam, {k: f.value for k, f in getattr(doc, "fields", {}).items()})
         lang = await self.ctx.chat_lang(fam)
-        return self.ctx.say("med.confirm", lang, list="; ".join(f"{m.name} {m.dose_text} at {', '.join(m.times)}" for m in meds))
+        hl = lang != "en"
+        if not meds:
+            return DocReply(self.ctx.say("med.rx_unreadable", lang))
+        text = self.ctx.say("med.confirm", lang, list="; ".join(f"{m.name} {m.dose_text} at {', '.join(m.times)}".replace("  ", " ") for m in meds))
+        if unread:
+            text += "\n" + self.ctx.say("med.rx_partial", lang, list=", ".join(unread))
+        await self.ctx.audit(fam, "medicine", "A prescription photo was read; waiting for your yes or no.")
+        return DocReply(text, [ReplyButton(id=f"rb:{fam.id}:rxyes", title="Haan, save karo" if hl else "Yes, save"), ReplyButton(id=f"rb:{fam.id}:rxno", title="Nahi" if hl else "No")])
 
     # ------------------------------------------------------------------ scheduler
     def attach_device_sweep(self, sweep: Callable[[], Awaitable[int]]) -> None:

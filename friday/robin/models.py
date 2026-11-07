@@ -177,6 +177,7 @@ class Medicine(BaseModel):
     stock_adjust: float = 0  # pills counted by the parent at stock_counted_at (the weekly "kitni goliyan bachi")
     stock_counted_at: datetime | None = None
     active: bool = True
+    ordered_at: datetime | None = None  # T12: the child tapped "ordered" on a refill alert (Robin never orders or pays; this only quiets the next alert)
 
     @property
     def doses_per_day(self) -> int:

@@ -17,6 +17,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from friday.core.logging import get_logger
+from friday.core.models import ReplyButton
 from friday.robin import answers as ans
 from friday.robin.context import Ctx
 from friday.robin.models import (
@@ -32,6 +33,8 @@ from friday.robin.store import Record
 
 log = get_logger(__name__)
 
+PROPOSAL_TTL = timedelta(days=2)  # an unanswered prescription proposal is dropped, so a later 'yes' never saves an old photo
+ORDERED_QUIET = timedelta(days=7)  # after 'ordered', the second (2-day) refill alert is not sent for a week
 GIVE_UP_AFTER = timedelta(hours=2)
 RETRY_AFTER = timedelta(minutes=20)
 _TIME = re.compile(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm|baje)?", re.I)
@@ -139,6 +142,59 @@ def parse_prescription_line(line: str, today: date) -> Medicine | None:
     return Medicine(name=name, dose_text=dose, times=times, last_purchase_date=today)
 
 
+def _split_items(value: str) -> list[str]:
+    return [p.strip() for p in (value or "").split(";") if p.strip()]
+
+
+def parse_times_text(text: str) -> list[str]:
+    """'08:00, 20:00' / '8am and 8pm' / '1-0-1' / 'BD' -> sorted unique 'HH:MM'. Empty when nothing is a clear time."""
+    t = " ".join((text or "").split())
+    f = _FREQ_DOTS.search(t)
+    if f:
+        return [slot for slot, v in zip(("08:00", "14:00", "21:00"), f.groups(), strict=True) if v != "0"]
+    for code, slots in _SLOTS.items():
+        if re.search(rf"\b{code}\b", t, re.I):
+            return list(slots)
+    out = []
+    for part in re.split(r"\s*(?:,|/|\band\b|&)\s*", t):
+        hhmm = parse_clock(part) if part else None
+        if hhmm is not None:
+            out.append(hhmm)
+    return sorted(set(out))
+
+
+def medicines_from_prescription(fields: dict[str, str], today: date) -> tuple[list[Medicine], list[str]]:
+    """The structured prescription fields (medicine, dose_text, times, days; several medicines separated by ';' and aligned by position)
+    -> (medicines Robin can remind about, names whose times could not be read). Nothing is saved here: the CHILD confirms first.
+    'days' is the number of days the prescription covers: it gives a starting STOCK ESTIMATE (every dose taken), corrected by the weekly count."""
+    names, doses = _split_items(fields.get("medicine", "")), _split_items(fields.get("dose_text", ""))
+    times, days = _split_items(fields.get("times", "")), _split_items(fields.get("days", ""))
+    meds: list[Medicine] = []
+    unread: list[str] = []
+    for i, raw in enumerate(names[:8]):
+        name = re.sub(r"^(?:tab\.?|tablet|cap\.?|capsule|syp\.?)\s+", "", raw, flags=re.I).strip(" .,-")[:40]
+        if not name:
+            continue
+        slots = parse_times_text(times[i] if i < len(times) else (times[0] if len(times) == 1 else ""))
+        if not slots:
+            unread.append(name)
+            continue
+        d = days[i] if i < len(days) else (days[0] if len(days) == 1 else "")
+        m = re.search(r"\d{1,3}", d)
+        n_days = int(m.group(0)) if m and 0 < int(m.group(0)) <= 365 else 0
+        per = 10
+        med = Medicine(name=name, dose_text=(doses[i] if i < len(doses) else "")[:40], times=slots, pills_per_strip=per)
+        if n_days:
+            med.strips, med.last_purchase_date = len(slots) * n_days / per, today
+        meds.append(med)
+    return meds, unread
+
+
+def stock_known(med: Medicine) -> bool:
+    """False for a medicine added without any stock figure: Robin has nothing to estimate from, so it sends no refill alert for it."""
+    return med.strips > 0 or med.stock_counted_at is not None
+
+
 def remaining_pills(med: Medicine, today: date) -> float:
     if med.stock_counted_at is not None:
         base, start = float(med.stock_adjust), med.stock_counted_at.date()
@@ -193,12 +249,33 @@ class MedicineService:
         if hit is None or pills < 0:
             return False
         rec, med = hit
-        med.stock_adjust, med.stock_counted_at = float(pills), self.ctx.clock.now()
+        med.stock_adjust, med.stock_counted_at, med.ordered_at = float(pills), self.ctx.clock.now(), None  # a fresh count replaces the estimate and the 'ordered' note
         await self.store.set_data(rec.id, med.model_dump(mode="json"))
         await self.ctx.audit(family, "medicine", "Updated a pill count.")
         return True
 
+    async def mark_ordered(self, family: Family, med_id: str) -> str | None:
+        """The child tapped 'ordered' on a refill alert. Robin never orders or pays: this only records the tap (it quiets the next refill alert).
+        Returns the medicine name for the reply, or None when the medicine is gone."""
+        for rec, med in await self.meds(family):
+            if med.id == med_id:
+                med.ordered_at = self.ctx.clock.now()
+                await self.store.set_data(rec.id, med.model_dump(mode="json"))
+                await self.ctx.audit(family, "refill", "You marked a refill as ordered.")
+                return med.name
+        return None
+
     # ------------------------------------------------------------------ prescription photo -> child confirms
+    async def _proposals(self, family: Family) -> list[tuple[Record, Medicine]]:
+        """The open prescription proposal; one older than PROPOSAL_TTL is deleted, never offered."""
+        now, out = self.ctx.clock.now(), []
+        for r, m in await self.meds(family, "proposed"):
+            if now - r.at > PROPOSAL_TTL:
+                await self.store.delete_record(r.id)
+            else:
+                out.append((r, m))
+        return out
+
     async def propose(self, family: Family, meds: list[Medicine]) -> int:
         for r, _ in await self.meds(family, "proposed"):
             await self.store.delete_record(r.id)
@@ -207,16 +284,26 @@ class MedicineService:
         return len(meds)
 
     async def has_proposal(self, family: Family) -> bool:
-        return bool(await self.store.list(family.id, "medicine", status="proposed"))
+        return bool(await self._proposals(family))
 
     async def confirm(self, family: Family, yes: bool) -> int:
         n = 0
-        for r, m in await self.meds(family, "proposed"):
+        for r, m in await self._proposals(family):
             await self.store.delete_record(r.id)
             if yes:
                 await self.add(family, m)
                 n += 1
+        for r, _ in await self.meds(family, "proposed"):  # a stale one left over
+            await self.store.delete_record(r.id)
         return n
+
+    async def from_prescription(self, family: Family, fields: dict[str, str]) -> tuple[list[Medicine], list[str]]:
+        """Structured fields of a prescription photo -> a PROPOSAL (status 'proposed', not reminded about) for the child to confirm."""
+        today = self.ctx.local(await self._parent_or_child(family)).date()
+        meds, unread = medicines_from_prescription(fields, today)
+        if meds:
+            await self.propose(family, meds)
+        return meds, unread
 
     async def from_document_lines(self, family: Family, text_lines: list[str]) -> list[Medicine]:
         today = self.ctx.local(await self._parent_or_child(family)).date()
@@ -336,15 +423,22 @@ class MedicineService:
         loc = c.local(parent)
         n = 0
         lang = await c.chat_lang(fam)
+        now = c.clock.now()
         for _, med in await self.meds(fam):
+            if not stock_known(med):
+                continue
             left = days_left(med, loc.date())
             for level in sorted({fam.settings.refill_days, 2}):
                 if left > level:
                     continue
+                if level == 2 and level != fam.settings.refill_days and med.ordered_at is not None and now - med.ordered_at < ORDERED_QUIET:
+                    break  # the child already ordered: no second nudge for a week
                 key = f"refill:{med.id}:{med.last_purchase_date}:{med.stock_counted_at.date() if med.stock_counted_at else ''}:{level}"[:64]
-                _, created = await self.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="digest", key=key, status="sent", at=c.clock.now(), data={"med": med.name, "days": left}))
+                _, created = await self.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="digest", key=key, status="sent", at=now, data={"med": med.name, "days": left}))
                 if created:
-                    await c.tell_child(fam, c.say("med.refill", lang, medicine=med.name, days=left))
+                    hl = lang != "en"
+                    btn = ReplyButton(id=f"rb:{med.id}:ordered", title="Order kar diya" if hl else "Ordered")
+                    await c.tell_child(fam, c.say("med.refill", lang, medicine=med.name, days=left), [btn])
                     await c.audit(fam, "refill", f"Told you that a medicine has about {left} days left.")
                     n += 1
                 break

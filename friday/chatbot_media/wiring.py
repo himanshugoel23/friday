@@ -109,7 +109,10 @@ def build_docs(c: Container, pipeline: Any, *, vision: Any = None) -> Any:
         c.clock,
         retention_days=s.docs_retention_days,
         bill_sink=_bill_sink(c) if s.savings_enabled else None,
+        # confirmed ticket/hotel -> trips (unchanged)
         doc_sink=getattr(getattr(pipeline, "features", None), "on_document_confirmed", None),
+        # T12: a prescription goes to Robin, beside the trips sink and not instead of it
+        prescription_sink=_prescription_sink(pipeline),
     )
     allowed = {x.strip() for x in s.docs_enabled_users if x.strip()}
     messaging = _opt(c, "messaging")
@@ -125,6 +128,19 @@ def build_docs(c: Container, pipeline: Any, *, vision: Any = None) -> Any:
         enabled_for=lambda user: not allowed or user.id in allowed or user.phone in allowed,
         language_of=language_of,
     )
+
+
+def _prescription_sink(pipeline: Any) -> Any:
+    """A READ prescription goes to Robin (family admin only) before any document row exists.
+    Resolved lazily. No Robin, or not a Robin admin: None, and the service refuses."""
+
+    async def sink(user_id: str, doc: Any) -> Any:
+        robin = getattr(pipeline, "robin", None)
+        if robin is None:
+            return None
+        return await robin.on_prescription_read(user_id, doc)
+
+    return sink
 
 
 def _bill_sink(c: Container) -> Any:

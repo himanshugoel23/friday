@@ -60,6 +60,17 @@ _WORDS: dict[DocType, tuple[str, ...]] = {
         r"बिल",
         r"देय",
     ),
+    DocType.PRESCRIPTION: (
+        r"prescription",
+        r"\brx\b",
+        r"\btab\.?\s",
+        r"\bcap\.?\s",
+        r"\bsyp\.?\s",
+        r"after food|before food|\bbd\b|\btds\b",
+        r"\b[0-3]\s*-\s*[0-3]\s*-\s*[0-3]\b",
+        r"dosage",
+        r"पर्ची|दवा",
+    ),
 }
 _FROM_MODEL = {t.value: t for t in DocType}
 

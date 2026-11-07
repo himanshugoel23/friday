@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **499** (225 spoken, 274 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **507** (225 spoken, 282 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -329,6 +329,14 @@ Total lines: **499** (225 spoken, 274 chat). Status of each: PENDING_FOUNDER_APP
 | robin.med.confirm_saved.hinglish | hinglish | {n} dawai save ho gayi. | PENDING |
 | robin.med.confirm_dropped.en | en | Okay, I did not save anything. | PENDING |
 | robin.med.confirm_dropped.hinglish | hinglish | Theek hai, kuch save nahi kiya. | PENDING |
+| robin.med.rx_unreadable.en | en | I could not read the medicines or their times on that photo, so I saved nothing. You can add one yourself: add medicine <name> <dose> at 8am, 8pm. | PENDING |
+| robin.med.rx_unreadable.hinglish | hinglish | Us photo mein dawai ya unke samay padh nahi paayi, isliye kuch save nahi kiya. Aap khud jod sakte hain: add medicine <naam> <dose> at 8am, 8pm. | PENDING |
+| robin.med.rx_partial.en | en | I could not read the times for: {list}. Those are not in the list above; add them yourself if you want reminders. | PENDING |
+| robin.med.rx_partial.hinglish | hinglish | In ke samay padh nahi paayi: {list}. Yeh upar ki list mein nahi hain; reminders chahiye to khud jodiye. | PENDING |
+| robin.med.rx_nothing_open.en | en | There is no prescription waiting for your answer. | PENDING |
+| robin.med.rx_nothing_open.hinglish | hinglish | Abhi koi prescription aapke jawab ka intezaar nahi kar rahi. | PENDING |
+| robin.med.ordered_ack.en | en | Noted that {medicine} is ordered. I do not order or pay for anything. When it arrives, send the count: pills left <name> <number>. | PENDING |
+| robin.med.ordered_ack.hinglish | hinglish | Note kar liya ki {medicine} order ho gayi. Main kuch order ya payment nahi karti. Aane par ginti bhejiye: pills left <naam> <sankhya>. | PENDING |
 | robin.med.format.en | en | To add a medicine write: add medicine <name> <dose> at 8am, 8pm, <strips> strips of <pills> bought <date>. Example: add medicine Amlodipine 5mg at 8am strips 2 of 10 bought 2026-11-01. | PENDING |
 | robin.med.format.hinglish | hinglish | Dawai jodne ke liye likhiye: add medicine <naam> <dose> at 8am, 8pm strips 2 of 10 bought 2026-11-01. | PENDING |
 | robin.med.list_item.en | en | {medicine} {dose} at {times}: about {days} days left | PENDING |

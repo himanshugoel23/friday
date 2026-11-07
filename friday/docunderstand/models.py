@@ -17,6 +17,7 @@ class DocType(StrEnum):
     HOTEL = "hotel_confirmation"
     PASSPORT = "passport"
     BILL = "bill"
+    PRESCRIPTION = "prescription"  # Robin only: routed at read time, never stored here
     GENERIC = "generic"
 
 

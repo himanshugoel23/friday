@@ -54,6 +54,17 @@ TRAIN = {
     },
     "overall": 0.9,
 }
+PRESCRIPTION = {
+    "doc_type": "prescription",
+    "text": "Dr Test Sharma Rx Tab Zorvex 5 mg 1-0-1 Tab Lumirel 500 mg BD after food",
+    "fields": {
+        "medicine": ["Tab Zorvex", "Tab Lumirel"],  # invented names
+        "dose_text": ["5 mg", "500 mg"],
+        "times": ["08:00, 20:00", "BD"],
+        "days": ["30", "15"],
+    },
+    "overall": 0.9,
+}
 HOTEL = {
     "doc_type": "hotel_confirmation",
     "text": "Booking confirmation hotel reservation check-in check-out room guests",

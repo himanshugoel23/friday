@@ -224,15 +224,15 @@ async def test_prescription_photo_needs_the_childs_confirmation(w):
     from types import SimpleNamespace as NS
 
     fam, _ = await w.family()
-    doc = NS(doc_type=NS(value="prescription"), fields={"m1": NS(value="Tab Metformin 500 mg 1-0-1"), "m2": NS(value="Amlodipine 5mg OD")})
-    text = await w.hub.on_document_confirmed(fam.owner_user_id, doc)
-    assert "Metformin" in text and "I cannot judge doses" in text
+    doc = NS(fields={"medicine": NS(value="Tab Metformin; Amlodipine"), "dose_text": NS(value="500 mg; 5mg"), "times": NS(value="1-0-1; OD"), "days": NS(value="30")})
+    reply = await w.hub.on_prescription_read(fam.owner_user_id, doc)
+    assert "Metformin" in reply.text and "I cannot judge doses" in reply.text
     assert not await w.hub.meds.meds(fam)  # nothing saved yet
     assert await w.hub.meds.confirm(fam, True) == 2 and len(await w.hub.meds.meds(fam)) == 2
 
 
 def test_no_medical_advice_in_any_line():
-    bad = ("increase", "decrease", "double", "stop taking", "skip the", "dosage should", "you should take")
+    bad = ("increase", "decrease", "double", "stop taking", "skip the", "dosage should", "you should take", "should take", "safe to take", "side effect", "instead of", "recommend", "is used for", "is for your", "take it with", "take more", "take less")
     for ln in lines.all_lines():
         assert not any(b in ln.text.lower() for b in bad), ln.id
     assert any("doctor" in ln.text.lower() for ln in lines.all_lines() if ln.id.startswith("robin.checkin.pain_ack"))

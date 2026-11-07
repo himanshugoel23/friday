@@ -16,4 +16,7 @@ EXTRACTION_INSTRUCTION = (
     "Aadhaar, PAN, licence or voter-ID number. Allowed field names per type: "
     + "; ".join(f"{t.value}: {', '.join(s)}" for t, s in SPECS.items())
     + '. For a passport give the number under the key "number".'
+    ' For a prescription transcribe only: several medicines are separated by ";" and aligned by '
+    "position across medicine, dose_text (as written), times (HH:MM, comma-separated per medicine) "
+    "and days (how many days it covers); never interpret, correct or advise."
 )

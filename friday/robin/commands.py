@@ -72,6 +72,8 @@ class RobinCommands:
             _, inc, action = (msg.button_id.split(":") + ["", ""])[:3]
             if fam is None:
                 return False
+            if action in ("ordered", "rxyes", "rxno"):  # T12: medicine buttons share the rb: prefix (inc = the medicine id / family id)
+                return await self._medicine_button(user, fam, inc, action, await self.ctx.chat_lang(fam))
             out = await self.alerts.on_button(fam, inc, action)
             if out:
                 await self._text(user, out)
@@ -102,6 +104,16 @@ class RobinCommands:
                 return await self._delete(user, fam, lang)
             return await self._reply(user, "cmd.delete_cancelled", lang)
         return await self._command(user, fam, text, t, lang)
+
+    async def _medicine_button(self, user: User, fam: Family, ref: str, action: str, lang: str) -> bool:
+        """'ordered' on a refill alert (Robin never orders or pays), or yes/no on a prescription proposal."""
+        if action == "ordered":
+            name = await self.meds.mark_ordered(fam, ref)
+            return await self._reply(user, "med.ordered_ack", lang, medicine=name) if name else await self._reply(user, "med.not_found", lang)
+        if not await self.meds.has_proposal(fam):
+            return await self._reply(user, "med.rx_nothing_open", lang)
+        n = await self.meds.confirm(fam, action == "rxyes")
+        return await self._reply(user, "med.confirm_saved" if action == "rxyes" else "med.confirm_dropped", lang, n=n)
 
     # ------------------------------------------------------------------ T08: pairing the parent's phone, the held inbox
     async def _pair(self, user: User, fam: Family, parent: Any, lang: str) -> bool:

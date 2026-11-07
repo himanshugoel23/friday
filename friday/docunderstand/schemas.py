@@ -77,6 +77,13 @@ SPECS: dict[DocType, dict[str, str]] = {
         "min_due_paise": "paise",
         "account_last4": "last4",
     },
+    # several medicines: ";"-separated and aligned by position; the child confirms every one
+    DocType.PRESCRIPTION: {
+        "medicine": "text",
+        "dose_text": "text",
+        "times": "text",
+        "days": "text",
+    },
     DocType.GENERIC: {"title": "str", "summary": "text"},
 }
 # what a reply shows, in order (the rest is kept but not listed)
@@ -125,6 +132,7 @@ SHOW: dict[DocType, tuple[str, ...]] = {
         "expiry_date",
     ),
     DocType.BILL: ("biller", "kind", "amount_paise", "due_date", "min_due_paise", "account_last4"),
+    DocType.PRESCRIPTION: ("medicine", "dose_text", "times", "days"),
     DocType.GENERIC: ("title", "summary"),
 }
 # the minimum for "I read this": at least this many kept fields
@@ -134,6 +142,7 @@ MIN_FIELDS: dict[DocType, int] = {
     DocType.HOTEL: 3,
     DocType.PASSPORT: 3,
     DocType.BILL: 2,
+    DocType.PRESCRIPTION: 2,
     DocType.GENERIC: 1,
 }
 MAX_LEN = {"name": 120, "str": 80, "text": 200, "code": 24, "phone": 20}

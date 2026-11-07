@@ -42,6 +42,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "en": "This looks like a bill:",
         "hi": "यह बिल लग रहा है:",
     },
+    "head.prescription": {
+        "hinglish": "Yeh prescription lag rahi hai:",
+        "en": "This looks like a prescription:",
+        "hi": "यह प्रिस्क्रिप्शन लग रही है:",
+    },
+    "refuse.prescription": {
+        "hinglish": "Prescription main sirf us insaan ke liye padhti hoon jisne apne parent ki dekhbhal set up ki hai. Maine ise save nahi kiya.",
+        "en": "I only read a prescription for the person who set up care for a parent. I did not keep it.",
+        "hi": "प्रिस्क्रिप्शन मैं सिर्फ़ उसी के लिए पढ़ती हूँ जिसने अपने माता-पिता की देखभाल सेट अप की है। मैंने इसे सेव नहीं किया।",
+    },
     "head.generic": {
         "hinglish": "Yeh maine samjha:",
         "en": "Here is what I understood:",
@@ -256,6 +266,10 @@ LABELS: dict[str, tuple[str, str, str]] = {
     "due_date": ("Due date", "Due date", "ड्यू डेट"),
     "min_due_paise": ("Minimum due", "Minimum due", "मिनिमम ड्यू"),
     "account_last4": ("Account (aakhri 4)", "Account (last 4)", "अकाउंट (आखिरी 4)"),
+    "medicine": ("Dawai", "Medicine", "दवा"),
+    "dose_text": ("Dose (jaisa likha hai)", "Dose (as written)", "डोज़ (जैसा लिखा है)"),
+    "times": ("Samay", "Times", "समय"),
+    "days": ("Din", "Days", "दिन"),
     "title": ("Kya hai", "What it is", "क्या है"),
     "summary": ("Sar", "Summary", "सार"),
 }
