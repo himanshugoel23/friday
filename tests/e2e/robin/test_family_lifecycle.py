@@ -7,8 +7,6 @@ only the PARENT resumes) -> check-in unanswered x3 -> ladder (child WhatsApp, ch
 
 from __future__ import annotations
 
-import pytest
-
 from friday.robin.models import CallResult, ConsentSource, FamilyStatus
 from tests.e2e.robin.harness import SECOND, index_of, line
 
@@ -120,7 +118,7 @@ async def test_parent_says_band_karo_robin_pauses_and_only_the_parent_resumes(wo
 async def test_three_unanswered_check_ins_start_the_ladder_and_a_word_from_the_parent_closes_it(world):
     sent_to_second: list[str] = []
 
-    async def second_sender(member, text):  # the second contact's WhatsApp (the production wiring registers none; see the strict xfail below)
+    async def second_sender(member, text):  # the second contact's WhatsApp (a recording fake replaces the production sender)
         sent_to_second.append(text)
 
     world.hub.ctx.extra_senders["second"] = second_sender
@@ -184,7 +182,6 @@ async def test_ladder_runs_to_the_end_with_caps_when_nobody_answers(world):
     assert len(world.caller.calls) == n
 
 
-@pytest.mark.xfail(strict=True, reason="GAP: build_robin registers no extra_senders['second'], so the WhatsApp to the second contact is never delivered in production (needs a template outside the 24 h window; Meta is blocked)")
 async def test_second_contact_whatsapp_is_wired_in_production(world):
     assert "second" in world.hub.ctx.extra_senders
 

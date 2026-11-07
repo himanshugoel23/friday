@@ -120,16 +120,16 @@ async def test_per_parent_payment_threshold(rig):
 # ----------------------------------------------------------------------------- quiet hours
 
 
-async def test_quiet_hours_suppress_nudge_but_not_money_high_or_child(rig):
+async def test_quiet_hours_do_not_suppress_any_high_prompt_or_the_child(rig):  # T20: security ignores quiet hours
     rig.clock.ms = ist_ms(2026, 9, 9, 23, 0)
     t = await rig.pair()
-    await sig(rig, t, remote(rig))  # S2 HIGH, not money: no 11pm nudge
+    await sig(rig, t, remote(rig))  # S2 HIGH, not money: the 11pm prompt is shown too (security ignores quiet hours)
     st = rig.service.store.peek("p1")
-    assert any(a["scenario"] == "S2" for a in rig.alerts.calls) and not st.prompts
-    assert st.counters["nudge_skipped:quiet_hours"] == 1
+    assert any(a["scenario"] == "S2" for a in rig.alerts.calls) and len(st.prompts) == 1
+    assert "nudge_skipped:quiet_hours" not in st.counters
     rig.clock.advance(minutes=1)
     await sig(rig, t, debit(rig))  # money HIGH is allowed at night
-    assert [p.key for p in st.prompts.values()] == ["s5_high"]
+    assert [p.key for p in st.prompts.values()][-1] == "s5_high"
 
 
 # ----------------------------------------------------------------------------- feedback

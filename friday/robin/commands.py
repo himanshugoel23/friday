@@ -32,6 +32,10 @@ from friday.robin.store import Record
 
 log = get_logger(__name__)
 
+HAS_IT_PHRASES = ("i have it", "i've got it", "main dekh leta hoon", "main dekh leti hoon")
+SAFE_PHRASES = ("mark safe", "safe")
+ACK_PHRASES = HAS_IT_PHRASES + SAFE_PHRASES
+
 _REL = {"father": "Papa", "dad": "Papa", "papa": "Papa", "pitaji": "Papa", "mother": "Mummy", "mom": "Mummy", "mummy": "Mummy", "mama": "Mummy", "maa": "Mummy", "ma": "Mummy"}
 _SETUP = re.compile(r"^\s*(?:please\s+)?set\s*up\s+\w+\s+for\s+(?:my\s+)?(?P<rel>[a-z ]{2,20}?)\s*$", re.I)
 _SETUP_HI = re.compile(r"^\s*(?P<rel>[a-z]{2,10})\s+ke\s+liye\s+\w+\s+set\s*up(?:\s+karo)?\s*$", re.I)
@@ -333,14 +337,22 @@ class RobinCommands:
         if t in ("details", "show details"):
             rec = await self.alerts.latest_open(fam)
             return await self._text(user, self.alerts.details(rec, lang)) if rec else await self._reply(user, "alert.unknown", lang)
-        if t in ("i have it", "i've got it", "main dekh leta hoon", "main dekh leti hoon"):
+        if t in HAS_IT_PHRASES:
             return await self._ack(user, fam, "child_has_it", lang)
-        if t in ("mark safe", "safe"):
+        if t in SAFE_PHRASES:
             return await self._ack(user, fam, "child_safe", lang)
         if t in ("delete everything for my parent", "delete everything for my parents"):
             await self.store.put(Record(family_id=fam.id, user_id=user.id, kind="pending", key="delete", status="ask", at=c.clock.now(), data={}))
             return await self._reply(user, "cmd.delete_ask", lang, **slots)
         return False
+
+    async def is_open_ack(self, user_id: str, text: str) -> bool:
+        """T20: True when ``text`` is exactly the child's "I have it" / "Mark safe" AND an alert is open, so the care protocol lets it through
+        (a care episode must not swallow the word that stops an alert)."""
+        if " ".join(text.lower().split()) not in ACK_PHRASES:
+            return False
+        fam = await self.fam.family_of_owner(user_id)
+        return fam is not None and await self.alerts.latest_open(fam) is not None
 
     async def _ack(self, user: User, fam: Family, by: str, lang: str) -> bool:
         latest = await self.alerts.latest_open(fam)

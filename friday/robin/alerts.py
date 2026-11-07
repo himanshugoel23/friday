@@ -8,7 +8,7 @@ THE CONTRACT for the device/signal package (stable): build a ``RobinAlert`` and 
 
 Autonomy ceilings (docs/PARENT_CARE_PHASE1_SPEC.md section 5; the family may lower them, never raise them):
 parent app nudges at most 2 per hour; calls to the parent at most 3 per incident, spaced 5 minutes (same for
-the child and the second contact); quiet hours 22:00 to 07:00 except EMERGENCY and HIGH-with-money; at most
+the child and the second contact); quiet hours 22:00 to 07:00 apply only to non-security items (WATCH nudges, INFO, check-ins, reminders, digests); HIGH and above, SOS, urgent missed calls and authority ignore quiet hours and the calling window (T20); at most
 3 escalation calls per person per day; the second contact only if the child named them in advance; every
 alert says why in one line; everything stops on a tap of 'Mark safe', on 'I have it', or when the parent
 says they are fine; Robin never blocks a number, never messages a bank or a third party, and never dials 112.
@@ -287,7 +287,7 @@ class AlertEngine:
                 return "skipped"
             slots = await c.slots(family)
             line = "child.ring_sos" if sos else "child.ring_unreached" if d["scenario"] == "checkin_unanswered" else "child.ring"
-            out = await c.call(family, child, "escalation_child", [Step(line=line, slots=slots)], dedupe_key=f"{rec.id}:child:{self._calls(d, 'child') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=urgent, sos=sos)
+            out = await c.call(family, child, "escalation_child", [Step(line=line, slots=slots)], dedupe_key=f"{rec.id}:child:{self._calls(d, 'child') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=urgent, sos=sos, security=urgent or sos)
             self._count(d, "child", out.result)
             if out.result == CallResult.ANSWERED:
                 d["child_reached"] = True
@@ -299,7 +299,7 @@ class AlertEngine:
             if self._calls(d, "second") >= MAX_CALLS_PER_TARGET:
                 return "skipped"
             slots = await c.slots(family)
-            out = await c.call(family, second, "escalation_second", [Step(line="second.ring", slots=slots)], dedupe_key=f"{rec.id}:second:{self._calls(d, 'second') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=True)
+            out = await c.call(family, second, "escalation_second", [Step(line="second.ring", slots=slots)], dedupe_key=f"{rec.id}:second:{self._calls(d, 'second') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=True, security=urgent or sos)
             self._count(d, "second", out.result)
             return out.result.value if out.result != CallResult.REFUSED else f"refused:{out.detail}"
         if action == "nudge_parent":
@@ -347,7 +347,7 @@ class AlertEngine:
         if self._calls(d, "parent") == 0 and (tier == Tier.EMERGENCY or await self.fam.nudges_last_hour(family, parent) < family.settings.nudges_per_hour):
             await self.fam.queue_app_notification(family, parent, line, purpose="nudge", incident_id=rec.id)
         step = Step(line=line, slots=slots, expect="yesno", on_yes="nudge.fine_ack", on_no="nudge.not_fine_ack")
-        out = await c.call(family, parent, "nudge", [step], dedupe_key=f"{rec.id}:parent:{self._calls(d, 'parent') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=True)
+        out = await c.call(family, parent, "nudge", [step], dedupe_key=f"{rec.id}:parent:{self._calls(d, 'parent') + 1}", emergency=tier == Tier.EMERGENCY, money=money, incident_id=rec.id, bypass_care=True, security=True)  # HIGH and above only (WATCH returned above)
         self._count(d, "parent", out.result)
         if out.result == CallResult.ANSWERED:
             heard = out.answers[0].text if out.answers else ""
@@ -399,7 +399,7 @@ class AlertEngine:
         slots = await c.slots(family)
         addressee = family.parent_label if target.role == Role.PARENT else slots["child"]
         n = self._calls(d, "target") + 1
-        out = await c.call(family, target, "emergency_ring", [Step(line="missed.emergency_ring", slots={"parent": addressee, "who": d.get("who", "someone")})], dedupe_key=f"{rec.id}:ring:{n}", emergency=True, incident_id=rec.id, bypass_care=True)
+        out = await c.call(family, target, "emergency_ring", [Step(line="missed.emergency_ring", slots={"parent": addressee, "who": d.get("who", "someone")})], dedupe_key=f"{rec.id}:ring:{n}", emergency=True, incident_id=rec.id, bypass_care=True, security=True)
         self._count(d, "target", out.result)
         if out.result == CallResult.ANSWERED:
             d["reached"] = True  # stop on pickup

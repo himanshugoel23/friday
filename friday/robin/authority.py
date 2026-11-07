@@ -148,7 +148,7 @@ class AuthorityService:
             return "already_started"  # hard cap: one authority call per incident
         await c.tell_child(family, c.say("authority.countdown_child", lang, parent=family.parent_label, seconds=window))
         slots = await c.slots(family)
-        out = await c.call(family, parent, "emergency_ring", [Step(line="authority.countdown", slots=slots, expect="yesno")], dedupe_key=f"{rec.id}:countdown", emergency=True, incident_id=rec.id, bypass_care=True)
+        out = await c.call(family, parent, "emergency_ring", [Step(line="authority.countdown", slots=slots, expect="yesno")], dedupe_key=f"{rec.id}:countdown", emergency=True, incident_id=rec.id, bypass_care=True, security=True)
         heard = out.answers[0].text if out.answers else ""
         if out.result == CallResult.ANSWERED and (ans.is_fine(heard) or "cancel" in heard.lower()):
             await self._set(auth, "cancelled", "parent_fine")

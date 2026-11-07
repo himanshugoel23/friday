@@ -47,6 +47,18 @@ INDEX_KEY = "care:index"
 
 Sender = Callable[[str, str], Awaitable[Any]]  # (user_id, text)
 
+# T20: other safety packages may let an exact, neutral phrase through an active episode (Robin: the child's typed "I have it" /
+# "Mark safe" while an alert is open). Only a message the care detector rates NONE can pass; any distress wording is still screened.
+Passthrough = Callable[[str, str], Awaitable[bool]]  # (user_id, text) -> True: not for the care protocol
+_PASSTHROUGH: dict[str, Passthrough] = {}
+
+
+def register_passthrough(name: str, fn: Passthrough | None) -> None:
+    if fn is None:
+        _PASSTHROUGH.pop(name, None)
+    else:
+        _PASSTHROUGH[name] = fn  # same name replaces
+
 
 def user_ref(user_id: str) -> str:
     """The only identifier that ever reaches a log line."""
@@ -229,6 +241,13 @@ class CareService:
         elif st is None and tier != Tier.NONE:
             self._pending_elder = elder or await self._is_elder(user_id)
 
+        if tier == Tier.NONE and text and is_text and _PASSTHROUGH:
+            for fn in list(_PASSTHROUGH.values()):
+                try:
+                    if await fn(user_id, text):
+                        return None
+                except Exception:  # noqa: BLE001 - a broken hook never weakens the care protocol
+                    log.exception("care passthrough failed")
         if tier == Tier.HIGH:
             return await self._high(user_id, st, a, text or "", now, active)
         if tier == Tier.ELEVATED:

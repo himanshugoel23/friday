@@ -46,17 +46,17 @@ async def test_calls_to_the_parent_max_three_spaced_five_minutes(w):
     assert [round((t - times[0]).total_seconds() / 60) for t in times] in ([0, 6, 10], [0, 4, 10], [0, 6, 12], [0, 4, 8], [0, 5, 10], [0, 6, 8], [0, 4, 6], [0, 6, 14]) or len(times) == 3
 
 
-async def test_quiet_hours_block_parent_calls_except_emergency_and_high_with_money(w):
+async def test_quiet_hours_do_not_block_security_calls_at_night(w):  # T20: was 'except emergency and HIGH-with-money'; every HIGH now rings at night
     fam, parent = await ready(w)
     w.clock.set(at(23))
     await w.hub.alerts.raise_alert(alert(parent, scenario="S3", dedupe_key="a"))
-    assert not [c for c in w.caller.calls if c.purpose == "nudge"]  # HIGH without money waits for the morning
-    assert w.sender.sent  # but the child is told at once
+    assert len([c for c in w.caller.calls if c.purpose == "nudge"]) == 1  # HIGH without money rings at night too (security ignores quiet hours)
+    assert w.sender.sent  # and the child is told at once
     await w.hub.alerts.raise_alert(alert(parent, scenario="S5", money=True, dedupe_key="b", why="Rs 49,000 to a new payee", amount_text="Rs 49,000"))
-    assert [c.line_keys for c in w.caller.calls if c.purpose == "nudge"] == [["nudge.money"]]
+    assert [c.line_keys for c in w.caller.calls if c.purpose == "nudge"][-1] == ["nudge.money"]
     assert "Money may be involved" in w.sender.sent[-1].text and "Rs 49,000" in w.sender.sent[-1].text
     await w.hub.alerts.raise_alert(alert(parent, tier=Tier.EMERGENCY, scenario="S2", dedupe_key="c"))
-    assert len([c for c in w.caller.calls if c.purpose == "nudge"]) == 2
+    assert len([c for c in w.caller.calls if c.purpose == "nudge"]) == 3
 
 
 async def test_watch_is_an_app_nudge_capped_at_two_per_hour(w):

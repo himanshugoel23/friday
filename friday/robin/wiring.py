@@ -244,9 +244,33 @@ def build_robin(c: Any) -> RobinHub | None:
         await repos.audit.log(action, user_id=user_id, actor="user", by=actor, source=source, counts=counts)  # counts only, no PII
 
     ctx = Ctx(store=store, clock=c.clock, send=send, caller=TelephonyParentCaller(lambda: c.telephony, s, paused=paused), gate=gate, users=repos.users, settings=s, care=_care_gate(c), paused=paused, audit_sink=audit_sink)
+    ctx.extra_senders["second"] = make_second_sender(lambda: c.get("notifier"))  # T20: the second contact's alert line (WhatsApp); the "ops" sender is NOT wired (no founder channel exists)
     hub = RobinHub(ctx, retries=int(s.robin_checkin_retries), retry_minutes=int(s.robin_checkin_retry_minutes), retention_days=int(s.robin_audit_retention_days), incident_retention_days=int(s.robin_incident_retention_days), tick_s=float(s.robin_tick_s))
     alerts_mod.set_default_engine(hub.alerts)
+    from friday.care.service import register_passthrough
+
+    register_passthrough("robin", hub.commands.is_open_ack)  # T20: the child's typed "I have it" / "Mark safe" passes a care episode while an alert is open
     return hub
+
+
+def make_second_sender(get_notifier: Callable[[], Any]) -> Callable[[Member, str], Awaitable[None]]:
+    """The production ``ctx.extra_senders["second"]``: a thin sender over the existing Notifier / WhatsApp channel.
+
+    It carries ONLY the alert line the engine built (``alert.second`` / ``sos.second``), and only to a contact the child named in advance
+    (role SECOND_CONTACT with ``call_ok``). It raises on any refusal so the engine records "could not send"; the Notifier applies the 24 h
+    window rule, so outside the window a free-text alert is refused (TEMPLATE_REQUIRED) until a pre-approved template exists (Meta is blocked).
+    """
+    from friday.core.models import Channel, OutboundMessage
+    from friday.robin.models import Role
+
+    async def send_second(member: Member, text: str) -> None:
+        if member.role != Role.SECOND_CONTACT or not member.call_ok or not member.phone:
+            raise PermissionError("not a named second contact")
+        receipt = await get_notifier().send(OutboundMessage(channel=Channel.WHATSAPP, to_phone=member.phone, text=text))
+        if not getattr(receipt, "ok", False):
+            raise RuntimeError(f"not delivered: {getattr(receipt, 'error', None) or 'unknown'}")
+
+    return send_second
 
 
 def _care_gate(c: Any) -> Any:

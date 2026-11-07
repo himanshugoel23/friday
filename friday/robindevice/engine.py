@@ -683,7 +683,7 @@ class ScenarioEngine:
         quiet = d["quiet_hours"]
         not_before = now
         if in_window(now, quiet["start"], quiet["end"]):
-            allowed = TIER_RANK[f.tier] >= TIER_RANK["HIGH"] and f.sc.money
+            allowed = TIER_RANK[f.tier] >= TIER_RANK["HIGH"]  # T20: every security tier (HIGH and above, money or not) ignores quiet hours
             if not allowed:
                 if f.tdef.defer_quiet:
                     not_before = next_clock(now, quiet["end"])

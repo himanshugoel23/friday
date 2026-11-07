@@ -1,7 +1,9 @@
 # ruff: noqa: E501
 """Shared plumbing of the Robin family core: brand, lines, audit log, quiet hours, consent, the one gated dial.
 
-``Ctx.call`` is the ONLY way Robin rings anyone. In order it checks: family state, the parent's pause,
+``Ctx.call`` is the ONLY way Robin rings anyone. Founder rule (2026-11-06, T20): security/safety calls (``security=True``: HIGH and
+above, SOS, urgent missed calls, authority) never consult quiet hours or the calling window; only the anti-flood caps and the parent's
+own pause apply. Everything else (check-in, medicine, intro, WATCH nudges) still respects both. In order it checks: family state, the parent's pause,
 the parent's consent for that purpose (child and second contact: they agreed that Robin may ring), a
 number, quiet hours, the care protocol, the daily cap per person, then the CallGate (pilot allow-list,
 kill switch, do-not-call, caps) and only then the port. Every outcome, including every refusal, is written
@@ -189,7 +191,7 @@ class Ctx:
 
     async def call(
         self, family: Family, member: Member, purpose: str, steps: list[Step], *, dedupe_key: str, emergency: bool = False, money: bool = False,
-        incident_id: str | None = None, max_seconds: int = 180, bypass_care: bool = False, sos: bool = False,
+        incident_id: str | None = None, max_seconds: int = 180, bypass_care: bool = False, sos: bool = False, security: bool = False,
     ) -> CallOutcome:  # fmt: skip
         now = self.clock.now()
         who = {Role.PARENT: family.parent_label, Role.CHILD: "you", Role.SECOND_CONTACT: "the second contact", Role.CO_ADMIN: "you"}[member.role]
@@ -216,7 +218,8 @@ class Ctx:
             return await refuse("not_agreed_to_calls")
         if not member.phone:
             return await refuse("no_number")
-        if member.role == Role.PARENT and self.in_quiet(member, family, now) and not (emergency or money):
+        security = security or emergency or sos  # T20: a security/safety call (HIGH and above, SOS, urgent missed call, authority) never consults quiet hours or the calling window
+        if member.role == Role.PARENT and self.in_quiet(member, family, now) and not (security or money):
             return await refuse("quiet_hours")
         if purpose in CARE_SILENCED and not (emergency or bypass_care) and await self.care_active(family.owner_user_id):
             return await refuse("care_active")
@@ -225,7 +228,7 @@ class Ctx:
         owner = await self.owner(family)
         if owner is None:
             return await refuse("no_owner")
-        verdict = await self.gate.check(owner, member.phone, override_window=emergency or money, now=now)
+        verdict = await self.gate.check(owner, member.phone, override_window=security or money, now=now)
         if not verdict.allowed:
             return await refuse("gate:" + ",".join(verdict.reasons))
         out = await self.caller.converse(member=member, family=family, purpose=purpose, steps=steps, dedupe_key=dedupe_key, brand=self.brand, max_seconds=max_seconds)
