@@ -72,11 +72,12 @@ async def test_watch_is_an_app_nudge_capped_at_two_per_hour(w):
 
 
 async def test_daily_cap_of_three_escalation_calls_per_person(w):
+    """HIGH keeps the 3-a-day cap per person (SOS and EMERGENCY are exempt since the founder decision of 2026-11-07: see tests/robin/test_daily_cap_exemption.py)."""
     fam, parent = await ready(w)
     w.caller.script(CallResult.NO_ANSWER)
     for i in range(5):
         w.go(minutes=61)
-        await w.hub.alerts.raise_alert(alert(parent, tier=Tier.EMERGENCY, scenario="S1", dedupe_key=f"e{i}"))
+        await w.hub.alerts.raise_alert(alert(parent, tier=Tier.HIGH, scenario="S1", dedupe_key=f"e{i}"))
         for _ in range(6):
             w.go(minutes=3)
             await w.hub.alerts.tick()

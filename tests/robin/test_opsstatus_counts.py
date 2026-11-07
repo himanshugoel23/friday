@@ -76,6 +76,7 @@ async def test_counts_after_a_busy_day_and_nothing_personal(w, monkeypatch):
     await w.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="checkin", key="2026-01-03", status="done", at=w.clock.now(), data={}))
     await w.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="checkin", key="2026-01-02", status="unanswered", at=w.clock.now(), data={}))
     await w.store.put(Record(family_id=fam.id, user_id=fam.owner_user_id, kind="pending", status="queued", at=w.clock.now(), data={"text": "SECRET-TEXT", "member_id": parent.id}))
+    w.channel.fail = True  # the parent's channel is down, so the T08 outbox drain leaves the line queued
     await w.hub.tick()
     cl = client(w, monkeypatch)
     r = cl.get(f"/ops-status/{TOKEN}/robin.json")

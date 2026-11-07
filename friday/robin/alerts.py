@@ -46,6 +46,7 @@ from friday.robin.store import Record
 log = get_logger(__name__)
 
 MAX_CALLS_PER_TARGET = 3
+MIN_STEP_GAP_S = 60  # delivery-failed escalation never schedules a step closer than this to the start
 DAILY_ALERT_CAP = 10  # child WhatsApp alerts per family per day (WATCH and HIGH); EMERGENCY and SOS are exempt
 RECOVER_AFTER_S = 120
 
@@ -269,7 +270,10 @@ class AlertEngine:
         if action == "wa_child":
             if await self._flood_capped(family, rec, d):
                 return "capped"
-            return "sent" if await self._message_child(family, parent, rec, d) else "failed"
+            if await self._message_child(family, parent, rec, d):
+                return "sent"
+            await self._delivery_failed(family, rec, d)
+            return "failed"
         if action == "wa_second":
             second = await c.second(family)
             if second is None or not second.call_ok:
@@ -309,6 +313,18 @@ class AlertEngine:
         if action == "ring_target":
             return await self._ring_target(family, rec, d)
         return "unknown_action"
+
+    async def _delivery_failed(self, family: Family, rec: Record, d: dict[str, Any]) -> None:
+        """T08: the child's phone could not be reached (the chain WhatsApp -> SMS -> chat inbox all failed). Flag the incident and pull every
+        later step one rung (one call spacing) earlier, never below ``MIN_STEP_GAP_S`` so two rings are not back to back. Once per incident."""
+        if d.get("delivery_failed"):
+            return
+        d["delivery_failed"] = True
+        spacing = int(family.settings.call_spacing_min) * 60
+        for st in d["steps"]:
+            if st["state"] == "todo" and st["offset_s"] > 0:
+                st["offset_s"] = max(st["offset_s"] - spacing, min(st["offset_s"], MIN_STEP_GAP_S))
+        await self.ctx.audit(family, "delivery_failed", "Could not reach your phone with the alert; moving to the next step sooner.", incident_id=rec.id)
 
     @staticmethod
     def _calls(d: dict[str, Any], who: str) -> int:

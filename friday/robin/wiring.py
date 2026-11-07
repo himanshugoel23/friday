@@ -29,6 +29,7 @@ from friday.robin.authority import AuthorityService
 from friday.robin.checkin import CheckinService
 from friday.robin.commands import RobinCommands
 from friday.robin.context import Ctx
+from friday.robin.delivery import ChildInbox, OutboxDrain
 from friday.robin.family import FamilyService
 from friday.robin.greetings import GreetingService
 from friday.robin.intro import IntroService
@@ -69,6 +70,10 @@ class RobinHub:
         self.missed = MissedCallService(ctx, self.fam, self.alerts)
         self.commands = RobinCommands(ctx, self.fam, self.intro, self.checkin, self.meds, self.alerts, safe_word_switch=bool(getattr(ctx.settings, "robin_safe_word_enabled", False)))
         ctx.on_reached = self.checkin.note_reached
+        self.inbox = ctx.inbox if ctx.inbox is not None else ChildInbox(ctx)  # T08: where a message the child's phone could not receive waits
+        ctx.inbox = self.inbox
+        self.outbox = OutboxDrain(ctx)  # T08: the parent's app outbox, drained through ctx.parent_channel
+        self.commands.device = lambda: self.device_service  # T08: 'pair phone for papa' needs the device package (None = off)
         self.retention_days, self.incident_retention_days, self.tick_s, self._ticks = retention_days, incident_retention_days, tick_s, 0
         self._device_sweep: Callable[[], Awaitable[int]] | None = None
         self.device_service: Any = None
@@ -188,7 +193,7 @@ class RobinHub:
 
     async def tick(self) -> int:
         n = 0
-        for step in (self.intro.retry_due, self.authority.tick, self.checkin.tick, self.meds.tick, self.greetings.tick, self._monthly, self._device_tick):
+        for step in (self.intro.retry_due, self.authority.tick, self.checkin.tick, self.meds.tick, self.greetings.tick, self._monthly, self.outbox.tick, self._device_tick):
             try:
                 n += int(await step() or 0)
             except Exception:  # noqa: BLE001 - one failing step never stops the others
@@ -263,7 +268,9 @@ def build_robin(c: Any) -> RobinHub | None:
     store = RobinStore(repos.db, c.clock, hasher)
 
     async def send(user_id: str, text: str, buttons: Sequence[ReplyButton]) -> None:
-        await c.get("notifier").notify_user(user_id, text, buttons=list(buttons))
+        receipt = await c.get("notifier").notify_user(user_id, text, buttons=list(buttons))  # the Notifier tries WhatsApp, then SMS
+        if not getattr(receipt, "ok", True):
+            raise RuntimeError(f"not delivered: {getattr(receipt, 'error', None) or 'unknown'}")  # Ctx.tell_child holds it for the chat inbox and the ladder escalates earlier
 
     gate = RobinGate(
         CallGate(store=repos.consumer_calls, dnc=DncRegistry(repos.call_dnc, hasher, c.clock), hasher=hasher, settings=CallsSettings(), core_settings=s),
@@ -333,9 +340,21 @@ def make_second_sender(get_notifier: Callable[[], Any]) -> Callable[[Member, str
     async def send_second(member: Member, text: str) -> None:
         if member.role != Role.SECOND_CONTACT or not member.call_ok or not member.phone:
             raise PermissionError("not a named second contact")
-        receipt = await get_notifier().send(OutboundMessage(channel=Channel.WHATSAPP, to_phone=member.phone, text=text))
-        if not getattr(receipt, "ok", False):
-            raise RuntimeError(f"not delivered: {getattr(receipt, 'error', None) or 'unknown'}")
+        notifier = get_notifier()
+        receipt = await notifier.send(OutboundMessage(channel=Channel.WHATSAPP, to_phone=member.phone, text=text))
+        if getattr(receipt, "ok", False):
+            return
+        # the second contact is not a Friday user, so they are always outside the 24 h window: WhatsApp needs a template (Meta blocked). Fall to the SMS
+        # (DLT) template path with the SAME alert line; DLT content rules are unverified (docs/ROBIN_PHASE1_BACKLOG.md T08 risk).
+        send_sms = getattr(notifier, "send_sms", None)
+        if callable(send_sms):
+            from friday.channels.notifier import SMS_USER_UPDATE, sms_text_param
+            from friday.core.templates import make_template
+
+            sms = await send_sms(member.phone, make_template(SMS_USER_UPDATE, [sms_text_param(text)]))
+            if getattr(sms, "ok", False):
+                return
+        raise RuntimeError(f"not delivered: {getattr(receipt, 'error', None) or 'unknown'}")
 
     return send_second
 

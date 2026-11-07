@@ -41,6 +41,9 @@ _SETUP = re.compile(r"^\s*(?:please\s+)?set\s*up\s+\w+\s+for\s+(?:my\s+)?(?P<rel
 _SETUP_HI = re.compile(r"^\s*(?P<rel>[a-z]{2,10})\s+ke\s+liye\s+\w+\s+set\s*up(?:\s+karo)?\s*$", re.I)
 _HINGLISH = re.compile(r"\b(ke|liye|karo|kya|hai|mera|meri|papa|mummy|haan|nahi|kripya)\b|[ऀ-ॿ]", re.I)
 _ITEM_WORDS = {"device signals": "device_signals", "phone signals": "device_signals", "payment alerts": "payment_alerts", "location": "location", "call listening": "call_listening", "authority calls": "authority_calls", "emergency desk": "authority_calls", "scam check": "scam_check", "daily check-in": "daily_checkin_calls", "check-in calls": "daily_checkin_calls", "medicine reminders": "medicine_reminders", "share summary": "share_summary_with_child"}
+_PAIR = re.compile(r"^(?:please\s+)?pair\s+(?:the\s+|a\s+|my\s+)?(?:phone|app|device)(?:\s+(?:for|of)\s+(?:my\s+)?[a-z ]{2,24})?$|^pair\s+[a-z]{2,12}(?:'s|s)?\s+(?:phone|app)$|^[a-z]{2,12}\s+ka\s+phone\s+(?:jodo|pair\s+karo|connect\s+karo)$", re.I)
+_WHAT_ON = re.compile(r"^what(?:'s|s| is| are)\s+(?:switched\s+|turned\s+)?on(?:\s+for\s+\w+)?\??$|^kya\s+kya\s+chalu\s+hai\??$", re.I)
+_WHAT_TODAY = re.compile(r"^what\s+(?:did\s+\w+\s+do|\w+\s+did)(?:\s+today)?\??$|^aaj\s+\w+\s+ne\s+kya\s+kiya\??$", re.I)
 _STEPS = ("phone", "language", "time", "quiet", "second", "sens", "childcall")
 
 
@@ -52,6 +55,7 @@ class RobinCommands:
     def __init__(self, ctx: Ctx, fam: FamilyService, intro: IntroService, checkin: CheckinService, meds: MedicineService, alerts: AlertEngine, safe_word_switch: bool = False) -> None:
         self.ctx, self.fam, self.intro, self.checkin, self.meds, self.alerts, self.store = ctx, fam, intro, checkin, meds, alerts, ctx.store
         self.safe_word_switch = safe_word_switch
+        self.device: Any = None  # T08: getter -> the robindevice DeviceService (None or absent = phone pairing is off); set by the hub
 
     async def _reply(self, user: User, key: str, lang: str, buttons: list | None = None, **slots: object) -> bool:
         await self.ctx.send(user.id, self.ctx.say(key, lang, **slots), buttons or [])
@@ -82,9 +86,10 @@ class RobinCommands:
         if m:
             return await self._setup_start(user, m.group("rel").strip().lower(), lang)
         if fam is None:
-            if t in ("parent status", "papa status", "mummy status"):
+            if t in ("parent status", "papa status", "mummy status") or _PAIR.match(text) or _WHAT_ON.match(text) or _WHAT_TODAY.match(text):
                 return await self._reply(user, "setup.no_family", lang)
             return False
+        await self._show_held(fam)  # T08: what the child's phone could not receive earlier is shown first, once
         pend = await self.store.by_key(fam.id, "pending", "setup")
         if pend is not None and pend.status in _STEPS:
             handled = await self._setup_step(user, fam, pend, text, lang)
@@ -97,6 +102,34 @@ class RobinCommands:
                 return await self._delete(user, fam, lang)
             return await self._reply(user, "cmd.delete_cancelled", lang)
         return await self._command(user, fam, text, t, lang)
+
+    # ------------------------------------------------------------------ T08: pairing the parent's phone, the held inbox
+    async def _pair(self, user: User, fam: Family, parent: Any, lang: str) -> bool:
+        """"pair phone for papa": a single-use code (15 minutes) and a robin://pair link, shown to the CHILD, who enters it on the parent's phone.
+        The parent never types. The code is a secret: it goes into the reply only, never into the audit log or a log line."""
+        slots = {"parent": fam.parent_label}
+        if parent is None:
+            return await self._reply(user, "pair.not_ready", lang, **slots)
+        svc = self.device() if self.device is not None else None
+        if svc is None:
+            return await self._reply(user, "pair.off", lang)
+        try:
+            code = await svc.create_pairing_code(parent.id)
+        except Exception as e:  # noqa: BLE001 - unknown parent on the device side
+            log.warning("robin: pairing code could not be made (%s)", type(e).__name__)
+            return await self._reply(user, "pair.off", lang)
+        from friday.robindevice.store import PAIR_CODE_TTL_S
+
+        await self.ctx.audit(fam, "pair_code", f"Made a one-time code to connect {fam.parent_label}'s phone (the code itself is not kept in this log).")
+        return await self._reply(user, "pair.steps", lang, code=code, link=f"robin://pair?code={code}", minutes=PAIR_CODE_TTL_S // 60, **slots)
+
+    async def _show_held(self, fam: Family) -> None:
+        inbox = self.ctx.inbox
+        if inbox is not None:
+            try:
+                await inbox.deliver(fam, self.ctx.send)
+            except Exception as e:  # noqa: BLE001 - never blocks the command
+                log.warning("robin: could not show the held messages (%s)", type(e).__name__)
 
     # ------------------------------------------------------------------ onboarding
     async def _setup_start(self, user: User, rel_word: str, lang: str) -> bool:
@@ -209,6 +242,12 @@ class RobinCommands:
             return await self._reply(user, "cmd.help", lang)
         if re.match(r"^(?:parent|papa|mummy|mom|dad|mama)\s+status$|^how is (?:papa|mummy|mom|dad|mama|my \w+)\??$", t):
             return await self._status(user, fam, lang)
+        if _PAIR.match(text):
+            return await self._pair(user, fam, parent, lang)
+        if _WHAT_ON.match(text):
+            return await self._text(user, await self.fam.render_view(fam, "on"))
+        if _WHAT_TODAY.match(text):
+            return await self._text(user, await self.fam.render_view(fam, "today"))
         if re.match(r"^call\s+(?:papa|mummy|mom|dad|mama|parent|my \w+)$", t):
             await self._reply(user, "callnow.started", lang, **slots)
             await self.checkin.call_now(fam)

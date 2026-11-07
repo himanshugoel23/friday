@@ -303,6 +303,8 @@ async def test_the_production_second_contact_sender_is_wired_and_carries_only_th
             await send(second, "x")
         assert len(sent) == 2
         # through the engine (Ctx.tell_second): a refusal comes back False, so the audit says "could not send"
-        assert await w.hub.ctx.tell_second(fam, second, "alert") is False  # the real sender over the simulator channel: no inbound from this number in 24 h, so a template is required (Meta blocked): reported as not sent
+        assert await w.hub.ctx.tell_second(fam, second, "alert") is True  # the real sender over the simulator channel: no inbound from this number in 24 h, so WhatsApp needs a template (Meta blocked); T08: the same line then goes by SMS (fake provider here)
+        sms = w.f.c.get("sms")
+        assert [m.to_phone for m in sms.sent] == [SECOND]
     finally:
         await w.close()

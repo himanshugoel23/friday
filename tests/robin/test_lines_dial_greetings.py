@@ -62,7 +62,7 @@ def test_lines_doc_is_in_sync_and_lists_every_line():
 def test_every_line_renders_with_sample_slots():
     for ln in lines.all_lines():
         key = ln.id.split(".", 1)[1].rsplit(".", 1)[0]
-        extra = {"phone": "+91", "rel": "father", "start": "22:00", "end": "07:00", "item": "i", "level": "calm", "list": "l", "loc": "", "lat": "1", "lon": "2", "scenario": "S1", "tier": "high", "at": "t", "steps": "s", "verdict": "v", "basis": "b", "taken": "1", "missed": "0", "total": "1", "state": "x", "today": "t", "alerts": "0", "declined": "-", "shared": "s", "source": "app", "v": "yes", "when": "w", "until": "u", "medicine": "m", "dose": "5mg", "times": "8am", "amount": "Rs 1", "items": "i", "who": "Asha", "minutes": "3", "tries": "6", "name": "N", "address": "A", "what": "w", "callback": "+91", "seconds": "60"}
+        extra = {"phone": "+91", "rel": "father", "start": "22:00", "end": "07:00", "item": "i", "level": "calm", "list": "l", "loc": "", "lat": "1", "lon": "2", "scenario": "S1", "tier": "high", "at": "t", "steps": "s", "verdict": "v", "basis": "b", "taken": "1", "missed": "0", "total": "1", "state": "x", "today": "t", "alerts": "0", "declined": "-", "shared": "s", "source": "app", "v": "yes", "when": "w", "until": "u", "medicine": "m", "dose": "5mg", "times": "8am", "amount": "Rs 1", "items": "i", "who": "Asha", "minutes": "3", "tries": "6", "name": "N", "address": "A", "what": "w", "callback": "+91", "seconds": "60", "code": "K7M2QX9A", "link": "robin://pair?code=K7M2QX9A"}
         lines.say(key, ln.language, brand="Robin", **{**SLOTS, **extra})
 
 

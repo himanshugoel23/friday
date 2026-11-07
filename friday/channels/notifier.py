@@ -85,6 +85,9 @@ def _sms_param(text: str) -> str:
     return text if len(text) <= 30 else text[:29] + "…"
 
 
+sms_text_param = _sms_param  # public alias: one DLT variable, 30 characters
+
+
 class Notifier:  # implements core.interfaces.Notifier
     def __init__(
         self,
