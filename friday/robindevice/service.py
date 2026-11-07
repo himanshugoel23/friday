@@ -46,6 +46,7 @@ from friday.robindevice.store import (
     DeviceStorePort,
     Event,
     ParentState,
+    code_is_strong,
     new_device_token,
     new_pair_code,
     sha256_hex,
@@ -124,12 +125,16 @@ class DeviceService:
             raise KeyError("unknown parent")
         await self.store.ensure_loaded()
         code = new_pair_code()
+        if not code_is_strong(code):  # cannot happen with new_pair_code; guards a future change
+            raise ValueError("weak pairing code")
         await self.store.put_code(parent_id, code, self.now_ms() + PAIR_CODE_TTL_S * 1000)
         return code
 
     async def pair(self, body: PairIn) -> dict[str, Any] | None:
         now = self.now_ms()
         await self.store.ensure_loaded()
+        if not code_is_strong(body.code):  # no real code looks like this: a bad guess, never looked up
+            return None
         parent_id = await self.store.take_code(body.code, now)
         if parent_id is None:
             return None

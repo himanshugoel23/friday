@@ -33,8 +33,20 @@ def new_device_token() -> str:
     return "rbn_" + secrets.token_urlsafe(32)
 
 
+CODE_LEN = 8
+MIN_DISTINCT_CHARS = 5  # 8 chars from 32 symbols = 40 bits; 'AAAAAAAA' or 'ABABABAB' style codes are refused
+
+
+def code_is_strong(code: str) -> bool:
+    """Length, alphabet and a minimum of distinct characters (a cheap entropy floor against degenerate codes)."""
+    return len(code) == CODE_LEN and set(code) <= set(_ALPHABET) and len(set(code)) >= MIN_DISTINCT_CHARS
+
+
 def new_pair_code() -> str:
-    return "".join(secrets.choice(_ALPHABET) for _ in range(8))
+    while True:
+        code = "".join(secrets.choice(_ALPHABET) for _ in range(CODE_LEN))
+        if code_is_strong(code):
+            return code
 
 
 @dataclass
@@ -147,6 +159,10 @@ class DeviceStorePort(Protocol):
     async def save_dirty(self) -> None: ...
     async def refresh(self, parent_id: str) -> ParentState | None: ...
     async def drop(self, parent_id: str) -> None: ...
+    # shared rate-limit hits (DB-backed in ``DbDeviceStore`` so every replica sees the same counts)
+    async def rate_hit(self, key: str, limit: int, window_ms: int, now_ms: int) -> bool: ...
+    async def rate_note(self, key: str, window_ms: int, now_ms: int) -> None: ...
+    async def rate_count(self, key: str, now_ms: int) -> int: ...
 
 
 class InMemoryDeviceStore:
@@ -154,6 +170,26 @@ class InMemoryDeviceStore:
         self._parents: dict[str, ParentState] = {}
         self._by_token: dict[str, str] = {}
         self._codes: dict[str, tuple[str, int]] = {}  # sha256(code) -> (parent_id, expires_ms)
+        self._hits: dict[str, list[int]] = {}  # rate-limit key -> expiry times (ms) of the hits still counted
+
+    # --- rate limits (single process; the DB store shares them across replicas)
+    def _live_hits(self, key: str, now_ms: int) -> list[int]:
+        live = [e for e in self._hits.get(key, []) if e > now_ms]
+        self._hits[key] = live
+        return live
+
+    async def rate_hit(self, key: str, limit: int, window_ms: int, now_ms: int) -> bool:
+        live = self._live_hits(key, now_ms)
+        if len(live) >= limit:
+            return False
+        live.append(now_ms + window_ms)
+        return True
+
+    async def rate_note(self, key: str, window_ms: int, now_ms: int) -> None:
+        self._live_hits(key, now_ms).append(now_ms + window_ms)
+
+    async def rate_count(self, key: str, now_ms: int) -> int:
+        return len(self._live_hits(key, now_ms))
 
     # --- parents
     def state(self, parent_id: str) -> ParentState:

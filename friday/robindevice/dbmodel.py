@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 
-from sqlalchemy import BigInteger, Integer, String, delete, select, update
+from sqlalchemy import BigInteger, Integer, String, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 from friday.core.crypto import EncryptedJSON, get_field_cipher
@@ -158,6 +159,43 @@ class DbDeviceStore:
                 return None
             pid, exp = row.parent_id, int(row.expires_ms)
         return pid if exp >= now_ms else None
+
+    # --- rate limits shared by every replica. No new table: one row per HIT in ``robin_device_codes`` with
+    # ``parent_id`` = "rl:<hash of the key>" (never a family member id), a random unique ``code_hash`` and
+    # ``expires_ms`` = when the hit stops counting. Expired hits of a key are deleted whenever the key is used.
+    @staticmethod
+    def _rl_pid(key: str) -> str:
+        return "rl:" + sha256_hex("robin_rl:" + key)[:28]
+
+    async def _rl_insert(self, s, pid: str, expires_ms: int) -> str:  # noqa: ANN001
+        row_hash = sha256_hex("rl:" + secrets.token_hex(16))
+        s.add(RobinDeviceCodeRow(code_hash=row_hash, parent_id=pid, expires_ms=int(expires_ms)))
+        await s.flush()
+        return row_hash
+
+    @staticmethod
+    async def _rl_count(s, pid: str, now_ms: int) -> int:  # noqa: ANN001
+        return int((await s.execute(select(func.count()).select_from(RobinDeviceCodeRow).where(RobinDeviceCodeRow.parent_id == pid, RobinDeviceCodeRow.expires_ms > int(now_ms)))).scalar_one())
+
+    async def rate_hit(self, key: str, limit: int, window_ms: int, now_ms: int) -> bool:
+        """Record a hit; False (and the hit is taken back) when more than ``limit`` hits fall inside the window. Two replicas racing
+        may both be refused, never both let through past the limit."""
+        pid = self._rl_pid(key)
+        async with self.db.session() as s:
+            await s.execute(delete(RobinDeviceCodeRow).where(RobinDeviceCodeRow.parent_id == pid, RobinDeviceCodeRow.expires_ms <= int(now_ms)))
+            row_hash = await self._rl_insert(s, pid, now_ms + window_ms)
+            if await self._rl_count(s, pid, now_ms) > limit:
+                await s.execute(delete(RobinDeviceCodeRow).where(RobinDeviceCodeRow.code_hash == row_hash))
+                return False
+        return True
+
+    async def rate_note(self, key: str, window_ms: int, now_ms: int) -> None:
+        async with self.db.session() as s:
+            await self._rl_insert(s, self._rl_pid(key), now_ms + window_ms)
+
+    async def rate_count(self, key: str, now_ms: int) -> int:
+        async with self.db.session() as s:
+            return await self._rl_count(s, self._rl_pid(key), now_ms)
 
     # --- persistence
     async def save(self, parent_id: str) -> None:
