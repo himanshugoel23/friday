@@ -502,7 +502,7 @@ class WhatsAppCloudChannel:
         )
 
     async def delete_media(self, media_id: str) -> bool:
-        """Best-effort delete of a media item at Meta (voice notes are not kept there). Never raises."""
+        """Best-effort delete of a media item at Meta (no copy kept). Never raises."""
         if not MEDIA_ID_RE.fullmatch(media_id or ""):
             return False
         try:
