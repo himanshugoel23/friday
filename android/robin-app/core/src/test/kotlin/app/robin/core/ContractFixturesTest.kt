@@ -33,7 +33,7 @@ class ContractFixturesTest {
             "ack_i_am_ok" -> client.ack(j!!.getString("kind"))
             "sos" -> client.sos()
             "sos_with_location" -> client.sos(j!!.getDouble("lat"), j.getDouble("lon"))
-            "voice", "err_voice_no_consent" ->
+            "voice", "voice_text_only", "err_voice_no_consent" ->
                 client.voice(fx.requestRaw!!.toByteArray(), fx.headers.getValue("Content-Type"), fx.headers.getValue("X-Duration-S").toInt())
             "share" -> client.share(j!!.getString("kind"), j.getString("value"))
             "consent_get" -> client.consent()
@@ -116,6 +116,13 @@ class ContractFixturesTest {
         assertEquals(100, r.maxBatch)
         assertEquals(12, r.consentItems.size)
         assertTrue("token must not appear in toString", TOKEN !in r.toString() && r.deviceToken == TOKEN)
+
+        val vo = (ApiClient(BASE, FakeTransport().reply(200, Fixtures.byName("voice").responseText()), MemTokens(TOKEN)).voice(ByteArray(1), "audio/ogg", 3) as ApiResult.Ok).value
+        assertTrue(vo.accepted && !vo.replyText.isNullOrBlank())
+        assertTrue(SpeechPlan.audioUrlAllowed(vo.replyAudioUrl!!, "https://robin-server.invalid"))
+        val vt = (ApiClient(BASE, FakeTransport().reply(200, Fixtures.byName("voice_text_only").responseText()), MemTokens(TOKEN)).voice(ByteArray(1), "audio/ogg", 3) as ApiResult.Ok).value
+        assertEquals(null, vt.replyAudioUrl)
+        assertTrue(!vt.replyText.isNullOrBlank())
 
         val tp = Fixtures.byName("prompts")
         val ps = (ApiClient(BASE, FakeTransport().reply(200, tp.responseText()), MemTokens(TOKEN)).prompts() as ApiResult.Ok).value.prompts

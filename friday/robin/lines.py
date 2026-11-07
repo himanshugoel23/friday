@@ -151,6 +151,19 @@ _s("inbound.hello",
    "Hello {parent}, this is {brand}. I am here. Say 'help' if you need help, or 'stop' to pause me.",
    "Namaste {parent}, main {brand} hoon. Madad chahiye to 'madad' boliye, ya mujhe rokne ke liye 'ruk jao' boliye.",
    "नमस्ते {parent}, मैं {brand} हूँ। मदद चाहिए तो 'मदद' बोलिए, या मुझे रोकने के लिए 'रुक जाओ' बोलिए।")
+# T09: replies on the parent's widget (press-to-talk). No 'stay on the line' (this is not a call). 112 is SHOWN, never dialled by Robin.
+_s("widget.sos",
+   "{parent}, I have told {child} right now. If you need an ambulance or the police, press 112 on your phone.",
+   "{parent}, maine abhi {child} ko khabar kar di hai. Ambulance ya police chahiye to apne phone par 112 dabaiye.",
+   "{parent}, मैंने अभी {child} को ख़बर कर दी है। एम्बुलेंस या पुलिस चाहिए तो अपने फ़ोन पर 112 दबाइए।")
+_s("widget.sos_failed",
+   "I could not reach {child} just now. If you need an ambulance or the police, press 112 on your phone.",
+   "Main abhi {child} tak khabar nahi pahuncha payi. Ambulance ya police chahiye to apne phone par 112 dabaiye.",
+   "मैं अभी {child} तक ख़बर नहीं पहुँचा पाई। एम्बुलेंस या पुलिस चाहिए तो अपने फ़ोन पर 112 दबाइए।")
+_s("widget.unclear",
+   "I could not hear you clearly. Please press the button and say it once more.",
+   "Mujhe aawaz saaf nahi aayi. Kripya button dabakar ek baar phir boliye.",
+   "मुझे आवाज़ साफ़ नहीं आई। कृपया बटन दबाकर एक बार फिर बोलिए।")
 _s("pause.ack",
    "All right, I have stopped. I will not call you until you tell me to start again.",
    "Theek hai, main ruk gayi. Jab tak aap dobara shuru karne ko na kahein, main phone nahi karungi.",

@@ -1,0 +1,26 @@
+{
+  "name": "voice_text_only",
+  "note": "No voice available on the server: reply_audio_url is null (older servers omit the key); the app speaks the text itself.",
+  "setup": [
+    "voice_no_audio"
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/robin/device/voice",
+    "auth": true,
+    "headers": {
+      "Content-Type": "audio/ogg",
+      "X-Duration-S": "3"
+    },
+    "body_ascii": "OggS-fake-audio-bytes"
+  },
+  "response": {
+    "status": 200,
+    "json": {
+      "accepted": true,
+      "reply_text": "Theek hai, main yahin hoon.",
+      "reply_audio_url": null
+    }
+  },
+  "open": []
+}

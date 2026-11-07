@@ -6,7 +6,7 @@ two sides cannot drift apart: change a schema or a reply and one of the two test
 
 Fixture format::
 
-    {"name", "note", "setup": ["prompt" | "bad_token" | "no_voice_consent"],
+    {"name", "note", "setup": ["prompt" | "bad_token" | "no_voice_consent" | "voice_no_audio"],
      "request":  {"method", "path", "auth", "json"? | "body_ascii"?, "headers"?},
      "response": {"status", "json"},
      "open": ["counters", ...]   # dotted paths whose KEYS may vary (only their value types are not compared)
@@ -137,6 +137,7 @@ def _shape(live: Any, fix: Any, open_paths: set[str], at: str = "") -> list[str]
 async def test_live_server_matches_fixture(rig, path: Path):
     doc = _load(path)
     req, resp, setup = doc["request"], doc["response"], set(doc["setup"])
+    rig.voice.with_audio = "voice_no_audio" not in setup
     token = ""
     live_pid = PROMPT_ID
     code = CODE
@@ -167,6 +168,12 @@ async def test_live_server_matches_fixture(rig, path: Path):
     assert r.status_code == resp["status"], r.text
     diffs = _shape(r.json(), resp["json"], set(doc["open"]))
     assert diffs == [], diffs
+    if doc["name"] == "voice":
+        url = r.json()["reply_audio_url"]  # the fixture URL is only an example; the live one is https on the server's host and fetchable once
+        assert url.startswith("https://robin-server.invalid/robin/device/audio/") and resp["json"]["reply_audio_url"].startswith("https://")
+        got = await rig.client.get(url.removeprefix("https://robin-server.invalid"))
+        assert got.status_code == 200 and got.content == b"fake-tts-audio"
+        assert (await rig.client.get(url.removeprefix("https://robin-server.invalid"))).status_code == 404
     if doc["name"] == "pair":
         assert r.json()["device_token"].startswith("rbn_")
         assert r.json()["consent_items"] == list(CONSENT_ITEMS)

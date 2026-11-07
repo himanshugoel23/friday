@@ -72,12 +72,17 @@ class ParentLookup(Protocol):
 class VoiceResult:
     ok: bool = True
     reply_text: str | None = None  # optional short text the app may show/read back
+    # optional spoken version of the reply (Robin's own TTS, never the parent's recording). The service holds it in memory for a
+    # short time behind a one-fetch token URL (replyaudio.py); the intake never sees the URL.
+    reply_audio: bytes | None = None
+    reply_audio_mime: str = "audio/mpeg"
 
 
 @runtime_checkable
 class VoiceIntake(Protocol):
     """The family/chat side transcribes the voice message and acts on it. It MUST delete the audio after
-    speech-to-text. This package holds the bytes in memory for the call only and never stores them."""
+    speech-to-text. This package holds the bytes in memory for the call only and never stores them.
+    A help call ("madad karo") MUST raise an SOS on the family side; that works while paused and before setup."""
 
     async def handle(self, parent_id: str, audio: bytes, mime: str, duration_s: int) -> VoiceResult: ...
 
@@ -85,10 +90,12 @@ class VoiceIntake(Protocol):
 @dataclass
 class FakeVoiceIntake:
     received: list[dict[str, Any]] = field(default_factory=list)
+    reply_text: str | None = "Theek hai, main yahin hoon."  # fixed fake reply (the contract fixtures use it)
+    with_audio: bool = True
 
     async def handle(self, parent_id: str, audio: bytes, mime: str, duration_s: int) -> VoiceResult:
         self.received.append({"parent_id": parent_id, "bytes": len(audio), "mime": mime, "duration_s": duration_s})
-        return VoiceResult(True, None)
+        return VoiceResult(True, self.reply_text, b"fake-tts-audio" if self.with_audio and self.reply_text else None)
 
 
 @dataclass

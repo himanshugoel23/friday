@@ -722,6 +722,7 @@ class Settings(BaseSettings):
     # OFF: every request keeps the old bucket x category flow. Chat wording PENDING.
     # Robin device side (docs/ROBIN_ANDROID_APP.md): device API under /robin/device/*. OFF; wording PENDING.
     robin_device_enabled: bool = False  # FRIDAY_ROBIN_DEVICE_ENABLED
+    robin_device_scam_llm_enabled: bool = False  # FRIDAY_ROBIN_DEVICE_SCAM_LLM_ENABLED: LLM second opinion, raise-only
     approach_planner_enabled: bool = False  # FRIDAY_APPROACH_PLANNER_ENABLED
     # proactive intents (docs/PROACTIVE_INTENTS.md): honest "needs a connection" replies, interview /
     # birthday / trip / bill / exam / meeting playbooks, one-word follow-ups. Chat wording PENDING.

@@ -34,6 +34,7 @@ def maybe_mount(app: Any, container: Any) -> Any | None:
         alerts=ports["alerts"], consent=ports["consent"], parents=ports["parents"],
         voice=ports.get("voice"), llm=ports.get("llm"), brand=brand_name(settings),
         store=_build_store(container),
+        reply_audio=ports.get("reply_audio"), public_base_url=str(getattr(settings, "public_base_url", "") or ""),
     )
     mount_robin_device(app, service)
     _attach_sweep(container, service)

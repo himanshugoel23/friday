@@ -31,6 +31,7 @@ from friday.robindevice.ports import (
     VoiceIntake,
     VoiceResult,
 )
+from friday.robindevice.replyaudio import ReplyAudioStore
 from friday.robindevice.rules import Rules, load
 from friday.robindevice.schemas import (
     SIGNAL_CONSENT,
@@ -101,8 +102,12 @@ class DeviceService:
         brand: str = "Friday",
         call_text_retain_days: int = 0,
         voice: VoiceIntake | None = None,
+        reply_audio: ReplyAudioStore | None = None,
+        public_base_url: str = "",
     ) -> None:
         self.voice = voice
+        self.reply_audio = reply_audio  # None = replies are text only
+        self.public_base_url = public_base_url.rstrip("/")
         self.alerts, self.consent, self.parents = alerts, consent, parents
         self.rules = rules or load(known_predicates=known_predicates())
         self.store: DeviceStorePort = store or DeviceStore()
@@ -401,7 +406,11 @@ class DeviceService:
         finally:
             del audio
         st.bump("voice_messages")
-        return {"accepted": res.ok, "reply_text": res.reply_text}
+        url: str | None = None
+        if res.reply_audio and self.reply_audio is not None and self.public_base_url:
+            token = self.reply_audio.put(st.parent_id, res.reply_audio, res.reply_audio_mime)
+            url = f"{self.public_base_url}/robin/device/audio/{token}" if token else None
+        return {"accepted": res.ok, "reply_text": res.reply_text, "reply_audio_url": url}
 
     # ------------------------------------------------------------------ acks
     @_persisted
@@ -531,6 +540,8 @@ class DeviceService:
             self._analyzer_ms.pop(key, None)
             n_analyzers += 1
         await self.store.drop(parent_id)  # rows, codes, token binding, cached state
+        if self.reply_audio is not None:
+            self.reply_audio.drop_parent(parent_id)
         self._locks.pop(parent_id, None)
         return {"events": n_events, "analyzers": n_analyzers, "state": 1 if st else 0}
 

@@ -125,7 +125,7 @@ class RobinHub:
             reply = ParentReply(c.say("inbound.hello", parent.language, **await c.slots(fam)), "hello")
         if not parent.paused:
             await self.checkin.note_reached(fam, parent)  # any word from the parent ends an 'unanswered' ladder
-        if reply is not None and c.parent_channel is not None and via != "call":
+        if reply is not None and c.parent_channel is not None and via not in ("call", "widget"):  # the widget gets its reply in the HTTP answer
             await c.parent_channel.send_voice_note(parent, reply.text, parent.language)  # voice note first, then the same words as text
             await c.parent_channel.send_text(parent, reply.text)
         return reply
@@ -367,6 +367,11 @@ DEVICE_TO_FAMILY_CONSENT = {
 }
 
 
+# T09: press-to-talk and the SOS button's location are explicit actions by the parent, so they stay available while Robin is paused; the
+# consent itself is still required and can still be withdrawn. (Location is only ever sent with an SOS, never as a background signal.)
+PARENT_ACTION_ITEMS = frozenset({"voice_messages", "location"})
+
+
 class _DeviceAlerts:
     def __init__(self, hub: Any) -> None:
         self.hub = hub
@@ -395,7 +400,7 @@ class _DeviceConsent:
     async def has(self, parent_id: str, item: str) -> bool:
         member = await self.hub.ctx.store.get_member(parent_id)
         mapped = DEVICE_TO_FAMILY_CONSENT.get(item)
-        if member is None or mapped is None or getattr(member, "paused", False):
+        if member is None or mapped is None or (getattr(member, "paused", False) and item not in PARENT_ACTION_ITEMS):
             return False
         return await self.hub.ctx.has_consent(member, mapped)
 
@@ -425,4 +430,24 @@ def build_device_ports(c: Any) -> dict[str, Any] | None:
     hub = c.get("robin")
     if hub is None:
         return None
-    return {"alerts": _DeviceAlerts(hub), "consent": _DeviceConsent(hub), "parents": _DeviceParents(hub)}
+    from friday.robin.devicevoice import DeviceVoiceIntake
+    from friday.robindevice.replyaudio import ReplyAudioStore
+
+    ports: dict[str, Any] = {
+        "alerts": _DeviceAlerts(hub), "consent": _DeviceConsent(hub), "parents": _DeviceParents(hub),
+        "voice": DeviceVoiceIntake(hub, stt=lambda: _opt_component(c, "stt"), tts=lambda: _opt_component(c, "tts")),  # T09: press-to-talk
+        "reply_audio": ReplyAudioStore(),  # in memory, one fetch, short TTL
+    }
+    if getattr(c.settings, "robin_device_scam_llm_enabled", False):  # OFF by default: masked shared text goes to the model provider
+        ports["llm"] = _LazyLLM(c)  # can only RAISE a verdict (scamcheck.merge_second_opinion)
+    return ports
+
+
+class _LazyLLM:
+    """Resolves the container's LLM at the first call, so a missing key only costs the optional second opinion."""
+
+    def __init__(self, c: Any) -> None:
+        self.c = c
+
+    async def complete(self, **kwargs: Any) -> Any:
+        return await self.c.get("llm").complete(**kwargs)

@@ -19,7 +19,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ValidationError
 
 from friday.core.logging import get_logger
@@ -239,6 +239,14 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
         if "error" in res:
             return _json(res, 503)
         return _json(res)
+
+    @router.get("/audio/{token}")
+    async def reply_audio(token: str) -> Response:
+        """Robin's spoken reply (its own TTS) for ONE fetch: the unguessable token is the credential, then the clip is deleted."""
+        clip = service.reply_audio.take(token) if service.reply_audio is not None else None
+        if clip is None:
+            raise HTTPException(status_code=404, detail="Not Found")
+        return Response(content=clip[0], media_type=clip[1], headers=HEADERS)
 
     @router.get("/prompts")
     async def prompts(request: Request) -> JSONResponse:

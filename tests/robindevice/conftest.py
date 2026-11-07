@@ -20,6 +20,7 @@ from friday.robindevice.ports import (
     InMemoryConsent,
     InMemoryParents,
 )
+from friday.robindevice.replyaudio import ReplyAudioStore
 from friday.robindevice.service import DeviceService
 
 MIN = 60_000
@@ -80,7 +81,7 @@ class Rig:
 async def rig():
     clock = Clock(ist_ms(2026, 9, 9, 14, 0))
     alerts, consent, parents, voice = FakeAlertPort(), InMemoryConsent(), InMemoryParents(), FakeVoiceIntake()
-    service = DeviceService(alerts=alerts, consent=consent, parents=parents, now_ms=clock, voice=voice, brand="Robin")
+    service = DeviceService(alerts=alerts, consent=consent, parents=parents, now_ms=clock, voice=voice, brand="Robin", reply_audio=ReplyAudioStore(), public_base_url="https://robin-server.invalid")
     app = FastAPI()
     mount_robin_device(app, service, RateLimiter())
     transport = httpx.ASGITransport(app=app)

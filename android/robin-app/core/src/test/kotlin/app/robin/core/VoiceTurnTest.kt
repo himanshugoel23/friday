@@ -225,7 +225,15 @@ class VoiceTurnWithSharedFixtureTest {
         val rec = FakeRecorder()
         val t = VoiceTurn(rec, { a, m, d -> client.voice(a, m, d) })
         t.tap(0); t.tap(3_000)
-        assertEquals(VoiceTurn.State.Answering(VoiceTurn.Answer(null, null)), t.upload { })
+        assertEquals(
+            VoiceTurn.State.Answering(VoiceTurn.Answer("Theek hai, main yahin hoon.", "https://robin-server.invalid/robin/device/audio/EXAMPLE_TOKEN_0123456789abcdefghijklmnop")),
+            t.upload { },
+        )
+        val to = Fixtures.byName("voice_text_only")
+        val c3 = ApiClient(BASE, FakeTransport().reply(to.status, to.responseText()), MemTokens(TOKEN))
+        val t3 = VoiceTurn(rec, { a, m, d -> c3.voice(a, m, d) })
+        t3.tap(0); t3.tap(3_000)
+        assertEquals(VoiceTurn.State.Answering(VoiceTurn.Answer("Theek hai, main yahin hoon.", null)), t3.upload { })
         val nc = Fixtures.byName("err_voice_no_consent")
         val c2 = ApiClient(BASE, FakeTransport().reply(nc.status, nc.responseText()), MemTokens(TOKEN))
         val t2 = VoiceTurn(rec, { a, m, d -> c2.voice(a, m, d) })

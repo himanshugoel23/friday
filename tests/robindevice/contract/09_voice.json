@@ -1,6 +1,6 @@
 {
   "name": "voice",
-  "note": "",
+  "note": "Reply to a press-to-talk message: Robin's words (parent's language) and, when a voice is available, a one-fetch https URL to the spoken version (same host as the paired server, expires in about 90 s).",
   "setup": [],
   "request": {
     "method": "POST",
@@ -16,7 +16,8 @@
     "status": 200,
     "json": {
       "accepted": true,
-      "reply_text": null
+      "reply_text": "Theek hai, main yahin hoon.",
+      "reply_audio_url": "https://robin-server.invalid/robin/device/audio/EXAMPLE_TOKEN_0123456789abcdefghijklmnop"
     }
   },
   "open": []

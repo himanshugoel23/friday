@@ -202,7 +202,7 @@ data class MessageReply(val ok: Boolean, val message: String?) {
     }
 }
 
-/** [replyAudioUrl] is optional and forward-compatible: the server does not send it yet (T09); old servers simply omit it. */
+/** [replyAudioUrl] is optional: the server sends a one-fetch https URL to Robin's spoken reply when a voice is available (T09); old servers omit it, and the app then speaks [replyText] itself. */
 data class VoiceReply(val accepted: Boolean, val replyText: String?, val replyAudioUrl: String? = null) {
     companion object {
         fun parse(o: JSONObject) = VoiceReply(J.bool(o, "accepted"), J.strOrNull(o, "reply_text"), J.strOrNull(o, "reply_audio_url"))

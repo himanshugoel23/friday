@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **479** (213 spoken, 266 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **488** (222 spoken, 266 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -127,6 +127,15 @@ Total lines: **479** (213 spoken, 266 chat). Status of each: PENDING_FOUNDER_APP
 | robin.inbound.hello.en | en | Hello {parent}, this is {brand}. I am here. Say 'help' if you need help, or 'stop' to pause me. | PENDING |
 | robin.inbound.hello.hinglish | hinglish | Namaste {parent}, main {brand} hoon. Madad chahiye to 'madad' boliye, ya mujhe rokne ke liye 'ruk jao' boliye. | PENDING |
 | robin.inbound.hello.hi | hi | नमस्ते {parent}, मैं {brand} हूँ। मदद चाहिए तो 'मदद' बोलिए, या मुझे रोकने के लिए 'रुक जाओ' बोलिए। | PENDING |
+| robin.widget.sos.en | en | {parent}, I have told {child} right now. If you need an ambulance or the police, press 112 on your phone. | PENDING |
+| robin.widget.sos.hinglish | hinglish | {parent}, maine abhi {child} ko khabar kar di hai. Ambulance ya police chahiye to apne phone par 112 dabaiye. | PENDING |
+| robin.widget.sos.hi | hi | {parent}, मैंने अभी {child} को ख़बर कर दी है। एम्बुलेंस या पुलिस चाहिए तो अपने फ़ोन पर 112 दबाइए। | PENDING |
+| robin.widget.sos_failed.en | en | I could not reach {child} just now. If you need an ambulance or the police, press 112 on your phone. | PENDING |
+| robin.widget.sos_failed.hinglish | hinglish | Main abhi {child} tak khabar nahi pahuncha payi. Ambulance ya police chahiye to apne phone par 112 dabaiye. | PENDING |
+| robin.widget.sos_failed.hi | hi | मैं अभी {child} तक ख़बर नहीं पहुँचा पाई। एम्बुलेंस या पुलिस चाहिए तो अपने फ़ोन पर 112 दबाइए। | PENDING |
+| robin.widget.unclear.en | en | I could not hear you clearly. Please press the button and say it once more. | PENDING |
+| robin.widget.unclear.hinglish | hinglish | Mujhe aawaz saaf nahi aayi. Kripya button dabakar ek baar phir boliye. | PENDING |
+| robin.widget.unclear.hi | hi | मुझे आवाज़ साफ़ नहीं आई। कृपया बटन दबाकर एक बार फिर बोलिए। | PENDING |
 | robin.pause.ack.en | en | All right, I have stopped. I will not call you until you tell me to start again. | PENDING |
 | robin.pause.ack.hinglish | hinglish | Theek hai, main ruk gayi. Jab tak aap dobara shuru karne ko na kahein, main phone nahi karungi. | PENDING |
 | robin.pause.ack.hi | hi | ठीक है, मैं रुक गई। जब तक आप दोबारा शुरू करने को न कहें, मैं फ़ोन नहीं करूँगी। | PENDING |
