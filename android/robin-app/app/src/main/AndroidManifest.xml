@@ -7,7 +7,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Asked only when the parent first presses the voice-note button; used only while the button is held. -->
+    <!-- Asked only when the parent first taps the microphone; used only between the tap that starts and the tap (or silence, or the time limit) that ends a question. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -30,9 +30,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Family setup link / QR payload: robin://pair?code=XXXXXXXX. Only opens the setup screen with the code filled in. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="robin" android:host="pair" />
+            </intent-filter>
         </activity>
 
-        <!-- Only the two big buttons (SOS, voice note) and Call 112; the rest of the app is NOT shown over the lock screen. -->
+        <!-- Only the microphone, SOS and Call 112; the rest of the app is NOT shown over the lock screen. -->
         <activity
             android:name=".QuickActivity"
             android:exported="false"

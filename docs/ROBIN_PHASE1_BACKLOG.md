@@ -67,7 +67,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T03 | Consent and delete-everything integrity, retention jobs, encryption-at-rest check, secrets scan | fakes only | none | DONE 2026-11-06 |
 | T04 | End-to-end safety harness with fakes (child chat -> consent notice -> check-in -> alert -> escalation) + PII-free log gate | fakes only | none | DONE 2026-11-06 |
 | T05 | Observability without PII: doctor lines, ops-status counts, `deploy/enable-robin.sh` | fakes only | none | DONE 2026-11-07 |
-| T06 | Authority-call lock (dry-run proofs), rate limits, pairing brute-force defence, abuse tests | fakes only | none | TODO |
+| T06 | Authority-call lock (dry-run proofs), rate limits, pairing brute-force defence, abuse tests | fakes only | none | DONE 2026-11-07 |
 | T07 | Parent WhatsApp channel: inbound routing, voice-note STT/TTS, adapter + fake + template interface | fake now; real adapter behind Meta | template wording approval (later) | TODO |
 | T08 | Child-side delivery: pairing command, alert delivery with fallback, second-contact sender, outbox drain | fake now; uses Notifier | none | TODO |
 | T09 | Device voice/SOS intake into the family package (STT port, SosService path) | fakes only | none | TODO |
@@ -284,4 +284,4 @@ Good-morning digest (text built in robin/greetings.py), festival graphics (needs
 - RULE: security paths (HIGH, EMERGENCY, SOS, fall, urgent missed-call rings) never consult the calling window or quiet hours; add a table test over every scenario/tier asserting this and that WATCH/INFO still respect quiet hours. Any HIGH (and above) alert rings the child regardless of the calling window; quiet hours only affect non-urgent nudges. Typed "I have it"/"Mark safe" during an open care episode stops the alert. Second-contact WhatsApp sender wired (xfail test from T04 must pass). Tests in tests/e2e/robin. Depends on T05, T06 merged. Status: TODO.
 
 ### T21 Parent voice-first home-screen widget (founder 2026-11-06)
-- Default widget with one big mic button: tap to talk, release/silence to send, Robin answers aloud (server audio URL if present, else Android TextToSpeech in the parent's language), big-text caption as aid. No typing anywhere in the parent's flow; pairing entered by the child (code or deep link/QR). Tap-to-talk only, no hotword, no background mic. Files: android/** and contract fixtures. Server side is T09. Strings PENDING. Status: running.
+- Default widget with one big mic button: tap to talk, release/silence to send, Robin answers aloud (server audio URL if present, else Android TextToSpeech in the parent's language), big-text caption as aid. No typing anywhere in the parent's flow; pairing entered by the child (code or deep link/QR). Tap-to-talk only, no hotword, no background mic. Files: android/** and contract fixtures. Server side is T09. Strings PENDING. Status: built on branch t21-voice-widget (not merged); server side T09 pending.

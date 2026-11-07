@@ -40,6 +40,11 @@ class QuickActivity : Activity(), QuickPanel.Host {
         panel.onPermissionResult(requestCode)
     }
 
+    override fun onResume() {
+        super.onResume()
+        panel.onResume()
+    }
+
     override fun onPause() {
         panel.onPause()
         super.onPause()

@@ -3,6 +3,7 @@ package app.robin.parent
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import app.robin.core.VoiceRecorderPort
 import java.io.File
 
 /**
@@ -10,11 +11,11 @@ import java.io.File
  * 32 kbit/s, so 60 seconds is about 240 KB (the server limit is 1 MB). The microphone is open only between [start]
  * and [stop]/[cancel]. The file is deleted after a successful upload (and at every app start).
  */
-class VoiceRecorder(private val ctx: Context) {
+class VoiceRecorder(private val ctx: Context) : VoiceRecorderPort {
     private var rec: MediaRecorder? = null
     val file: File get() = RobinApplication.voiceFile(ctx)
 
-    fun start(): Boolean {
+    override fun start(): Boolean {
         cancel()
         return try {
             val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(ctx) else @Suppress("DEPRECATION") MediaRecorder()
@@ -37,7 +38,7 @@ class VoiceRecorder(private val ctx: Context) {
     }
 
     /** Stops and returns the recorded bytes, or null if nothing usable was recorded. */
-    fun stop(): ByteArray? {
+    override fun stop(): ByteArray? {
         val r = rec ?: return null
         rec = null
         return try {
@@ -52,7 +53,7 @@ class VoiceRecorder(private val ctx: Context) {
     }
 
     /** Throws the recording away and releases the microphone. Safe to call at any time. */
-    fun cancel() {
+    override fun cancel() {
         rec?.let {
             try { it.stop() } catch (_: Exception) {}
             try { it.release() } catch (_: Exception) {}
@@ -61,7 +62,9 @@ class VoiceRecorder(private val ctx: Context) {
         file.delete()
     }
 
-    fun deleteFile() {
+    override fun level(): Int = try { rec?.maxAmplitude ?: 0 } catch (e: Exception) { 0 }
+
+    override fun deleteFile() {
         file.delete()
     }
 }

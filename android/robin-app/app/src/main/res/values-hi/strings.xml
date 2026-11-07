@@ -17,8 +17,6 @@
 
     <string name="home_sos">SOS</string>
     <string name="home_sos_hold">दबाकर रखें</string>
-    <string name="home_voice">आवाज़ संदेश</string>
-    <string name="home_voice_hold">दबाकर बोलें, फिर छोड़ें</string>
     <string name="home_call_112">112 पर कॉल करें</string>
     <string name="home_stop">रोकें</string>
     <string name="home_start_again">फिर शुरू करें</string>
@@ -29,13 +27,7 @@
     <string name="sos_sending">भेज रहे हैं</string>
     <string name="sos_sent">भेज दिया</string>
     <string name="sos_not_sent">नहीं भेज पाए। कृपया 112 पर कॉल करें।</string>
-    <string name="voice_recording">रिकॉर्ड हो रहा है। भेजने के लिए छोड़ें।</string>
-    <string name="voice_too_short">बहुत छोटा। थोड़ा और देर दबाएं।</string>
-    <string name="voice_sending">भेज रहे हैं</string>
-    <string name="voice_sent">भेज दिया</string>
-    <string name="voice_failed">नहीं भेज पाए। दोबारा कोशिश करें।</string>
     <string name="voice_no_consent">परिवार ने आवाज़ संदेश चालू नहीं किए हैं।</string>
-    <string name="voice_mic_needed">आवाज़ संदेश के लिए माइक्रोफ़ोन चाहिए। यह सिर्फ़ तब चलता है जब आप बटन दबाए रखते हैं।</string>
     <string name="voice_no_mic">यह फ़ोन रिकॉर्ड नहीं कर सकता।</string>
 
     <string name="whatson_title">क्या चालू है</string>
@@ -72,6 +64,34 @@
     <string name="item_other">अन्य</string>
 
     <string name="widget_sos">SOS</string>
-    <string name="widget_voice">आवाज़</string>
     <string name="widget_description">SOS और आवाज़ संदेश के बटन</string>
+    <string name="voice_mic_needed">Robin से बात करने के लिए माइक्रोफ़ोन चाहिए। यह सिर्फ़ तब चलता है जब आप बोल रहे हों।</string>
+    <string name="voice_failed">नहीं भेज पाए। दबाकर दोबारा कोशिश करें।</string>
+    <string name="voice_too_short">बहुत छोटा। दबाएं और थोड़ा देर बोलें।</string>
+    <!-- T21 voice-first screen and widget. HINDI PLACEHOLDERS, ALL PENDING founder approval. -->
+    <string name="voice_tap_to_talk">दबाएं और बोलें</string>
+    <string name="voice_listening">सुन रहे हैं</string>
+    <string name="voice_listening_hint">अब बोलें। पूरा होने पर फिर दबाएं।</string>
+    <string name="voice_sending">भेज रहे हैं</string>
+    <string name="voice_answering">Robin जवाब दे रहा है</string>
+    <string name="voice_answering_hint">कुछ और पूछना हो तो दबाएं।</string>
+    <string name="voice_answer_fallback">मैंने सुन लिया। आपके परिवार को बता दिया गया है।</string>
+    <string name="voice_problem">कुछ गड़बड़ हुई</string>
+    <string name="voice_offline">इंटरनेट नहीं है</string>
+    <string name="voice_offline_detail">अभी इंटरनेट नहीं है। थोड़ी देर में फिर कोशिश करें।</string>
+    <string name="voice_try_again">दोबारा कोशिश के लिए दबाएं।</string>
+    <string name="voice_no_speech">कुछ सुनाई नहीं दिया। दबाएं और बोलें।</string>
+    <string name="voice_not_understood">समझ नहीं आया। कृपया फिर से बोलें।</string>
+    <string name="voice_busy">एक मिनट रुककर फिर कोशिश करें।</string>
+    <string name="voice_not_set_up">इस फ़ोन पर Robin अभी चालू नहीं है। परिवार का कोई सदस्य इसे चालू करेगा।</string>
+    <string name="home_sos_desc">SOS। परिवार को बताने के लिए दो सेकंड दबाकर रखें।</string>
+    <string name="waiting_message">इस फ़ोन पर Robin अभी चालू नहीं है।</string>
+    <string name="waiting_family_hint">परिवार के लिए: चालू करने के लिए ऊपर नाम को दबाकर रखें।</string>
+    <string name="setup_title">परिवार के लिए सेटअप</string>
+    <string name="setup_note">परिवार के सदस्य के लिए। इस फ़ोन के लिए बनाया कोड डालें, या इस फ़ोन पर सेटअप लिंक खोलें।</string>
+    <string name="setup_add_widget">Robin को होम स्क्रीन पर जोड़ें</string>
+    <string name="setup_widget_manual">होम स्क्रीन पर खाली जगह दबाकर रखें, विजेट चुनें, फिर Robin।</string>
+    <string name="widget_mic">बोलें</string>
+    <string name="widget_mic_desc">Robin से बात करें। दबाएं, फिर बोलें।</string>
+    <string name="widget_sos_desc">SOS। SOS स्क्रीन खुलती है। वहाँ दबाकर रखें।</string>
 </resources>

@@ -24,8 +24,6 @@
     <!-- Home -->
     <string name="home_sos">SOS</string>
     <string name="home_sos_hold">Press and hold</string>
-    <string name="home_voice">Voice message</string>
-    <string name="home_voice_hold">Hold, speak, let go</string>
     <string name="home_call_112">Call 112</string>
     <string name="home_stop">Stop</string>
     <string name="home_start_again">Start again</string>
@@ -37,13 +35,7 @@
     <string name="sos_sending">Sending</string>
     <string name="sos_sent">Sent</string>
     <string name="sos_not_sent">Could not send. Please call 112.</string>
-    <string name="voice_recording">Recording. Let go to send.</string>
-    <string name="voice_too_short">Too short. Hold longer.</string>
-    <string name="voice_sending">Sending</string>
-    <string name="voice_sent">Sent</string>
-    <string name="voice_failed">Could not send. Please try again.</string>
     <string name="voice_no_consent">Your family has not turned on voice messages.</string>
-    <string name="voice_mic_needed">The microphone is needed for voice messages. It is used only while you hold the button.</string>
     <string name="voice_no_mic">This phone cannot record.</string>
 
     <!-- What is on -->
@@ -84,6 +76,34 @@
 
     <!-- Widget -->
     <string name="widget_sos">SOS</string>
-    <string name="widget_voice">Voice</string>
     <string name="widget_description">SOS and voice message buttons</string>
+    <string name="voice_mic_needed">The microphone is needed to talk to Robin. It is used only while you are asking.</string>
+    <string name="voice_failed">Could not send. Please tap and try again.</string>
+    <string name="voice_too_short">Too short. Tap and speak a little longer.</string>
+    <!-- T21 voice-first screen and widget. ALL PENDING founder approval (hear-before-change). -->
+    <string name="voice_tap_to_talk">Tap and speak</string>
+    <string name="voice_listening">Listening</string>
+    <string name="voice_listening_hint">Speak now. Tap again when you are done.</string>
+    <string name="voice_sending">Sending</string>
+    <string name="voice_answering">Robin is answering</string>
+    <string name="voice_answering_hint">Tap to ask something else.</string>
+    <string name="voice_answer_fallback">I heard you. Your family has been told.</string>
+    <string name="voice_problem">Something went wrong</string>
+    <string name="voice_offline">No internet</string>
+    <string name="voice_offline_detail">There is no internet right now. Please try again in a moment.</string>
+    <string name="voice_try_again">Tap to try again.</string>
+    <string name="voice_no_speech">I did not hear anything. Tap and speak.</string>
+    <string name="voice_not_understood">I could not understand. Please say it again.</string>
+    <string name="voice_busy">Please wait a minute and try again.</string>
+    <string name="voice_not_set_up">Robin is not set up on this phone yet. A family member will do it.</string>
+    <string name="home_sos_desc">SOS. Press and hold for two seconds to alert your family.</string>
+    <string name="waiting_message">Robin is not set up on this phone yet.</string>
+    <string name="waiting_family_hint">Family: press and hold the name above to set up.</string>
+    <string name="setup_title">Family setup</string>
+    <string name="setup_note">For a family member. Enter the code you made for this phone, or open the setup link on this phone.</string>
+    <string name="setup_add_widget">Add Robin to the home screen</string>
+    <string name="setup_widget_manual">Press and hold an empty place on the home screen, choose Widgets, then Robin.</string>
+    <string name="widget_mic">Talk</string>
+    <string name="widget_mic_desc">Talk to Robin. Tap, then speak.</string>
+    <string name="widget_sos_desc">SOS. Opens the SOS screen. Press and hold there.</string>
 </resources>

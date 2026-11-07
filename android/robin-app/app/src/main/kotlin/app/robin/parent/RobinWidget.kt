@@ -7,13 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 
-/** Home-screen widget: a big SOS button and a big voice-note button. Each opens [QuickActivity] (hold happens there). */
+/** Home-screen widget: a big microphone (opens [QuickActivity] and starts listening) and an SOS button (the hold happens there). */
 class RobinWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         for (id in ids) {
             val v = RemoteViews(context.packageName, R.layout.widget)
             v.setOnClickPendingIntent(R.id.widget_sos, open(context, "sos", 1))
-            v.setOnClickPendingIntent(R.id.widget_voice, open(context, "voice", 2))
+            v.setOnClickPendingIntent(R.id.widget_mic, open(context, "voice", 2))
             manager.updateAppWidget(id, v)
         }
     }

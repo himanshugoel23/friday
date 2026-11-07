@@ -69,6 +69,15 @@ class ApiClientTest {
         assertEquals("PUT", t.last.method)
     }
 
+    @Test fun voiceReplyWithAudioUrlIsParsedAndOldRepliesStillWork() {
+        val t = FakeTransport().reply(200, """{"accepted":true,"reply_text":"ok","reply_audio_url":"https://robin-server.invalid/a/1.mp3","new_key":1}""")
+        val r = client(t).voice(ByteArray(10), "audio/mp4", 2) as ApiResult.Ok
+        assertEquals(VoiceReply(true, "ok", "https://robin-server.invalid/a/1.mp3"), r.value)
+        assertEquals("audio/mp4", t.last.headers["Content-Type"])
+        assertEquals("2", t.last.headers["X-Duration-S"])
+        assertEquals(null, (client(FakeTransport().reply(200, """{"accepted":true,"reply_text":null}""")).voice(ByteArray(10), "audio/mp4", 2) as ApiResult.Ok).value.replyAudioUrl)
+    }
+
     @Test fun voiceUploadIsRawAudioWithDurationHeader() {
         val t = FakeTransport().reply(200, """{"accepted": true, "reply_text": null}""")
         val audio = byteArrayOf(1, 2, 3)
