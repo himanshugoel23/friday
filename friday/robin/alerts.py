@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
+from friday.core.clock import ist_day_bounds
 from friday.core.logging import get_logger
 from friday.core.models import ReplyButton
 from friday.robin import answers as ans
@@ -45,6 +46,7 @@ from friday.robin.store import Record
 log = get_logger(__name__)
 
 MAX_CALLS_PER_TARGET = 3
+DAILY_ALERT_CAP = 10  # child WhatsApp alerts per family per day (WATCH and HIGH); EMERGENCY and SOS are exempt
 RECOVER_AFTER_S = 120
 
 
@@ -265,6 +267,8 @@ class AlertEngine:
         money = bool(d.get("money"))
         urgent = TIER_ORDER[tier] >= TIER_ORDER[Tier.HIGH]
         if action == "wa_child":
+            if await self._flood_capped(family, rec, d):
+                return "capped"
             return "sent" if await self._message_child(family, parent, rec, d) else "failed"
         if action == "wa_second":
             second = await c.second(family)
@@ -425,6 +429,30 @@ class AlertEngine:
             ReplyButton(id=f"rb:{rec_id}:join", title="Robin judegi" if hl else "Robin joins call"),
             ReplyButton(id=f"rb:{rec_id}:safe", title="Safe hai" if hl else "Mark safe"),
         ]  # WhatsApp allows 3 reply buttons: 'Show details' is the text command 'details' (the alert says so)
+
+    async def _flood_capped(self, family: Family, rec: Record, d: dict[str, Any]) -> bool:
+        """Alert-flood protection: at most ``robin_alert_daily_cap`` (default 10) child WhatsApp alerts per family per IST day for
+        WATCH and HIGH. The first alert past the cap sends ONE "many alerts" summary (never silence). EMERGENCY and SOS are never
+        capped. The incident, its calls and the audit trail still run; only the extra WhatsApp text is held back."""
+        c = self.ctx
+        if d["scenario"] == "sos" or Tier(d["tier"]) not in (Tier.WATCH, Tier.HIGH):
+            return False
+        cap = int(getattr(c.settings, "robin_alert_daily_cap", DAILY_ALERT_CAP))
+        start, end = ist_day_bounds(c.clock.now())
+        sent = 0
+        for r in await self.store.list(family.id, "incident", since=start, until=end, limit=1000):
+            if r.id == rec.id or r.data.get("scenario") == "sos" or r.data.get("tier") not in (Tier.WATCH.value, Tier.HIGH.value):
+                continue
+            if any(st["action"] == "wa_child" and st["state"] in ("started", "done") and st.get("result") == "sent" for st in r.data.get("steps", [])):
+                sent += 1
+        if sent < cap:
+            return False
+        _, created = await self.store.put(Record(family_id=family.id, user_id=family.owner_user_id, kind="pending", key=f"floodsum:{start.date().isoformat()}", status="done", at=c.clock.now(), data={"n": sent}))
+        if created:
+            lang = await c.chat_lang(family)
+            await c.tell_child(family, c.say("alert.flood_summary", lang, parent=family.parent_label, n=sent))
+            await c.audit(family, "alert_flood", f"Many alerts today ({sent}): further minor alerts are held in the log; EMERGENCY and SOS still go out.", incident_id=rec.id)
+        return True
 
     async def _message_child(self, family: Family, parent: Member, rec: Record, d: dict[str, Any]) -> bool:
         c = self.ctx

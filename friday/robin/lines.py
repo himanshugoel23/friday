@@ -253,6 +253,7 @@ _c("alert.join_started", "I am calling you now and will connect you with {parent
 _c("alert.join_refused", "I could not set up the joined call ({why}).", "Joined call nahi ban saki ({why}).")
 _c("alert.unknown", "I could not find that alert; it may have ended already.", "Yeh alert nahi mila; shayad khatam ho chuka hai.")
 _c("alert.followup", "Still open: {why}. I have called {n} time(s).", "Abhi bhi khula hai: {why}. Maine {n} baar phone kiya hai.")
+_c("alert.flood_summary", "Many alerts today about {parent} ({n} so far). To keep your phone usable I will not message each new minor one; they stay in 'what {brand} did today'. An EMERGENCY or an SOS is always sent at once.", "{parent} ke baare mein aaj bahut alerts aaye ({n} ab tak). Aapka phone na bhare, isliye chhote alerts par ab alag message nahi bhejungi; ve 'what {brand} did today' mein rahenge. EMERGENCY ya SOS hamesha turant bhejungi.")  # PENDING founder approval of wording (T06)
 _c("alert.second", "{child} named you as a contact for {parent}. Alert: {why}. Please call {child} or {parent}.", "{child} ne aapko {parent} ke sampark ke roop mein bataya hai. Alert: {why}. Kripya {child} ya {parent} ko phone kijiye.")
 
 _c("sos.child", "SOS: {parent} pressed the help button{loc}. I am ringing you now. {brand} cannot call 112 for you; please call {parent}, and call 112 if needed.", "SOS: {parent} ne madad ka button dabaya{loc}. Main abhi aapko phone kar rahi hoon. Main 112 nahi laga sakti; kripya {parent} ko phone kijiye, aur zaroorat ho to 112.")

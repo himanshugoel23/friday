@@ -3,11 +3,16 @@
 * A bad, missing or revoked token is a plain 404 (no hint that the route exists), checked BEFORE the body is read.
 * Bodies are read with a hard size cap; schemas are ``extra=forbid``; validation errors name the field and
   the rule, never the value. Tokens are never logged.
-* Per-device rate limits (429). The parent in the token is the only parent a request can touch.
+* Per-device rate limits (429), shared by every replica through the device store (DB rows, no new table); the in-memory
+  ``RateLimiter`` is for tests. SOS is exempt from every limit. The parent in the token is the only parent a request can touch.
+* Pairing: per-source rate, per-code attempts, and a lockout of the source after ``PAIR_LOCKOUT_BAD`` bad codes.
+* JSON bodies must be ``application/json`` (415 otherwise).
 """
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable
@@ -43,6 +48,10 @@ LIMITS: dict[str, tuple[int, int]] = {
     "sos": (10, 60), "voice": (10, 60), "prompts": (30, 60), "consent": (30, 60), "pause": (10, 60),
     "stop": (10, 60), "resume": (10, 60), "transparency": (20, 60), "erase": (3, 60),
 }
+EXEMPT_ROUTES = frozenset({"sos"})  # an SOS is never rate-limited away (it is still authenticated)
+PAIR_LOCKOUT_BAD = 5  # bad codes from one source ...
+PAIR_LOCKOUT_S = 15 * 60  # ... inside this window lock that source out for the rest of the window
+PAIR_CODE_ATTEMPTS = 5  # failed tries on the same code string inside the window
 HEADERS = {"Cache-Control": "no-store"}
 
 
@@ -63,12 +72,30 @@ class RateLimiter:
         return True
 
 
+class StoreRateLimiter:
+    """Rate limit whose counts live in the device store (DB rows with ``DbDeviceStore``): shared across replicas and restarts."""
+
+    def __init__(self, store: Any, now_ms: Callable[[], int]) -> None:
+        self.store, self.now_ms = store, now_ms
+
+    async def allow(self, key: str, route: str) -> bool:
+        limit, window = LIMITS[route]
+        await self.store.ensure_loaded()
+        return await self.store.rate_hit(f"{route}:{key}", limit, window * 1000, self.now_ms())
+
+
+async def _allow(lim: Any, key: str, route: str) -> bool:
+    res = lim.allow(key, route)
+    return bool(await res) if inspect.isawaitable(res) else bool(res)
+
+
 def _json(data: dict[str, Any], status: int = 200) -> JSONResponse:
     return JSONResponse(data, status_code=status, headers=HEADERS)
 
 
 def _invalid(e: ValidationError) -> JSONResponse:
-    fields = [{"field": ".".join(str(x) for x in err["loc"]), "rule": err["type"]} for err in e.errors()]
+    # An unknown key is attacker-chosen text: never echo it (report the parent path and "*" instead).
+    fields = [{"field": ".".join([*(str(x) for x in err["loc"][:-1]), "*"] if err["type"] == "extra_forbidden" else (str(x) for x in err["loc"])), "rule": err["type"]} for err in e.errors()]
     return _json({"error": "invalid", "fields": fields[:10]}, 422)
 
 
@@ -89,8 +116,14 @@ async def _read(request: Request, limit: int) -> bytes:
 _M = TypeVar("_M", bound=BaseModel)
 
 
+def _is_json(request: Request) -> bool:
+    return request.headers.get("content-type", "").split(";")[0].strip().lower() == "application/json"
+
+
 async def _model(request: Request, model: type[_M]) -> _M | JSONResponse:
     raw = await _read(request, MAX_BODY)
+    if raw.strip() and not _is_json(request):
+        raise HTTPException(status_code=415, detail="json only")
     try:
         return model.model_validate_json(raw or b"{}")
     except ValidationError as e:
@@ -99,7 +132,7 @@ async def _model(request: Request, model: type[_M]) -> _M | JSONResponse:
 
 def device_router(service: DeviceService, limiter: RateLimiter | None = None) -> APIRouter:
     router = APIRouter()
-    lim = limiter or RateLimiter()
+    lim = limiter or StoreRateLimiter(service.store, service.now_ms)
 
     async def authed(request: Request, route: str) -> ParentState:
         header = request.headers.get("authorization", "")
@@ -107,20 +140,33 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
         st = await service.authenticate(token) if token else None
         if st is None:
             raise HTTPException(status_code=404, detail="Not Found")
-        if not lim.allow(st.parent_id, route):
+        if route not in EXEMPT_ROUTES and not await _allow(lim, st.parent_id, route):
             raise HTTPException(status_code=429, detail="slow down")
         return st
 
     @router.post("/pair")
     async def pair(request: Request) -> JSONResponse:
         host = request.client.host if request.client else "?"
-        if not lim.allow(host, "pair"):
+        store, now = service.store, service.now_ms()
+        await store.ensure_loaded()
+        window_ms = PAIR_LOCKOUT_S * 1000
+        src_key = "pairbad:" + host
+        if await store.rate_count(src_key, now) >= PAIR_LOCKOUT_BAD:  # locked out: even a right code waits
+            raise HTTPException(status_code=429, detail="slow down")
+        if not await _allow(lim, host, "pair"):
             raise HTTPException(status_code=429, detail="slow down")
         body = await _model(request, PairIn)
         if isinstance(body, JSONResponse):
+            await store.rate_note(src_key, window_ms, now)  # a malformed pairing request counts as a bad try
             return body
+        code_key = "paircode:" + hashlib.sha256(body.code.encode()).hexdigest()[:32]
+        if await store.rate_count(code_key, now) >= PAIR_CODE_ATTEMPTS:
+            await store.rate_note(src_key, window_ms, now)
+            raise HTTPException(status_code=429, detail="slow down")
         res = await service.pair(body)
         if res is None:
+            await store.rate_note(src_key, window_ms, now)
+            await store.rate_note(code_key, window_ms, now)
             raise HTTPException(status_code=404, detail="Not Found")  # wrong, used or expired code
         return _json(res)
 
@@ -168,6 +214,8 @@ def device_router(service: DeviceService, limiter: RateLimiter | None = None) ->
         raw = await _read(request, MAX_BODY)
         loc = None
         if raw.strip() not in (b"", b"{}"):
+            if not _is_json(request):
+                raise HTTPException(status_code=415, detail="json only")
             try:
                 loc = LocationIn.model_validate_json(raw)
             except ValidationError as e:

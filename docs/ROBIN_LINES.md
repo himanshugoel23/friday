@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **477** (213 spoken, 264 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **479** (213 spoken, 266 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -365,6 +365,8 @@ Total lines: **477** (213 spoken, 264 chat). Status of each: PENDING_FOUNDER_APP
 | robin.alert.unknown.hinglish | hinglish | Yeh alert nahi mila; shayad khatam ho chuka hai. | PENDING |
 | robin.alert.followup.en | en | Still open: {why}. I have called {n} time(s). | PENDING |
 | robin.alert.followup.hinglish | hinglish | Abhi bhi khula hai: {why}. Maine {n} baar phone kiya hai. | PENDING |
+| robin.alert.flood_summary.en | en | Many alerts today about {parent} ({n} so far). To keep your phone usable I will not message each new minor one; they stay in 'what {brand} did today'. An EMERGENCY or an SOS is always sent at once. | PENDING |
+| robin.alert.flood_summary.hinglish | hinglish | {parent} ke baare mein aaj bahut alerts aaye ({n} ab tak). Aapka phone na bhare, isliye chhote alerts par ab alag message nahi bhejungi; ve 'what {brand} did today' mein rahenge. EMERGENCY ya SOS hamesha turant bhejungi. | PENDING |
 | robin.alert.second.en | en | {child} named you as a contact for {parent}. Alert: {why}. Please call {child} or {parent}. | PENDING |
 | robin.alert.second.hinglish | hinglish | {child} ne aapko {parent} ke sampark ke roop mein bataya hai. Alert: {why}. Kripya {child} ya {parent} ko phone kijiye. | PENDING |
 | robin.sos.child.en | en | SOS: {parent} pressed the help button{loc}. I am ringing you now. {brand} cannot call 112 for you; please call {parent}, and call 112 if needed. | PENDING |

@@ -18,6 +18,7 @@ import contextlib
 from collections.abc import Callable
 from typing import Any
 
+from friday.calls.numbers import is_emergency
 from friday.core.logging import get_logger, mask_phone
 from friday.core.models import DialStatus, Language, OutboundCallRequest
 from friday.qa.override import note_pending_line, pending_lines_allowed
@@ -48,6 +49,9 @@ class TelephonyParentCaller:
         return self._telephony() if callable(self._telephony) else self._telephony
 
     def _refusal(self, number: str | None, keys: list[str]) -> CallOutcome | None:
+        if number and is_emergency(number):  # FIRST and unconditional: Robin never rings 112/100/101/102/108/1930 (any written form), whatever the switches or the QA override say
+            log.error("robin: refused to dial an emergency/public-safety number (ROBIN_EMERGENCY_NUMBER_REFUSED)")
+            return CallOutcome(result=CallResult.REFUSED, detail="emergency_number")
         qa_ok = pending_lines_allowed(self.settings) and number in set(self.settings.pilot_allowed_numbers)  # QA: founder's own number only
         if not lines.approved() and not qa_ok:
             return CallOutcome(result=CallResult.REFUSED, detail="line_pending")

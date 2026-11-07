@@ -69,6 +69,22 @@ class AuthorityService:
     def __init__(self, ctx: Ctx, caller: AuthorityCaller | None = None) -> None:
         self.ctx = ctx
         self.caller: AuthorityCaller = caller or DryRunAuthorityCaller()
+        if self._on() and not self._dry() and not self.caller.live:
+            log.error("robin authority: DRY_RUN is off but there is NO live adapter; every authority call will be refused (ROBIN_AUTHORITY_MISCONFIG)")
+
+    def misconfigured(self) -> bool:
+        """Live mode asked for (dry-run off) but nothing live exists: refuse, never fall back to 'works'."""
+        return not self._dry() and not self.caller.live
+
+    async def _alert_founder(self, family: Family, why: str) -> None:
+        """Tell the founder/ops that the authority module is misconfigured. Uses ``ctx.extra_senders['ops']`` (async ``(text)``) when wired; always logs at ERROR. Never carries a name, number or address."""
+        log.error("robin authority: %s (ROBIN_AUTHORITY_MISCONFIG)", why)
+        sender = self.ctx.extra_senders.get("ops")
+        if sender is not None:
+            try:
+                await sender(f"Robin authority module misconfigured: {why}. Calls refused. Family {family.id}.")
+            except Exception as e:  # noqa: BLE001 - the alert path must never break the ladder
+                log.error("robin authority: ops alert failed (%s)", type(e).__name__)
 
     # ------------------------------------------------------------------ switches
     def _on(self) -> bool:
@@ -113,6 +129,9 @@ class AuthorityService:
                 await c.tell_child(family, c.say("authority.complaint", lang, parent=family.parent_label, when=rec.at.strftime("%d %b %Y %H:%M UTC"), why=d.get("why", ""), amount=d.get("amount_text") or "unknown"))
         if not self._on():
             return await self._refuse(family, d, "switch_off")
+        if self.misconfigured():  # before any countdown: do not ring the parent for a call that cannot happen
+            await self._alert_founder(family, "dry-run is off but there is no live adapter")
+            return await self._refuse(family, d, "no_live_adapter")
         if parent.paused:
             return await self._refuse(family, d, "parent_paused")
         if not await c.has_consent(parent, ConsentItem.AUTHORITY_CALLS):
@@ -187,7 +206,8 @@ class AuthorityService:
         if kind == "112" and auth.data["category"] != PHYSICAL:  # belt and braces: fraud-only / distress-only NEVER reach 112
             await c.store.cas(auth.id, "placing", status="refused")
             return "refused:not_physical"
-        if not self._dry() and not self.caller.live:
+        if self.misconfigured():
+            await self._alert_founder(family, "dry-run is off but there is no live adapter")
             await c.store.cas(auth.id, "placing", status="refused", data={**auth.data, "result": "no_live_adapter"})
             return await self._refuse(family, {}, "no_live_adapter", tell=False)
         out = await self.caller.place(kind=kind, script=script, bridge_with=bridge, dedupe_key=f"{incident_id}:authority")
