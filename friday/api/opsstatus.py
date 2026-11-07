@@ -13,7 +13,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 _DEFAULT_FILE = "/opt/friday/var/autoupdate/status.txt"
 _MAX_BYTES = 60_000
@@ -90,6 +90,37 @@ def ops_status_router() -> APIRouter:
         _authorised(token)
         headers = {"Content-Disposition": 'attachment; filename="robin_waitlist.csv"', "Cache-Control": "no-store"}
         return PlainTextResponse(_waitlist(request).csv(), media_type="text/csv", headers=headers)  # type: ignore[attr-defined]
+
+    async def _robin_doc(request: Request) -> dict:
+        """Robin counts: integers and a status word only (T05). Off -> status off."""
+        from friday.robin.opscounts import robin_counts
+
+        c = request.app.state.container
+        try:
+            hub = c.get("robin") if c.settings.robin_enabled else None
+        except Exception:  # noqa: BLE001 - a broken Robin build is reported as off, never as a stack trace
+            hub = None
+        return await robin_counts(hub, getattr(hub, "device_service", None))
+
+    @router.get("/{token}/robin.json")
+    async def robin_json(token: str, request: Request) -> JSONResponse:
+        _authorised(token)
+        return JSONResponse(await _robin_doc(request), headers={"Cache-Control": "no-store"})
+
+    @router.get("/{token}/robin", response_class=PlainTextResponse)
+    async def robin_text(token: str, request: Request) -> PlainTextResponse:
+        _authorised(token)
+        lines: list[str] = []
+
+        def walk(prefix: str, node: object) -> None:
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    walk(f"{prefix}.{k}" if prefix else str(k), v)
+            else:
+                lines.append(f"{prefix}={node}")
+
+        walk("", await _robin_doc(request))
+        return PlainTextResponse("\n".join(lines) + "\n", headers={"Cache-Control": "no-store"})
 
     def _probe_store(request: Request) -> object | None:
         """The site MCP probe store, or None while the probe switch is off (routes 404)."""

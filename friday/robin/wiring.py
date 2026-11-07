@@ -16,13 +16,14 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from friday.core.logging import get_logger
 from friday.core.models import InboundMessage, ReplyButton, User
 from friday.robin import alerts as alerts_mod
 from friday.robin import answers as ans
+from friday.robin import opscounts
 from friday.robin.alerts import AlertEngine, RobinAlert
 from friday.robin.authority import AuthorityService
 from friday.robin.checkin import CheckinService
@@ -70,6 +71,8 @@ class RobinHub:
         ctx.on_reached = self.checkin.note_reached
         self.retention_days, self.incident_retention_days, self.tick_s, self._ticks = retention_days, incident_retention_days, tick_s, 0
         self._device_sweep: Callable[[], Awaitable[int]] | None = None
+        self.device_service: Any = None
+        self.last_tick_at: datetime | None = None  # T05: ops counts only (an age in seconds), never shown to anyone
 
     # ------------------------------------------------------------------ the child's chat
     async def handle(self, user: User, msg: InboundMessage) -> bool:
@@ -145,6 +148,7 @@ class RobinHub:
     def attach_device_sweep(self, sweep: Callable[[], Awaitable[int]]) -> None:
         """The device package registers ``DeviceService.sweep`` (time-based scenarios S7/S8) when it is mounted."""
         self._device_sweep = sweep
+        self.device_service = getattr(sweep, "__self__", None)  # T05: only for integer counts in /ops-status/<token>/robin
 
     async def _device_tick(self) -> int:
         return int(await self._device_sweep() or 0) if self._device_sweep is not None else 0
@@ -156,7 +160,10 @@ class RobinHub:
                 n += int(await step() or 0)
             except Exception:  # noqa: BLE001 - one failing step never stops the others
                 log.exception("robin: tick step failed")
+                opscounts.bump("tick_step_errors")
         self._ticks += 1
+        self.last_tick_at = self.ctx.clock.now()
+        opscounts.write_tick_marker()
         if self._ticks % PURGE_EVERY_TICKS == 0:
             try:
                 await self.retention()
@@ -187,6 +194,7 @@ class RobinHub:
                 await self.tick()
             except Exception:  # noqa: BLE001
                 log.exception("robin: tick failed")
+                opscounts.bump("tick_errors")
             await asyncio.sleep(self.tick_s)
 
     async def forget_user(self, user_id: str) -> None:
