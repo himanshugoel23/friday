@@ -66,8 +66,11 @@ Without this there is no WhatsApp to the parent or the child, no voice notes, no
 1. Create the Google Play Console account and pay the fee (one time).
 2. Get **one test Android phone** (a real, cheap, recent one; the parents' phones are often older [U]).
 3. Choose the **app id** (the permanent name of the app on Play; it can never be changed once published) and the **server address** the app talks to (must be `https`). The code has a placeholder app id and a placeholder server address.
-4. Ask engineering to build the app with your values: on a computer with the project: `ROBIN_APPLICATION_ID=<your app id> ROBIN_BASE_URL=https://<your domain> scripts/build-android.sh`. This gives a test file (`app-debug.apk`). **Nothing visual was ever checked on a real phone [U]**: installing, the widget, the big mic, the SOS hold, the mic permission, speaking the answer aloud in Hindi.
-5. Upload the app to a **closed test** on Play (not public), declarations: microphone, and for the later floating mic: "draw over other apps", foreground service with the special-use reason. **The floating mic bubble is built (T22) but its release timing is your decision**; Play review of the "draw over other apps" and foreground-service declarations is hard and can reject [U]. Lead's proposal: ship the thin widget + SOS first, the bubble as version 1.1.
+4. Ask engineering to build the app with your values: on a computer with the project: `ROBIN_APPLICATION_ID=<your app id> ROBIN_BASE_URL=https://<your domain> scripts/build-android.sh`. This gives two test files (`app-full-debug.apk` and `app-lite-debug.apk`). **Nothing visual was ever checked on a real phone [U]**: installing, the widget, the big mic, the SOS hold, the mic permission, speaking the answer aloud in Hindi.
+5. Build both editions (decision 2026-11-10: the floating mic ships in 1.0, with a safe fallback). The same command builds `full` (widget + SOS + floating mic bubble) and `lite` (widget + SOS + in-app voice, no "draw over other apps", no foreground service, no notifications, no boot start) and prints each file's permissions; it stops with an error if `lite` is not clean. Files: `app-full-debug.apk` and `app-lite-debug.apk` under `android/robin-app/app/build/outputs/apk/`. Release signing is a later step; see `docs/ROBIN_ANDROID_APP.md` section 10.
+5a. **Submit `lite` first** (recommended; your decision) to a **closed test** on Play (not public); declaration: microphone. It should be the easy review.
+5b. **Submit `full` as a separate track or a later update** (your decision), with the extra Play declarations: "draw over other apps" (core-functionality reason), foreground service types `specialUse` and `microphone` with a short demo video. Ready-made wording and video points are in `docs/ROBIN_ANDROID_APP.md` section 10. Review of these is hard and can reject [U]; if it does, `lite` is already live.
+5c. Test both on the real phone **one at a time** (same app id, so installing one replaces the other): on `lite` check there is no bubble section and no notification; on `full` check the bubble, its notification and the parent switch. **Never run on a device yet [U].**
 6. **Done when**: the app installs on the test phone from Play (or the file) and a child can pair it (section 10, the live test).
 
 ---
@@ -324,4 +327,4 @@ These are known and open; each needs engineering work, a decision, or a vendor.
 2. Which carriers do your first families use? We only offer forwarding for carriers that passed section 11.
 3. First families: only yours, or also friends? (Each needs an in-person visit.)
 4. Will you or a named person be the lead on the emergency desk roster for the first weeks?
-5. Floating mic: ship with version 1.0 or as 1.1 after Play accepts the thin build?
+5. Floating mic: DECIDED 2026-11-10, ships in 1.0 through the `full` edition; still open: which edition goes to Play first (recommended: `lite`) and whether `full` is a separate track or an update.

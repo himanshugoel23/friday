@@ -23,6 +23,20 @@ android {
         buildConfigField("String", "BRAND_NAME", "\"" + prop("robin.brandName") + "\"")
     }
     buildFeatures { buildConfig = true }
+    // Two editions from the same code. `full` = widget + SOS + in-app voice + floating mic bubble (its permissions and
+    // components come from src/full/AndroidManifest.xml). `lite` = no bubble, no overlay/foreground-service/boot/notification
+    // permissions (the safe Play fallback). Logic is shared; only the manifest and BuildConfig.BUBBLE_ENABLED differ.
+    flavorDimensions += "edition"
+    productFlavors {
+        create("full") {
+            dimension = "edition"
+            buildConfigField("boolean", "BUBBLE_ENABLED", "true")
+        }
+        create("lite") {
+            dimension = "edition"
+            buildConfigField("boolean", "BUBBLE_ENABLED", "false")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

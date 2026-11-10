@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- `full` flavor only: the floating mic bubble. Merged on top of src/main/AndroidManifest.xml. `lite` has none of this. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- T22 floating mic. Draw the small bubble over other apps. The person switches this on in system settings (not a dialog). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- T22: the bubble lives in a foreground service (Play requires the persistent notification). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- T22: Android 14 types. specialUse = the overlay itself [U: Play must accept the declared subtype]; microphone = only while a tapped question is recorded. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- T22: Android 13+ shows the "Robin mic is on" notification only if this is allowed. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- T22: restart the bubble after a reboot, only if the child chose it (checked again in code). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+
+        <!-- Floating mic bubble. Started and stopped only from the setup screen, the parent's switch or the bubble's own menu. -->
+        <service
+            android:name=".BubbleService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse|microphone">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floating_voice_assistant_bubble" />
+        </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

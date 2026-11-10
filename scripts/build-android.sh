@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build the Robin parent app (android/robin-app): install the Android SDK pieces if missing, run the JVM tests,
-# and assemble the debug APK. Works on the founder's machine and in CI. No secrets are read or needed.
+# assemble BOTH debug APKs (flavors `full` = with the floating mic bubble, `lite` = without it), print each APK's
+# permission list and FAIL if lite holds any bubble/overlay/foreground-service/boot/notification permission or component
+# (scripts/check-android-flavor.sh). Works on the founder's machine and in CI. No secrets are read or needed.
 #
 # Usage:   scripts/build-android.sh            # test + debug APK
 #          scripts/build-android.sh --tests    # JVM tests only (no Android SDK needed beyond configuration)
@@ -9,7 +11,8 @@
 #   ROBIN_APPLICATION_ID              applicationId build property   (default: gradle.properties value)
 #   ROBIN_BRAND_NAME                  app name / brand build property (default: Robin)
 #   ROBIN_BASE_URL                    server base URL, https, no trailing slash
-# Output:  android/robin-app/app/build/outputs/apk/debug/app-debug.apk
+# Output:  android/robin-app/app/build/outputs/apk/full/debug/app-full-debug.apk
+#          android/robin-app/app/build/outputs/apk/lite/debug/app-lite-debug.apk
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -51,6 +54,10 @@ cd "$APP"
 if [[ "${1:-}" == "--tests" ]]; then
   ./gradlew --no-daemon "${args[@]}" test
 else
-  ./gradlew --no-daemon "${args[@]}" test assembleDebug
-  echo "APK: $APP/app/build/outputs/apk/debug/app-debug.apk"
+  ./gradlew --no-daemon "${args[@]}" test assembleFullDebug assembleLiteDebug
+  for f in full lite; do
+    apk="$APP/app/build/outputs/apk/$f/debug/app-$f-debug.apk"
+    echo "APK: $apk"
+    "$ROOT/scripts/check-android-flavor.sh" "$f" "$apk"
+  done
 fi

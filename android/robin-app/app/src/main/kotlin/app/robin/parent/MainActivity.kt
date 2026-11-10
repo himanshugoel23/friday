@@ -209,10 +209,12 @@ class MainActivity : Activity(), QuickPanel.Host {
         }
         col.addView(go)
         col.addView(button(getString(R.string.setup_add_widget)) { pinWidget(msg) })
-        val bs = BubbleSetupUi(this)
-        bubbleSetup = bs
-        bs.render()
-        col.addView(bs.view)
+        if (BuildConfig.BUBBLE_ENABLED) {
+            val bs = BubbleSetupUi(this)
+            bubbleSetup = bs
+            bs.render()
+            col.addView(bs.view)
+        }
         col.addView(button(getString(R.string.back)) { route() })
         show(col)
     }
@@ -243,11 +245,13 @@ class MainActivity : Activity(), QuickPanel.Host {
         val p = QuickPanel(this, this)
         panel = p
         col.addView(p.view)
-        val sw = BubbleSwitchUi(this)
-        bubbleSwitch = sw
         bubbleSetup = null
-        sw.render()
-        col.addView(sw.view)
+        if (BuildConfig.BUBBLE_ENABLED) {
+            val sw = BubbleSwitchUi(this)
+            bubbleSwitch = sw
+            sw.render()
+            col.addView(sw.view)
+        }
 
         val stopStart = button(getString(if (paused) R.string.home_start_again else R.string.home_stop)) {}
         stopStart.setOnClickListener {

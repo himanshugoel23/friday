@@ -1,14 +1,15 @@
 name: android
 
-# Robin parent app (android/robin-app): JVM tests (including the shared device-API contract fixtures) + debug APK.
+# Robin parent app (android/robin-app): JVM tests (including the shared device-API contract fixtures) + both debug APKs
+# (full = with the floating mic bubble, lite = without) + a permission/component check of each APK.
 # Nothing here needs a secret. The APK is an unsigned-for-Play debug build; Play signing is a later founder step.
 
 on:
   push:
     branches: [main, "claude/**", "feat/**"]
-    paths: ["android/**", "tests/robindevice/contract/**", "scripts/build-android.sh", ".github/workflows/android.yml"]
+    paths: ["android/**", "tests/robindevice/contract/**", "scripts/build-android.sh", "scripts/check-android-flavor.sh", ".github/workflows/android.yml"]
   pull_request:
-    paths: ["android/**", "tests/robindevice/contract/**", "scripts/build-android.sh", ".github/workflows/android.yml"]
+    paths: ["android/**", "tests/robindevice/contract/**", "scripts/build-android.sh", "scripts/check-android-flavor.sh", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +29,17 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: SDK install, ./gradlew test assembleDebug
+      - name: SDK install, ./gradlew test assembleFullDebug assembleLiteDebug, permission check (fails if lite is not clean)
         run: scripts/build-android.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: robin-app-debug-apk
-          path: android/robin-app/app/build/outputs/apk/debug/app-debug.apk
+          name: robin-app-full-debug-apk
+          path: android/robin-app/app/build/outputs/apk/full/debug/app-full-debug.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robin-app-lite-debug-apk
+          path: android/robin-app/app/build/outputs/apk/lite/debug/app-lite-debug.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
