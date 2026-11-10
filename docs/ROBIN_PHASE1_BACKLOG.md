@@ -82,7 +82,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T16 | Call-pattern screen-first / listen-in on Vobiz: design + fake bridge + wiring to `feed_call_turn` | fake bridge; real needs Vobiz | disclosure wording, legal OK | DONE (fakes only) |
 | T17 | Shadow-week report and false-alarm review page for the founder (read-only, counts only) | fakes only | none | TODO |
 | T18 | Safety evaluation set and regression gate | fakes only | none | DONE 2026-11-10 |
-| T19 | Pilot readiness: dry run with the founder's own family and the checklist | real | everything in section 2 | TODO |
+| T19 | Pilot readiness: dry run with the founder's own family and the checklist | real | everything in section 2 | DONE (docs + wiring; live drills need founder) 2026-11-10 |
 
 **Dispatch NOW, in this order: T01, T02, T03.** T04 follows immediately (it needs T01's fix to be meaningful, and gains from T02/T03).
 
