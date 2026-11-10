@@ -72,7 +72,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T08 | Child-side delivery: pairing command, alert delivery with fallback, second-contact sender, outbox drain | fake now; uses Notifier | none | DONE 2026-11-07 |
 | T09 | Device voice/SOS intake into the family package (STT port, SosService path) | fakes only | none | DONE 2026-11-07 |
 | T10 | Missed-call forwarding integration (callbacks -> Robin) both directions | fake telephony; real needs Vobiz | none | DONE 2026-11-07 |
-| T11 | Live telephony readiness for check-in/alert calls (supervised, founder number only) | real adapter, one supervised call | audio approval + go-ahead | TODO |
+| T11 | Live telephony readiness for check-in/alert calls (supervised, founder number only) | real adapter, one supervised call | audio approval + go-ahead | DONE (fakes) 2026-11-10 |
 | T12 | Medicine: prescription doc type, doc sink to Robin, refill flow to the child | fakes only (vision reader fake) | none | DONE 2026-11-07 |
 | T13 | Scam check by WhatsApp forward (text, link, screenshot) with voice-note verdict | fake now | none | DONE 2026-11-07 |
 | T14 | Android app part 1: Kotlin project, pure modules, press-to-talk widget, SOS, pairing | build on CI; device test needs founder | none (later: phone) | DONE on branch (JVM tests + debug APK built; nothing device-verified) |
@@ -81,7 +81,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T17 | Shadow-week report and false-alarm review page for the founder (read-only, counts only) | fakes only | none | DONE 2026-11-10 |
 | T16 | Call-pattern screen-first / listen-in on Vobiz: design + fake bridge + wiring to `feed_call_turn` | fake bridge; real needs Vobiz | disclosure wording, legal OK | DONE (fakes only) |
 | T17 | Shadow-week report and false-alarm review page for the founder (read-only, counts only) | fakes only | none | TODO |
-| T18 | Safety evaluation set and regression gate | fakes only | none | TODO |
+| T18 | Safety evaluation set and regression gate | fakes only | none | DONE 2026-11-10 |
 | T19 | Pilot readiness: dry run with the founder's own family and the checklist | real | everything in section 2 | TODO |
 
 **Dispatch NOW, in this order: T01, T02, T03.** T04 follows immediately (it needs T01's fix to be meaningful, and gains from T02/T03).
