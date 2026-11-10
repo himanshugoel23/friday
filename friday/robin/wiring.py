@@ -36,7 +36,8 @@ from friday.robin.greetings import GreetingService
 from friday.robin.intro import IntroService
 from friday.robin.medicine import MedicineService
 from friday.robin.missedcall import MissedCallService, MissedResult
-from friday.robin.models import Family, Member, Tier, normalise_scenario, parse_tier
+from friday.robin.models import Family, Member, Role, Tier, normalise_scenario, parse_tier
+from friday.robin.screening import ScreeningService
 from friday.robin.sos import SosResult, SosService
 
 log = get_logger(__name__)
@@ -70,6 +71,7 @@ class RobinHub:
         self.alerts.authority = self.authority
         self.missed = MissedCallService(ctx, self.fam, self.alerts)
         self.forwarded = ForwardedCalls(ctx, self.missed, telephony=lambda: None)  # T10: a forwarded call from a Robin member's phone (switch FRIDAY_ROBIN_FORWARDED_CALLS_ENABLED)
+        self.screening = ScreeningService(ctx, device=lambda: self.device_service)  # T16: screen-first / listen-in; no CallBridge attached = refuses 'no_bridge' (switches OFF)
         self.commands = RobinCommands(ctx, self.fam, self.intro, self.checkin, self.meds, self.alerts, safe_word_switch=bool(getattr(ctx.settings, "robin_safe_word_enabled", False)))
         ctx.on_reached = self.checkin.note_reached
         self.inbox = ctx.inbox if ctx.inbox is not None else ChildInbox(ctx)  # T08: where a message the child's phone could not receive waits
@@ -89,6 +91,17 @@ class RobinHub:
         except Exception:  # noqa: BLE001 - a failure here never blocks the normal chat
             log.exception("robin: chat command failed")
             return False
+
+    async def listen_in(self, call_ref: str, parent_phone: str) -> str:
+        """T16: the parent said "Robin, suno" on a call routed through Robin's line. Returns the decision reason/action; never raises into the call path."""
+        try:
+            for m in await self.ctx.store.members_by_phone(parent_phone):
+                fam = await self.ctx.store.get_family(m.family_id)
+                if m.role == Role.PARENT and fam is not None:
+                    return (await self.screening.run_listen_in(call_ref, fam, m)).action
+        except Exception:  # noqa: BLE001
+            log.exception("robin: listen-in failed")
+        return "refused"
 
     # ------------------------------------------------------------------ the parent's door (T07): the pipeline's ONE early hook
     async def parent_inbound(self, msg: InboundMessage) -> bool:

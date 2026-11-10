@@ -77,7 +77,7 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T13 | Scam check by WhatsApp forward (text, link, screenshot) with voice-note verdict | fake now | none | DONE 2026-11-07 |
 | T14 | Android app part 1: Kotlin project, pure modules, press-to-talk widget, SOS, pairing | build on CI; device test needs founder | none (later: phone) | DONE on branch (JVM tests + debug APK built; nothing device-verified) |
 | T15 | Android app part 2: protection pack (call-screening role, notification listener, camera, remote-access queries) | device-only verification | pilot phone | TODO |
-| T16 | Call-pattern screen-first / listen-in on Vobiz: design + fake bridge + wiring to `feed_call_turn` | fake bridge; real needs Vobiz | disclosure wording, legal OK | TODO |
+| T16 | Call-pattern screen-first / listen-in on Vobiz: design + fake bridge + wiring to `feed_call_turn` | fake bridge; real needs Vobiz | disclosure wording, legal OK | DONE (fakes only) |
 | T17 | Shadow-week report and false-alarm review page for the founder (read-only, counts only) | fakes only | none | TODO |
 | T18 | Safety evaluation set and regression gate | fakes only | none | TODO |
 | T19 | Pilot readiness: dry run with the founder's own family and the checklist | real | everything in section 2 | TODO |

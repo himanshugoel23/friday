@@ -455,19 +455,21 @@ _c("authority.set_name", "Parent name saved for the emergency script.", "Emergen
 
 # --- screening unknown callers and listening in (both OFF by default; stubs only, docs/ROBIN_FAMILY_CORE.md section 9)
 _s("screen.ask",
-   "Hello, this is {brand}, an AI assistant answering for {parent}. May I know who is calling and what it is about?",
-   "Namaste, main {brand} bol rahi hoon, {parent} ki AI assistant. Kya main jaan sakti hoon ki aap kaun bol rahe hain aur kis baare mein?",
-   "नमस्ते, मैं {brand} बोल रही हूँ, {parent} की AI असिस्टेंट। क्या मैं जान सकती हूँ कि आप कौन बोल रहे हैं और किस बारे में?")
+   "{brand} is screening this call for {parent}. Please say who you are and why you are calling.",
+   "{brand} yeh call {parent} ke liye screen kar rahi hai. Kripya batayein ki aap kaun hain aur kis liye phone kiya hai.",
+   "{brand} यह कॉल {parent} के लिए स्क्रीन कर रही है। कृपया बताइए कि आप कौन हैं और किसलिए फ़ोन किया है।")
 _s("screen.connect", "Thank you. I am connecting you to {parent} now.", "Dhanyavaad. Main aapko abhi {parent} se jod rahi hoon.", "धन्यवाद। मैं आपको अभी {parent} से जोड़ रही हूँ।")
 _s("screen.decline", "{parent} cannot take this call. I will pass on that you called. Goodbye.", "{parent} yeh call nahi le sakte. Main bata dungi ki aapne phone kiya tha. Namaste.", "{parent} यह कॉल नहीं ले सकते। मैं बता दूँगी कि आपने फ़ोन किया था। नमस्ते।")
 _s("listen.disclose",
-   "Hello, this is {brand}, an AI assistant. {parent} asked me to listen in on this call to help keep them safe. I do not record it.",
-   "Namaste, main {brand} hoon, ek AI assistant. {parent} ne mujhe is call par saath rehne ko kaha hai taaki wo surakshit rahein. Main call record nahi karti.",
-   "नमस्ते, मैं {brand} हूँ, एक AI असिस्टेंट। {parent} ने मुझे इस कॉल पर साथ रहने को कहा है ताकि वो सुरक्षित रहें। मैं कॉल रिकॉर्ड नहीं करती।")
+   "Hello, this is {brand}, an AI assistant. {parent} asked me to listen in on this call to help keep them safe. I do not record it. {parent} can say stop at any time.",
+   "Namaste, main {brand} hoon, ek AI assistant. {parent} ne mujhe is call par saath rehne ko kaha hai taaki wo surakshit rahein. Main call record nahi karti. {parent} kabhi bhi rukne ko keh sakte hain.",
+   "नमस्ते, मैं {brand} हूँ, एक AI असिस्टेंट। {parent} ने मुझे इस कॉल पर साथ रहने को कहा है ताकि वो सुरक्षित रहें। मैं कॉल रिकॉर्ड नहीं करती। {parent} कभी भी रुकने को कह सकते हैं।")
 _s("listen.warn",
    "{parent}, this call looks risky. Please do not send money or share any OTP or PIN. You can hang up and call {child}.",
    "{parent}, yeh call risky lag rahi hai. Kripya paise mat bhejiye aur OTP ya PIN mat batayein. Aap phone kaat kar {child} ko phone kar sakte hain.",
    "{parent}, यह कॉल रिस्की लग रही है। कृपया पैसे मत भेजिए और OTP या PIN मत बताइए। आप फ़ोन काटकर {child} को फ़ोन कर सकते हैं।")
+_s("listen.left", "I have left the call. Goodbye.", "Main call se hat gayi hoon. Namaste.", "मैं कॉल से हट गई हूँ। नमस्ते।")
+_c("listen.child_note", "{brand} listened in on a call for {parent} (at their request) and left. Highest concern level: {tier}. Nothing was recorded or kept.", "{brand} ne {parent} ki ek call mein (unke kehne par) sunna kiya aur hat gayi. Sabse unchi chinta: {tier}. Kuch record ya save nahi hua.")
 _c("screen.child_note", "Screened an unknown caller for {parent}: {verdict}. Reason: {why}", "{parent} ke liye anjaan caller ko screen kiya: {verdict}. Wajah: {why}")
 
 # --- fragments that build the one-line check-in result and the digests (chat, to the child)
