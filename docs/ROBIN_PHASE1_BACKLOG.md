@@ -287,3 +287,6 @@ Good-morning digest (text built in robin/greetings.py), festival graphics (needs
 
 ### T21 Parent voice-first home-screen widget (founder 2026-11-06)
 - Default widget with one big mic button: tap to talk, release/silence to send, Robin answers aloud (server audio URL if present, else Android TextToSpeech in the parent's language), big-text caption as aid. No typing anywhere in the parent's flow; pairing entered by the child (code or deep link/QR). Tap-to-talk only, no hotword, no background mic. Files: android/** and contract fixtures. Server side is T09. Strings PENDING. Status: built on branch t21-voice-widget (not merged); server side T09 pending.
+
+### T22 Floating mic bubble (Wispr-style) - DONE 2026-11-10 (device-unverified; debug APK builds, 119 JVM tests)
+Permissions to justify to Play: SYSTEM_ALERT_WINDOW, FOREGROUND_SERVICE(+SPECIAL_USE, +MICROPHONE), POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED. Release timing is a founder decision. Concierge + human emergency desk design: docs/ROBIN_CONCIERGE_DESK.md (tickets C1-C14 inside).
