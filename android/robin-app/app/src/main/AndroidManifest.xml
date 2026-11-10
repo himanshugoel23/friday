@@ -1,14 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Thin app (first Play ship): INTERNET and RECORD_AUDIO only.
-  Deliberately absent: foreground service, background microphone, notification access, call screening, phone state,
-  accessibility, SMS, contacts, call log, location, camera, analytics, ads, Firebase, WorkManager.
+  Thin app: INTERNET and RECORD_AUDIO. T22 floating mic (release 1.1, behind Play review) adds the permissions listed
+  below, each with its Play-review impact in docs/ROBIN_ANDROID_APP.md section 9.
+  Deliberately absent: background microphone, hotword, AccessibilityService, notification access, call screening, phone state,
+  SMS, contacts, call log, location, camera, analytics, ads, Firebase, WorkManager.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Asked only when the parent first taps the microphone; used only between the tap that starts and the tap (or silence, or the time limit) that ends a question. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- T22 floating mic. Draw the small bubble over other apps. The person switches this on in system settings (not a dialog). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- T22: the bubble lives in a foreground service (Play requires the persistent notification). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- T22: Android 14 types. specialUse = the overlay itself [U: Play must accept the declared subtype]; microphone = only while a tapped question is recorded. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- T22: Android 13+ shows the "Robin mic is on" notification only if this is allowed. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- T22: restart the bubble after a reboot, only if the child chose it (checked again in code). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
@@ -45,6 +58,24 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:showWhenLocked="true" />
+
+        <!-- Floating mic bubble. Started and stopped only from the setup screen, the parent's switch or the bubble's own menu. -->
+        <service
+            android:name=".BubbleService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse|microphone">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="floating_voice_assistant_bubble" />
+        </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".RobinWidget"

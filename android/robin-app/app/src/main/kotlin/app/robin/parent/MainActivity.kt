@@ -36,6 +36,8 @@ class MainActivity : Activity(), QuickPanel.Host {
     private var tts: TextToSpeech? = null
     private val spoken = HashSet<String>()
     private var screen = Screen.WAITING
+    private var bubbleSetup: BubbleSetupUi? = null
+    private var bubbleSwitch: BubbleSwitchUi? = null
 
     private enum class Screen { WAITING, SETUP, HOME, WHATSON, CONSENT }
 
@@ -61,6 +63,8 @@ class MainActivity : Activity(), QuickPanel.Host {
     override fun onResume() {
         super.onResume()
         panel?.onResume()
+        bubbleSetup?.takeIf { screen == Screen.SETUP }?.render() // back from a system settings screen
+        bubbleSwitch?.takeIf { screen == Screen.HOME }?.render()
         if (screen == Screen.HOME) refresh()
     }
 
@@ -84,6 +88,7 @@ class MainActivity : Activity(), QuickPanel.Host {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         panel?.onPermissionResult(requestCode)
+        if (requestCode == BubbleSetupUi.REQ_MIC || requestCode == BubbleSetupUi.REQ_NOTIF) bubbleSetup?.render()
     }
 
     override fun onUnpaired() {
@@ -164,6 +169,7 @@ class MainActivity : Activity(), QuickPanel.Host {
     private fun showSetup(prefill: String?, notice: String?) {
         screen = Screen.SETUP
         panel = null
+        bubbleSwitch = null
         val col = column()
         col.addView(text(getString(R.string.setup_title), 26f, true))
         col.addView(text(getString(R.string.setup_note)))
@@ -203,6 +209,10 @@ class MainActivity : Activity(), QuickPanel.Host {
         }
         col.addView(go)
         col.addView(button(getString(R.string.setup_add_widget)) { pinWidget(msg) })
+        val bs = BubbleSetupUi(this)
+        bubbleSetup = bs
+        bs.render()
+        col.addView(bs.view)
         col.addView(button(getString(R.string.back)) { route() })
         show(col)
     }
@@ -233,6 +243,11 @@ class MainActivity : Activity(), QuickPanel.Host {
         val p = QuickPanel(this, this)
         panel = p
         col.addView(p.view)
+        val sw = BubbleSwitchUi(this)
+        bubbleSwitch = sw
+        bubbleSetup = null
+        sw.render()
+        col.addView(sw.view)
 
         val stopStart = button(getString(if (paused) R.string.home_start_again else R.string.home_stop)) {}
         stopStart.setOnClickListener {

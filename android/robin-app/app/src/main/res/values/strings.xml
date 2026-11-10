@@ -106,4 +106,70 @@
     <string name="widget_mic">Talk</string>
     <string name="widget_mic_desc">Talk to Robin. Tap, then speak.</string>
     <string name="widget_sos_desc">SOS. Opens the SOS screen. Press and hold there.</string>
+
+    <!-- T22 floating mic bubble. ALL PENDING founder approval (hear-before-change). -->
+    <string name="bubble_word_talk">Talk</string>
+    <string name="bubble_word_listening">Listening</string>
+    <string name="bubble_word_sending">Sending</string>
+    <string name="bubble_word_speaking">Speaking</string>
+    <string name="bubble_word_no_internet">No internet</string>
+    <string name="bubble_word_problem">Problem</string>
+    <string name="bubble_desc_prefix">Robin microphone</string>
+    <string name="bubble_desc_idle">Double tap and speak. Press and hold for the menu.</string>
+    <string name="bubble_desc_listening">Speak now. Double tap when you are done.</string>
+    <string name="bubble_desc_sending">Please wait.</string>
+    <string name="bubble_desc_answering">Robin is answering. Double tap to ask something else.</string>
+    <string name="bubble_desc_offline">There is no internet. Double tap to try again.</string>
+    <string name="bubble_desc_problem">Double tap to try again.</string>
+    <string name="bubble_a11y_menu">Open the menu</string>
+    <string name="bubble_a11y_left">Move to the left edge</string>
+    <string name="bubble_a11y_right">Move to the right edge</string>
+    <string name="bubble_a11y_hide">Hide for now</string>
+    <string name="bubble_card_close">Close</string>
+    <string name="bubble_menu_hide">Hide for now</string>
+    <string name="bubble_menu_turn_off">Turn off for now</string>
+    <string name="bubble_menu_close">Close menu</string>
+    <string name="bubble_dial_failed">Could not open the phone. Please dial 112.</string>
+    <string name="bubble_channel_name">Robin microphone</string>
+    <string name="bubble_notif_title">Robin mic is on</string>
+    <string name="bubble_notif_text">Tap to open Robin. The switch to turn it off is on the first screen.</string>
+    <string name="bubble_notif_hidden_title">Robin mic is hidden</string>
+    <string name="bubble_notif_hidden_text">Tap to show it again.</string>
+
+    <!-- Child setup screen -->
+    <string name="bubble_setup_title">Floating microphone</string>
+    <string name="bubble_setup_note">For a family member. A small microphone button floats above every app. One tap and Robin listens. It listens only after a tap.</string>
+    <string name="bubble_setup_privacy">It can be hidden or turned off from its own menu at any time. Robin never types into other apps and never listens in the background.</string>
+    <string name="bubble_step_paired">This phone is connected to Robin</string>
+    <string name="bubble_step_overlay">Display over other apps</string>
+    <string name="bubble_step_microphone">Microphone</string>
+    <string name="bubble_step_notifications">Notifications</string>
+    <string name="bubble_step_voice_consent">Voice messages allowed by the family</string>
+    <string name="bubble_step_battery">Battery: let Robin keep running</string>
+    <string name="bubble_why_paired">Enter the family code above first.</string>
+    <string name="bubble_why_overlay">Needed so the button can float above other apps.</string>
+    <string name="bubble_why_microphone">Needed so Robin can hear the question. Used only after a tap.</string>
+    <string name="bubble_why_notifications">Needed to show \"Robin mic is on\" while the button is there.</string>
+    <string name="bubble_why_voice_consent">Without this the button can only call for help (SOS).</string>
+    <string name="bubble_why_battery">Some phones switch the button off to save battery. Choose \"Unrestricted\" for Robin.</string>
+    <string name="bubble_step_done">Done</string>
+    <string name="bubble_step_needed">Needed</string>
+    <string name="bubble_step_optional">Optional</string>
+    <string name="bubble_btn_open_setting">Open the setting</string>
+    <string name="bubble_btn_allow">Allow</string>
+    <string name="bubble_overlay_help">In the list, find Robin and switch on \"Display over other apps\" (some phones say \"Appear on top\" or \"Show over other apps\"). Then press Back to return here.</string>
+    <string name="bubble_setup_autostart">Start the button again after the phone restarts</string>
+    <string name="bubble_setup_turn_on">Turn on the floating microphone</string>
+    <string name="bubble_setup_turn_off">Turn off the floating microphone</string>
+    <string name="bubble_setup_is_on">The floating microphone is on.</string>
+    <string name="bubble_setup_finish_first">Finish the steps marked Needed first.</string>
+
+    <!-- Parent main screen switch -->
+    <string name="bubble_switch_title">Floating microphone</string>
+    <string name="bubble_switch_on">On</string>
+    <string name="bubble_switch_off">Off</string>
+    <string name="bubble_switch_desc">Floating microphone on or off</string>
+    <string name="bubble_hint_ask_family">Ask your family to set this up.</string>
+    <string name="bubble_hint_fix">Your family needs to finish the setup.</string>
+    <string name="bubble_hint_how_to">Tap the button to speak. Press and hold it for SOS, hide and off.</string>
 </resources>
