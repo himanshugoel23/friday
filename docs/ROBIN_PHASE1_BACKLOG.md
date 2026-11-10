@@ -290,3 +290,6 @@ Good-morning digest (text built in robin/greetings.py), festival graphics (needs
 
 ### T22 Floating mic bubble (Wispr-style) - DONE 2026-11-10 (device-unverified; debug APK builds, 119 JVM tests)
 Permissions to justify to Play: SYSTEM_ALERT_WINDOW, FOREGROUND_SERVICE(+SPECIAL_USE, +MICROPHONE), POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED. Release timing is a founder decision. Concierge + human emergency desk design: docs/ROBIN_CONCIERGE_DESK.md (tickets C1-C14 inside).
+
+### Concierge core C1/C3/C5/C6/C7 + lane 2 minimum - DONE 2026-11-10 (fakes; migration 0021_concierge; switch FRIDAY_ROBIN_CONCIERGE_ENABLED OFF)
+Open: real TOTP verifier, staff directory, masked-contact bridge, pager, FamilyLookup adapter; AI->desk caller of DeskService.receive and a scheduler for desk.tick; intake channel from voice/WhatsApp; pay-link message; audit head-hash anchor; roster rule for lane-2 cover. C2, C4, C8-C14 remain.
