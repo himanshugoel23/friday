@@ -1645,3 +1645,6 @@ Founder asked (via the lead): T19 of docs/ROBIN_PHASE1_BACKLOG.md. Part A: docs/
 4. Floating mic ships in 1.0 (overrides the lead's 1.1 suggestion). Risk to watch: Play review of SYSTEM_ALERT_WINDOW and the foreground-service declarations; mitigation: two build flavors from the same code ("full" with the bubble, "lite" without those permissions) so a rejection does not block the 1.0 release.
 5. Concierge is INCLUDED in the price: Robin is a complete elderly-care package.
 6. Operating model: AI automates the customer-interaction workflows; whatever AI cannot do is done by a human. Staffing: 2-3 part-time hires, scaled by sales in the start (supports the human concierge lane and the human emergency desk).
+
+## 2026-11-10 (developer agent): Android two flavors full/lite (started)
+Founder decision: bubble ships in 1.0; de-risk Play review with two product flavors from the same code in android/robin-app: `full` (widget + SOS + bubble) and `lite` (no overlay, foreground-service, boot, notification permissions; no BubbleService/BootReceiver). BuildConfig.BUBBLE_ENABLED, :core flavor-free, build script + CI build/test both and fail if lite has a forbidden permission/component. Docs: ROBIN_ANDROID_APP.md, ROBIN_PILOT_CHECKLIST.md (Android/Play section). Not pushed.
