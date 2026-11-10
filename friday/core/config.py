@@ -611,8 +611,8 @@ class Settings(BaseSettings):
     robin_checkin_retries: int = Field(default=2, ge=0, le=2)  # retries after the first try (hard max 2)
     robin_checkin_retry_minutes: int = Field(default=20, ge=5, le=120)
     robin_safe_word_enabled: bool = False  # FRIDAY_ROBIN_SAFE_WORD_ENABLED: founder 2026-11-04, OFF; optional per family later
-    robin_screen_unknown_enabled: bool = False  # FRIDAY_ROBIN_SCREEN_UNKNOWN_ENABLED: stub only (robin/screening.py)
-    robin_listen_in_enabled: bool = False  # FRIDAY_ROBIN_LISTEN_IN_ENABLED: stub only (robin/screening.py)
+    robin_screen_unknown_enabled: bool = False  # FRIDAY_ROBIN_SCREEN_UNKNOWN_ENABLED: T16 screen-first (robin/screening.py + callbridge.py); fake bridge only, real Vobiz adapter unexercised; OFF
+    robin_listen_in_enabled: bool = False  # FRIDAY_ROBIN_LISTEN_IN_ENABLED: T16 listen-in, needs call_listening consent + audible disclosure; fake bridge only; OFF
     robin_call_audio_retention_days: int = Field(default=0, ge=0, le=30)  # listening cues only; 0 = keep nothing
     robin_authority_calls_enabled: bool = False  # FRIDAY_ROBIN_AUTHORITY_CALLS_ENABLED: policy-gated 112/1930 module; OFF
     robin_authority_dry_run: bool = True  # FRIDAY_ROBIN_AUTHORITY_DRY_RUN: only LOG the script it would speak (no live adapter exists)

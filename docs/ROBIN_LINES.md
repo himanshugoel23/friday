@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **555** (255 spoken, 300 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **560** (258 spoken, 302 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -259,21 +259,24 @@ Total lines: **555** (255 spoken, 300 chat). Status of each: PENDING_FOUNDER_APP
 | robin.authority.bridge_1930.en | en | {child}, I am connecting you to the cyber-fraud helpline 1930 for {parent}. You will speak to them yourself; I will stay quiet. | PENDING |
 | robin.authority.bridge_1930.hinglish | hinglish | {child}, main {parent} ke liye aapko cyber-fraud helpline 1930 se jod rahi hoon. Aap khud unse baat karenge; main chup rahungi. | PENDING |
 | robin.authority.bridge_1930.hi | hi | {child}, मैं {parent} के लिए आपको साइबर-फ़्रॉड हेल्पलाइन 1930 से जोड़ रही हूँ। आप ख़ुद उनसे बात करेंगे; मैं चुप रहूँगी। | PENDING |
-| robin.screen.ask.en | en | Hello, this is {brand}, an AI assistant answering for {parent}. May I know who is calling and what it is about? | PENDING |
-| robin.screen.ask.hinglish | hinglish | Namaste, main {brand} bol rahi hoon, {parent} ki AI assistant. Kya main jaan sakti hoon ki aap kaun bol rahe hain aur kis baare mein? | PENDING |
-| robin.screen.ask.hi | hi | नमस्ते, मैं {brand} बोल रही हूँ, {parent} की AI असिस्टेंट। क्या मैं जान सकती हूँ कि आप कौन बोल रहे हैं और किस बारे में? | PENDING |
+| robin.screen.ask.en | en | {brand} is screening this call for {parent}. Please say who you are and why you are calling. | PENDING |
+| robin.screen.ask.hinglish | hinglish | {brand} yeh call {parent} ke liye screen kar rahi hai. Kripya batayein ki aap kaun hain aur kis liye phone kiya hai. | PENDING |
+| robin.screen.ask.hi | hi | {brand} यह कॉल {parent} के लिए स्क्रीन कर रही है। कृपया बताइए कि आप कौन हैं और किसलिए फ़ोन किया है। | PENDING |
 | robin.screen.connect.en | en | Thank you. I am connecting you to {parent} now. | PENDING |
 | robin.screen.connect.hinglish | hinglish | Dhanyavaad. Main aapko abhi {parent} se jod rahi hoon. | PENDING |
 | robin.screen.connect.hi | hi | धन्यवाद। मैं आपको अभी {parent} से जोड़ रही हूँ। | PENDING |
 | robin.screen.decline.en | en | {parent} cannot take this call. I will pass on that you called. Goodbye. | PENDING |
 | robin.screen.decline.hinglish | hinglish | {parent} yeh call nahi le sakte. Main bata dungi ki aapne phone kiya tha. Namaste. | PENDING |
 | robin.screen.decline.hi | hi | {parent} यह कॉल नहीं ले सकते। मैं बता दूँगी कि आपने फ़ोन किया था। नमस्ते। | PENDING |
-| robin.listen.disclose.en | en | Hello, this is {brand}, an AI assistant. {parent} asked me to listen in on this call to help keep them safe. I do not record it. | PENDING |
-| robin.listen.disclose.hinglish | hinglish | Namaste, main {brand} hoon, ek AI assistant. {parent} ne mujhe is call par saath rehne ko kaha hai taaki wo surakshit rahein. Main call record nahi karti. | PENDING |
-| robin.listen.disclose.hi | hi | नमस्ते, मैं {brand} हूँ, एक AI असिस्टेंट। {parent} ने मुझे इस कॉल पर साथ रहने को कहा है ताकि वो सुरक्षित रहें। मैं कॉल रिकॉर्ड नहीं करती। | PENDING |
+| robin.listen.disclose.en | en | Hello, this is {brand}, an AI assistant. {parent} asked me to listen in on this call to help keep them safe. I do not record it. {parent} can say stop at any time. | PENDING |
+| robin.listen.disclose.hinglish | hinglish | Namaste, main {brand} hoon, ek AI assistant. {parent} ne mujhe is call par saath rehne ko kaha hai taaki wo surakshit rahein. Main call record nahi karti. {parent} kabhi bhi rukne ko keh sakte hain. | PENDING |
+| robin.listen.disclose.hi | hi | नमस्ते, मैं {brand} हूँ, एक AI असिस्टेंट। {parent} ने मुझे इस कॉल पर साथ रहने को कहा है ताकि वो सुरक्षित रहें। मैं कॉल रिकॉर्ड नहीं करती। {parent} कभी भी रुकने को कह सकते हैं। | PENDING |
 | robin.listen.warn.en | en | {parent}, this call looks risky. Please do not send money or share any OTP or PIN. You can hang up and call {child}. | PENDING |
 | robin.listen.warn.hinglish | hinglish | {parent}, yeh call risky lag rahi hai. Kripya paise mat bhejiye aur OTP ya PIN mat batayein. Aap phone kaat kar {child} ko phone kar sakte hain. | PENDING |
 | robin.listen.warn.hi | hi | {parent}, यह कॉल रिस्की लग रही है। कृपया पैसे मत भेजिए और OTP या PIN मत बताइए। आप फ़ोन काटकर {child} को फ़ोन कर सकते हैं। | PENDING |
+| robin.listen.left.en | en | I have left the call. Goodbye. | PENDING |
+| robin.listen.left.hinglish | hinglish | Main call se hat gayi hoon. Namaste. | PENDING |
+| robin.listen.left.hi | hi | मैं कॉल से हट गई हूँ। नमस्ते। | PENDING |
 
 ## Chat lines to the child (admin)
 
@@ -557,6 +560,8 @@ Phir 'test forwarding' likhiye. | PENDING |
 | robin.authority.set_address.hinglish | hinglish | Emergency script ke liye pata save ho gaya. | PENDING |
 | robin.authority.set_name.en | en | Parent name saved for the emergency script. | PENDING |
 | robin.authority.set_name.hinglish | hinglish | Emergency script ke liye parent ka naam save ho gaya. | PENDING |
+| robin.listen.child_note.en | en | {brand} listened in on a call for {parent} (at their request) and left. Highest concern level: {tier}. Nothing was recorded or kept. | PENDING |
+| robin.listen.child_note.hinglish | hinglish | {brand} ne {parent} ki ek call mein (unke kehne par) sunna kiya aur hat gayi. Sabse unchi chinta: {tier}. Kuch record ya save nahi hua. | PENDING |
 | robin.screen.child_note.en | en | Screened an unknown caller for {parent}: {verdict}. Reason: {why} | PENDING |
 | robin.screen.child_note.hinglish | hinglish | {parent} ke liye anjaan caller ko screen kiya: {verdict}. Wajah: {why} | PENDING |
 | robin.sum.yes.en | en | yes | PENDING |

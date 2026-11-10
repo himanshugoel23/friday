@@ -79,6 +79,8 @@ maintained by the lead (TODO / DOING / MERGED / BLOCKED).
 | T15 | Android app part 2: protection pack (call-screening role, notification listener, camera, remote-access queries) | device-only verification | pilot phone | TODO |
 | T16 | Call-pattern screen-first / listen-in on Vobiz: design + fake bridge + wiring to `feed_call_turn` | fake bridge; real needs Vobiz | disclosure wording, legal OK | TODO |
 | T17 | Shadow-week report and false-alarm review page for the founder (read-only, counts only) | fakes only | none | DONE 2026-11-10 |
+| T16 | Call-pattern screen-first / listen-in on Vobiz: design + fake bridge + wiring to `feed_call_turn` | fake bridge; real needs Vobiz | disclosure wording, legal OK | DONE (fakes only) |
+| T17 | Shadow-week report and false-alarm review page for the founder (read-only, counts only) | fakes only | none | TODO |
 | T18 | Safety evaluation set and regression gate | fakes only | none | TODO |
 | T19 | Pilot readiness: dry run with the founder's own family and the checklist | real | everything in section 2 | TODO |
 
