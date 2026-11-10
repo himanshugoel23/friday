@@ -726,6 +726,16 @@ class Settings(BaseSettings):
     # Robin device side (docs/ROBIN_ANDROID_APP.md): device API under /robin/device/*. OFF; wording PENDING.
     robin_device_enabled: bool = False  # FRIDAY_ROBIN_DEVICE_ENABLED
     robin_device_scam_llm_enabled: bool = False  # FRIDAY_ROBIN_DEVICE_SCAM_LLM_ENABLED: LLM second opinion, raise-only
+    # Robin human operations desk (docs/ROBIN_CONCIERGE_DESK.md): concierge errands + emergency desk. OFF. All times/ceilings are INVENTED, unverified.
+    robin_concierge_enabled: bool = False  # FRIDAY_ROBIN_CONCIERGE_ENABLED
+    robin_concierge_idle_timeout_s: int = 600  # staff session idle timeout (10 minutes)
+    robin_concierge_ack_s: int = 900  # claimed within this (draft: acknowledge within 15 minutes)
+    robin_concierge_finish_safety_s: int = 3600  # finish-by per priority
+    robin_concierge_finish_health_s: int = 7200
+    robin_concierge_finish_convenience_s: int = 14400  # draft: finish within 4 hours or say why
+    robin_concierge_spend_ceiling_paise: int = 500000  # above this the child must say yes first (invented: Rs 5,000)
+    robin_concierge_desk_ack_s: int = 180  # lane 2: the on-call person must ack within 3 minutes, else the secondary is paged
+    robin_concierge_staff_env: str = "ROBIN_CONCIERGE_STAFF"  # NAME of the env var that holds the staff list (never its value in code or docs)
     approach_planner_enabled: bool = False  # FRIDAY_APPROACH_PLANNER_ENABLED
     # proactive intents (docs/PROACTIVE_INTENTS.md): honest "needs a connection" replies, interview /
     # birthday / trip / bill / exam / meeting playbooks, one-word follow-ups. Chat wording PENDING.

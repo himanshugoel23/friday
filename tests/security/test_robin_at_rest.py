@@ -38,11 +38,15 @@ STRUCTURAL = {
     "status": "state word", "role": "role word", "kind": "record kind word", "item": "consent item name (a fixed list)",
     "source": "consent source word", "given_by": "consent basis word", "given_at": "time", "withdrawn_at": "time", "at": "time", "due_at": "time",
     "version": "row version counter", "expires_ms": "time",
+    # human desk (0021_concierge): ids, fixed words and a position; the errand text, notes, proofs and audit counts are EncryptedJSON
+    "priority": "fixed priority word (safety/health/convenience)", "lane": "fixed lane word", "claimed_by": "opaque staff id (no name)",
+    "staff_id": "opaque staff id (no name)", "action": "fixed audit action word", "target_id": "id of the request or incident", "seq": "audit chain position",
 }
 HASHES = {
     ("robin_members", "phone_hash"): "keyed hash (NumberHasher) used for lookup",
     ("robin_device_states", "token_hash"): "SHA-256 of a 256-bit random device token (never the token)",
     ("robin_device_codes", "code_hash"): "keyed HMAC of the pairing code (short code, so keyed, not a bare hash)",
+    ("robin_concierge_audit", "prev_hash"): "SHA-256 link of the audit chain", ("robin_concierge_audit", "entry_hash"): "SHA-256 of the audit entry",
 }
 KEYED = {("robin_records", "key"): "dedupe key: ids, dates and fixed words only; a medicine name is stored as a keyed hash (checked dynamically below)"}
 PLAIN_TYPES = (String, Integer, BigInteger, Boolean, DateTime)

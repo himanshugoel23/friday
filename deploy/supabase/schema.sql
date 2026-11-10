@@ -2019,5 +2019,72 @@ CREATE INDEX ix_robin_device_codes_parent_id ON robin_device_codes (parent_id);
 
 UPDATE alembic_version SET version_num='0020_robin_device' WHERE alembic_version.version_num = '0019_robin_family';
 
+-- Running upgrade 0020_robin_device -> 0021_concierge
+
+DROP TABLE IF EXISTS robin_concierge_docs;
+
+DROP TABLE IF EXISTS robin_concierge_audit;
+
+DROP TABLE IF EXISTS robin_concierge_requests;
+
+CREATE TABLE robin_concierge_requests (
+    family_id VARCHAR(32) NOT NULL, 
+    parent_id VARCHAR(32) NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    priority VARCHAR(16) NOT NULL, 
+    lane VARCHAR(16) NOT NULL, 
+    claimed_by VARCHAR(48), 
+    due_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    version INTEGER NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_concierge_requests PRIMARY KEY (id)
+);
+
+CREATE INDEX ix_robin_concierge_requests_family_id ON robin_concierge_requests (family_id);
+
+CREATE INDEX ix_robin_concierge_requests_parent_id ON robin_concierge_requests (parent_id);
+
+CREATE INDEX ix_robin_concierge_requests_status ON robin_concierge_requests (status);
+
+CREATE TABLE robin_concierge_audit (
+    seq INTEGER NOT NULL, 
+    at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    staff_id VARCHAR(48) NOT NULL, 
+    action VARCHAR(24) NOT NULL, 
+    target_id VARCHAR(48) NOT NULL, 
+    prev_hash VARCHAR(64) NOT NULL, 
+    entry_hash VARCHAR(64) NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_concierge_audit PRIMARY KEY (id), 
+    CONSTRAINT uq_robin_concierge_audit_seq UNIQUE (seq)
+);
+
+CREATE INDEX ix_robin_concierge_audit_staff_id ON robin_concierge_audit (staff_id);
+
+CREATE TABLE robin_concierge_docs (
+    kind VARCHAR(16) NOT NULL, 
+    target_id VARCHAR(48) NOT NULL, 
+    parent_id VARCHAR(32) NOT NULL, 
+    status VARCHAR(16) NOT NULL, 
+    data TEXT NOT NULL, 
+    id VARCHAR(32) NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL, 
+    CONSTRAINT pk_robin_concierge_docs PRIMARY KEY (id), 
+    CONSTRAINT uq_robin_concierge_docs_kind_target UNIQUE (kind, target_id)
+);
+
+CREATE INDEX ix_robin_concierge_docs_kind ON robin_concierge_docs (kind);
+
+CREATE INDEX ix_robin_concierge_docs_parent_id ON robin_concierge_docs (parent_id);
+
+UPDATE alembic_version SET version_num='0021_concierge' WHERE alembic_version.version_num = '0020_robin_device';
+
 COMMIT;
 

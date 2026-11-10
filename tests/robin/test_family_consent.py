@@ -114,7 +114,7 @@ async def test_safe_word_off_by_default_and_hashed_when_on(w):
 def test_migration_0019_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0020_robin_device"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0021_concierge"
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
     migrate.upgrade(url)
     eng = create_engine(f"sqlite:///{tmp_path}/m.db")

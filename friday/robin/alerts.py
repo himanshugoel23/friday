@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
+from friday.concierge.humanport import human_joined  # noqa: I001  HOOK (concierge desk)
 from friday.core.clock import ist_day_bounds
 from friday.core.logging import get_logger
 from friday.core.models import ReplyButton
@@ -262,6 +263,8 @@ class AlertEngine:
 
     # ------------------------------------------------------------------ one ladder step
     async def _do(self, action: str, family: Family, parent: Member, rec: Record, d: dict[str, Any]) -> str:  # noqa: C901
+        if action in ("call_child", "call_second", "nudge_parent", "ring_target") and await human_joined(rec.id):
+            return "skipped:human_joined"  # HOOK (concierge desk)
         c = self.ctx
         tier = Tier(d["tier"])
         sos = d["scenario"] == "sos"

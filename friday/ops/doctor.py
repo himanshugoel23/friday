@@ -54,9 +54,9 @@ TITLES = {
 # chain 0006 -> 0007_consumer_calls -> 0008_savings_engine -> 0009_life_state -> 0010_chatbot
 # -> 0011_receptionist -> 0012_receptionist_spam -> 0013_evidence -> 0014_documents
 # -> 0015_urgent_escalation -> 0016_family_drive -> 0017_trips -> 0018_refunds -> 0019_robin_family
-# -> 0020_robin_device
+# -> 0020_robin_device -> 0021_concierge
 # must be in the code
-EXPECTED_HEAD_CHAIN = "0020_robin_device"
+EXPECTED_HEAD_CHAIN = "0021_concierge"
 DEV_VERIFY_TOKEN = "friday-dev-verify"  # noqa: S105 - the public development default
 RLS_SQL = Path(__file__).resolve().parents[2] / "deploy" / "supabase" / "rls.sql"
 GRAPH_BASE = "https://graph.facebook.com"
@@ -805,7 +805,12 @@ def check_robin(settings: Settings, *, now: float | None = None) -> Section:
     except Exception as e:  # noqa: BLE001
         revs = set()
         s.add(WARN, f"migration chain could not be read ({_exc(e)})")
-    for rev in ("0019_robin_family", "0020_robin_device"):
+    conc = bool(getattr(settings, "robin_concierge_enabled", False))
+    if conc and not on:
+        s.add(WARN, "FRIDAY_ROBIN_CONCIERGE_ENABLED=on but FRIDAY_ROBIN_ENABLED is off: the human desk has no family to serve")
+    else:
+        s.add(OK, f"FRIDAY_ROBIN_CONCIERGE_ENABLED={'on' if conc else 'off'} (human operations desk; staff ports are wired by the lead)")
+    for rev in ("0019_robin_family", "0020_robin_device", "0021_concierge"):
         if rev in revs:
             s.add(OK, f"migration {rev[:4]} present in this code")
         elif revs:

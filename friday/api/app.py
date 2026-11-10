@@ -144,6 +144,11 @@ def create_app(
 
     _mount_robin_device(app, c)
 
+    # ------------------------------------------------------------------ Robin human operations desk (OFF; needs the staff ports wired)
+    from friday.concierge.wiring import maybe_mount as _mount_concierge
+
+    _mount_concierge(app, c)
+
     # ------------------------------------------------------------------ connector watch pages
     from friday.api.admin import admin_token as _admin_token
     from friday.api.connectors_watch import watch_router

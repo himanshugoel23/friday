@@ -219,14 +219,14 @@ async def test_in_memory_store_is_still_the_default(rig):
 def test_migration_0020_up_down_and_chain(tmp_path):
     from friday.ops import doctor
 
-    assert doctor.EXPECTED_HEAD_CHAIN == "0020_robin_device"
+    assert doctor.EXPECTED_HEAD_CHAIN == "0021_concierge"
     url = f"sqlite+aiosqlite:///{tmp_path}/m.db"
     migrate.upgrade(url)
     eng = create_engine(f"sqlite:///{tmp_path}/m.db")
     names = {"robin_device_states", "robin_device_codes"}
     assert names <= set(inspect(eng).get_table_names())
     with eng.connect() as conn:
-        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0020_robin_device"
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0021_concierge"
     migrate.downgrade(url, "0019_robin_family")
     assert not names & set(inspect(eng).get_table_names())
     assert "robin_families" in inspect(eng).get_table_names()  # 0019 is untouched

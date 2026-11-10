@@ -809,6 +809,7 @@ import friday.receptionist.dbmodel  # noqa: E402,F401  (registers receptionist_c
 import friday.refunds.dbmodel  # noqa: E402,F401  (registers refund_cases, refund_events, refund_evidence, refund_nudges)
 import friday.robin.dbmodel  # noqa: E402,F401  (registers robin_families, robin_members, robin_consents, robin_records)
 import friday.robindevice.dbmodel  # noqa: E402,F401  (registers robin_device_states, robin_device_codes)
+import friday.concierge.dbmodel  # noqa: E402,F401  (registers robin_concierge_requests, robin_concierge_audit, robin_concierge_docs)
 import friday.savings.dbmodel  # noqa: E402,F401  (registers wallet_cards, card_rules, bills, savings_ledger)
 import friday.trips.dbmodel  # noqa: E402,F401  (registers trips, trip_legs, trip_tasks, flight_watch, trip_nudges, card_perks)
 import friday.urgent.dbmodel  # noqa: E402,F401  (registers urgent_escalation_configs, urgent_escalations)
