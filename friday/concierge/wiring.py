@@ -85,7 +85,9 @@ def maybe_mount(app: Any, container: Any) -> dict[str, Any] | None:
     parts = build_desk(container, ports)
     app.include_router(build_console(parts["service"], parts["desk"], parts["sessions"], parts["audit"], secure_cookie=bool(getattr(container.settings, "is_live", False))), prefix="/concierge")
     app.state.concierge = parts
-    humanport.register_human_joined(parts["desk"].is_human_joined)  # the AI ladder stops re-ringing once a person joined
+    humanport.register_human_joined(parts["desk"].is_human_joined)
+    humanport.register_handoff(parts["desk"].receive)  # T19: the AI emergency flow hands over a HandoffCard (robin/alerts.py)
+    humanport.register_tick(parts["desk"].tick)  # T19: the Robin scheduler tick escalates unacked pages
     from friday.robin.ports import register_erase_hook
 
     register_erase_hook("concierge", parts["service"].erase_parent)  # "delete everything" drops errands and handoffs of that parent

@@ -59,3 +59,20 @@ Pass = no errors, a revision number, and a user count that looks right.
 
 If the whole server is gone: create a new instance (docs/DEPLOY_AWS.md steps 5-11), put the saved
 `.env` back, start only `postgres` (`$C up -d postgres`), then do step B.3-B.5.
+
+## C. Robin tables check (after drill A, before any pilot family)
+
+`backup.sh` dumps the whole database, so the Robin tables are inside every backup. Prove it on the throw-away copy from drill A
+(before step 4 "clean up"). It prints names and counts only, never a value:
+
+```bash
+for t in robin_families robin_members robin_consents robin_records \
+         robin_device_states robin_device_codes \
+         robin_concierge_requests robin_concierge_audit robin_concierge_docs; do
+  printf '%s: ' "$t"; docker exec friday-restore-drill psql -U postgres -d friday_drill -tA -c "select count(*) from $t;"
+done
+```
+Pass = every line prints a number (0 is fine before the pilot; after the pilot starts the numbers must match the live database
+within one day). A "relation does not exist" line means that table was not in the backup: stop and tell engineering.
+The same check on a SQLite file (what the automated tests do): `python -m friday.ops.backupcheck <file.db>`.
+Remember: the data columns are encrypted with `FRIDAY_FIELD_KEY`; a restored copy without the same `.env` keys cannot be read.

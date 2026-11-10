@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
+from friday.concierge import humanport
 from friday.concierge.humanport import human_joined  # noqa: I001  HOOK (concierge desk)
 from friday.core.clock import ist_day_bounds
 from friday.core.logging import get_logger
@@ -204,7 +205,30 @@ class AlertEngine:
             return AlertResult(True, "ok", rec.id)
         await c.audit(family, "alert", f"{tier.value.upper()} alert: {why}", incident_id=rec.id, tier=tier.value, scenario=alert.scenario)
         await self.run_incident(rec.id)
+        if sos or TIER_ORDER[tier] >= TIER_ORDER[Tier.HIGH]:
+            await self._hand_to_desk(rec.id, family, parent)  # HOOK (concierge desk, T19): AI acts first, then a person is paged
         return AlertResult(True, "ok", rec.id)
+
+    async def _hand_to_desk(self, incident_id: str, family: Family, parent: Member) -> None:
+        """Give the human emergency desk a one-screen card after the AI's first actions. Only when the desk is mounted (humanport has a handler);
+        any failure is logged and swallowed: the AI ladder never depends on the desk. The card holds codes and one line, never a phone number."""
+        if not humanport.handoff_enabled():
+            return
+        try:
+            from friday.concierge.desk import HandoffCard
+
+            rec = await self.store.get(incident_id)
+            d = rec.data if rec else {}
+            steps = d.get("steps", [])
+            card = HandoffCard(
+                incident_id=incident_id, parent_id=parent.id, family_id=family.id, language=parent.language, tier=str(d.get("tier", "")),
+                why=str(d.get("why", ""))[:160], signals=tuple((str(x), str(d.get("occurred_at") or "")) for x in d.get("signals", [])),
+                ai_actions=tuple(f"{s['action']}:{s['result']}" for s in steps if s.get("state") == "done"),
+                rung=tuple((s["action"], str(s["result"])) for s in steps if s.get("state") == "done" and s["action"].startswith(("call_", "wa_"))),
+            )
+            await humanport.hand_off(card)
+        except Exception as e:  # noqa: BLE001
+            log.exception("robin: desk handoff failed (%s); the AI ladder carries on alone", type(e).__name__)
 
     # ------------------------------------------------------------------ the ladder
     async def tick(self) -> int:

@@ -45,6 +45,9 @@ def add_parser(sub: argparse._SubParsersAction) -> None:  # noqa: SLF001
     ct.add_argument("--child", default="Asha", help="the child's name said on the call (invented)")
     ct.add_argument("--seconds", type=int, default=None, help="call length cap (QA maximum applies)")
     ct.add_argument("--plan-only", action="store_true", help="print the plan, dial nothing")
+    from friday.robin import killswitch
+
+    killswitch.add_subparser(r)  # `friday robin pause-all [--resume|--status]`
 
 
 def result_lines(out: CallOutcome) -> list[str]:
@@ -105,6 +108,10 @@ async def run_call_test(
 def run_command(args: argparse.Namespace) -> int:
     from friday.core.config import Settings
 
+    if args.robin_cmd == "pause-all":
+        from friday.robin import killswitch
+
+        return killswitch.run_command(args)
     settings, qa = Settings(), QaConfig()
     store = QaStore(qa.path)
     if args.robin_cmd != "call-test":

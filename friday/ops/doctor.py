@@ -776,6 +776,48 @@ def _check_call_queue(settings: Settings) -> Section:
 
 
 # ----------------------------------------------------------------------------- 13 robin
+def robin_pilot_missing(settings: Settings, environ: dict[str, str] | None = None) -> list[str]:
+    """NAMES (never values) of the switches, settings and env variables still missing before a pilot family can go live (T19).
+    Read-only. The authority lock and listen-in are NOT in this list on purpose: they must stay off/dry-run, they are never "to do"."""
+    import os
+
+    env = os.environ if environ is None else environ
+    missing: list[str] = []
+    for name, val in (
+        ("FRIDAY_ROBIN_ENABLED", settings.robin_enabled),
+        ("FRIDAY_ROBIN_DEVICE_ENABLED", settings.robin_device_enabled),
+        ("FRIDAY_ROBIN_PARENT_WHATSAPP_ENABLED", settings.robin_parent_whatsapp_enabled),
+        ("FRIDAY_ROBIN_FORWARDED_CALLS_ENABLED", settings.robin_forwarded_calls_enabled),
+    ):
+        if not val:
+            missing.append(f"{name} (switch is off)")
+    for name, val in (
+        ("WHATSAPP_ACCESS_TOKEN", settings.whatsapp_access_token),
+        ("WHATSAPP_PHONE_NUMBER_ID", settings.whatsapp_phone_number_id),
+        ("WHATSAPP_APP_SECRET", settings.whatsapp_app_secret),
+        ("SARVAM_API_KEY", settings.sarvam_api_key),
+        ("FRIDAY_GRIEVANCE_EMAIL", settings.grievance_email),
+        ("FRIDAY_SUPPORT_INBOX", settings.support_inbox),
+        ("FRIDAY_ROBIN_WAITLIST_CONTACT", settings.robin_waitlist_contact),
+    ):
+        if not val:
+            missing.append(name)
+    if not str(settings.public_base_url).lower().startswith("https://") or "localhost" in str(settings.public_base_url):
+        missing.append("FRIDAY_PUBLIC_BASE_URL (still local or not https)")
+    if not settings.pilot_allowed_numbers:
+        missing.append("FRIDAY_PILOT_ALLOWED_NUMBERS (real calls only go to numbers on this list)")
+    if str(getattr(settings, "mode", "")) != "live":
+        missing.append("FRIDAY_MODE=live")
+    staff_env = str(getattr(settings, "robin_concierge_staff_env", "") or "")
+    if getattr(settings, "robin_concierge_enabled", False) and staff_env and not env.get(staff_env):
+        missing.append(f"{staff_env} (staff list for the human desk)")
+    from friday.robin import lines
+
+    if not lines.approved():
+        missing.append("spoken lines still PENDING founder approval")
+    return missing
+
+
 def check_robin(settings: Settings, *, now: float | None = None) -> Section:
     """Robin status without any family data: switches, authority lock, lines, migrations, scheduler. Read-only."""
     from friday.robin import lines, opscounts
@@ -821,6 +863,8 @@ def check_robin(settings: Settings, *, now: float | None = None) -> Section:
         s.add(OK, "care protocol component present")
     except Exception as e:  # noqa: BLE001
         s.add(FAIL if on else WARN, f"care protocol component missing ({_exc(e)}): Robin blocks calls without it")
+    missing = robin_pilot_missing(settings)
+    s.add(OK if not missing else WARN, "pilot readiness: " + ("nothing missing for go-live" if not missing else f"{len(missing)} item(s) missing for go-live: " + "; ".join(missing)))
     if not on:
         s.add(SKIP, "scheduler, parent channel and last tick are checked once FRIDAY_ROBIN_ENABLED is on")
         return s

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
+from friday.concierge import humanport
 from friday.core.logging import get_logger
 from friday.core.models import InboundMessage, ReplyButton, User
 from friday.robin import alerts as alerts_mod
@@ -228,7 +229,11 @@ class RobinHub:
 
     async def tick(self) -> int:
         n = 0
-        for step in (self.intro.retry_due, self.authority.tick, self.checkin.tick, self.meds.tick, self.greetings.tick, self._monthly, self.outbox.tick, self._device_tick):
+        if self.ctx.paused():  # `friday robin pause-all`: nothing new starts; only already-open alerts and the desk's page escalation go on
+            steps: tuple[Callable[[], Awaitable[int]], ...] = (self.alerts.tick, humanport.desk_tick)
+        else:
+            steps = (self.intro.retry_due, self.authority.tick, self.checkin.tick, self.meds.tick, self.greetings.tick, self._monthly, self.outbox.tick, self._device_tick, humanport.desk_tick)
+        for step in steps:
             try:
                 n += int(await step() or 0)
             except Exception:  # noqa: BLE001 - one failing step never stops the others
