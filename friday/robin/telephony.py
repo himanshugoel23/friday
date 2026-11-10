@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -94,7 +94,8 @@ class TelephonyParentCaller:
         return None
 
     async def converse(
-        self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180
+        self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180,
+        on_help: Callable[[str], Awaitable[bool]] | None = None,
     ) -> CallOutcome:
         refusal = self._refusal(member.phone, [s.line for s in steps])
         if refusal is not None:
@@ -180,7 +181,13 @@ class TelephonyParentCaller:
                 timing.heard = kind if step.expect == "yesno" or kind in ("help", "stop", "silence") else "text"
                 answers.append(AnswerRaw(line=step.line, text=said))
                 if ans.is_help(said) or ans.is_threat(said):  # 'madad' / 'help' / 'bachao': tell them the child is told; the caller raises the SOS
-                    await say("sos.parent", steps[0].slots)
+                    accepted = False
+                    if on_help is not None:  # the SOS is raised FIRST; "I have told {child}" is spoken only if the alert was accepted, else the honest line
+                        try:
+                            accepted = bool(await on_help(said))
+                        except Exception as e:  # noqa: BLE001
+                            log.warning("robin: help handler failed on a call (%s)", type(e).__name__)
+                    await say("sos.parent" if accepted else "widget.sos_failed", steps[0].slots)
                     return finish(CallResult.ANSWERED, "help_requested")
                 if ans.is_stop(said):  # the parent said 'stop': say the pause line and end the call
                     await say("pause.ack", steps[0].slots)

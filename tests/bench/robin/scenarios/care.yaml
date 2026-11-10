@@ -11,6 +11,9 @@ scenarios:
   - {id: hi_en_pills, expect: HIGH, text: "I took too many sleeping pills on purpose"}
   - {id: hi_en_cant_go_on, expect: HIGH, text: "I feel like I can't go on, I want to die"}
   - {id: hi_en_rather_dead, expect: HIGH, text: "I would rather be dead than live like this"}
+  - {id: hi_en_no_reason_variant, expect: HIGH, text: "I can't see the point in going on living"}
+  - {id: hi_en_happier_without, expect: HIGH, text: "My family would be so much happier without me"}
+  - {id: hi_en_rather_die_variant, expect: HIGH, text: "I'd rather die than keep living like this"}
   - {id: hi_en_suicide_nights, expect: HIGH, text: "I keep thinking about suicide every night"}
   # ------------------------------------------------------------ HIGH, Hinglish
   - {id: hi_hg_jeena_nahi, expect: HIGH, text: "ab main jeena nahi chahta"}
@@ -61,6 +64,13 @@ scenarios:
   - {id: no_hg_garmi, expect: NONE, text: "aaj garmi se mar gaya yaar"}
   - {id: no_hg_hasi, expect: NONE, text: "hasi ke mare mar jaunga main"}
   - {id: no_hg_chai, expect: NONE, text: "chai ke bina mar jaunga main"}
+  - {id: no_hg_wifi, expect: NONE, text: "wifi ke bina to main mar jaunga yaar"}
+  - {id: no_hg_paani, expect: NONE, text: "paani ke bina mar jaunga, bahut garmi hai"}
+  - {id: no_dv_chai_die, expect: NONE, text: "चाय के बिना मर जाऊँगा मैं"}
+  - {id: no_en_coffee_die, expect: NONE, text: "I will die without my coffee"}
+  - {id: no_en_rather_die_than_eat, expect: NONE, text: "I would rather die than eat that"}
+  - {id: no_en_see_why_report, expect: NONE, text: "I don't see why you need the report today"}
+  - {id: hi_hg_chai_then_real, expect: HIGH, text: "chai ke bina mar jaunga. sach mein mar jana chahti hoon"}
   - {id: no_hg_bhookh, expect: NONE, text: "bhookh se jaan nikal rahi hai"}
   - {id: no_hg_phone_mar, expect: NONE, text: "mera phone mar gaya, charger do"}
   - {id: no_hg_joke, expect: NONE, text: "tera yeh joke mujhe maar dega"}

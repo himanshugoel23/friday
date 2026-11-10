@@ -154,7 +154,9 @@ MONEY = re.compile(
 )
 URGENCY = re.compile(
     r"\b(urgent(ly)?|immediately|right now|asap|within \d+ ?(hours?|hrs?|minutes?|mins?)|last chance|today only|"
-    r"final (notice|warning)|abhi|turant|jaldi|aaj hi|aaj raat|warna|otherwise)\b|तुरंत|अभी|जल्दी|आज ही|वरना|फौरन"
+    r"final (notice|warning)|abhi|turant|jaldi|aaj hi|warna|otherwise)\b|"
+    r"\baaj raat\b(?!\s+(?:(?:ka|ki|ke)\s+(?:khana|khane|dinner|party|film|movie|plan|show|programme|program)|khana|dinner|party|film|movie|bahar)\b)|"  # 'aaj raat tak ...' stays urgent; a dinner plan is not
+    r"तुरंत|अभी|जल्दी|आज ही|वरना|फौरन"
 )
 SECRECY = re.compile(
     r"\b(do not|don'?t|dont|mat|never) (tell|inform|disclose|batana|batao|bataiye)\b[^.]{0,30}"
@@ -179,6 +181,16 @@ SAFE_ACC = re.compile(
     r"(आरबीआई|सुरक्षित|वेरिफिकेशन|सरकारी) (खाते|अकाउंट)"
 )
 SAFE_ACC_VERB = re.compile(r"\b(transfer|send|deposit|move|bhej\w*|jama)\b|भेज|जमा|डाल")
+JOB_TERM = re.compile(
+    r"\b(jobs?|naukri|vacanc\w+|recruit\w+|hiring|placement|appointment letter|offer letter|selected for|shortlisted|joining|work from home|data entry|part[- ]time)\b|"
+    r"नौकरी|जॉब|भर्ती|वैकेंसी|सेलेक्ट"
+)
+JOB_FEE = re.compile(
+    r"\b(registration|joining|processing|application|training|security|refundable|form|file|kit|uniform|id card|verification|confirmation|booking|document|interview)\s+(fees?|charges?|deposit|amount|payment|money)\b|"
+    r"\b(fees?|charges?|deposit|amount)\s+(to|for)\s+(confirm|book|secure|reserve|process|join)\b|"
+    r"\b(fees?|charges?|deposit)\s+(jama|bhej\w*|dena|do)\b|रजिस्ट्रेशन\s*(फीस|फ़ीस|शुल्क|चार्ज)|जॉइनिंग\s*(फीस|फ़ीस|शुल्क)|सिक्योरिटी\s*डिपॉज़िट"
+)
+JOB_PAY = re.compile(r"\b(pay|send|deposit|transfer|submit|bhej\w*|jama|dena|de do|kar do|rs\.?|inr)\b|₹|भेज|जमा|दे दो|भरें|भुगतान")
 CHALLAN = re.compile(r"\b(e-?challan|challan)\b|चालान")
 CHALLAN_ACT = re.compile(r"\b(pay|click|link|https?|overdue|pending|fine)\b|क्लिक|लिंक")
 
@@ -376,6 +388,7 @@ _STEPS: dict[str, list[str]] = {
     "pension": ["never_otp", "call_child"],
     "relative_trouble": ["verify_first", "call_child", "never_otp"],
     "investment": ["call_child", "never_otp"],
+    "job_fee": ["call_child", "never_otp"],
     "safe_account": ["hang_up", "call_child", "report_1930"],
     "prize": ["call_child", "never_otp"],
     "link_lookalike": ["type_address", "call_child"],
@@ -447,6 +460,9 @@ def _scan_text(t: str, acc: _Acc) -> None:
     # special account transfers
     if SAFE_ACC.search(t) and SAFE_ACC_VERB.search(t):
         acc.add("safe_account", 6)
+    # job offer that asks for a fee first (registration / joining / security deposit): a classic advance-fee fraud. Not in a warning ("never pay a fee for a job").
+    if JOB_TERM.search(t) and JOB_FEE.search(t) and JOB_PAY.search(t) and not (WARNING.search(t) and not has_addr) and not NEGATION.search(t):
+        acc.add("job_fee", 3)
     # e-challan
     if CHALLAN.search(t) and CHALLAN_ACT.search(t) and URL_RE.search(t):
         acc.add("kyc_block", 3)

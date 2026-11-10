@@ -2,13 +2,13 @@
   "_note": "Committed safety baseline. ONLY THE LEAD may update it (python -m tests.bench.robin --write-baseline), after reviewing why a number moved. Never lower it to make a failing gate pass.",
   "categories": {
     "scamcheck": {
-      "scenarios": 94,
-      "positives": 54,
-      "negatives": 40,
-      "high_positives": 32,
-      "tp": 53,
-      "fp": 1,
-      "high_tp": 32
+      "scenarios": 103,
+      "positives": 59,
+      "negatives": 44,
+      "high_positives": 34,
+      "tp": 59,
+      "fp": 0,
+      "high_tp": 34
     },
     "callpattern": {
       "scenarios": 52,
@@ -20,22 +20,22 @@
       "high_tp": 16
     },
     "care": {
-      "scenarios": 68,
-      "positives": 33,
-      "negatives": 35,
-      "high_positives": 24,
-      "tp": 30,
-      "fp": 1,
-      "high_tp": 21
+      "scenarios": 78,
+      "positives": 37,
+      "negatives": 41,
+      "high_positives": 28,
+      "tp": 37,
+      "fp": 0,
+      "high_tp": 28
     },
     "emergency_words": {
-      "scenarios": 30,
-      "positives": 22,
-      "negatives": 8,
-      "high_positives": 22,
-      "tp": 22,
+      "scenarios": 66,
+      "positives": 48,
+      "negatives": 18,
+      "high_positives": 48,
+      "tp": 48,
       "fp": 0,
-      "high_tp": 22
+      "high_tp": 48
     },
     "emergency_ladder": {
       "scenarios": 8,

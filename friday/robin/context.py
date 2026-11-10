@@ -68,6 +68,7 @@ class Ctx:
     parent_channel: Any = None  # ports.ParentChannel (WhatsApp, voice-note first); None = outbox only
     on_reached: Any = None  # async (family, parent) called after an answered call to the parent
     audit_sink: Any = None  # async (action, user_id, *, actor, source, counts): the core audit log (kept after 'delete everything'; counts only, no PII)
+    help_handler: Any = None  # async (family, parent, purpose, said) -> bool: raises the SOS when a help word is heard on ANY call to the parent; True only if the alert was accepted (set by the hub)
     inbox: Any = None  # delivery.ChildInbox (T08): where a message the child's phone could not receive waits (shown in the chat at their next message); None = nowhere
 
     # ------------------------------------------------------------------ brand and lines
@@ -247,7 +248,18 @@ class Ctx:
         verdict = await self.gate.check(owner, member.phone, override_window=security or money, now=now)
         if not verdict.allowed:
             return await refuse("gate:" + ",".join(verdict.reasons))
-        out = await self.caller.converse(member=member, family=family, purpose=purpose, steps=steps, dedupe_key=dedupe_key, brand=self.brand, max_seconds=max_seconds)
+        raised: list[bool] = []
+        on_help = None
+        if member.role == Role.PARENT and self.help_handler is not None:  # T11 gap: a help word on an alert / intro / medicine / any call raises the EMERGENCY, not only on the check-in
+
+            async def on_help(said: str) -> bool:  # noqa: RUF029
+                ok = bool(await self.help_handler(family, member, purpose, said))
+                raised.append(ok)
+                return ok
+
+        out = await self.caller.converse(member=member, family=family, purpose=purpose, steps=steps, dedupe_key=dedupe_key, brand=self.brand, max_seconds=max_seconds, on_help=on_help)
+        if out.detail == "help_requested" and not raised and member.role == Role.PARENT and self.help_handler is not None:  # a caller that ignored the hook: raise it now (same dedupe key, never twice)
+            await self.help_handler(family, member, purpose, "")
         await self.audit(family, "call", f"Called {who} ({purpose}): {out.result.value}", member_id=member.id, purpose=purpose, result=out.result.value, detail=out.detail, incident_id=incident_id, exempt=bool(emergency or sos))
         if member.role == Role.PARENT and out.result == CallResult.ANSWERED and self.on_reached is not None:
             await self.on_reached(family, member)

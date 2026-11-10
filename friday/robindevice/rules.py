@@ -35,6 +35,7 @@ class TierDef:
     full_screen: bool
     defer_quiet: bool
     digest: bool
+    shadow_exempt: bool = False  # this tier alerts even in the shadow week (per-tier; the scenario flag exempts all of its tiers)
 
 
 @dataclass(frozen=True)
@@ -132,7 +133,7 @@ def parse(data: Any, *, known_predicates: set[str] | None = None) -> Rules:
             tiers.append(
                 TierDef(tier, float(_req(t, "min_score", where)), t.get("prompt"),
                         bool(t.get("child_alert", True)), bool(t.get("full_screen", False)),
-                        bool(t.get("defer_quiet", False)), bool(t.get("digest", False)))
+                        bool(t.get("defer_quiet", False)), bool(t.get("digest", False)), bool(t.get("shadow_exempt", False)))
             )
         if not tiers:
             raise RulesError(f"{where}: no tiers")

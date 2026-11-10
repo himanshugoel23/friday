@@ -17,11 +17,21 @@ def test_runner_prints_a_row_per_category(capsys):
     )
 
 
-def test_known_gaps_are_reported_but_not_counted():
+def test_known_gaps_are_reported_but_not_counted(monkeypatch):
+    """No known gap is left in the corpus (2026-11-10), so the mechanism is tested with one injected, deliberately unmet word."""
+    real = R._load
+
+    def with_gap(name):
+        data = real(name)
+        if name == "emergency.yaml":
+            data = {**data, "words": [*data["words"], {"id": "injected_gap", "text": "zzz nothing here", "expect": "help", "known_gap": True}]}
+        return data
+
+    monkeypatch.setattr(R, "_load", with_gap)
     outcomes = R.evaluate_all(("emergency_words",))
     gaps = [o for o in outcomes if o.known_gap]
-    assert gaps and R.metrics(outcomes)["emergency_words"]["known_gaps"] == len(gaps)
-    assert R.metrics(outcomes)["emergency_words"]["scenarios"] == len(outcomes) - len(gaps)
+    assert [o.id for o in gaps] == ["injected_gap"] and R.metrics(outcomes)["emergency_words"]["known_gaps"] == 1
+    assert R.metrics(outcomes)["emergency_words"]["scenarios"] == len(outcomes) - 1
 
 
 def test_ids_are_unique_per_category():

@@ -36,13 +36,19 @@ class SosService:
         how = "pressed the help button" if source == "app" else f"phoned {self.ctx.brand} for help"
         bucket = int(self.ctx.clock.now().timestamp() // 300)
         res = await self.alerts.raise_alert(RobinAlert(parent_member_id=parent.id, tier=Tier.EMERGENCY, scenario="sos", why=f"{label} {how}", dedupe_key=f"sos:{parent.id}:{bucket}", location=location))
-        return SosResult(res, True, ["sos.parent", "sos.ask", "sos.noted"] if source == "call" else [])
+        if source != "call":
+            return SosResult(res, True, [])
+        # "I have told {child}" only when the alert was ACCEPTED; otherwise the honest line (never claim a child was told when nobody was)
+        return SosResult(res, True, ["sos.parent", "sos.ask", "sos.noted"] if res.accepted else ["widget.sos_failed"])
 
-    async def call_steps(self, parent_member_id: str) -> list[Step]:
-        """What Robin says when the parent phones in for help (the voice front door plays these)."""
+    async def call_steps(self, parent_member_id: str, accepted: bool = True) -> list[Step]:
+        """What Robin says when the parent phones in for help (the voice front door plays these). ``accepted`` = the SOS alert was accepted; if not,
+        only the honest "I could not reach {child}" line is spoken (never "I have told {child}")."""
         parent = await self.ctx.store.get_member(parent_member_id)
         fam = await self.ctx.store.get_family(parent.family_id) if parent else None
         if fam is None:
             return []
         slots = await self.ctx.slots(fam)
+        if not accepted:
+            return [Step(line="widget.sos_failed", slots=slots)]
         return [Step(line="sos.parent", slots=slots), Step(line="sos.ask", slots=slots, expect="free"), Step(line="sos.noted", slots=slots)]

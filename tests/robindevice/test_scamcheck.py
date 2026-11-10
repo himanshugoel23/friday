@@ -226,3 +226,26 @@ async def test_llm_gets_masked_text():
     await S.check("text", "call 9876543210 or mail a.b@example.com about your order", lang="en", llm=llm)
     body = llm.seen[0]["messages"][0].content
     assert "9876543210" not in body and "example.com" not in body
+
+
+async def test_job_offer_with_an_upfront_fee_is_risky_but_warnings_and_plain_offers_are_not():
+    """T18 miss closed: advance-fee job fraud (new category job_fee, weight 3 = RISKY)."""
+    bad = ("Congratulations you are selected for a job at Amazon, pay Rs 2000 registration fee to confirm.",
+           "Aapka naukri ke liye selection ho gaya hai. Joining ke liye 3000 rupaye registration fees bhej do.",
+           "आपका नौकरी के लिए चयन हो गया है। कन्फर्म करने के लिए 2500 रुपये रजिस्ट्रेशन फीस भेजें।")
+    for t in bad:
+        r = await S.check("text", t)
+        assert r.verdict in ("RISKY", "SCAM_LIKELY") and "job_fee" in r.categories, (t, r.verdict, r.categories)
+    for t in ("Beware: no real company asks for a registration fee for a job. Never pay for a job offer.",
+              "School registration fee for the new term is due next week, please pay at the office.",
+              "Congratulations, you are selected for the job. Please bring your documents on Monday for joining."):
+        assert (await S.check("text", t)).verdict in ("NO_SIGNS_FOUND", "UNSURE"), t
+
+
+async def test_dinner_money_from_a_child_is_not_urgency_but_a_real_deadline_still_is():
+    ok = await S.check("text", "Aaj raat ka khana bahar khayenge, 500 rupaye bhej do mujhe UPI se.")
+    assert ok.verdict in ("NO_SIGNS_FOUND", "UNSURE")
+    for t in ("Aaj raat tak 20000 rupaye bhej do, warna account band ho jayega.", "Aaj raat 10 baje tak 5000 rupaye bhej do aur kisi ko mat batana."):
+        assert (await S.check("text", t)).verdict in ("RISKY", "SCAM_LIKELY"), t
+    util = await S.check("text", "Aapka bijli connection aaj raat kat jayega, turant is number par call karein")
+    assert util.verdict in ("RISKY", "SCAM_LIKELY")  # the utility-cut scam that uses 'aaj raat' is unchanged

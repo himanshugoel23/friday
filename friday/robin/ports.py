@@ -19,12 +19,14 @@ from friday.robin import lines
 from friday.robin.models import AnswerRaw, CallOutcome, CallResult, Family, Member, Step
 
 Sender = Callable[[str, str, Sequence[ReplyButton]], Awaitable[None]]  # (child user id, text, buttons)
+HelpHandler = Callable[[str], Awaitable[bool]]  # (what the listener said) -> True only when the SOS alert was ACCEPTED; the call speaks "I have told {child}" only then
 
 
 @runtime_checkable
 class ParentCaller(Protocol):
     async def converse(
-        self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180
+        self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180,
+        on_help: HelpHandler | None = None,
     ) -> CallOutcome: ...
 
     async def bridge(self, *, child: Member, parent: Member, family: Family, dedupe_key: str, brand: str) -> CallOutcome: ...
@@ -43,6 +45,7 @@ class CallRecord:
     texts: list[str]
     dedupe_key: str
     kind: str = "converse"
+    help_line: str | None = None  # the line spoken after a help word: sos.parent (alert accepted) or widget.sos_failed (honest, not accepted)
 
 
 @dataclass
@@ -68,7 +71,8 @@ class FakeParentCaller:
         return self.outcomes.pop(0) if len(self.outcomes) > 1 else self.outcomes[0]
 
     async def converse(
-        self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180
+        self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180,
+        on_help: HelpHandler | None = None,
     ) -> CallOutcome:
         if dedupe_key in self.seen:
             return self.seen[dedupe_key]
@@ -82,6 +86,16 @@ class FakeParentCaller:
             out = out.model_copy(update={"answers": [AnswerRaw(line=s.line, text=self.answers.get(s.line, "")) for s in steps if s.expect != "none"]})
         if out.result == CallResult.ANSWERED and any(ans.is_stop(a.text) for a in out.answers):
             out = out.model_copy(update={"detail": "stop_requested"})
+        helped = next((a.text for a in out.answers if ans.is_help(a.text) or ans.is_threat(a.text)), None)
+        if out.result == CallResult.ANSWERED and helped is not None and out.detail != "stop_requested":  # like the real caller: help ends the call, the child is told only if the alert was accepted
+            ok = False
+            if on_help is not None:
+                try:
+                    ok = bool(await on_help(helped))
+                except Exception:  # noqa: BLE001
+                    ok = False
+            rec.help_line = "sos.parent" if ok else "widget.sos_failed"
+            out = out.model_copy(update={"detail": "help_requested"})
         self.seen[dedupe_key] = out
         return out
 

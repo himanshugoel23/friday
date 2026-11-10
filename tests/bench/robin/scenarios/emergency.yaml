@@ -1,7 +1,7 @@
 # Robin safety evaluation: emergency / fall flow. SYNTHETIC. unverified clinical/linguistic review needed (Hindi / Hinglish words).
 # Three parts, each its own category in the runner:
 #   words   - what a parent SAYS (already transcribed) -> answers.is_help / answers.is_threat.  expect: help | threat | none
-#             known_gap: true = a real miss we know about; reported, NOT counted in the gate (docs/ROBIN_EVAL.md "findings").
+#             known_gap: true = a real miss we know about; reported, NOT counted in the gate (none left in this part).
 #   ladder  - friday.robin.alerts.plan_for(tier, scenario, spacing): action@k where the step is due k call-spacings after the alert.
 #   flow    - a real alert through the Robin hub on a fake clock and fake caller. Nothing is dialled or sent.
 #             kind positive = somebody MUST be told / rung; negative = the parent must NOT be rung (quiet hours / pause still apply).
@@ -36,12 +36,45 @@ words:
   - {id: w_ok_dv_chai, text: "चाय पी ली", expect: none}
   - {id: w_ok_en, text: "the grandchildren are coming on Sunday", expect: none}
   - {id: w_ok_pension, text: "pension aa gayi hai", expect: none}
-  # --- known gaps (reported, not gated)
-  - {id: gap_fall_hg, text: "main gir gayi hoon, uth nahi pa rahi", expect: help, known_gap: true}
-  - {id: gap_fall_hi, text: "मैं गिर गया हूँ, उठ नहीं पा रहा", expect: help, known_gap: true}
-  - {id: gap_chest_pain, text: "seene mein bahut dard ho raha hai", expect: help, known_gap: true}
-  - {id: gap_helpful, text: "the bank clerk was very helpful today", expect: none, known_gap: true}
-  - {id: gap_madadgar, text: "padosi bahut madadgar hain", expect: none, known_gap: true}
+  # --- fall / chest pain / breathing (were known gaps; now gated): SOS-grade, phrase matching with the person in it, never a bare "gir" or "dard"
+  - {id: w_fall_hg, text: "main gir gayi hoon, uth nahi pa rahi", expect: help}
+  - {id: w_fall_hi, text: "मैं गिर गया हूँ, उठ नहीं पा रहा", expect: help}
+  - {id: w_fall_m, text: "main gir gaya hoon aur uth nahi sakta", expect: help}
+  - {id: w_fall_short, text: "uth nahi pa raha hoon", expect: help}
+  - {id: w_fall_padi, text: "bathroom mein gir padi hoon", expect: help}
+  - {id: w_fall_en, text: "I fell down in the bathroom and I can't get up from the floor", expect: help}
+  - {id: w_fall_en2, text: "I've fallen", expect: help}
+  - {id: w_fall_dv, text: "मैं गिर गई हूँ", expect: help}
+  - {id: w_dizzy_fall, text: "chakkar aa raha hai, gir jaunga", expect: help}
+  - {id: w_dizzy_fall_dv, text: "चक्कर आ रहा है, गिर जाऊँगी", expect: help}
+  - {id: w_chest_pain, text: "seene mein bahut dard ho raha hai", expect: help}
+  - {id: w_chest_dv, text: "मुझे सीने में बहुत दर्द है", expect: help}
+  - {id: w_chest_en, text: "I have chest pain", expect: help}
+  - {id: w_chest_en2, text: "there is a pain in my chest", expect: help}
+  - {id: w_breath, text: "saans nahi aa rahi", expect: help}
+  - {id: w_breath_en, text: "I can't breathe", expect: help}
+  - {id: w_heart_attack, text: "lagta hai heart attack aa raha hai", expect: help}
+  # --- typo-tolerant help words must still fire (recall on a safety word never drops)
+  - {id: w_help_stretch, text: "helppp", expect: help}
+  - {id: w_help_stretch2, text: "HELPPPP meee", expect: help}
+  - {id: w_madad_stretch, text: "madadd", expect: help}
+  - {id: w_madad_stretch2, text: "madaaad karo", expect: help}
+  - {id: w_bachao_stretch, text: "bachaooo", expect: help}
+  - {id: w_bachao_stretch2, text: "bachaaao bachaaao", expect: help}
+  - {id: w_dv_madad_stretch, text: "मददद", expect: help}
+  - {id: w_help_glued, text: "helpme", expect: help}
+  - {id: w_help_punct, text: "help!!!", expect: help}
+  # --- whole-word and phrase negatives (were known gaps or are their guards)
+  - {id: w_ok_helpful, text: "the bank clerk was very helpful today", expect: none}
+  - {id: w_ok_madadgar, text: "padosi bahut madadgar hain", expect: none}
+  - {id: w_ok_helpline, text: "bank ki helpline number do", expect: none}
+  - {id: w_ok_paani_gir, text: "paani gir gaya", expect: none}
+  - {id: w_ok_chai_gir, text: "chai gir gayi", expect: none}
+  - {id: w_ok_price_gir, text: "sone ka bhav gir gaya hai", expect: none}
+  - {id: w_ok_sar_dard, text: "sar mein dard hai, dawai de do", expect: none}
+  - {id: w_ok_chest_no, text: "seene mein dard nahi hai, main theek hoon", expect: none}
+  - {id: w_ok_fell_asleep, text: "I fell asleep early yesterday", expect: none}
+  - {id: w_ok_dv_gir, text: "पानी गिर गया", expect: none}
 
 ladder:
   # spacing 300 s (5 min, the default) and 180 s: the shape must scale with the spacing

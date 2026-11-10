@@ -226,15 +226,24 @@ async def test_the_child_hears_the_level_but_never_the_words(rig):
     assert "HIGH" in note and "CBI" not in note and "warrant" not in note
 
 
-async def test_gap_g1_an_unpaired_family_stays_in_shadow_so_s4p_logs_but_does_not_alert(w):
-    """Pins today's behaviour: ``shadow_start_ms`` is only set when a phone pairs (service.pair). For a server-side-only family S4P is logged as
-    'shadow' and the child is NOT alerted. The lead must decide how a server-side family starts (or skips) its shadow week."""
+async def _server_side_only(w, dialogue_id_pred):
     fam, parent = await w.family()
     await w.hub.fam.give_consent(parent.id, "call_listening", ConsentSource.ADMIN_CHAT)
     alerts = FakeAlertPort()
     device = DeviceService(alerts=alerts, consent=_DeviceConsent(w.hub), parents=_DeviceParents(w.hub), brand="Robin")
     w.settings.robin_listen_in_enabled = True
-    svc = ScreeningService(w.ctx, bridge=FakeCallBridge({"c1": script_of(next(x for x in DATA if x.get("min") == "HIGH"))}), device=lambda: device)
+    d = next(x for x in DATA if dialogue_id_pred(x))
+    svc = ScreeningService(w.ctx, bridge=FakeCallBridge({"c1": script_of(d)}), device=lambda: device)
     res = await svc.run_listen_in("c1", fam, parent)
-    assert res.reason == "HIGH" and "listen.warn" in res.lines  # the parent is still warned on the call
-    assert alerts.calls == []
+    return res, alerts, parent, device
+
+
+async def test_g1_closed_an_unpaired_family_still_alerts_the_child_on_call_pattern_high(w):
+    """T16 gap G1 (closed): a server-side-only family (no phone ever paired, so ``shadow_start_ms`` is None and the engine says 'shadow') must NOT have a
+    call-pattern HIGH silenced. S4P HIGH is exempt from the shadow week (per-tier ``shadow_exempt``); the child is alerted at any hour."""
+    res, alerts, parent, device = await _server_side_only(w, lambda x: x.get("min") == "HIGH")
+    assert res.reason == "HIGH" and "listen.warn" in res.lines
+    assert device.store.state(parent.id).shadow_start_ms is None  # really the unpaired case
+    assert [c["tier"] for c in alerts.of(parent.id) if c["scenario"] == "S4P"] == ["HIGH"]
+
+
