@@ -431,6 +431,9 @@ def main(argv: list[str] | None = None) -> int:
     from friday.qa.cli import add_parser as _add_qa
 
     _add_qa(sub)  # `friday qa`: manual QA with real calls to the founder's own phone
+    from friday.robin.calltest import add_parser as _add_robin
+
+    _add_robin(sub)  # `friday robin call-test`: ONE supervised check-in call to the founder number
     from friday.chatbot.cli import add_parser as _add_chatbot
 
     _add_chatbot(sub)  # `friday chatbot wishlist | status | templates check | templates render`
@@ -617,6 +620,10 @@ def main(argv: list[str] | None = None) -> int:
         from friday.qa.cli import run_command as run_qa_command
 
         return run_qa_command(args)
+    if args.cmd == "robin":  # one supervised call, founder number only
+        from friday.robin.calltest import run_command as run_robin_command
+
+        return run_robin_command(args)
     if args.cmd == "docs":  # reads local files only; real API only if the provider is openai
         from friday.docunderstand.cli import run_command as run_docs_command
 

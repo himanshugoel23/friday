@@ -91,6 +91,10 @@ _s("checkin.greet",
    "Hello {parent}, this is {brand}, your AI assistant. Just a short check-in.",
    "Namaste {parent}, main {brand} bol rahi hoon, aapki AI assistant. Bas ek chhota sa haal-chaal.",
    "नमस्ते {parent}, मैं {brand} बोल रही हूँ, आपकी AI असिस्टेंट। बस एक छोटा सा हाल-चाल।")
+_s("call.repeat",
+   "Sorry, I could not hear that. Could you say it once more?",
+   "Maaf kijiye, mujhe sunai nahi diya. Kya aap ek baar phir bol sakte hain?",
+   "माफ़ कीजिए, मुझे सुनाई नहीं दिया। क्या आप एक बार फिर बोल सकते हैं?")
 _s("checkin.q.ate", "Have you eaten today?", "Aapne aaj kuch khaya?", "आपने आज कुछ खाया?")
 _s("checkin.q.slept", "Did you sleep well last night?", "Raat ko neend achhi aayi?", "रात को नींद अच्छी आई?")
 _s("checkin.q.pain", "Is there any pain or discomfort today?", "Aaj kisi tarah ka dard ya takleef hai?", "आज किसी तरह का दर्द या तकलीफ़ है?")

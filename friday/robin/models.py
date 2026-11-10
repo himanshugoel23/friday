@@ -207,8 +207,23 @@ class CallResult(StrEnum):
     REFUSED = "refused"
 
 
+class StepTiming(BaseModel):
+    """What happened on one step of a call, with NO words in it (PII-free: line id, milliseconds, STT confidence, a class)."""
+
+    line: str
+    speak_ms: int = 0
+    listen_ms: int = 0
+    confidence: float | None = None  # STT confidence of what the listener said (None: nothing heard or not reported)
+    heard: str = "none"  # none | yes | no | fine | help | stop | unclear | silence | text
+    barge_in: bool = False  # the listener spoke over Robin
+    repeated: bool = False  # Robin asked once more because nothing / nothing clear was heard
+
+
 class CallOutcome(BaseModel):
     result: CallResult
     detail: str = ""
     answers: list[AnswerRaw] = Field(default_factory=list)
     hung_up_early: bool = False
+    steps: list[StepTiming] = Field(default_factory=list)
+    duration_s: float = 0.0  # connected seconds
+    cost_inr: float = 0.0  # estimate (friday.pilot.estimate_cost_inr)
