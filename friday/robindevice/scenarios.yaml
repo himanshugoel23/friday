@@ -13,6 +13,7 @@
 #   money: true           -> a HIGH of this scenario may nudge the parent in quiet hours
 #   suppressible          -> 'this was fine' may teach a trusted number / lower repeats (never for money or remote access)
 #   shadow_exempt         -> true = alerts even in shadow week (all false: the founder's rule is log-only first)
+#   tiers[].shadow_exempt -> the same for ONE tier. Only S4P HIGH uses it (a call-pattern HIGH is never silenced; WATCH stays log-only)
 version: 1
 unverified: true
 
@@ -119,7 +120,7 @@ scenarios:
       - {id: payment_app, predicate: payment_app_after_call, params: {within_min: 15, ended_within_min: 10}, weight: 2, why: "{app} opened soon after"}
     tiers:
       - {tier: WATCH, min_score: 3, prompt: s4_watch, child_alert: true}
-      - {tier: HIGH, min_score: 6, prompt: s4_high, child_alert: true, full_screen: true}
+      - {tier: HIGH, min_score: 6, prompt: s4_high, child_alert: true, full_screen: true, shadow_exempt: true}   # T16 G1: HIGH alerts in the shadow week too (a server-side-only family has no other signal); WATCH stays log-only
 
   - id: S5
     name: large_payment

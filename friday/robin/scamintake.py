@@ -37,7 +37,7 @@ MAX_IMAGE_BYTES = 8_000_000
 REPEAT_WINDOW = timedelta(days=30)  # the audit log itself is kept 30 days
 CHILD_DEDUPE_MIN = 10  # the same category for the same parent within 10 minutes tells the child once
 MONEY_CATEGORIES = frozenset({
-    "otp_pin", "collect_refund", "safe_account", "investment", "relative_trouble", "prize", "kyc_block", "utility", "pension",
+    "otp_pin", "collect_refund", "safe_account", "investment", "job_fee", "relative_trouble", "prize", "kyc_block", "utility", "pension",
     "digital_arrest", "link_lookalike", "apk_file", "remote_access",
 })  # the scam wants money, a code or an install: the child gets the first-hour playbook text
 _RANK = {"NO_SIGNS_FOUND": 0, "UNSURE": 1, "RISKY": 2, "SCAM_LIKELY": 3}

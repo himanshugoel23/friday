@@ -109,4 +109,14 @@ scenarios:
   - {id: ok_hard_kyc_branch, lang: en, label: benign, text: "KYC update reminder: please visit your nearest branch with your documents by 31 March."}
   - {id: ok_hard_police_cert, lang: en, label: benign, text: "Police verification certificate is ready, please collect it from the thana."}
   - {id: ok_hard_dinner_money, lang: hinglish, label: benign, text: "Aaj raat ka khana bahar khayenge, 500 rupaye bhej do mujhe UPI se."}
+  # --- T18 follow-ups (2026-11-10): job-fee rule, "aaj raat" is urgent only when it is a deadline
+  - {id: job_fee_hg, lang: hinglish, label: scam, min: RISKY, text: "Aapka naukri ke liye selection ho gaya hai. Joining ke liye 3000 rupaye registration fees bhej do, offer letter mil jayega."}
+  - {id: job_fee_dv, lang: hi, label: scam, min: RISKY, text: "आपका नौकरी के लिए चयन हो गया है। कन्फर्म करने के लिए 2500 रुपये रजिस्ट्रेशन फीस भेजें।"}
+  - {id: job_fee_wfh, lang: en, label: scam, min: RISKY, text: "Work from home data entry job, you are shortlisted. Pay Rs 1500 security deposit to receive your login."}
+  - {id: tonight_deadline_money, lang: hinglish, label: scam, high: true, min: RISKY, text: "Aaj raat tak 20000 rupaye bhej do, warna account band ho jayega."}
+  - {id: tonight_deadline_secret, lang: hinglish, label: scam, high: true, min: RISKY, text: "Aaj raat 10 baje tak 5000 rupaye bhej do aur kisi ko mat batana."}
+  - {id: ok_job_fee_warning, lang: en, label: benign, text: "Beware: no real company asks for a registration fee for a job. Never pay for a job offer."}
+  - {id: ok_school_registration, lang: en, label: benign, text: "School registration fee for the new term is due next week, please pay at the office."}
+  - {id: ok_job_offer_plain, lang: en, label: benign, text: "Congratulations, you are selected for the job. Please bring your documents on Monday for joining."}
+  - {id: ok_dinner_dv, lang: hinglish, label: benign, text: "Aaj raat ki party ke liye 1000 rupaye bhej do, main bhi aa raha hoon."}
   - {id: ok_hard_fund_news, lang: en, label: benign, text: "Mutual fund returns were 12 percent last year, says the newspaper."}

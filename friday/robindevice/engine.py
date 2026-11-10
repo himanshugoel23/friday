@@ -582,7 +582,7 @@ class ScenarioEngine:
         nudged = False
         for f in cands:
             sc = f.sc
-            shadow_eff = shadow and not sc.shadow_exempt
+            shadow_eff = shadow and not (sc.shadow_exempt or f.tdef.shadow_exempt)  # T16 G1: a call-pattern HIGH is never silenced by the shadow week
             if not self._pass_dedupe(st, f, now, shadow_eff):
                 continue
             self._apply_learning(st, f, now)

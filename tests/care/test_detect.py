@@ -133,3 +133,18 @@ def test_t18_rule_gaps_found_by_the_safety_eval():
     assert assess("मुझे लगता है मर जाना ही बेहतर है").tier == Tier.HIGH
     assert assess("mere pati ke jaane ke baad main bilkul akeli hu, ro rahi hu").tier == Tier.ELEVATED
     assert assess("akeli hu ghar pe").tier == Tier.NONE  # one weak signal alone stays quiet
+
+
+def test_t18_three_english_high_phrasings_and_food_hyperbole():
+    """T18 misses closed (2026-11-10). Engineering drafts: CLINICAL REVIEW NEEDED (docs/ROBIN_EVAL.md). Only HIGH rules were added; no threshold changed."""
+    for t in ("I don't see why I should keep living", "Everyone would be happier if I was gone", "I would rather be dead than live like this",
+              "I can't see the point in going on living", "I'd rather die than keep living like this"):
+        assert assess(t).tier == Tier.HIGH, t
+    for t in ("chai ke bina mar jaunga main", "wifi ke bina to main mar jaunga yaar", "चाय के बिना मर जाऊँगा", "I will die without my coffee", "I would rather die than eat that",
+              "I don't see why you need the report today", "I don't see the point in going on with this meeting"):
+        assert assess(t).tier == Tier.NONE, t
+
+
+def test_idiom_exemption_is_clause_local_so_it_cannot_hide_a_real_message():
+    assert assess("chai ke bina mar jaunga. sach mein mar jana chahti hoon").tier == Tier.HIGH
+    assert assess("mar jaunga chai ke bina, par asal mein zindagi se thak gaya hoon, jeene ka mann nahi").tier == Tier.HIGH

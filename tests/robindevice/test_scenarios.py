@@ -76,6 +76,9 @@ async def test_live(rig, case):
 async def test_shadow_logs_but_never_alerts(rig, case):
     st = await _play(rig, case, shadow=True)
     sc = case["scenario"]
+    if case["id"] == "s4p_pattern_driven":  # T16 G1: a call-pattern HIGH is exempt from the shadow week (per-tier shadow_exempt); WATCH below stays log-only
+        assert [a["tier"] for a in rig.alerts.of("p1") if a["scenario"] == "S4P"] == ["HIGH"]
+        return
     assert rig.alerts.calls == [], "shadow mode must not alert"
     assert st.prompts == {}, "shadow mode must not nudge the parent"
     assert _top(st, sc) == case["logged"]

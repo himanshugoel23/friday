@@ -7,6 +7,7 @@ fine', a number, a mood word. No model, no guessing: anything unclear stays ``No
 from __future__ import annotations
 
 import re
+import unicodedata
 
 _WORD = re.compile(r"[\wऀ-ॿ']+", re.UNICODE)
 
@@ -25,7 +26,37 @@ STOP = (
 )  # fmt: skip
 START = ("shuru karo", "shuru kar do", "start", "resume", "शुरू करो", "शुरू कर दो")
 THREAT = ("being threatened", "threatening me", "i am in danger", "dhamki", "dhamka", "mujhe khatra", "koi mujhe maar", "धमकी", "धमका", "ख़तरा", "खतरा")
-HELP = ("help", "madad", "bachao", "bachaao", "ambulance", "emergency", "मदद", "बचाओ", "एम्बुलेंस")
+# HELP words are matched as WHOLE words after squashing repeated letters (see ``_squash``): "helppp", "madadd", "bachaooo" still count, "helpful" and
+# "madadgar" do not. A phrase is several words in a row. Never shorten this list: a missed help word is worse than a false alarm.
+HELP = (
+    "help", "helpme", "madad", "bachao", "bachaao", "bachaiye", "bacha lo", "bachalo", "ambulance", "emergency",
+    "मदद", "बचाओ", "बचाइए", "बचा लो", "एम्बुलेंस", "हेल्प",
+)  # fmt: skip
+# Fall / chest-pain / breathing wording is SOS-grade help too. Each pattern is a run of words; "a|b" = either word, "~" = up to 4 other words
+# in between. NEVER a bare "gir" or "dard" ("paani gir gaya", "sar dard" must not fire): a fall needs the person ("gir gayi hoon", "main gir
+# gaya", "uth nahi pa raha"), pain needs the chest ("seene mein ... dard"). Patterns marked GUARDED are skipped when a "no/nahi" sits right
+# before or within two words after ("chest pain nahi hai"). Engineering draft: needs native-speaker and clinical review (docs/ROBIN_EVAL.md).
+_AA = "gaya|gayi|gai|gayee|gaye|gayeen|pada|padi|pade"
+_HOON = "hoon|hun|hu|hoo"
+_JAUNGA = "jaunga|jaungi|jaaunga|jaaungi|jaonga|jaoonga"
+EMERGENCY_BODY: tuple[tuple[str, bool], ...] = (  # (pattern, guarded)
+    # --- fall ---
+    (f"gir {_AA} {_HOON}", False), (f"main|mai|mujhe gir {_AA}", False),
+    ("uth|utha nahi|nahin|nhi|nai pa|paa|pata|pati|paaya|paya|sak|sakta|sakti|sakte|ja|jaa|jata|jati", False),
+    (f"chakkar|chakkr|chakar ~ gir {_JAUNGA}", False), ("behosh|behoshi ho|hone|hojaunga|hojaungi", True),
+    ("i have|had|am fallen", False), ("ive|i've fallen", False), ("i fell down|over|on|from|and", False),
+    ("cant|can't|cannot|couldnt|couldn't|unable ~ get|stand up from|off", False),
+    ("गिर गया|गई|गयी|गये|गए|पड़ा|पड़ी हूँ|हूं|हु", False), ("मैं|मै|मुझे गिर गया|गई|गयी|पड़ा|पड़ी", False), ("उठ|उठा नहीं|नही|नहिं पा|सक|जा", False),
+    ("चक्कर ~ गिर जाऊँगा|जाऊंगा|जाऊँगी|जाऊंगी|जाउंगा|जाउंगी", False), ("बेहोश हो|होने", True),
+    # --- chest pain, heart, breathing ---
+    ("seene|seena|sine|sina|chhati|chhaati|chaati|chest ~ dard|pain|dukh|hurt|hurts|hurting|tight|jakad|bhaari|bhari", True), ("pain|hurts|hurt ~ chest|seene|seena", True),
+    ("dil ~ dard ho", True), ("dil ka|ki daura|dora", False), ("heart attack", False), ("heartattack", False),
+    ("saans|sans|saas nahi|nahin|nhi aa|aati|le|ruk|ban", False), ("saans|sans|saas lene mein|me takleef|dikkat|taklif|mushkil", False),
+    ("cant|can't|cannot|couldnt|couldn't|unable ~ breathe|breathing", False), ("can not breathe", False), ("difficulty|trouble breathing|breathe", False),
+    ("short of breath", False), ("shortness of breath", False),
+    ("सीने|छाती ~ दर्द", True), ("दिल का दौरा", False), ("हार्ट अटैक", False),
+    ("सांस|साँस नहीं|नही आ|ले|रुक", False), ("सांस|साँस लेने ~ तकलीफ|दिक्कत|मुश्किल", False),
+)  # fmt: skip
 FINE = (
     "i am fine", "i'm fine", "im fine", "all fine", "i have it", "main theek", "mai theek", "sab theek", "theek hoon", "theek hun", "theek hai",
     "ठीक हूँ", "ठीक हूं", "सब ठीक", "मैं ठीक", "मै ठीक",
@@ -53,6 +84,57 @@ def _has_phrase(text: str, phrases: tuple[str, ...]) -> bool:
     return any(p in t for p in phrases)
 
 
+_REPEAT = re.compile(r"(.)\1+")
+_NEG = frozenset({"no", "not", "never", "nahi", "nahin", "nhi", "nai", "नहीं", "नही"})
+_FILLER_MAX = 4
+
+
+def _squash(token: str) -> str:
+    """Repeated letters count once ("helppp" == "help", "bachaooo" == "bachao"); applied to the pattern words and to the heard words alike (NFC first)."""
+    return _REPEAT.sub(r"\1", unicodedata.normalize("NFC", token))
+
+
+def _tokens(text: str) -> list[str]:
+    return [_squash(w) for w in words((text or "").replace("\u2019", "'"))]
+
+
+def _compile(pattern: str) -> tuple[frozenset[str] | None, ...]:
+    return tuple(None if p == "~" else frozenset(_squash(a) for a in p.split("|")) for p in pattern.split())
+
+
+def _match_from(toks: list[str], pat: tuple[frozenset[str] | None, ...], i: int, j: int) -> int | None:
+    """End index when ``pat[j:]`` matches ``toks`` starting at ``i`` (whole words only), else None."""
+    if j == len(pat):
+        return i
+    p = pat[j]
+    if p is None:
+        for gap in range(_FILLER_MAX + 1):
+            end = _match_from(toks, pat, i + gap, j + 1)
+            if end is not None:
+                return end
+        return None
+    if i < len(toks) and toks[i] in p:
+        return _match_from(toks, pat, i + 1, j + 1)
+    return None
+
+
+def _has_words(text: str, patterns: tuple[tuple[str, bool], ...]) -> bool:
+    toks = _tokens(text)
+    for raw, guarded in patterns:
+        pat = _COMPILED.setdefault(raw, _compile(raw))
+        for i in range(len(toks)):
+            end = _match_from(toks, pat, i, 0)
+            if end is None:
+                continue
+            if guarded and ((i > 0 and toks[i - 1] in _NEG) or any(t in _NEG for t in toks[end : end + 2])):
+                continue
+            return True
+    return False
+
+
+_COMPILED: dict[str, tuple[frozenset[str] | None, ...]] = {}
+
+
 def yesno(text: str) -> bool | None:
     """True / False / None (unclear). A 'no' word wins ('nahi chahiye' is no even with 'ji')."""
     ws = words(text)
@@ -76,7 +158,8 @@ def is_threat(text: str) -> bool:
 
 
 def is_help(text: str) -> bool:
-    return _has_phrase(text, HELP)
+    """A help word (whole word; stretched spellings count) or a fall / chest-pain / breathing phrase: SOS-grade."""
+    return _has_words(text, tuple((h, False) for h in HELP)) or _has_words(text, EMERGENCY_BODY)
 
 
 def is_fine(text: str) -> bool:

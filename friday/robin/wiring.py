@@ -66,6 +66,7 @@ class RobinHub:
         self.intro = IntroService(ctx, self.fam)
         self.checkin = CheckinService(ctx, self.fam, self.meds, self.alerts, retries=retries, retry_minutes=retry_minutes)
         self.sos = SosService(ctx, self.alerts)
+        ctx.help_handler = self._help_on_call
         self.greetings = GreetingService(ctx, self.fam, self.meds)
         self.authority = AuthorityService(ctx)
         self.alerts.authority = self.authority
@@ -102,6 +103,17 @@ class RobinHub:
         except Exception:  # noqa: BLE001
             log.exception("robin: listen-in failed")
         return "refused"
+
+    async def _help_on_call(self, family: Family, parent: Member, purpose: str, said: str) -> bool:
+        """A help / threat word heard on a call Robin placed to the parent (alert nudge, intro, medicine, check-in...): the same EMERGENCY as the
+        SOS button (same dedupe key, so never twice). True only when the alert was accepted. Security path: ignores time of day."""
+        c = self.ctx
+        bucket = int(c.clock.now().timestamp() // 300)
+        if said and ans.is_threat(said) and not ans.is_help(said):
+            res = await self.alerts.raise_alert(RobinAlert(parent.id, Tier.EMERGENCY, "threat", f"{family.parent_label} says they are being threatened (on a {purpose} call)", dedupe_key=f"threat:{parent.id}:{bucket}", category="physical", signals=("parent_said_threat",)))
+        else:
+            res = await self.alerts.raise_alert(RobinAlert(parent_member_id=parent.id, tier=Tier.EMERGENCY, scenario="sos", why=f"{family.parent_label} asked for help on the {purpose} call", dedupe_key=f"sos:{parent.id}:{bucket}", signals=("parent_said_help",)))
+        return bool(res.accepted)
 
     # ------------------------------------------------------------------ the parent's door (T07): the pipeline's ONE early hook
     async def parent_inbound(self, msg: InboundMessage) -> bool:

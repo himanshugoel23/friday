@@ -99,6 +99,15 @@ cases:
     logged: HIGH
     alerts: [HIGH]
     prompt: s4_high
+  - id: s4p_watch_only
+    scenario: S4P
+    start: "2026-09-09T14:00"
+    steps:
+      - {at: 0, type: unknown_call_started, call_id: c1, number_class: mobile}
+      - {at: 2, call_pattern: WATCH, call_id: c1}
+    logged: WATCH
+    alerts: [WATCH]
+    prompt: s4_watch
   - id: s5_large_new_payee_debit
     scenario: S5
     start: "2026-09-09T14:00"

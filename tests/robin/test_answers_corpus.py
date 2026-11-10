@@ -48,3 +48,35 @@ def test_corpus_accuracy_floor_and_safety_words_never_missed():
 def test_low_confidence_is_never_read_as_yes_or_fine():
     for t in ("haan", "theek hoon", "bilkul"):
         assert ans.classify(t, 0.05) == "unclear"
+
+
+# ---------------------------------------------------------------- fall / chest pain / breathing are SOS-grade help; "help" is a whole word; stretched spellings still count
+FALL_CHEST_HELP = [
+    "main gir gayi hoon, uth nahi pa rahi", "मैं गिर गया हूँ, उठ नहीं पा रहा", "main gir gaya hoon", "gir gayi hu", "bathroom mein gir padi hoon", "uth nahi sakta", "utha nahi ja raha",
+    "seene mein bahut dard ho raha hai", "mere seene mein dard hai", "सीने में बहुत दर्द है", "chhati mein dard", "chakkar aa raha hai, gir jaunga", "चक्कर आ रहा है गिर जाऊँगी",
+    "I fell down and can't get up from the floor", "I have chest pain", "pain in my chest", "I can't breathe", "saans nahi aa rahi", "saans lene mein takleef", "लगता है heart attack है",
+    "behosh ho jaunga", "I've fallen",
+]
+STRETCHED_HELP = ["helppp", "HELPPPP", "madadd", "madaaad", "bachaooo", "bachaaao", "मददद", "helpme", "help!!!", "plzzz helllp", "bachalo", "hellp me"]
+NOT_HELP = [
+    "the bank clerk was very helpful today", "padosi bahut madadgar hain", "helpline number do", "he is helping me", "paani gir gaya", "chai gir gayi", "sone ka bhav gir gaya hai",
+    "sar mein dard hai", "dard ki dawa de do", "seene mein dard nahi hai", "I have no chest pain", "I fell asleep early", "पानी गिर गया", "mera chakkar lagane ka mann hai", "unhelpful staff",
+]
+
+
+@pytest.mark.parametrize("text", FALL_CHEST_HELP + STRETCHED_HELP)
+def test_fall_chest_and_stretched_help_are_help(text):
+    assert ans.is_help(text), text
+    assert ans.classify(text, 0.05) == "help", text  # even at very low STT confidence
+
+
+@pytest.mark.parametrize("text", NOT_HELP)
+def test_whole_word_and_phrase_matching_does_not_fire_on_everyday_talk(text):
+    assert not ans.is_help(text), text
+
+
+def test_help_recall_never_dropped_against_the_old_substring_rule():
+    """Every phrase the old substring rule matched as a help WORD (standing alone, with typical suffixes/stretches) still matches now."""
+    for w in ("help", "madad", "bachao", "bachaao", "ambulance", "emergency", "मदद", "बचाओ", "एम्बुलेंस"):
+        for form in (w, w.upper(), f"{w}!", f"{w}, {w}", f"mujhe {w} chahiye", f"{w[:-1]}{w[-1] * 3}" if w.isascii() else w):
+            assert ans.is_help(form), form

@@ -206,7 +206,50 @@ async def test_help_word_ends_call_with_help_requested_even_over_greeting(approv
     assert out.result == CallResult.ANSWERED and out.detail == "help_requested"
     leg = FakeLeg(clock, barge={0: Transcription(text="bachao", confidence=0.5)})
     out2 = await call(leg, clock)
-    assert out2.detail == "help_requested" and leg.spoken[-1].startswith("Papa") or "Papa" in leg.spoken[-1]
+    assert out2.detail == "help_requested"
+
+
+async def _help_call(clock: Clock, heard: list[Any], on_help: Any) -> tuple[Any, FakeLeg]:
+    leg = FakeLeg(clock, heard=heard)
+    fam, mem = parent()
+    caller = TelephonyParentCaller(Tel(leg), settings_for(), clock=clock, costs=CallCostLedger(lambda: date(2026, 1, 5)))
+    out = await caller.converse(member=mem, family=fam, purpose="nudge", steps=base_steps(SLOTS), dedupe_key="d", brand="Robin", on_help=on_help)
+    return out, leg
+
+
+async def test_i_have_told_the_child_is_spoken_only_when_the_alert_was_accepted(approved):
+    clock = Clock()
+    seen: list[str] = []
+
+    async def accepted(said: str) -> bool:
+        seen.append(said)
+        return True
+
+    out, leg = await _help_call(clock, ["main gir gayi hoon, uth nahi pa rahi"], accepted)
+    assert out.detail == "help_requested" and seen == ["main gir gayi hoon, uth nahi pa rahi"]
+    assert leg.spoken[-1] == lines.say("sos.parent", "hinglish", brand="Robin", **SLOTS)
+
+
+async def test_when_the_alert_is_not_accepted_the_honest_line_is_spoken_never_i_have_told(approved):
+    clock = Clock()
+
+    async def refused(said: str) -> bool:  # noqa: ARG001
+        return False
+
+    out, leg = await _help_call(clock, ["madad"], refused)
+    told = lines.say("sos.parent", "hinglish", brand="Robin", **SLOTS)
+    assert out.detail == "help_requested" and told not in leg.spoken
+    assert leg.spoken[-1] == lines.say("widget.sos_failed", "hinglish", brand="Robin", **SLOTS)
+
+
+async def test_a_failing_help_handler_or_none_never_claims_the_child_was_told(approved):
+    async def boom(said: str) -> bool:  # noqa: ARG001
+        raise RuntimeError("down")
+
+    for handler in (boom, None):
+        out, leg = await _help_call(Clock(), ["bachaooo"], handler)
+        assert out.detail == "help_requested"
+        assert leg.spoken[-1] == lines.say("widget.sos_failed", "hinglish", brand="Robin", **SLOTS)
 
 
 async def test_stop_is_honoured(approved):

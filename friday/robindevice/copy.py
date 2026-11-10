@@ -171,6 +171,11 @@ REASONS: Final[dict[str, dict[str, str]]] = {
         "hinglish": "Ismein group ya app ke zariye bade ya pakke munafe ka waada hai. Aise offer aksar dhokha hote hain.",
         "hi": "इसमें ग्रुप या ऐप के ज़रिए बड़े या पक्के मुनाफ़े का वादा है। ऐसे ऑफ़र अक्सर धोखा होते हैं।",
     },
+    "job_fee": {
+        "en": "It offers a job but asks you to pay a fee first (registration, joining or deposit). Real employers do not ask for money to give a job.",
+        "hinglish": "Ismein naukri ka offer hai par pehle fees (registration, joining ya deposit) maangi hai. Asli company naukri dene ke liye paise nahi maangti.",
+        "hi": "इसमें नौकरी का ऑफ़र है पर पहले फ़ीस (रजिस्ट्रेशन, जॉइनिंग या डिपॉज़िट) माँगी है। असली कंपनी नौकरी देने के लिए पैसे नहीं माँगती।",
+    },
     "safe_account": {
         "en": "It asks you to move money to a special 'verification' or 'RBI' account. No bank or officer does this.",
         "hinglish": "Ismein paise ek khaas 'verification' ya 'RBI' account mein daalne ko kaha hai. Koi bank ya afsar aisa nahi karta.",
