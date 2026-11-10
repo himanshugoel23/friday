@@ -39,6 +39,19 @@ DIGEST_HOUR = 20
 WEEKLY_COUNT_WEEKDAY = 6  # Sunday
 
 
+def base_steps(slots: dict[str, str]) -> list[Step]:
+    """The fixed part of the daily check-in call (greeting, six short questions, goodbye). Also what `friday robin call-test` speaks."""
+    return [
+        Step(line="checkin.greet", slots=slots),
+        Step(line="checkin.q.ate", slots=slots, expect="yesno"),
+        Step(line="checkin.q.slept", slots=slots, expect="yesno"),
+        Step(line="checkin.q.pain", slots=slots, expect="yesno", on_yes="checkin.pain_ack"),
+        Step(line="checkin.q.mood", slots=slots, expect="mood"),
+        Step(line="checkin.q.strange", slots=slots, expect="yesno", on_yes="checkin.strange_ack"),
+        Step(line="checkin.bye", slots=slots),
+    ]
+
+
 def parse_answers(out: CallOutcome) -> dict[str, Any]:
     said = {a.line: a.text for a in out.answers}
 
@@ -75,14 +88,7 @@ class CheckinService:
     # ------------------------------------------------------------------ the call plan
     async def plan_steps(self, family: Family, parent: Member, *, weekly: bool) -> tuple[list[Step], list[Step]]:
         slots = await self.ctx.slots(family)
-        steps = [
-            Step(line="checkin.greet", slots=slots),
-            Step(line="checkin.q.ate", slots=slots, expect="yesno"),
-            Step(line="checkin.q.slept", slots=slots, expect="yesno"),
-            Step(line="checkin.q.pain", slots=slots, expect="yesno", on_yes="checkin.pain_ack"),
-            Step(line="checkin.q.mood", slots=slots, expect="mood"),
-            Step(line="checkin.q.strange", slots=slots, expect="yesno", on_yes="checkin.strange_ack"),
-        ]
+        steps = base_steps(slots)[:-1]
         if await self.ctx.has_consent(parent, ConsentItem.MEDICINE_REMINDERS) and await self.meds.meds(family):
             steps.append(Step(line="checkin.q.meds", slots=slots, expect="yesno"))
         count_steps: list[Step] = []
@@ -154,6 +160,8 @@ class CheckinService:
                 await self.store.cas(rec.id, "calling", status="stopped", due_at=None, data=d)
                 await self.fam.pause(parent.id, "voice")
                 return "stopped"
+            if out.detail == "help_requested":  # 'madad' on the check-in call: the same EMERGENCY as the SOS button (same dedupe key, so never twice)
+                await self.alerts.raise_alert(RobinAlert(parent_member_id=parent.id, tier=Tier.EMERGENCY, scenario="sos", why=f"{fam.parent_label} asked for help on the check-in call", dedupe_key=f"sos:{parent.id}:{int(now.timestamp() // 300)}", signals=("parent_said_help",)))
             res = parse_answers(out)
             d["result"] = res
             await self.store.cas(rec.id, "calling", status="done", due_at=None, data=d)

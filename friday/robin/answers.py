@@ -12,11 +12,11 @@ _WORD = re.compile(r"[\wऀ-ॿ']+", re.UNICODE)
 
 YES = frozenset({
     "yes", "yeah", "yep", "yup", "sure", "ok", "okay", "haan", "han", "haa", "ha", "hanji", "haanji", "ji", "jee", "bilkul", "zaroor", "theek",
-    "thik", "sahi", "lee", "li", "liya", "khaya", "khayi", "soya", "hmm",
+    "thik", "sahi", "hnji", "hn", "hnn", "haanjee", "lee", "li", "liya", "khaya", "khayi", "soya", "hmm",
     "हाँ", "हां", "हा", "जी", "ठीक", "बिल्कुल", "ज़रूर", "जरूर", "ली", "ले", "लिया", "खाया", "सोया",
 })  # fmt: skip
 NO = frozenset({
-    "no", "nope", "nah", "na", "naa", "nahi", "nahin", "nai", "nhi", "mat", "never", "nahee",
+    "no", "nope", "nah", "na", "naa", "nahi", "nahin", "nai", "nhi", "mat", "never", "nahee", "nhin", "nahiin", "nahn", "nahinji", "nahijee",
     "नहीं", "नही", "ना", "मत", "नहिं",
 })  # fmt: skip
 STOP = (
@@ -82,6 +82,32 @@ def is_help(text: str) -> bool:
 def is_fine(text: str) -> bool:
     """'I am fine' / 'I have it' said by the parent: the nudge ladder may stop."""
     return _has_phrase(text, FINE) and not any(w in NO for w in words(text))
+
+
+LOW_CONFIDENCE = 0.30  # below this an ordinary yes/no is not trusted (help / stop / threat words still count)
+
+
+def classify(text: str, confidence: float | None = None) -> str:
+    """One word for a short spoken answer: silence | help | stop | no | fine | yes | unclear.
+
+    Safety words first (help, threat, stop), then 'no' (a 'no' word wins), 'I am fine', 'yes'. Empty text is
+    silence. A low-confidence transcript is 'unclear' unless it carries a help / threat / stop phrase: Robin
+    never reads 'all is well' or consent into noise.
+    """
+    if not (text or "").strip():
+        return "silence"
+    if is_help(text) or is_threat(text):
+        return "help"
+    if is_stop(text):
+        return "stop"
+    if confidence is not None and confidence < LOW_CONFIDENCE:
+        return "unclear"
+    yn = yesno(text)
+    if yn is False:
+        return "no"
+    if is_fine(text):
+        return "fine"
+    return "yes" if yn else "unclear"
 
 
 def count(text: str) -> int | None:

@@ -14,17 +14,21 @@ recorded (``record=False``). Only the words the listener says are returned, as t
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import time
 from collections.abc import Callable
+from datetime import UTC, date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from friday.calls.numbers import is_emergency
 from friday.core.logging import get_logger, mask_phone
-from friday.core.models import DialStatus, Language, OutboundCallRequest
+from friday.core.models import AudioClass, DialStatus, Language, OutboundCallRequest
 from friday.qa.override import note_pending_line, pending_lines_allowed
 from friday.robin import answers as ans
 from friday.robin import lines
-from friday.robin.models import AnswerRaw, CallOutcome, CallResult, Family, Member, Step
+from friday.robin.models import AnswerRaw, CallOutcome, CallResult, Family, Member, Step, StepTiming
 
 log = get_logger(__name__)
 
@@ -37,13 +41,38 @@ _STATUS = {
 }
 _LANG = {"hinglish": Language.HINGLISH, "hi": Language.HI, "en": Language.EN}
 LISTEN_S = 8.0
+_MACHINE = (AudioClass.VOICEMAIL, AudioClass.IVR_PROMPT)  # far end is a machine: not a reached person
+_IST = ZoneInfo("Asia/Kolkata")
+
+
+class CallCostLedger:
+    """Estimated call cost (rupees, ``friday.pilot.estimate_cost_inr``) per family per IST day, in memory, and one PII-free log line per call
+    (family id, day, call and day totals; never a number or a word). Connected seconds only; an unanswered ring costs nothing here."""
+
+    def __init__(self, today: Callable[[], date] | None = None) -> None:
+        self._today = today or (lambda: datetime.now(UTC).astimezone(_IST).date())
+        self.totals: dict[tuple[str, str], float] = {}
+
+    def add(self, family_id: str, seconds: float) -> float:
+        from friday.pilot import estimate_cost_inr
+
+        cost = float(estimate_cost_inr(seconds))
+        key = (family_id, self._today().isoformat())
+        self.totals[key] = round(self.totals.get(key, 0.0) + cost, 1)
+        log.info("robin: call cost estimate family=%s day=%s call_inr=%.1f day_inr=%.1f seconds=%.0f", family_id, key[1], cost, self.totals[key], seconds)
+        return cost
+
+    def per_family_day(self) -> dict[tuple[str, str], float]:
+        return dict(self.totals)
 
 
 class TelephonyParentCaller:
     def __init__(
-        self, telephony: Any, settings: Any, *, ring_timeout_s: int = 25, paused: Callable[[], bool] = lambda: False
+        self, telephony: Any, settings: Any, *, ring_timeout_s: int = 25, paused: Callable[[], bool] = lambda: False,
+        clock: Callable[[], float] = time.monotonic, costs: CallCostLedger | None = None,
     ) -> None:  # fmt: skip
         self._telephony, self.settings, self.ring_timeout_s, self.paused = telephony, settings, ring_timeout_s, paused
+        self._clock, self.costs = clock, costs or CallCostLedger()
 
     def _tel(self) -> Any:
         return self._telephony() if callable(self._telephony) else self._telephony
@@ -66,7 +95,7 @@ class TelephonyParentCaller:
 
     async def converse(
         self, *, member: Member, family: Family, purpose: str, steps: list[Step], dedupe_key: str, brand: str, max_seconds: int = 180
-    ) -> CallOutcome:  # noqa: ARG002
+    ) -> CallOutcome:
         refusal = self._refusal(member.phone, [s.line for s in steps])
         if refusal is not None:
             return refusal
@@ -81,29 +110,90 @@ class TelephonyParentCaller:
             log.warning("robin: call to %s not placed (%s)", mask_phone(member.phone), type(e).__name__)
             return CallOutcome(result=CallResult.FAILED, detail=type(e).__name__)
         answers: list[AnswerRaw] = []
+        timings: list[StepTiming] = []
+        t_answer: float | None = None
+
+        def finish(result: CallResult, detail: str, *, early: bool = False) -> CallOutcome:
+            secs = round(max(0.0, self._clock() - t_answer), 1) if t_answer is not None else 0.0
+            cost = self.costs.add(family.id, secs) if t_answer is not None else 0.0
+            return CallOutcome(result=result, detail=detail, answers=answers, hung_up_early=early, steps=timings, duration_s=secs, cost_inr=cost)
+
+        async def say(key: str, step_slots: dict[str, str]) -> Any:
+            return await leg.speak(lines.say(key, member.language, brand=brand, **step_slots), lang)
+
         try:
-            status = await leg.wait_for_answer(self.ring_timeout_s)
-            if status != DialStatus.ANSWERED:
-                return CallOutcome(result=_STATUS.get(status, CallResult.FAILED), detail=str(status))
+            try:
+                status = await asyncio.wait_for(leg.wait_for_answer(self.ring_timeout_s), self.ring_timeout_s + 5)
+            except TimeoutError:  # the provider never reported: the phone did not pick up in time
+                return finish(CallResult.NO_ANSWER, "ring_timeout")
+            if status != DialStatus.ANSWERED:  # VOICEMAIL is an answering machine: NOT reached (no ack, no check-in done, retry / ladder go on)
+                return finish(_STATUS.get(status, CallResult.FAILED), "voicemail" if status == DialStatus.VOICEMAIL else str(status))
+            t_answer = self._clock()
+            silent_in_a_row = 0
             for step in steps:
-                await leg.speak(lines.say(step.line, member.language, brand=brand, **step.slots), lang)
+                if self._clock() - t_answer > max_seconds:
+                    return finish(CallResult.ANSWERED, "max_duration")
+                t0 = self._clock()
+                barge = await say(step.line, step.slots)  # a leg may return what the listener said OVER Robin (barge-in); real legs that cannot return None
+                timing = StepTiming(line=step.line, speak_ms=int((self._clock() - t0) * 1000))
+                timings.append(timing)
+                barge_text = (getattr(barge, "text", "") or "").strip() if isinstance(getattr(barge, "text", None), str) else ""
+                if barge_text:
+                    timing.barge_in = True
                 if step.expect == "none":
-                    continue
-                heard = await leg.listen(LISTEN_S)
-                said = (getattr(heard, "text", "") or "")[:200]
+                    if barge_text and (ans.is_help(barge_text) or ans.is_threat(barge_text) or ans.is_stop(barge_text)):  # safety words are honoured even over the greeting
+                        said, conf = barge_text[:200], getattr(barge, "confidence", None)
+                    else:
+                        continue
+                else:
+                    said, conf = barge_text[:200], getattr(barge, "confidence", None)
+                    repeated = False
+                    while True:
+                        if not said:  # nothing said over Robin: listen
+                            t1 = self._clock()
+                            try:
+                                heard = await asyncio.wait_for(leg.listen(LISTEN_S), LISTEN_S + 5)
+                            except TimeoutError:
+                                heard = None
+                            timing.listen_ms += int((self._clock() - t1) * 1000)
+                            if heard is not None and getattr(heard, "audio_class", None) in _MACHINE and not answers:  # a greeting / IVR, not a person
+                                return finish(CallResult.NO_ANSWER, "voicemail")
+                            said, conf = (getattr(heard, "text", "") or "").strip()[:200], getattr(heard, "confidence", None)
+                        kind = ans.classify(said, conf)
+                        unclear = kind == "silence" or (kind == "unclear" and step.expect == "yesno")
+                        if not unclear or repeated:
+                            break
+                        repeated = True  # one gentle 'say it again', never more
+                        timing.repeated = True
+                        await say("call.repeat", step.slots)
+                        said, conf = "", None
+                    if kind == "silence":
+                        timing.heard = "silence"
+                        silent_in_a_row += 1
+                        answers.append(AnswerRaw(line=step.line, text=""))
+                        if silent_in_a_row >= 2:  # picked up but nobody speaks (pocket, hold): hang up; with no word at all this is NOT a reached parent
+                            return finish(CallResult.ANSWERED if any(a.text for a in answers) else CallResult.NO_ANSWER, "silence")
+                        continue
+                    silent_in_a_row = 0
+                kind = ans.classify(said, conf)
+                timing.confidence = conf
+                timing.heard = kind if step.expect == "yesno" or kind in ("help", "stop", "silence") else "text"
                 answers.append(AnswerRaw(line=step.line, text=said))
+                if ans.is_help(said) or ans.is_threat(said):  # 'madad' / 'help' / 'bachao': tell them the child is told; the caller raises the SOS
+                    await say("sos.parent", steps[0].slots)
+                    return finish(CallResult.ANSWERED, "help_requested")
+                if ans.is_stop(said):  # the parent said 'stop': say the pause line and end the call
+                    await say("pause.ack", steps[0].slots)
+                    return finish(CallResult.ANSWERED, "stop_requested")
                 yes = True if ans.is_fine(said) else ans.yesno(said)
                 reply = step.on_yes if yes is True else step.on_no if yes is False else None
-                if reply and not ans.is_stop(said):
-                    await leg.speak(lines.say(reply, member.language, brand=brand, **step.slots), lang)
-                if ans.is_stop(said):  # the parent said 'stop': say the pause line and end the call
-                    await leg.speak(lines.say("pause.ack", member.language, brand=brand, **steps[0].slots), lang)
-                    return CallOutcome(result=CallResult.ANSWERED, detail="stop_requested", answers=answers)
-            return CallOutcome(result=CallResult.ANSWERED, detail="spoken", answers=answers)
+                if reply:
+                    await say(reply, step.slots)
+            return finish(CallResult.ANSWERED, "spoken")
         except Exception as e:  # noqa: BLE001 - CallEnded (they hung up) and anything else
             early = type(e).__name__ == "CallEnded"
             log.info("robin: call to %s ended (%s)", mask_phone(member.phone), type(e).__name__)
-            return CallOutcome(result=CallResult.ANSWERED if early else CallResult.FAILED, detail=type(e).__name__, answers=answers, hung_up_early=early)
+            return finish(CallResult.ANSWERED if early else CallResult.FAILED, type(e).__name__, early=early)
         finally:
             with contextlib.suppress(Exception):
                 await leg.hangup()

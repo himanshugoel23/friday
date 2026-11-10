@@ -12,7 +12,7 @@ exist in `en` and `hinglish`. Female forms are used in Hindi (the voice is femal
 Items for the founder to look at first: `intro.*` and `notify.*` (the AI disclosure and the notification of the parent), `nudge.*` (wording on a
 possible scam call; never says a call IS a scam), `sos.*`, `screen.*` and `listen.*` (stubs, switches off), `fest.greeting` and the festival names.
 
-Total lines: **552** (252 spoken, 300 chat). Status of each: PENDING_FOUNDER_APPROVAL.
+Total lines: **555** (255 spoken, 300 chat). Status of each: PENDING_FOUNDER_APPROVAL.
 
 
 ## Spoken to the parent, the child or the second contact (on a call, or as a voice note)
@@ -55,6 +55,9 @@ Total lines: **552** (252 spoken, 300 chat). Status of each: PENDING_FOUNDER_APP
 | robin.checkin.greet.en | en | Hello {parent}, this is {brand}, your AI assistant. Just a short check-in. | PENDING |
 | robin.checkin.greet.hinglish | hinglish | Namaste {parent}, main {brand} bol rahi hoon, aapki AI assistant. Bas ek chhota sa haal-chaal. | PENDING |
 | robin.checkin.greet.hi | hi | नमस्ते {parent}, मैं {brand} बोल रही हूँ, आपकी AI असिस्टेंट। बस एक छोटा सा हाल-चाल। | PENDING |
+| robin.call.repeat.en | en | Sorry, I could not hear that. Could you say it once more? | PENDING |
+| robin.call.repeat.hinglish | hinglish | Maaf kijiye, mujhe sunai nahi diya. Kya aap ek baar phir bol sakte hain? | PENDING |
+| robin.call.repeat.hi | hi | माफ़ कीजिए, मुझे सुनाई नहीं दिया। क्या आप एक बार फिर बोल सकते हैं? | PENDING |
 | robin.checkin.q.ate.en | en | Have you eaten today? | PENDING |
 | robin.checkin.q.ate.hinglish | hinglish | Aapne aaj kuch khaya? | PENDING |
 | robin.checkin.q.ate.hi | hi | आपने आज कुछ खाया? | PENDING |
