@@ -629,6 +629,25 @@ class DeviceService:
             "rules_unverified": self.rules.unverified,
         }
 
+    def review_counts(self, parent_id: str) -> dict[str, int] | None:
+        """Integers only, for the founder review page (T17). Built from ``shadow_report``; None when the parent is unknown."""
+        st = self.store.peek(parent_id)
+        if st is None:
+            return None
+        rep = self.shadow_report(parent_id)
+        c = st.counters
+        week = 1 if st.shadow_start_ms is None else max(0, self.now_ms() - st.shadow_start_ms) // 604_800_000 + 1
+        return {
+            "week": int(week),
+            "shadow_active": 1 if rep["active"] else 0,
+            "signals_seen": sum(rep["accepted"].values()),
+            "would_alert_child": rep["would_alert_child"],
+            "would_nudge": rep["would_nudge"],
+            "ceilings_hit": rep["would_nudge_ceiling_blocked"] + c.get("nudge_skipped:ceiling", 0),
+            "fine_taps": sum(rep["fine_acks"].values()),
+            "sos": c.get("sos", 0),
+        }
+
     # ------------------------------------------------------------------ child alerts
     async def _tell_child(self, st: ParentState, tier: str, scenario: str, why: str, details: dict[str, Any]) -> None:
         await self.alerts.raise_alert(st.parent_id, tier, scenario, why, details)
