@@ -126,3 +126,10 @@ def test_person_words_only_letters():
     assert names_person("Riya") == "Riya"
     assert names_person("<script>alert(1)</script> x y z w") is None
     assert names_person("yes") is None
+
+
+def test_t18_rule_gaps_found_by_the_safety_eval():
+    """Found by tests/bench/robin (T18): a Devanagari twin of the Hinglish 'mar jana hi behtar' rule, and feminine 'akeli'."""
+    assert assess("मुझे लगता है मर जाना ही बेहतर है").tier == Tier.HIGH
+    assert assess("mere pati ke jaane ke baad main bilkul akeli hu, ro rahi hu").tier == Tier.ELEVATED
+    assert assess("akeli hu ghar pe").tier == Tier.NONE  # one weak signal alone stays quiet

@@ -1,0 +1,68 @@
+# Robin safety evaluation: 10 NEW invented call dialogues, same format as tests/robindevice/call_dialogues.yaml (which is run too).
+# unverified clinical/linguistic review needed (Hindi / Hinglish lines).
+dialogues:
+  - id: ev_en_customs_fine
+    context: [unknown_number, international]
+    min: HIGH
+    turns:
+      - "c: This is customs. Your parcel has a passport and drugs inside, the police will arrest you."
+      - "p: I did not order anything."
+      - "c: Pay the fine now to settle the case or the warrant will be issued. Do not tell anyone."
+  - id: ev_hg_son_thana
+    context: [unknown_number, first_contact]
+    min: HIGH
+    turns:
+      - "c: Uncle main thane se bol raha hoon, aapka beta giraftar ho gaya hai."
+      - "p: Kya?"
+      - "c: Case settle karna hai, abhi 60000 rupaye jama karo, ghar mein kisi ko mat batana."
+  - id: ev_hi_bank_otp
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: मैं बैंक से बोल रहा हूँ। आपका केवाईसी आज बंद हो जाएगा।"
+      - "c: तुरंत ओटीपी बताइए, अभी बताइए।"
+  - id: ev_en_anydesk_refund
+    context: [unknown_number]
+    min: WATCH
+    turns:
+      - "c: This is the refund department. We owe you a refund of 4,000 rupees."
+      - "c: Install AnyDesk and tell me the nine digit code."
+      - "p: ok installing now"
+  - id: ev_hg_stock_group
+    context: [unknown_number]
+    min: INFO
+    turns:
+      - "c: Sir stock tips group join karo whatsapp par, guaranteed returns hain."
+      - "c: Abhi paisa lagao, daily munafa pakka, kisi ko mat batana."
+  - id: ev_hi_court_warrant
+    context: [unknown_number, first_contact]
+    min: HIGH
+    turns:
+      - "c: यह सुप्रीम कोर्ट से कॉल है, आपके नाम पर वारंट है।"
+      - "c: वीडियो कॉल पर आइए और किसी को न बताएं।"
+      - "c: जुर्माना तुरंत जमा करें वरना गिरफ्तार किया जाएगा।"
+  - id: ev_ok_hg_bank_branch
+    context: [unknown_number]
+    max: INFO
+    turns:
+      - "c: Sir main SBI branch se bol raha hoon, aapki passbook update ke liye kal aa jaiye."
+      - "p: Theek hai, kal subah aata hoon."
+  - id: ev_ok_hi_grandchild
+    context: []
+    max: NONE
+    turns:
+      - "c: दादी, मैं आज स्कूल से जल्दी आ गया, शाम को आपके पास आऊँगा।"
+      - "p: ठीक है बेटा, खाना खा लेना।"
+  - id: ev_ok_en_pharmacy
+    context: [unknown_number]
+    max: INFO
+    turns:
+      - "c: Hello, this is the pharmacy. Your medicines are ready, we will deliver today evening."
+      - "c: Please keep Rs 480 ready in cash."
+      - "p: Okay, thank you."
+  - id: ev_ok_hg_police_awareness
+    context: [unknown_number]
+    max: INFO
+    turns:
+      - "c: Namaste, main police ki taraf se awareness call kar raha hoon."
+      - "c: Savdhan rahiye, koi bhi OTP ya pin kisi ko na bataye."

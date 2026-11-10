@@ -1,0 +1,100 @@
+# Robin safety evaluation: emergency / fall flow. SYNTHETIC. unverified clinical/linguistic review needed (Hindi / Hinglish words).
+# Three parts, each its own category in the runner:
+#   words   - what a parent SAYS (already transcribed) -> answers.is_help / answers.is_threat.  expect: help | threat | none
+#             known_gap: true = a real miss we know about; reported, NOT counted in the gate (docs/ROBIN_EVAL.md "findings").
+#   ladder  - friday.robin.alerts.plan_for(tier, scenario, spacing): action@k where the step is due k call-spacings after the alert.
+#   flow    - a real alert through the Robin hub on a fake clock and fake caller. Nothing is dialled or sent.
+#             kind positive = somebody MUST be told / rung; negative = the parent must NOT be rung (quiet hours / pause still apply).
+words:
+  - {id: w_madad, text: "madad", expect: help}
+  - {id: w_madad_karo, text: "madad karo", expect: help}
+  - {id: w_mujhe_madad, text: "mujhe madad chahiye", expect: help}
+  - {id: w_bachao, text: "bachao", expect: help}
+  - {id: w_bachao_twice, text: "bachao bachao", expect: help}
+  - {id: w_bachaao, text: "Bachaao!", expect: help}
+  - {id: w_help, text: "help", expect: help}
+  - {id: w_help_me, text: "help me please", expect: help}
+  - {id: w_ambulance, text: "ambulance bulao", expect: help}
+  - {id: w_emergency, text: "emergency hai", expect: help}
+  - {id: w_dv_madad, text: "मदद करो", expect: help}
+  - {id: w_dv_bachao, text: "बचाओ", expect: help}
+  - {id: w_dv_ambulance, text: "एम्बुलेंस बुलाओ", expect: help}
+  - {id: w_madad_sentence, text: "kuch ho gaya hai, madad", expect: help}
+  - {id: w_threat_maar, text: "koi mujhe maar dega", expect: threat}
+  - {id: w_threat_dhamki, text: "mujhe dhamki mil rahi hai", expect: threat}
+  - {id: w_threat_en, text: "I am being threatened", expect: threat}
+  - {id: w_threat_en2, text: "he is threatening me", expect: threat}
+  - {id: w_threat_khatra, text: "mujhe khatra hai", expect: threat}
+  - {id: w_threat_danger, text: "I am in danger", expect: threat}
+  - {id: w_dv_threat, text: "मुझे धमकी दी जा रही है", expect: threat}
+  - {id: w_dv_khatra, text: "ख़तरा है", expect: threat}
+  - {id: w_ok_fine, text: "main theek hoon", expect: none}
+  - {id: w_ok_chai, text: "chai bana do", expect: none}
+  - {id: w_ok_dawai, text: "dawai le li hai", expect: none}
+  - {id: w_ok_weather, text: "aaj mausam bahut accha hai", expect: none}
+  - {id: w_ok_dv, text: "आज मैंने खाना खा लिया", expect: none}
+  - {id: w_ok_dv_chai, text: "चाय पी ली", expect: none}
+  - {id: w_ok_en, text: "the grandchildren are coming on Sunday", expect: none}
+  - {id: w_ok_pension, text: "pension aa gayi hai", expect: none}
+  # --- known gaps (reported, not gated)
+  - {id: gap_fall_hg, text: "main gir gayi hoon, uth nahi pa rahi", expect: help, known_gap: true}
+  - {id: gap_fall_hi, text: "मैं गिर गया हूँ, उठ नहीं पा रहा", expect: help, known_gap: true}
+  - {id: gap_chest_pain, text: "seene mein bahut dard ho raha hai", expect: help, known_gap: true}
+  - {id: gap_helpful, text: "the bank clerk was very helpful today", expect: none, known_gap: true}
+  - {id: gap_madadgar, text: "padosi bahut madadgar hain", expect: none, known_gap: true}
+
+ladder:
+  # spacing 300 s (5 min, the default) and 180 s: the shape must scale with the spacing
+  - id: l_sos_full
+    tier: EMERGENCY
+    scenario: sos
+    steps: [wa_child@0, wa_second@0, call_child@0, call_child@1, call_second@1, call_child@2, authority@3]
+  - id: l_sos_full_s180
+    tier: EMERGENCY
+    scenario: sos
+    spacing: 180
+    steps: [wa_child@0, wa_second@0, call_child@0, call_child@1, call_second@1, call_child@2, authority@3]
+  - id: l_sos_minimal
+    tier: EMERGENCY
+    scenario: sos
+    minimal: true
+    steps: [wa_child@0, call_child@0, call_child@1, call_child@2]
+  - id: l_threat
+    tier: EMERGENCY
+    scenario: threat
+    steps: [wa_child@0, wa_second@0, call_child@0, nudge_parent@0, call_child@1, nudge_parent@1, call_child@2, nudge_parent@2, call_second@2, authority@3]
+  - id: l_fall
+    tier: EMERGENCY
+    scenario: fall
+    steps: [wa_child@0, wa_second@0, call_child@0, nudge_parent@0, call_child@1, nudge_parent@1, call_child@2, nudge_parent@2, call_second@2, authority@3]
+  - id: l_high
+    tier: HIGH
+    scenario: S1
+    steps: [wa_child@0, nudge_parent@0, nudge_parent@1, call_child@1, nudge_parent@2, call_child@2, wa_second@3, call_second@3, authority@4]
+  - id: l_watch
+    tier: WATCH
+    scenario: S1
+    steps: [wa_child@0, nudge_parent@0]
+  - id: l_checkin_unanswered
+    tier: HIGH
+    scenario: checkin_unanswered
+    steps: [wa_child@0, call_child@1, wa_second@2, call_second@3]
+
+flow:
+  # ---- positive: security / safety paths work at ANY time of day (founder rule 2026-11-06, T20)
+  - {id: f_sos_0300, kind: positive, hour: 3, tier: EMERGENCY, scenario: sos, second: true, expect: {accepted: true, child_told: true, child_rings_min: 1}}
+  - {id: f_sos_2330, kind: positive, hour: 23, minute: 30, tier: EMERGENCY, scenario: sos, expect: {accepted: true, child_told: true, child_rings_min: 1}}
+  - {id: f_sos_1000, kind: positive, hour: 10, tier: EMERGENCY, scenario: sos, expect: {accepted: true, child_told: true, child_rings_min: 1}}
+  - {id: f_sos_paused, kind: positive, hour: 4, tier: EMERGENCY, scenario: sos, paused: true, expect: {accepted: true, child_told: true, child_rings_min: 1}}
+  - {id: f_sos_not_active, kind: positive, hour: 2, tier: EMERGENCY, scenario: sos, not_active: true, expect: {accepted: true, child_told: true, child_rings_min: 1}}
+  - {id: f_sos_ring_cap, kind: positive, hour: 3, tier: EMERGENCY, scenario: sos, unanswered: true, expect: {accepted: true, child_told: true, child_rings_min: 1, child_rings_max: 3}}
+  - {id: f_threat_0300, kind: positive, hour: 3, tier: EMERGENCY, scenario: threat, expect: {accepted: true, child_told: true, child_rings_min: 1}}
+  - {id: f_fall_0200, kind: positive, hour: 2, tier: EMERGENCY, scenario: fall, expect: {accepted: true, child_told: true, child_rings_min: 1, parent_calls_min: 1}}
+  - {id: f_remote_access_0300, kind: positive, hour: 3, tier: EMERGENCY, scenario: S2, expect: {accepted: true, child_told: true, parent_calls_min: 1}}
+  - {id: f_high_0300, kind: positive, hour: 3, tier: HIGH, scenario: S3, expect: {accepted: true, child_told: true, parent_calls_min: 1}}
+  - {id: f_high_money_2300, kind: positive, hour: 23, tier: HIGH, scenario: S5, money: true, expect: {accepted: true, child_told: true, parent_calls_min: 1}}
+  - {id: f_high_1000, kind: positive, hour: 10, tier: HIGH, scenario: S3, expect: {accepted: true, child_told: true, parent_calls_min: 1}}
+  # ---- negative: lower tiers keep quiet hours; a paused parent gets no non-SOS alert
+  - {id: f_watch_0300, kind: negative, hour: 3, tier: WATCH, scenario: S1, expect: {accepted: true, parent_calls_max: 0}}
+  - {id: f_high_paused, kind: negative, hour: 10, tier: HIGH, scenario: S3, paused: true, expect: {accepted: false, parent_calls_max: 0}}
+  - {id: f_emergency_paused, kind: negative, hour: 10, tier: EMERGENCY, scenario: S2, paused: true, expect: {accepted: false, parent_calls_max: 0}}

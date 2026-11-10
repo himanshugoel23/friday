@@ -1,0 +1,112 @@
+# Robin safety evaluation: scam-check texts. SYNTHETIC, invented (no real victim scripts, numbers or institutions' real URLs).
+# unverified clinical/linguistic review needed: every Hindi / Hinglish line must be read by a native speaker (docs/ROBIN_EVAL.md).
+# label: scam | benign.  scam: min = lowest acceptable verdict (default RISKY); high: true = a miss here is dangerous (money, OTP, remote access, arrest).
+# benign: max = highest acceptable verdict (default UNSURE; RISKY or SCAM_LIKELY counts as a false alarm).
+scenarios:
+  # ------------------------------------------------------------ KYC / account block
+  - {id: kyc_en_sbi_link, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Dear customer, your SBI account will be blocked today. Update your KYC immediately: http://sbi-kyc-update.xyz/login"}
+  - {id: kyc_en_pan_24h, lang: en, label: scam, min: RISKY, text: "HDFC Bank: Your account is suspended. Click the link to update PAN within 24 hours https://hdfc-verify.top/pan"}
+  - {id: kyc_hg_band_link, lang: hinglish, label: scam, min: RISKY, text: "Aapka SBI khata band ho jayega. Abhi KYC update karne ke liye link par click kijiye: bit.ly/3kycsb"}
+  - {id: kyc_hi_block, lang: hi, label: scam, min: RISKY, text: "प्रिय ग्राहक, आपका खाता आज ब्लॉक हो जाएगा। तुरंत केवाईसी अपडेट करने के लिए लिंक पर क्लिक करें http://kyc-sbi.top"}
+  - {id: kyc_en_wallet, lang: en, label: scam, min: RISKY, text: "Your Paytm wallet KYC has expired and the wallet will be closed. Click the link to update immediately https://paytm-kyc.click"}
+  # ------------------------------------------------------------ OTP / PIN
+  - {id: otp_en_share, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Sir I am from the bank, please share the OTP you just received to stop the transaction."}
+  - {id: otp_hg_card_band, lang: hinglish, label: scam, high: true, min: SCAM_LIKELY, text: "Madam, aapka card band hone wala hai. Abhi OTP bata dijiye varna account block ho jayega."}
+  - {id: otp_hi_batao, lang: hi, label: scam, high: true, min: SCAM_LIKELY, text: "कृपया अपना ओटीपी बताइए, आपके खाते में पैसे आ रहे हैं।"}
+  - {id: otp_en_refund_pin, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Share your UPI PIN to receive the refund of Rs 4500."}
+  - {id: otp_hg_pin_daalo, lang: hinglish, label: scam, high: true, min: SCAM_LIKELY, text: "Paisa aapke khate mein aayega, bas apna UPI pin daalo aur confirm karo"}
+  - {id: otp_hg_bhejiye_digits, lang: hinglish, label: scam, high: true, min: SCAM_LIKELY, text: "Aapke phone par 4521 aaya hoga, wo OTP bhejiye turant"}
+  # ------------------------------------------------------------ digital arrest / authority
+  - {id: arrest_en_cbi, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "This is CBI. A parcel in your name contains drugs and there is an arrest warrant against you. Stay on the video call and do not tell anyone."}
+  - {id: arrest_hg_cyber, lang: hinglish, label: scam, high: true, min: SCAM_LIKELY, text: "Main cyber crime police se bol raha hoon. Aapke Aadhaar se money laundering ka case registered hai. Aap giraftar ho sakte hain, video call par bane rahiye."}
+  - {id: arrest_hi_trai, lang: hi, label: scam, high: true, min: SCAM_LIKELY, text: "यह ट्राई से कॉल है। आपके नंबर से अवैध गतिविधि हुई है, आपका सिम बंद होगा। पुलिस से बात कीजिए और कॉल मत काटिए।"}
+  - {id: arrest_en_customs_fine, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Customs officer here: your parcel from abroad has passports and drugs. Pay the fine to settle the case or face arrest."}
+  - {id: arrest_en_court_transfer, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Supreme Court notice: arrest warrant issued against you. Transfer Rs 2 lakh to the verification account to clear it."}
+  - {id: arrest_hi_cbi_warrant, lang: hi, label: scam, high: true, min: SCAM_LIKELY, text: "सीबीआई अधिकारी बोल रहा हूँ। आपके नाम पर वारंट है, आप पर मनी लॉन्ड्रिंग का केस दर्ज है। वीडियो कॉल पर रहिए, किसी को न बताएं।"}
+  # ------------------------------------------------------------ lottery / prize
+  - {id: prize_en_kbc, lang: en, label: scam, min: RISKY, text: "Congratulations! You have won the KBC lottery of Rs 25,00,000. Pay the processing fee to claim, WhatsApp us now."}
+  - {id: prize_hg_kbc, lang: hinglish, label: scam, min: RISKY, text: "Aapne KBC lucky draw jeeta hai! Inaam lene ke liye fee jama karein aur is number par call kijiye."}
+  - {id: prize_hi_lottery, lang: hi, label: scam, min: RISKY, text: "बधाई हो! आपने लॉटरी जीती है। इनाम पाने के लिए शुल्क भेजें और संपर्क करें।"}
+  # ------------------------------------------------------------ relative in trouble
+  - {id: rel_en_new_number, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Papa, I lost my phone, this is my new number. I had an accident, please send Rs 25000 urgently. Don't tell mummy."}
+  - {id: rel_hg_dada, lang: hinglish, label: scam, high: true, min: SCAM_LIKELY, text: "Dada ji main bol raha hoon, naya number hai. Mera accident ho gaya hai, abhi 40000 rupaye bhejo, kisi ko mat batana."}
+  - {id: rel_hi_nani, lang: hi, label: scam, high: true, min: SCAM_LIKELY, text: "नानी, मैं अस्पताल में हूँ, मेरा नया नंबर है। तुरंत 30000 रुपये भेजो, किसी को मत बताना।"}
+  - {id: rel_en_police_station, lang: en, label: scam, high: true, min: RISKY, text: "Mom this is a new number, I am stuck at the police station, send Rs 15000 immediately."}
+  - {id: rel_en_trouble_secret, lang: en, label: scam, high: true, min: RISKY, text: "Mummy, send Rs 20000 on this number right now, I am in trouble, do not tell papa."}
+  # ------------------------------------------------------------ remote access apps
+  - {id: remote_en_anydesk, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Please download AnyDesk and tell me the 9 digit code so I can fix your bank account."}
+  - {id: remote_hg_teamviewer, lang: hinglish, label: scam, high: true, min: RISKY, text: "Aap TeamViewer install kijiye aur code bata dijiye, hum refund de denge."}
+  - {id: remote_hi_anydesk, lang: hi, label: scam, high: true, min: RISKY, text: "आप एनीडेस्क डाउनलोड करें और कोड बताइए, हम आपकी मदद करेंगे।"}
+  - {id: remote_en_quicksupport, lang: en, label: scam, high: true, min: RISKY, text: "Install QuickSupport from the link and share your screen so the officer can verify your account."}
+  # ------------------------------------------------------------ fake bank / APK / challan
+  - {id: apk_en_rewards, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Your SBI Rewards points expire today. Install SBI_Rewards.apk to redeem."}
+  - {id: apk_en_wedding, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Shaadi invitation.apk - open this wedding card and download the app"}
+  - {id: challan_en_apk, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "RTO e-challan pending. Download the app from http://echallan-rto.top/challan.apk and pay the fine."}
+  - {id: challan_hg_link, lang: hinglish, label: scam, min: RISKY, text: "Aapka e-challan pending hai, jurmana bharne ke liye link par click kijiye https://echallan-pay.xyz"}
+  # ------------------------------------------------------------ utilities / pension
+  - {id: util_en_tonight, lang: en, label: scam, min: RISKY, text: "Dear customer, your electricity will be disconnected tonight at 9.30 pm. Call the helpline number immediately."}
+  - {id: util_hg_bijli, lang: hinglish, label: scam, min: RISKY, text: "Aapki bijli aaj raat kat jayegi. Turant is number par call kijiye."}
+  - {id: pension_en_stop, lang: en, label: scam, min: RISKY, text: "Your pension will be stopped. Update life certificate by clicking the link or call to pay charges."}
+  - {id: pension_hg_band, lang: hinglish, label: scam, min: RISKY, text: "Aapki pension band ho jayegi, jeevan pramaan update karne ke liye link par click karein."}
+  # ------------------------------------------------------------ investment / safe account / collect request
+  - {id: invest_en_vip, lang: en, label: scam, min: RISKY, text: "Join our VIP WhatsApp group for stock tips, guaranteed returns of 5% daily profit."}
+  - {id: invest_en_task, lang: en, label: scam, min: RISKY, text: "Work from home part-time job, earn Rs 5000 daily, join the Telegram task group."}
+  - {id: invest_hg_telegram, lang: hinglish, label: scam, min: RISKY, text: "Hamare telegram group mein judiye, paisa double hoga, daily munafa pakka."}
+  - {id: safe_en_rbi, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Your account is compromised. Move your savings to the RBI safe account for verification: transfer now."}
+  - {id: safe_hg_rbi, lang: hinglish, label: scam, high: true, min: SCAM_LIKELY, text: "Aapke paise surakshit karne ke liye RBI safe account mein transfer kijiye."}
+  - {id: collect_en_refund, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Refund of Rs 999 is pending. Approve the collect request in your UPI app and enter your UPI PIN."}
+  - {id: collect_hg_cashback, lang: hinglish, label: scam, high: true, min: RISKY, text: "Cashback milega, aapko payment request approve karni hai aur pin daalo."}
+  # ------------------------------------------------------------ links
+  - {id: link_lookalike_post, lang: en, label: scam, min: RISKY, text: "Your parcel is held. Track at http://indiapost-track.top/ now"}
+  - {id: link_subdomain_trick, lang: en, label: scam, min: RISKY, text: "Bank offer for you: https://sbi.co.in.secure-login.xyz/verify"}
+  - {id: link_shortener_gift, lang: en, label: scam, min: RISKY, text: "You have won a free recharge, claim today only: bit.ly/freerch99 and pay Rs 50 fee"}
+  # ------------------------------------------------------------ benign: real bank / service message shapes
+  - {id: ok_otp_sbi_notice, lang: en, label: benign, text: "123456 is your OTP for login to SBI YONO. Do not share it with anyone. Valid for 10 minutes. -SBI"}
+  - {id: ok_otp_txn_notice, lang: en, label: benign, text: "OTP for txn of Rs 1,250.00 at AMAZON is 482910. Never share OTP with anyone, bank staff will never ask. -HDFC Bank"}
+  - {id: ok_debit_notice, lang: en, label: benign, text: "Dear customer, Rs 5,000 debited from A/c XX1234 on 05-Jan. Not you? Call the number on the back of your card. -ICICI Bank"}
+  - {id: ok_otp_hg, lang: hinglish, label: benign, text: "Aapka OTP 552301 hai. Ise kisi ke saath share na karein."}
+  - {id: ok_otp_hi, lang: hi, label: benign, text: "आपका ओटीपी 774512 है। इसे किसी के साथ साझा न करें।"}
+  - {id: ok_card_statement, lang: en, label: benign, text: "Your credit card statement for December is ready. Pay by 20 Jan to avoid a late fee. Visit hdfcbank.com"}
+  - {id: ok_upi_paid, lang: en, label: benign, text: "UPI: Rs 300 paid to Ramesh Kirana. UPI Ref 123456789012. -Axis Bank"}
+  - {id: ok_premium_due, lang: en, label: benign, text: "Reminder: your life insurance premium is due on 15 Jan. Pay via sbi.co.in."}
+  - {id: ok_kyc_done, lang: en, label: benign, text: "Your KYC is verified successfully. Thank you for updating your details."}
+  - {id: ok_card_expiry, lang: en, label: benign, text: "Your SBI card ending 4321 will expire next month; the new card has been dispatched to your address."}
+  - {id: ok_pension_credit, lang: en, label: benign, text: "Your pension of Rs 18,500 for December has been credited to your account."}
+  - {id: ok_electric_bill, lang: en, label: benign, text: "Electricity bill of Rs 1,420 for December generated. Due 20 Jan. Pay on the official app."}
+  - {id: ok_official_link, lang: en, label: benign, text: "Book your ticket here https://www.irctc.co.in"}
+  # ------------------------------------------------------------ benign: family chat, festivals, daily life
+  - {id: ok_family_home, lang: en, label: benign, text: "Mummy, I reached home safely. Will call you after dinner."}
+  - {id: ok_family_hg, lang: hinglish, label: benign, text: "Papa aaj shaam ko main aa raha hoon, kuch mangwana ho to bata dena."}
+  - {id: ok_family_hi, lang: hi, label: benign, text: "बेटा, खाना खा लिया? दवाई ले ली? शाम को फ़ोन करना।"}
+  - {id: ok_family_small_money, lang: en, label: benign, text: "Dadi, Papa will send Rs 5000 for the books tomorrow, everyone is fine at home."}
+  - {id: ok_family_money_hg, lang: hinglish, label: benign, text: "Beta, 2000 rupaye bhej diye hain tumhare account mein, dekh lena."}
+  - {id: ok_family_hospital_discharge, lang: hinglish, label: benign, text: "Nani ki tabiyat theek hai, hospital se discharge ho gayi. Kal ghar aa jayengi."}
+  - {id: ok_diwali_en, lang: en, label: benign, text: "Happy Diwali! Wishing you and your family a year full of joy and light."}
+  - {id: ok_holi_hg, lang: hinglish, label: benign, text: "Aapko aur parivar ko Holi ki hardik shubhkamnayein! Rang bhari holi mubarak."}
+  - {id: ok_diwali_hi, lang: hi, label: benign, text: "आपको और आपके परिवार को दीपावली की हार्दिक शुभकामनाएँ।"}
+  - {id: ok_eid, lang: en, label: benign, text: "Eid Mubarak! Come over for sewai on Sunday."}
+  - {id: ok_wedding_card_hg, lang: hinglish, label: benign, text: "Aaj shaadi mein aana, card WhatsApp par bheja hai."}
+  - {id: ok_amazon_delivery, lang: en, label: benign, text: "Your Amazon order #408-1234567 is out for delivery today. The delivery partner will call you."}
+  - {id: ok_train_ticket, lang: en, label: benign, text: "Your train ticket PNR 4512345678 is confirmed, coach S4 berth 23. Happy journey."}
+  - {id: ok_doctor_reminder, lang: en, label: benign, text: "Reminder: appointment with Dr. Mehta tomorrow 11 am at the clinic."}
+  - {id: ok_gas_delivery, lang: en, label: benign, text: "Gas cylinder booked, delivery tomorrow between 10 and 12. Please keep the old cylinder ready."}
+  - {id: ok_awareness_en, lang: en, label: benign, text: "Beware of fraud: banks never ask for your OTP or PIN. Do not share your OTP with anyone."}
+  - {id: ok_awareness_hg, lang: hinglish, label: benign, text: "Savdhan rahiye: koi bhi bank aapse OTP nahi maangta. Kisi ko OTP na bataayein."}
+  - {id: ok_news_arrest, lang: en, label: benign, text: "News: police arrested a gang running digital arrest scams across the country."}
+  - {id: ok_market_news, lang: en, label: benign, text: "Share market closes lower today, Sensex down 200 points."}
+  - {id: ok_photos, lang: en, label: benign, text: "Please share the photos from the trip on the family group."}
+  # ------------------------------------------------------------ harder variants (added to probe the rules, not to flatter them)
+  - {id: hard_sim_deactivate, lang: en, label: scam, min: RISKY, text: "Sir your SIM will be deactivated today, call this number immediately to avoid disconnection."}
+  - {id: hard_hg_new_number_loan, lang: hinglish, label: scam, high: true, min: RISKY, text: "Beta mera naya number save kar lo. Ek zaroori kaam hai, 15000 abhi bhej do, kal wapas kar dunga."}
+  - {id: hard_job_fee, lang: en, label: scam, min: RISKY, text: "Congratulations you are selected for a job at Amazon, pay Rs 2000 registration fee to confirm."}
+  - {id: hard_aadhaar_suspended, lang: en, label: scam, min: RISKY, text: "Dear user, your Aadhaar is suspended. Contact the officer at once and share your Aadhaar number."}
+  - {id: hard_hi_bijli, lang: hi, label: scam, min: RISKY, text: "आपका बिजली कनेक्शन आज रात कट जाएगा, तुरंत इस नंबर पर कॉल करें।"}
+  - {id: hard_gas_apk, lang: en, label: scam, high: true, min: SCAM_LIKELY, text: "Download this app to get your gas subsidy: gassubsidy-india.apk"}
+  - {id: hard_hg_digital_arrest_soft, lang: hinglish, label: scam, high: true, min: RISKY, text: "Mumbai police se bol raha hoon. Aapke naam se ek parcel pakda gaya hai jisme drugs hain. Camera on rakhiye aur kisi ko mat batana."}
+  - {id: ok_hard_college_form, lang: en, label: benign, text: "Mummy please fill the bank details form the college asked for, no OTP is needed."}
+  - {id: ok_hard_otp_team, lang: en, label: benign, text: "Your OTP is 4455. Valid for 5 minutes. Our team will never call you to ask for it."}
+  - {id: ok_hard_recharge, lang: en, label: benign, text: "Your Jio recharge of Rs 299 is successful. Validity 28 days."}
+  - {id: ok_hard_kyc_branch, lang: en, label: benign, text: "KYC update reminder: please visit your nearest branch with your documents by 31 March."}
+  - {id: ok_hard_police_cert, lang: en, label: benign, text: "Police verification certificate is ready, please collect it from the thana."}
+  - {id: ok_hard_dinner_money, lang: hinglish, label: benign, text: "Aaj raat ka khana bahar khayenge, 500 rupaye bhej do mujhe UPI se."}
+  - {id: ok_hard_fund_news, lang: en, label: benign, text: "Mutual fund returns were 12 percent last year, says the newspaper."}
