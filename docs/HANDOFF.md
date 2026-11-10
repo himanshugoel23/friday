@@ -1606,3 +1606,6 @@ Lead notes: (1) floating mic over other apps needs the "display over other apps"
 
 ## 2026-11-10 (developer agent): T22 floating mic bubble (Android) - started
 Founder ticket T22: a proper Wispr-Flow-style floating mic bubble for the parent's phone (overlay + foreground service), android/** only. Rules held: no AccessibilityService, no text injection into other apps, mic only after a tap, no hotword, no analytics, start/stop only from the child setup screen and a switch on the parent's main screen, reboot auto-start only if the child enabled it. Pure-Kotlin :core pieces with JUnit (BubbleState, snap/position, menu model, permission gate). All strings PENDING founder approval. Nothing pushed; committed on the worktree branch.
+
+## 2026-11-10 (developer agent): founder correction - emergency desk is human as well
+Founder: "we will have human as well". Supersedes the lead note "emergency desk stays AI-only". docs/ROBIN_CONCIERGE_DESK.md: ONE human ops team, two lanes (concierge errands; human emergency/rescue desk behind the AI-first flow: AI acts within 1 min, human joins within 3), roster, handoff, who may phone whom, AI-gated/dry-run until legal review, false alarms, incident review, staffing ratios for both lanes, routing of the WhatsApp+phone support line. Numbers invented, wording PENDING. ROBIN_RESCUE_DESK_PILOT.md kept as base.
