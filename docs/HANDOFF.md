@@ -1662,3 +1662,6 @@ Founder: "India is becoming an old country"; is AI for older people a strong bus
 
 ## Research log 2026-11-12
 - Founder asked for research on India ageing demographics/payers; notes saved in research_notes/AI for ageing India opportunities/india_demographics_and_payers.md (subagent run; several primary PDFs blocked, see gaps).
+
+## Task note (2026-11-12): research report "AI for ageing India opportunities"
+Founder asked: is building AI products (hardware and software) for India's ageing population a strong business, and what should a solo founder build? Synthesised from research_notes/AI for ageing India opportunities/ into reports/AI for ageing India opportunities.md. Rule followed: unverified claims marked [U]; earlier repo docs treated as leads only. No decision taken yet; the report is input to a founder decision.
