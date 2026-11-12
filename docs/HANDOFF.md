@@ -1658,3 +1658,7 @@ Founder: low confidence that Friday/Robin will work ("a lot of AI bots, nobody i
 
 ## 2026-11-12: founder asks for thorough research on AI for India's ageing population
 Founder: "India is becoming an old country"; is AI for older people a strong business; what problems of older people can be solved with hardware or software; workforce will be short; loneliness is growing like Japan. Asked for thorough research of anything that can be built with AI. Session model changed by the founder to claude-fable-5-2 (chat only). Research output planned: docs/AGEING_INDIA_AI_OPPORTUNITIES.md. No feature building until the founder picks a direction.
+
+
+## Research log 2026-11-12
+- Founder asked for research on India ageing demographics/payers; notes saved in research_notes/AI for ageing India opportunities/india_demographics_and_payers.md (subagent run; several primary PDFs blocked, see gaps).
