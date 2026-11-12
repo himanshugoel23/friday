@@ -1,0 +1,98 @@
+# East Asia elder-tech (Japan, South Korea, China): what worked, what failed, what transfers to India (as of 2026-11-12)
+
+Method note: about 15 tool calls (search plus fetch). Search results were summarised by the tool, so each claim is only as good as the cited page. Items marked [U] are unverified: I could not confirm them in this session and they come from background knowledge or weak sources. I did not read docs/HANDOFF.md (422KB, over the read limit) because this was a pure research assignment; the parent should reconcile with it. Singapore and Taiwan were not researched (no calls left); see Gaps.
+
+## Japan: care robots, mimamori watch-over, loneliness policy, kodokushi
+
+### Takeaway
+Japan spent heavily on care-robot R&D and subsidies, but robot use stayed low and ethnographic work found robots added work and were abandoned (Hug, Pepper). The latest econometric study finds subsidised robots were associated with more staff and better retention, so the evidence is contested. Cheap watch-over services exist but the biggest one (Japan Post) was downsized. Loneliness policy is now law, but implementation is thin.
+
+### Cited Findings
+- Robear (2015 prototype lifting robot) was never used in a care home and is retired; Hug lifting robot was dropped by staff after a few days (cumbersome to move, only a few residents could be lifted comfortably); Pepper led exercise sessions but staff had to stand beside it and boredom set in within weeks; Pepper is discontinued; Paro was liked at first but one resident became so attached she refused meals and bed without it, and it did not reduce repetitive behaviour in severe dementia. — [MIT Technology Review, Jan 2023](https://www.technologyreview.com/2023/01/09/1065135/japan-automating-eldercare-robots)
+- A national survey of over 9,000 elder-care institutions found about 10% had introduced any care robot in 2019; a 2021 study of 444 home-care providers found only 2% had experience with a care robot; some purchased robots were used briefly then stored away. — [MIT Technology Review, Jan 2023](https://www.technologyreview.com/2023/01/09/1065135/japan-automating-eldercare-robots)
+- Japan's national government had spent well over $300 million on care-robot R&D by 2018 (MIT TR's figure). — [MIT Technology Review, Jan 2023](https://www.technologyreview.com/2023/01/09/1065135/japan-automating-eldercare-robots)
+- James Wright (ethnographer, 18+ months of fieldwork since 2016): robots need their own care (moving, cleaning, charging, storage), shift work rather than remove it, and can displace social time with residents; he argues the care crisis is a political-economic choice and proposes higher pay, support for informal carers, and care-led design. — [MIT Technology Review, Jan 2023](https://www.technologyreview.com/2023/01/09/1065135/japan-automating-eldercare-robots)
+- Counter-evidence: a study of ~860 nursing homes using 2017 data and prefectural subsidy variation found robot adoption associated with ~28% higher care-worker employment, ~39% higher nurse employment, ~26% higher total employment (mostly non-regular workers), and lower reported retention difficulty; prefectures typically subsidised 50% of cost up to 100,000 yen per robot [per summary]. Share of nursing homes using any robot rose from 17.6% (2016) to 26% (2017); monitoring robots most common (14.9%), transfer-aid 7.7%, mobility 5.3%. Data is 2017, so this describes early adoption only. — [Stanford summary, Aug 2026](https://news.stanford.edu/stories/2026/08/care-robots-japan-employment-labor-shortage-research) (page itself returned 403; figures via search summary) and [NBER w28322](https://www.nber.org/papers/w28322.pdf)
+- Central government funding for prefectural robot subsidies began in 2015; 36 of 47 prefectures offered subsidies by FY2018 [per search summary]. — [Stanford FSI](https://fsi.stanford.edu/node/39629)
+- MHLW ran a 2023 technology-in-care survey of 16,111 facilities/offices across 22 insurance-covered service types; I did not retrieve its usage rates. — [MHLW PDF](https://www.mhlw.go.jp/content/12300000/001073650.pdf)
+- Pepper: introduced June 2014, production suspended around 2020-2021, exact final date unconfirmed; reported fired from nursing home, funeral and bank roles. — [Wikipedia: Pepper](https://en.wikipedia.org/wiki/Pepper_(robot)); [TechRadar](https://techradar.com/news/pour-one-out-for-pepper-the-worlds-first-humanoid-robot-now-discontinued)
+- Lovot (Groove X): sales reportedly rose up to ~11x in some months after the COVID emergency (2021 report); no current sales or unit totals found; Chinese lookalike Ropet reportedly priced about one-tenth of Lovot; TechCrunch 2020 headline price about $3,000. — [BabyTech Japan 2021](https://babytech.jp/en/2021/04/lovot/); [TechCrunch 2020](https://techcrunch.com/2020/01/05/you-can-buy-lovots-undying-robotic-love-for-3000)
+- Paro evidence: a 2021 meta-analysis found 13 RCTs of social robots in dementia (7 meta-analysed); a 2026 JMIR systematic review of care-robot RCTs concludes evidence does not yet show robust effects (snippet truncated); a Spanish multicentre Paro RCT with cost-effectiveness (NCT05884424) is registered, no results found. Paro limitations noted in reviews: weight, cost, sound. — [PMC8304164](https://pmc.ncbi.nlm.nih.gov/articles/PMC8304164); [JMIR 2026](https://www.jmir.org/2026/1/e95232/PDF); [ClinicalTrials.gov](https://clinicaltrials.gov/study/NCT05884424)
+- Kodokushi (2025 data, published May 2026): police handled 204,562 bodies; 76,941 were people who died alone at home; 58,919 were aged 65+ (76.6%); about 22,222 (~30%) were "isolated deaths" found 8+ days after death; 7,148 found after more than a month. Largest age group is 85+ (15,079). Isolated deaths skew male (17,620 men vs 4,598 women). 2024 figure was 76,020 (first year NPA compiled this). Note: "kodokushi" here means dying alone at home, not necessarily undiscovered for long; the long-undiscovered subset is the 22,222. — [Nippon.com, May 2026](https://www.nippon.com/en/japan-data/h02768/); 2024 figure via [Morung Express](https://morungexpress.com/over-76000-people-died-alone-in-japan-in-2024)
+- Loneliness law: Act on the Advancement of Measures to Address Loneliness and Isolation took effect 1 April 2024; headquarters under the Prime Minister; priority plan June 2024; a Minister for Loneliness and Isolation exists (since 2021 per general knowledge [U] on year; the search source says 2023); local councils are only "to strive" (Art. 15). One year on only 32 of 1,741 municipalities (0.6%) had set up councils; prefectural platforms in 38 of 47 as of 1 April 2025; 39% of people say they feel lonely at times. — [Japanese Law Translation](https://www.japaneselawtranslation.go.jp/en/laws/view/4567/en); [ISVD review](https://isvd.or.jp/en/columns/isolation-policy-1year-review)
+- Japan Post mimamori: official page offers a visit service and a phone service, with optional ALSOK rush-response add-on at about 880 yen/month incl. tax; older prices: basic fee 1,050 yen/month at 2013 launch, automated daily phone call add-on 980-1,180 yen/month; Japan Post reportedly drastically downsized the business and postponed tablet distribution (2017). Current visit/phone plan prices not confirmed. — [Japan Post](https://www.post.japanpost.jp/life/mimamori/); [Japan Times 2013](https://www.japantimes.co.jp/news/2013/08/26/business/corporate-business/japan-post-makes-foray-into-support-services-for-elderly/); [BabyTech 2017](https://babytech.jp/en/2017/07/japanpost_jp_withdrawal_from_senior_care_business/)
+- Yokohama subsidises registered watch-over services, e.g. Secom "Mimamori Hon 2", up to 1,000 yen/month. — [Yokohama city](https://en.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigohoken-igai-service/zaitaku-yoengo-shien/mimamori.html)
+
+### Inferences
+- The robot story splits by type: heavy lifting and humanoid robots failed on workflow fit; simple monitoring sensors were the most-adopted category (14.9% in 2017). Passive monitoring beats active robots.
+- Even with a funded LTCI and 50% subsidies, robot use sat at roughly 10-26% depending on survey and year, so cheaper/less-subsidised India should expect lower uptake of anything needing staff retraining.
+- The mimamori model is mostly a small monthly fee (about 1,000 yen, roughly Rs 600 at ~0.6 INR/yen [U on exchange rate]) and relies on municipal subsidy; the market leader retreating suggests thin margins.
+- The two Japan robot findings conflict (Wright: more work; Stanford/NBER: more staff). They may be compatible: robots plus more staff, not fewer. Report both.
+
+### Gaps
+- Current (2024-2026) MHLW robot adoption rates, Paro unit sales/price, Lovot current sales, Secom/Yakult/utility-sensor service figures and the Japan LTCI copay rate and total spend: not retrieved.
+- Stanford news page returned 403; figures rely on search summary.
+- The "Minister for Loneliness" appointment year is inconsistent between sources.
+
+## South Korea: CareCall, NUGU AI Care, Hyodol, municipal programmes
+
+### Takeaway
+Korea runs the best-documented cheap model: AI phone check-ins and speakers bought by municipalities, with social workers reviewing alerts. Reach is large and anecdotal rescues are well reported, but evidence is observational or maker-run, not controlled, and prices/payers are mostly undisclosed.
+
+### Cited Findings
+- Naver CareCall / "Talking Buddy": used by cities and counties for "tens of thousands" of seniors living alone (no exact count); social workers monitor all interactions, review transcript and audio on alerts, call the senior and coordinate with officials; "hundreds of emergencies" flagged (e.g. a 77-year-old with an acute hernia in late 2024 had surgery within hours); failures: cuts users off, a blaring TV disrupts it, unauthorised promises (offering to send rice), cannot always tell figures of speech from crises; began as a pandemic fever-check tool at welfare officials' request. Price and payer not stated. — [NYT via The Star, 2 May 2026](https://www.thestar.com.my/tech/tech-news/2026/05/02/they-said-ai-saved-me-how-south-korea-is-checking-on-its-seniors)
+- Gerontechnology study of 2,990 participants (mean age 77.9) found 11.2% answered no calls in 3 months; living alone predicted more answered calls. — [Gerontechnology](https://journal.gerontechnology.org/currentIssueContent.aspx?aid=4870)
+- Naver-commissioned Yonsei report values social benefit at about KRW 14.4 billion (about KRW 34 billion extrapolated to all answered calls), mostly from suicide and solitary-death prevention; this is a modelled estimate, not a clinical outcome; no RCT found. Beta survey in Haeundae-gu, Busan: ~90% felt comfort (self-report). ACM CHI 2023 qualitative study: 5 seniors, reported less loneliness. — [Naver report PDF](https://www.navercorp.com/api/article/download/c14d28db-d29a-495a-8cc5-3e354e96d6bb); [CLOVA tech blog](https://clova.ai/en/tech-blog/en-clova-carecall-research-paper-understanding-the-benefits-and-challenges-of-deploying-conversational-ai-leveraging-large-language-models-for-public-health-intervention); [IJCON](https://www.accesson.kr/ijcon/v.21/2/61/55947?lang=en)
+- SK Telecom NUGU AI Care: launched April 2019 via local governments; about 3,200 seniors living alone covered (as of the 2020-era report); 328 emergency SOS calls in the year to April 2020 and 23 seniors helped in a year; 100 seniors rescued by June 2021 and 500+ emergency cases by May 2023; Barun ICT survey of 670 users: music 95.1%, voice search 83.9%, emotional conversation 64.4% (use is mostly entertainment); NUGU Care Call (AI phone) launched Nov 2021; 2023 plan for AI well-being checks for 20,000 care recipients. 2020 report noted dependence on one company limits scaling. Pricing not found. — [Asiae: AI Care](https://www.asiae.co.kr/en/article/2020052009385955911); [Asiae 500 cases](https://www.asiae.co.kr/en/article/2023050712314603735); [Asiae 2023](https://www.asiae.co.kr/en/article/2023031512493121243)
+- Hyodol doll: delivered via municipal welfare centres (e.g. Geumcheon-gu, Seoul) and trials; maker's study of ~1,230 seniors living alone reported high-risk depression group down 35.7% and high-risk loneliness group down 24.7% (pre/post, maker-run, reported by a Yongin Severance professor); one user without his doll for a month of repair "felt empty". A separate Yonsei-affiliated 2026 J. Clin. Med. study reports a 45% fall in the share at high depression risk. Mixed-method Gerontechnology study found curvilinear depression/QoL trends over 6 months, with 12 users interviewed after ~18 months average. Number distributed and price not stated. — [Korea Herald, Mar 2026](https://www.koreaherald.com/article/10694515); [Gerontechnology PDF](https://journal.gerontechnology.org/archives/ead873cbc47547c0bc5063ce8a5bc140.pdf)
+- Korea LTCI (context): 2027 premium rate set at 13.9% of health premiums (up about 1,100 won/month, 5.8%); share of population needing LTC projected to rise from 7.14% (2023) to 16.4% (2072). — [Korea Times / AsiaNews search results](https://asianews.network/south-koreas-long-term-care-insurance) [U: URL is approximate; the figure came from search summary of an AsiaNews item on Korean health spending]
+
+### Inferences
+- The durable Korean pattern is municipality as buyer plus social worker in the loop; AI triages, humans act. No evidence of consumer-paid adoption.
+- Observational pre/post results from vendors (Hyodol, Naver) are likely biased upward; treat as promising, not proven.
+- A phone call needs no hardware, which is why this model is the most transferable to India (feature phones, voice).
+
+### Gaps
+- Unit prices, per-senior costs, contract values and total enrolled for CareCall, NUGU and Hyodol: not found.
+- No independent RCT of CareCall or Hyodol found.
+- Korea LTCI copay and beneficiary share not retrieved.
+
+## China: devices, silver-economy policy, AI companions, LTCI
+
+### Takeaway
+China is pushing eldercare tech through top-down policy and a fast-expanding LTCI, with a large device market, but I could not verify retail prices or adoption of AI companions; regulatory ambiguity slows scaling from pilots.
+
+### Cited Findings
+- An April 2026 government roadmap treats the silver economy as a pillar after 2035, with growth projected to 30 trillion yuan (about US$4.3 trillion) by 2035; a January 2026 document from eight central departments promotes tech-enabled eldercare. Sources disagree on over-60 population (310 million vs 323 million) and 2035 GDP share (9% vs ~10%). — [China Daily / gov.cn, Apr 2026](https://english.www.gov.cn/policies/policywatch/202604/29/content_WS69f19a6bc6d00ca5f9a0ab0c.html); [chinaservicesinfo, Jan 2026](https://www.chinaservicesinfo.com/s/202601/15/WS69783194498e36855033a322/china-to-promote-tech-enabled-elderly-care-to-enhance-seniors-well-being.html)
+- A Tsinghua report (June 2026) says unclear product classification (medical device vs eldercare tool) slows scaling from pilots. — [Tsinghua PDF](https://ccirm.sem.tsinghua.edu.cn/uploads/master/file/20260617/6a321eea025f5.pdf)
+- Chatbot makers are courting older users; experts warn of AI misdiagnosis and data leakage. Details unverified (page fetch failed). — [Pulse](https://www.pulse.bot/ai/news/auntie-ai-chinas-chatbot-makers-cultivate-senior-users-9c5fe29f-78e5-4c69-b233-fb57a82a9899/) (weak aggregator)
+- Healthcare Shanghai expo (June 2026) showed heavy AI use in senior products; Chengdu care home uses a companion robot for wake-up, weather and activity reminders. — [Shanghai gov, June 2026](https://english.shanghai.gov.cn/en-Latest-WhatsNew/20260609/0601a73a8b8a40b8977177485fbd414f.html)
+- Prices: Huawei eldercare package starts at 9,999-49,999 yuan; over 40 million elderly Chinese fall at least once a year (36Kr). Export 4G SOS/fall-detection watches wholesale around $27-33 (Alibaba) — these are not Chinese retail prices. — [36Kr](https://eu.36kr.com/en/p/3768774712689417); [Alibaba listing](https://electronics.alibaba.com/product/elderly-emergency-bell)
+- China LTCI: pilots in 49 cities since 2016; March 2026 guidelines aim at a nationwide system, focusing first on severe disability; NHSA said in July 2026 that coverage is 320 million people (190 million at end-2024) — enrolment, not certified beneficiaries; earlier figures: nearly 300 million and 3.3 million benefiting (Dec 2025). Treat the 190 to 320 million jump with care. — [Shanghai gov, Mar 2026](https://english.shanghai.gov.cn/en-Latest-WhatsNew/20260326/4b11be81f33b4b5988749f1b13620b67.html); [gov.cn, Jul 2026](https://english.www.gov.cn/news/202607/09/content_WS6a4f9fa8c6d00ca5f9a0c18f.html)
+
+### Inferences
+- Chinese entry-level SOS/fall watches wholesale at about $30, giving India a hardware source; the value is in service and the response network, not the device.
+- China's LTCI is expanding because the state wants to create a payer; that precedes, rather than follows, device scale.
+
+### Gaps
+- Not found: Chinese retail prices for elder watches, Xiaomi/Huawei eldercare modes, AI companion toys, AI glasses, live-stream commerce for seniors, State Council Jan 2024 guideline text (only 2026 documents surfaced), user counts and abandonment/false-alarm data. Suggested follow-up: JD/Tmall listings, 36Kr, Sixth Tone, SCMP.
+
+## Cross-cutting: payers, LTCI dependence, lessons for India
+
+### Takeaway
+Most successful East Asian models are bought by a municipality or an insurer, not by families. India lacks LTCI, so only models with a family-pay or employer/insurer/NGO path transfer, and cheap human-plus-voice hybrids fit best.
+
+### Cited Findings
+- Japan: prefectural subsidy of 50% up to 100,000 yen per robot funds care-home purchases; Yokohama pays up to 1,000 yen/month toward registered watch-over services. — [Stanford FSI](https://fsi.stanford.edu/node/39629); [Yokohama](https://en.city.yokohama.lg.jp/kenko-iryo-fukushi/fukushi-kaigo/koreisha-kaigo/kaigohoken-igai-service/zaitaku-yoengo-shien/mimamori.html)
+- Korea: AI services (CareCall, NUGU, Hyodol) are provided through municipalities and welfare centres. — [Korea Herald](https://www.koreaherald.com/article/10694515); [Asiae](https://www.asiae.co.kr/en/article/2020052009385955911)
+- China: LTCI pilot since 2016 now said to cover 320 million. — [gov.cn](https://english.www.gov.cn/news/202607/09/content_WS6a4f9fa8c6d00ca5f9a0c18f.html)
+- Japan LTCI began in 2000 and Korea LTCI in 2008 [U: from background knowledge, not verified in this session].
+
+### Inferences
+- Worked cheaply: phone check-ins with human escalation, passive sensors, subsidised monthly watch-over (about 1,000 yen), companion dolls with reminders if a municipality buys them. Failed: expensive robots needing staff time (Hug, Pepper), and sole-vendor dependence.
+- Transferable to India: voice/phone check-ins in Hindi and regional languages with a human escalation desk; NRI children as payers (analogue of the Japanese family-pay mimamori); partner with Anganwadi/ASHA, RWAs, state governments. Not transferable: expensive hardware and care-home robots, LTCI-funded purchase.
+- Evidence bar: no independent RCT supports phone-call bots or companion dolls; a founder should run their own measured pilot rather than cite Korean vendor figures.
+- Failure modes to design against: false alarms/TV noise, cutoffs and AI overpromising, over-attachment (Paro), repair downtime (Hyodol), single-vendor lock-in, unclear device regulation (China), privacy.
+
+### Gaps
+- Singapore and Taiwan not researched. Japan LTCI/Korea LTCI financing numbers not retrieved. No data on elder abandonment rates of wearables in East Asia.
